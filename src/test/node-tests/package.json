@@ -1,0 +1,9 @@
+{
+  "name": "javaw-node-tests",
+  "version": "1.0.0",
+  "description": "Node.js tests for javaw output",
+  "main": "test.js",
+  "scripts": {
+    "test": "node test.js"
+  }
+}
