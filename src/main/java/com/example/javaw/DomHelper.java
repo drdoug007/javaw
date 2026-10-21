@@ -32,8 +32,8 @@ public class DomHelper {
                         else if (mName.equals("toggle")) imports.add("toggleClass");
                     }
                 }
-            } else if (isJsStaticMethod(mName) || isJsInstanceMethod(mName)) {
-                addJsImports(mName, imports);
+            } else if (isJsStaticMethod(mName, call) || isJsInstanceMethod(mName)) {
+                addJsImports(mName, call, imports);
             } else if (isThreadMethod(mName, call)) {
                 addThreadImports(mName, imports);
             }
@@ -59,7 +59,7 @@ public class DomHelper {
         }
     }
 
-    private static void addJsImports(String mName, Set<String> imports) {
+    private static void addJsImports(String mName, MethodCallExpr call, Set<String> imports) {
         if (mName.equals("global") || mName.equals("getWindow")) {
             imports.add("js_global");
         } else if (mName.equals("eval")) {
@@ -68,6 +68,95 @@ public class DomHelper {
             imports.add("js_createObject");
         } else if (mName.equals("createArray")) {
             imports.add("js_createArray");
+        } else if (mName.equals("undefined")) {
+            imports.add("js_undefined");
+        } else if (mName.equals("nullValue")) {
+            imports.add("js_null");
+        } else if (mName.equals("getInstance")) {
+            if (call != null && call.getScope().isPresent() && call.getScope().get().toString().contains("Null")) {
+                imports.add("js_null");
+            } else {
+                imports.add("js_undefined");
+            }
+        } else if (mName.equals("forSymbol")) {
+            imports.add("js_symbol_for");
+        } else if (mName.equals("typeError")) {
+            imports.add("js_type_error_of");
+        } else if (mName.equals("rangeError")) {
+            imports.add("js_range_error_of");
+        } else if (mName.equals("syntaxError")) {
+            imports.add("js_syntax_error_of");
+        } else if (mName.equals("of")) {
+            String scope = (call != null && call.getScope().isPresent()) ? call.getScope().get().toString() : "";
+            if (scope.contains("Number")) {
+                imports.add("js_number_of_double");
+                imports.add("js_number_of_int");
+            } else if (scope.contains("Boolean")) {
+                imports.add("js_boolean_of");
+            } else if (scope.contains("String")) {
+                imports.add("js_string_of");
+            } else if (scope.contains("BigInt")) {
+                imports.add("js_bigint_of_i64");
+                imports.add("js_bigint_of_str");
+            } else if (scope.contains("Symbol")) {
+                imports.add("js_symbol_of");
+            } else if (scope.contains("Error")) {
+                imports.add("js_error_of");
+            } else {
+                imports.add("js_number_of_int");
+                imports.add("js_number_of_double");
+                imports.add("js_boolean_of");
+                imports.add("js_string_of");
+                imports.add("js_bigint_of_i64");
+            }
+        } else if (mName.equals("getTypeof")) {
+            imports.add("js_typeof");
+        } else if (mName.equals("isNumber")) {
+            imports.add("js_isNumber");
+        } else if (mName.equals("isBoolean")) {
+            imports.add("js_isBoolean");
+        } else if (mName.equals("isString")) {
+            imports.add("js_isString");
+        } else if (mName.equals("isBigInt")) {
+            imports.add("js_isBigInt");
+        } else if (mName.equals("isSymbol")) {
+            imports.add("js_isSymbol");
+        } else if (mName.equals("isUndefined")) {
+            imports.add("js_isUndefined");
+        } else if (mName.equals("isNull")) {
+            imports.add("js_isNull");
+        } else if (mName.equals("isObject")) {
+            imports.add("js_isObject");
+        } else if (mName.equals("isFunction")) {
+            imports.add("js_isFunction");
+        } else if (mName.equals("isError")) {
+            imports.add("js_isError");
+        } else if (mName.equals("instanceOf")) {
+            imports.add("js_instanceof");
+        } else if (mName.equals("strictEquals")) {
+            imports.add("js_strictEquals");
+        } else if (mName.equals("isNaN")) {
+            imports.add("js_isNaN");
+        } else if (mName.equals("isFinite")) {
+            imports.add("js_isFinite");
+        } else if (mName.equals("isInteger")) {
+            imports.add("js_isInteger");
+        } else if (mName.equals("doubleValue")) {
+            imports.add("js_asDouble");
+        } else if (mName.equals("intValue")) {
+            imports.add("js_asInt");
+        } else if (mName.equals("booleanValue") || mName.equals("asBooleanPrimitive")) {
+            imports.add("js_asBoolean");
+        } else if (mName.equals("stringValue")) {
+            imports.add("js_asString");
+        } else if (mName.equals("getDescription")) {
+            imports.add("js_symbolDescription");
+        } else if (mName.equals("getMessage")) {
+            imports.add("js_errorMessage");
+        } else if (mName.equals("getName")) {
+            imports.add("js_errorName");
+        } else if (mName.equals("getStack")) {
+            imports.add("js_errorStack");
         } else if (mName.equals("get")) {
             imports.add("js_get");
         } else if (mName.equals("getString")) {
@@ -134,9 +223,39 @@ public class DomHelper {
         }
     }
 
+    public static boolean isJsStaticMethod(String mName, MethodCallExpr call) {
+        if (mName.equals("global") || mName.equals("getWindow") || mName.equals("eval") ||
+                mName.equals("createObject") || mName.equals("createArray") ||
+                mName.equals("undefined") || mName.equals("nullValue")) {
+            return true;
+        }
+        if (mName.equals("of") || mName.equals("forSymbol") || mName.equals("typeError") ||
+                mName.equals("rangeError") || mName.equals("syntaxError") || mName.equals("getInstance") ||
+                mName.equals("fromHandle")) {
+            if (call != null && call.getScope().isPresent()) {
+                String scope = call.getScope().get().toString();
+                return isJsValueClass(scope);
+            }
+        }
+        return false;
+    }
+
     public static boolean isJsStaticMethod(String mName) {
-        return mName.equals("global") || mName.equals("getWindow") || mName.equals("eval") ||
-                mName.equals("createObject") || mName.equals("createArray");
+        return isJsStaticMethod(mName, null);
+    }
+
+    public static boolean isJsValueClass(String s) {
+        if (s == null) return false;
+        return s.equals("JSValue") || s.endsWith(".JSValue") ||
+                s.equals("JSNumber") || s.endsWith(".JSNumber") ||
+                s.equals("JSBoolean") || s.endsWith(".JSBoolean") ||
+                s.equals("JSString") || s.endsWith(".JSString") ||
+                s.equals("JSBigInt") || s.endsWith(".JSBigInt") ||
+                s.equals("JSSymbol") || s.endsWith(".JSSymbol") ||
+                s.equals("JSUndefined") || s.endsWith(".JSUndefined") ||
+                s.equals("JSError") || s.endsWith(".JSError") ||
+                s.equals("JSNull") || s.endsWith(".JSNull") ||
+                s.equals("JSObject") || s.endsWith(".JSObject");
     }
 
     public static boolean isJsInstanceMethod(String mName) {
@@ -145,8 +264,20 @@ public class DomHelper {
                 mName.equals("call") || mName.equals("callString") || mName.equals("callInt") ||
                 mName.equals("callDouble") || mName.equals("callBoolean") ||
                 mName.equals("asString") || mName.equals("asInt") || mName.equals("asDouble") ||
-                mName.equals("asBoolean") || mName.equals("isArray") || mName.equals("length") ||
-                mName.equals("getIndex") || mName.equals("setIndex") || mName.equals("push");
+                mName.equals("asBoolean") || mName.equals("asBooleanPrimitive") ||
+                mName.equals("asNumber") || mName.equals("asStringValue") || mName.equals("asBigInt") ||
+                mName.equals("asSymbol") || mName.equals("asObject") || mName.equals("asError") ||
+                mName.equals("isArray") || mName.equals("length") ||
+                mName.equals("getIndex") || mName.equals("setIndex") || mName.equals("push") ||
+                mName.equals("getTypeof") || mName.equals("isNumber") || mName.equals("isBoolean") ||
+                mName.equals("isString") || mName.equals("isBigInt") || mName.equals("isSymbol") ||
+                mName.equals("isUndefined") || mName.equals("isNull") || mName.equals("isObject") ||
+                mName.equals("isFunction") || mName.equals("isError") || mName.equals("instanceOf") ||
+                mName.equals("strictEquals") || mName.equals("isNaN") || mName.equals("isFinite") ||
+                mName.equals("isInteger") || mName.equals("doubleValue") || mName.equals("intValue") ||
+                mName.equals("longValue") || mName.equals("booleanValue") || mName.equals("stringValue") ||
+                mName.equals("getDescription") || mName.equals("getMessage") || mName.equals("getName") ||
+                mName.equals("getStack");
     }
 
     public static boolean isWebGLMethod(String mName, MethodCallExpr call) {
@@ -632,6 +763,108 @@ public class DomHelper {
         }
         if (domImports.contains("js_pushBoolean")) {
             watOutput.append("  (import \"dom\" \"js_pushBoolean\" (func $dom_js_pushBoolean (param i32 i32)))\n");
+        }
+        if (domImports.contains("js_number_of_int")) {
+            watOutput.append("  (import \"dom\" \"js_number_of_int\" (func $dom_js_number_of_int (param i32) (result i32)))\n");
+        }
+        if (domImports.contains("js_number_of_double")) {
+            watOutput.append("  (import \"dom\" \"js_number_of_double\" (func $dom_js_number_of_double (param f64) (result i32)))\n");
+        }
+        if (domImports.contains("js_boolean_of")) {
+            watOutput.append("  (import \"dom\" \"js_boolean_of\" (func $dom_js_boolean_of (param i32) (result i32)))\n");
+        }
+        if (domImports.contains("js_string_of")) {
+            watOutput.append("  (import \"dom\" \"js_string_of\" (func $dom_js_string_of (param i32 i32) (result i32)))\n");
+        }
+        if (domImports.contains("js_bigint_of_i64")) {
+            watOutput.append("  (import \"dom\" \"js_bigint_of_i64\" (func $dom_js_bigint_of_i64 (param i64) (result i32)))\n");
+        }
+        if (domImports.contains("js_bigint_of_str")) {
+            watOutput.append("  (import \"dom\" \"js_bigint_of_str\" (func $dom_js_bigint_of_str (param i32 i32) (result i32)))\n");
+        }
+        if (domImports.contains("js_symbol_of")) {
+            watOutput.append("  (import \"dom\" \"js_symbol_of\" (func $dom_js_symbol_of (param i32 i32) (result i32)))\n");
+        }
+        if (domImports.contains("js_symbol_for")) {
+            watOutput.append("  (import \"dom\" \"js_symbol_for\" (func $dom_js_symbol_for (param i32 i32) (result i32)))\n");
+        }
+        if (domImports.contains("js_undefined")) {
+            watOutput.append("  (import \"dom\" \"js_undefined\" (func $dom_js_undefined (result i32)))\n");
+        }
+        if (domImports.contains("js_null")) {
+            watOutput.append("  (import \"dom\" \"js_null\" (func $dom_js_null (result i32)))\n");
+        }
+        if (domImports.contains("js_error_of")) {
+            watOutput.append("  (import \"dom\" \"js_error_of\" (func $dom_js_error_of (param i32 i32) (result i32)))\n");
+        }
+        if (domImports.contains("js_type_error_of")) {
+            watOutput.append("  (import \"dom\" \"js_type_error_of\" (func $dom_js_type_error_of (param i32 i32) (result i32)))\n");
+        }
+        if (domImports.contains("js_range_error_of")) {
+            watOutput.append("  (import \"dom\" \"js_range_error_of\" (func $dom_js_range_error_of (param i32 i32) (result i32)))\n");
+        }
+        if (domImports.contains("js_syntax_error_of")) {
+            watOutput.append("  (import \"dom\" \"js_syntax_error_of\" (func $dom_js_syntax_error_of (param i32 i32) (result i32)))\n");
+        }
+        if (domImports.contains("js_typeof")) {
+            watOutput.append("  (import \"dom\" \"js_typeof\" (func $dom_js_typeof (param i32) (result i32)))\n");
+        }
+        if (domImports.contains("js_isNumber")) {
+            watOutput.append("  (import \"dom\" \"js_isNumber\" (func $dom_js_isNumber (param i32) (result i32)))\n");
+        }
+        if (domImports.contains("js_isBoolean")) {
+            watOutput.append("  (import \"dom\" \"js_isBoolean\" (func $dom_js_isBoolean (param i32) (result i32)))\n");
+        }
+        if (domImports.contains("js_isString")) {
+            watOutput.append("  (import \"dom\" \"js_isString\" (func $dom_js_isString (param i32) (result i32)))\n");
+        }
+        if (domImports.contains("js_isBigInt")) {
+            watOutput.append("  (import \"dom\" \"js_isBigInt\" (func $dom_js_isBigInt (param i32) (result i32)))\n");
+        }
+        if (domImports.contains("js_isSymbol")) {
+            watOutput.append("  (import \"dom\" \"js_isSymbol\" (func $dom_js_isSymbol (param i32) (result i32)))\n");
+        }
+        if (domImports.contains("js_isUndefined")) {
+            watOutput.append("  (import \"dom\" \"js_isUndefined\" (func $dom_js_isUndefined (param i32) (result i32)))\n");
+        }
+        if (domImports.contains("js_isNull")) {
+            watOutput.append("  (import \"dom\" \"js_isNull\" (func $dom_js_isNull (param i32) (result i32)))\n");
+        }
+        if (domImports.contains("js_isObject")) {
+            watOutput.append("  (import \"dom\" \"js_isObject\" (func $dom_js_isObject (param i32) (result i32)))\n");
+        }
+        if (domImports.contains("js_isFunction")) {
+            watOutput.append("  (import \"dom\" \"js_isFunction\" (func $dom_js_isFunction (param i32) (result i32)))\n");
+        }
+        if (domImports.contains("js_isError")) {
+            watOutput.append("  (import \"dom\" \"js_isError\" (func $dom_js_isError (param i32) (result i32)))\n");
+        }
+        if (domImports.contains("js_instanceof")) {
+            watOutput.append("  (import \"dom\" \"js_instanceof\" (func $dom_js_instanceof (param i32 i32 i32) (result i32)))\n");
+        }
+        if (domImports.contains("js_strictEquals")) {
+            watOutput.append("  (import \"dom\" \"js_strictEquals\" (func $dom_js_strictEquals (param i32 i32) (result i32)))\n");
+        }
+        if (domImports.contains("js_isNaN")) {
+            watOutput.append("  (import \"dom\" \"js_isNaN\" (func $dom_js_isNaN (param i32) (result i32)))\n");
+        }
+        if (domImports.contains("js_isFinite")) {
+            watOutput.append("  (import \"dom\" \"js_isFinite\" (func $dom_js_isFinite (param i32) (result i32)))\n");
+        }
+        if (domImports.contains("js_isInteger")) {
+            watOutput.append("  (import \"dom\" \"js_isInteger\" (func $dom_js_isInteger (param i32) (result i32)))\n");
+        }
+        if (domImports.contains("js_symbolDescription")) {
+            watOutput.append("  (import \"dom\" \"js_symbolDescription\" (func $dom_js_symbolDescription (param i32) (result i32)))\n");
+        }
+        if (domImports.contains("js_errorMessage")) {
+            watOutput.append("  (import \"dom\" \"js_errorMessage\" (func $dom_js_errorMessage (param i32) (result i32)))\n");
+        }
+        if (domImports.contains("js_errorName")) {
+            watOutput.append("  (import \"dom\" \"js_errorName\" (func $dom_js_errorName (param i32) (result i32)))\n");
+        }
+        if (domImports.contains("js_errorStack")) {
+            watOutput.append("  (import \"dom\" \"js_errorStack\" (func $dom_js_errorStack (param i32) (result i32)))\n");
         }
         if (domImports.contains("thread_spawn")) {
             watOutput.append("  (import \"dom\" \"thread_spawn\" (func $dom_thread_spawn (param i32 i32 i32) (result i32)))\n");

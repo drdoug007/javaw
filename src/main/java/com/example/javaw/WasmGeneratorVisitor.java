@@ -1488,7 +1488,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 Expression scope = call.getScope().get();
                 String scopeStr = scope.toString();
                 String scopeJavaType = getExpressionJavaType(scope, localJavaTypes);
-                if (scopeStr.equals("DOM") || scopeStr.endsWith(".DOM") || scopeStr.equals("Window") || scopeStr.endsWith(".Window") || scopeStr.equals("JSObject") || scopeStr.endsWith(".JSObject")) {
+                if (scopeStr.equals("DOM") || scopeStr.endsWith(".DOM") || scopeStr.equals("Window") || scopeStr.endsWith(".Window") || scopeStr.equals("JSObject") || scopeStr.endsWith(".JSObject") || DomHelper.isJsValueClass(scopeStr)) {
                     translateDomOrWindowStaticCall(call, collector, localTypes, localElementTypes, localJavaTypes);
                 } else if (scopeStr.equals("Atomics") || scopeStr.endsWith(".Atomics")) {
                     translateAtomicsStaticCall(call, collector, localTypes, localElementTypes, localJavaTypes);
@@ -1496,7 +1496,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     translateWasmThreadStaticCall(call, collector, localTypes, localElementTypes, localJavaTypes);
                 } else if ("AtomicInteger".equals(scopeJavaType) || "AtomicInteger".equals(scopeStr) || (scopeJavaType != null && scopeJavaType.endsWith(".AtomicInteger"))) {
                     translateAtomicIntegerInstanceCall(call, collector, localTypes, localElementTypes, localJavaTypes);
-                } else if ("JSObject".equals(getExpressionJavaType(scope, localJavaTypes))) {
+                } else if (DomHelper.isJsValueClass(scopeJavaType) || DomHelper.isJsValueClass(scopeStr)) {
                     translateJsInstanceCall(call, collector, localTypes, localElementTypes, localJavaTypes);
                 } else if (DomHelper.isDomInstanceMethod(mName)) {
                     translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
@@ -1611,7 +1611,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     else if (mName.equals("contains")) collector.append("    call $dom_hasClass\n");
                     else if (mName.equals("toggle")) collector.append("    call $dom_toggleClass\n");
                 } else if (mName.equals("length")) {
-                    if ("JSObject".equals(getExpressionJavaType(scope, localJavaTypes))) {
+                    String scopeJType = getExpressionJavaType(scope, localJavaTypes);
+                    if ("JSObject".equals(scopeJType) || "JSString".equals(scopeJType) || "JSValue".equals(scopeJType)) {
                         translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
                         collector.append("    call $dom_js_length\n");
                     } else if (scope.isNameExpr() && localJavaTypes.containsKey(scope.asNameExpr().getNameAsString()) && (localJavaTypes.get(scope.asNameExpr().getNameAsString()).equals("StringBuilder") || localJavaTypes.get(scope.asNameExpr().getNameAsString()).endsWith(".StringBuilder"))) {
@@ -2561,6 +2562,82 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             collector.append("    call $dom_js_createObject\n");
         } else if (mName.equals("createArray")) {
             collector.append("    call $dom_js_createArray\n");
+        } else if (mName.equals("undefined")) {
+            collector.append("    call $dom_js_undefined\n");
+        } else if (mName.equals("nullValue")) {
+            collector.append("    call $dom_js_null\n");
+        } else if (mName.equals("getInstance")) {
+            String scope = call.getScope().map(Object::toString).orElse("");
+            if (scope.contains("Null")) {
+                collector.append("    call $dom_js_null\n");
+            } else {
+                collector.append("    call $dom_js_undefined\n");
+            }
+        } else if (mName.equals("forSymbol")) {
+            translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
+            collector.append("    call $dom_js_symbol_for\n");
+        } else if (mName.equals("typeError")) {
+            translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
+            collector.append("    call $dom_js_type_error_of\n");
+        } else if (mName.equals("rangeError")) {
+            translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
+            collector.append("    call $dom_js_range_error_of\n");
+        } else if (mName.equals("syntaxError")) {
+            translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
+            collector.append("    call $dom_js_syntax_error_of\n");
+        } else if (mName.equals("fromHandle")) {
+            translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+        } else if (mName.equals("of")) {
+            String scope = call.getScope().map(Object::toString).orElse("");
+            Expression arg = call.getArgument(0);
+            String argWasmType = inferType(arg, localTypes, localElementTypes, localJavaTypes, null);
+            String argJavaType = getExpressionJavaType(arg, localJavaTypes);
+            if (scope.contains("Number")) {
+                if ("f64".equals(argWasmType) || "double".equals(argJavaType) || arg.isDoubleLiteralExpr()) {
+                    translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "f64");
+                    collector.append("    call $dom_js_number_of_double\n");
+                } else {
+                    translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                    collector.append("    call $dom_js_number_of_int\n");
+                }
+            } else if (scope.contains("Boolean")) {
+                translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                collector.append("    call $dom_js_boolean_of\n");
+            } else if (scope.contains("String")) {
+                translateDomStringArg(arg, collector, localTypes, localElementTypes, localJavaTypes);
+                collector.append("    call $dom_js_string_of\n");
+            } else if (scope.contains("BigInt")) {
+                if (arg.isStringLiteralExpr() || "String".equals(argJavaType)) {
+                    translateDomStringArg(arg, collector, localTypes, localElementTypes, localJavaTypes);
+                    collector.append("    call $dom_js_bigint_of_str\n");
+                } else {
+                    translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i64");
+                    collector.append("    call $dom_js_bigint_of_i64\n");
+                }
+            } else if (scope.contains("Symbol")) {
+                translateDomStringArg(arg, collector, localTypes, localElementTypes, localJavaTypes);
+                collector.append("    call $dom_js_symbol_of\n");
+            } else if (scope.contains("Error")) {
+                translateDomStringArg(arg, collector, localTypes, localElementTypes, localJavaTypes);
+                collector.append("    call $dom_js_error_of\n");
+            } else {
+                if (arg.isStringLiteralExpr() || "String".equals(argJavaType)) {
+                    translateDomStringArg(arg, collector, localTypes, localElementTypes, localJavaTypes);
+                    collector.append("    call $dom_js_string_of\n");
+                } else if ("f64".equals(argWasmType) || "double".equals(argJavaType) || arg.isDoubleLiteralExpr()) {
+                    translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "f64");
+                    collector.append("    call $dom_js_number_of_double\n");
+                } else if ("boolean".equals(argJavaType) || arg.isBooleanLiteralExpr()) {
+                    translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                    collector.append("    call $dom_js_boolean_of\n");
+                } else if ("i64".equals(argWasmType) || "long".equals(argJavaType) || arg.isLongLiteralExpr()) {
+                    translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i64");
+                    collector.append("    call $dom_js_bigint_of_i64\n");
+                } else {
+                    translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                    collector.append("    call $dom_js_number_of_int\n");
+                }
+            }
         } else if (mName.equals("setTimeout") || mName.equals("setInterval")) {
             translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
             translateExpression(call.getArgument(1), collector, localTypes, localElementTypes, localJavaTypes, "i32");
@@ -2743,7 +2820,63 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         String mName = call.getNameAsString();
         translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
 
-        if (mName.equals("get")) {
+        if (mName.equals("getTypeof")) {
+            collector.append("    call $dom_js_typeof\n");
+        } else if (mName.equals("isNumber")) {
+            collector.append("    call $dom_js_isNumber\n");
+        } else if (mName.equals("isBoolean")) {
+            collector.append("    call $dom_js_isBoolean\n");
+        } else if (mName.equals("isString")) {
+            collector.append("    call $dom_js_isString\n");
+        } else if (mName.equals("isBigInt")) {
+            collector.append("    call $dom_js_isBigInt\n");
+        } else if (mName.equals("isSymbol")) {
+            collector.append("    call $dom_js_isSymbol\n");
+        } else if (mName.equals("isUndefined")) {
+            collector.append("    call $dom_js_isUndefined\n");
+        } else if (mName.equals("isNull")) {
+            collector.append("    call $dom_js_isNull\n");
+        } else if (mName.equals("isObject")) {
+            collector.append("    call $dom_js_isObject\n");
+        } else if (mName.equals("isFunction")) {
+            collector.append("    call $dom_js_isFunction\n");
+        } else if (mName.equals("isError")) {
+            collector.append("    call $dom_js_isError\n");
+        } else if (mName.equals("instanceOf")) {
+            translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
+            collector.append("    call $dom_js_instanceof\n");
+        } else if (mName.equals("strictEquals")) {
+            translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    call $dom_js_strictEquals\n");
+        } else if (mName.equals("isNaN")) {
+            collector.append("    call $dom_js_isNaN\n");
+        } else if (mName.equals("isFinite")) {
+            collector.append("    call $dom_js_isFinite\n");
+        } else if (mName.equals("isInteger")) {
+            collector.append("    call $dom_js_isInteger\n");
+        } else if (mName.equals("doubleValue")) {
+            collector.append("    call $dom_js_asDouble\n");
+        } else if (mName.equals("intValue")) {
+            collector.append("    call $dom_js_asInt\n");
+        } else if (mName.equals("longValue")) {
+            collector.append("    call $dom_js_asInt\n");
+        } else if (mName.equals("booleanValue") || mName.equals("asBooleanPrimitive")) {
+            collector.append("    call $dom_js_asBoolean\n");
+        } else if (mName.equals("stringValue")) {
+            collector.append("    call $dom_js_asString\n");
+        } else if (mName.equals("getDescription")) {
+            collector.append("    call $dom_js_symbolDescription\n");
+        } else if (mName.equals("getMessage")) {
+            collector.append("    call $dom_js_errorMessage\n");
+        } else if (mName.equals("getName")) {
+            collector.append("    call $dom_js_errorName\n");
+        } else if (mName.equals("getStack")) {
+            collector.append("    call $dom_js_errorStack\n");
+        } else if (mName.equals("asNumber") || mName.equals("asBoolean") || mName.equals("asStringValue") ||
+                   mName.equals("asBigInt") || mName.equals("asSymbol") || mName.equals("asObject") ||
+                   mName.equals("asError")) {
+            // handle is already on stack
+        } else if (mName.equals("get")) {
             translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
             collector.append("    call $dom_js_get\n");
         } else if (mName.equals("getString")) {

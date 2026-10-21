@@ -19,6 +19,11 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
   - Automatic type marshalling and coercion via `@JS.Coerce` for Java primitives, strings, and arrays (`int[]`, `double[]`, `String[]` &harr; JavaScript `Array`) and automatic JSON serialization for JavaScript objects.
   - Automatically extracts snippet code during AST analysis, emits corresponding host import signatures (`(import "dom" "js_inline_..." ...)`), and serializes metadata into WebAssembly custom sections (`(@custom "javaw_js_snippets" ...)` and binary `.wasm` sections).
   - The runtime bridge (`javaw-runtime.js`) automatically deserializes inline snippets and synthesizes callable host functions with zero-copy string decoding and argument conversions.
+- **JavaScript Value Hierarchy Facades (`JSValue`, `JSNumber`, `JSBoolean`, `JSString`, `JSBigInt`, `JSSymbol`, `JSUndefined`, `JSError`, `JSNull`)**:
+  - Provides a complete, strongly-typed object-oriented hierarchy representing JavaScript runtime values with zero overhead.
+  - Base class `JSValue` exposes type reflection methods (`getTypeof()`, `isNumber()`, `isString()`, `isBoolean()`, `isBigInt()`, `isSymbol()`, `isUndefined()`, `isNull()`, `isObject()`, `isFunction()`, `isError()`), prototype testing (`instanceOf(className)`), and strict identity checks (`strictEquals(other)`).
+  - Explicit typed wrappers `JSNumber` (`doubleValue()`, `intValue()`, `isNaN()`, `isFinite()`, `isInteger()`), `JSBoolean` (`booleanValue()`), `JSString` (`stringValue()`), `JSBigInt` (`longValue()`), `JSSymbol` (`getDescription()`), `JSError` (`getMessage()`, `getName()`, `getStack()`, with `TypeError`, `RangeError`, `SyntaxError` factories), `JSUndefined`, and `JSNull`.
+  - `JSObject` extends `JSValue`, unifying arbitrary JavaScript object and array manipulation into a consistent type hierarchy.
 - **AST-Based Lowering & Modular Compiler Architecture**:
   - Directly parses Java source files using JavaParser and translates statements and expressions to WebAssembly instructions.
   - Modular architecture separated into dedicated components: `JavacToWasm`, `WasmGeneratorVisitor`, `WasmRuntime`, `DomHelper`, `WasiHelper`, `TypeMapper`, `ClassRegistry`, `ClassModel`, `FieldModel`, `MethodModel`, `GlobalVar`, `StringConstant`, and `LoopContext`.
@@ -172,7 +177,16 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
 │   │   │   │   ├── CanvasRenderingContext2D.java # HTML5 Canvas 2D graphics facade
 │   │   │   │   ├── WebGLRenderingContext.java    # HTML5 WebGL graphics facade
 │   │   │   │   ├── Window.java        # Browser Window, timers & async fetch facade
-│   │   │   │   └── JSObject.java      # Generic dynamic JavaScript interop facade
+│   │   │   │   ├── JSObject.java      # Generic dynamic JavaScript interop facade
+│   │   │   │   ├── JSValue.java       # Base JavaScript value representation
+│   │   │   │   ├── JSNumber.java      # JavaScript Number wrapper
+│   │   │   │   ├── JSBoolean.java     # JavaScript Boolean wrapper
+│   │   │   │   ├── JSString.java      # JavaScript String wrapper
+│   │   │   │   ├── JSBigInt.java      # JavaScript BigInt wrapper
+│   │   │   │   ├── JSSymbol.java      # JavaScript Symbol wrapper
+│   │   │   │   ├── JSUndefined.java   # JavaScript Undefined wrapper
+│   │   │   │   ├── JSError.java       # JavaScript Error hierarchy wrapper
+│   │   │   │   └── JSNull.java        # JavaScript Null wrapper
 │   │   │   ├── js
 │   │   │   │   ├── JS.java                # @JS annotation and sub-annotation definitions
 │   │   │   │   ├── JsSnippetModel.java    # Model for extracted @JS inline JavaScript snippets
@@ -880,6 +894,60 @@ public class InlineJsDemo {
         int total = sumArray(nums); // Returns 60
         int[] doubled = doubleArray(nums); // Returns [20, 40, 60]
         String json = getBookMetadataJson(); // Returns JSON string
+    }
+}
+```
+
+---
+
+#### Example R: JavaScript Value Hierarchy & Dynamic Typing
+
+Manipulate arbitrary JavaScript values with strong type safety, explicit runtime reflections, and error inspection:
+
+```java
+package com.example.javaw;
+
+import com.example.javaw.dom.JSBigInt;
+import com.example.javaw.dom.JSBoolean;
+import com.example.javaw.dom.JSError;
+import com.example.javaw.dom.JSNull;
+import com.example.javaw.dom.JSNumber;
+import com.example.javaw.dom.JSObject;
+import com.example.javaw.dom.JSString;
+import com.example.javaw.dom.JSSymbol;
+import com.example.javaw.dom.JSUndefined;
+import com.example.javaw.dom.JSValue;
+
+public class JsValueHierarchyDemo {
+    public static void run() {
+        // Create typed JavaScript values
+        JSNumber num = JSNumber.of(42.5);
+        JSString str = JSString.of("Hello WebAssembly");
+        JSBoolean bool = JSBoolean.of(true);
+        JSBigInt bigInt = JSBigInt.of(9007199254740991L);
+        JSSymbol sym = JSSymbol.forSymbol("shared-key");
+        JSUndefined undef = JSUndefined.getInstance();
+        JSNull nullVal = JSNull.getInstance();
+        JSError err = JSError.typeError("Invalid configuration detected");
+
+        // Dynamic type reflection
+        JSValue val = num;
+        if (val.isNumber()) {
+            double d = val.asNumber().doubleValue();
+            boolean isInt = val.asNumber().isInteger();
+        }
+
+        // Prototype and strict equality checks
+        JSObject global = JSObject.global();
+        JSValue doc = global.get("document");
+        if (doc.instanceOf("HTMLDocument")) {
+            System.out.println("Running in browser environment");
+        }
+
+        if (err.isError()) {
+            String errorName = err.getName();       // "TypeError"
+            String message = err.getMessage();       // "Invalid configuration detected"
+        }
     }
 }
 ```

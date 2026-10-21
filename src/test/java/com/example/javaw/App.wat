@@ -1,5 +1,4 @@
 (module
-  (@custom "sourceMappingURL" "\0cApp.wasm.map")
   (import "dom" "getElementById" (func $dom_getElementById (param i32 i32) (result i32)))
   (import "dom" "createElement" (func $dom_createElement (param i32 i32) (result i32)))
   (import "dom" "querySelector" (func $dom_querySelector (param i32 i32) (result i32)))

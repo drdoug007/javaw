@@ -432,7 +432,16 @@
         }
 
         getOrCreateHandle(element) {
-            if (!element) return 0;
+            if (element === null) return 0;
+            if (element === undefined) {
+                if (this.reverseMap.has(undefined)) {
+                    return this.reverseMap.get(undefined);
+                }
+                const handle = this.nextHandle++;
+                this.handleMap.set(handle, undefined);
+                this.reverseMap.set(undefined, handle);
+                return handle;
+            }
             if (this.reverseMap.has(element)) {
                 return this.reverseMap.get(element);
             }
@@ -443,7 +452,11 @@
         }
 
         getElement(handle) {
-            return this.handleMap.get(handle) || null;
+            if (!handle || handle <= 0) return null;
+            if (this.handleMap.has(handle)) {
+                return this.handleMap.get(handle);
+            }
+            return null;
         }
 
         // Host import implementations
@@ -1337,6 +1350,179 @@
             if (obj && typeof obj.push === 'function') obj.push(val !== 0);
         }
 
+        js_number_of_int(val) {
+            return this.getOrCreateHandle(Number(val));
+        }
+
+        js_number_of_double(val) {
+            return this.getOrCreateHandle(Number(val));
+        }
+
+        js_boolean_of(val) {
+            return this.getOrCreateHandle(Boolean(val));
+        }
+
+        js_string_of(ptr, len) {
+            const s = this.readString(ptr, len);
+            return this.getOrCreateHandle(s);
+        }
+
+        js_bigint_of_i64(val) {
+            return this.getOrCreateHandle(typeof BigInt !== 'undefined' ? BigInt(val) : Number(val));
+        }
+
+        js_bigint_of_str(ptr, len) {
+            const s = this.readString(ptr, len);
+            return this.getOrCreateHandle(typeof BigInt !== 'undefined' ? BigInt(s) : Number(s));
+        }
+
+        js_symbol_of(ptr, len) {
+            const s = this.readString(ptr, len);
+            return this.getOrCreateHandle(Symbol(s));
+        }
+
+        js_symbol_for(ptr, len) {
+            const s = this.readString(ptr, len);
+            return this.getOrCreateHandle(Symbol.for(s));
+        }
+
+        js_undefined() {
+            return this.getOrCreateHandle(undefined);
+        }
+
+        js_null() {
+            return this.getOrCreateHandle(null);
+        }
+
+        js_error_of(ptr, len) {
+            const msg = this.readString(ptr, len);
+            return this.getOrCreateHandle(new Error(msg));
+        }
+
+        js_type_error_of(ptr, len) {
+            const msg = this.readString(ptr, len);
+            return this.getOrCreateHandle(new TypeError(msg));
+        }
+
+        js_range_error_of(ptr, len) {
+            const msg = this.readString(ptr, len);
+            return this.getOrCreateHandle(new RangeError(msg));
+        }
+
+        js_syntax_error_of(ptr, len) {
+            const msg = this.readString(ptr, len);
+            return this.getOrCreateHandle(new SyntaxError(msg));
+        }
+
+        js_typeof(handle) {
+            if (handle === 0) return this.writeString('object');
+            const val = this.getElement(handle);
+            return this.writeString(typeof val);
+        }
+
+        js_isNumber(handle) {
+            const val = this.getElement(handle);
+            return typeof val === 'number' ? 1 : 0;
+        }
+
+        js_isBoolean(handle) {
+            const val = this.getElement(handle);
+            return typeof val === 'boolean' ? 1 : 0;
+        }
+
+        js_isString(handle) {
+            const val = this.getElement(handle);
+            return typeof val === 'string' ? 1 : 0;
+        }
+
+        js_isBigInt(handle) {
+            const val = this.getElement(handle);
+            return typeof val === 'bigint' ? 1 : 0;
+        }
+
+        js_isSymbol(handle) {
+            const val = this.getElement(handle);
+            return typeof val === 'symbol' ? 1 : 0;
+        }
+
+        js_isUndefined(handle) {
+            if (handle === 0) return 0;
+            const val = this.getElement(handle);
+            return val === undefined ? 1 : 0;
+        }
+
+        js_isNull(handle) {
+            if (handle === 0) return 1;
+            const val = this.getElement(handle);
+            return val === null ? 1 : 0;
+        }
+
+        js_isObject(handle) {
+            if (handle === 0) return 0;
+            const val = this.getElement(handle);
+            return (val !== null && typeof val === 'object') ? 1 : 0;
+        }
+
+        js_isFunction(handle) {
+            const val = this.getElement(handle);
+            return typeof val === 'function' ? 1 : 0;
+        }
+
+        js_isError(handle) {
+            const val = this.getElement(handle);
+            return (val instanceof Error) ? 1 : 0;
+        }
+
+        js_instanceof(handle, namePtr, nameLen) {
+            const val = this.getElement(handle);
+            const name = this.readString(namePtr, nameLen);
+            const g = (typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : global));
+            const ctor = g[name];
+            return (ctor && typeof ctor === 'function' && val instanceof ctor) ? 1 : 0;
+        }
+
+        js_strictEquals(h1, h2) {
+            const v1 = this.getElement(h1);
+            const v2 = this.getElement(h2);
+            return (v1 === v2) ? 1 : 0;
+        }
+
+        js_isNaN(handle) {
+            const val = this.getElement(handle);
+            return Number.isNaN(val) ? 1 : 0;
+        }
+
+        js_isFinite(handle) {
+            const val = this.getElement(handle);
+            return Number.isFinite(val) ? 1 : 0;
+        }
+
+        js_isInteger(handle) {
+            const val = this.getElement(handle);
+            return Number.isInteger(val) ? 1 : 0;
+        }
+
+        js_symbolDescription(handle) {
+            const val = this.getElement(handle);
+            const desc = (typeof val === 'symbol' && val.description) ? val.description : '';
+            return this.writeString(desc);
+        }
+
+        js_errorMessage(handle) {
+            const val = this.getElement(handle);
+            return this.writeString((val && val.message) ? String(val.message) : '');
+        }
+
+        js_errorName(handle) {
+            const val = this.getElement(handle);
+            return this.writeString((val && val.name) ? String(val.name) : 'Error');
+        }
+
+        js_errorStack(handle) {
+            const val = this.getElement(handle);
+            return this.writeString((val && val.stack) ? String(val.stack) : '');
+        }
+
         thread_spawn(namePtr, nameLen, arg) {
             const funcName = this.readString(namePtr, nameLen);
             if (this.instance && this.instance.exports && typeof this.instance.exports[funcName] === 'function') {
@@ -1512,6 +1698,40 @@
                     js_pushInt: (h, v) => this.js_pushInt(h, v),
                     js_pushDouble: (h, v) => this.js_pushDouble(h, v),
                     js_pushBoolean: (h, v) => this.js_pushBoolean(h, v),
+                    js_number_of_int: (v) => this.js_number_of_int(v),
+                    js_number_of_double: (v) => this.js_number_of_double(v),
+                    js_boolean_of: (v) => this.js_boolean_of(v),
+                    js_string_of: (p, l) => this.js_string_of(p, l),
+                    js_bigint_of_i64: (v) => this.js_bigint_of_i64(v),
+                    js_bigint_of_str: (p, l) => this.js_bigint_of_str(p, l),
+                    js_symbol_of: (p, l) => this.js_symbol_of(p, l),
+                    js_symbol_for: (p, l) => this.js_symbol_for(p, l),
+                    js_undefined: () => this.js_undefined(),
+                    js_null: () => this.js_null(),
+                    js_error_of: (p, l) => this.js_error_of(p, l),
+                    js_type_error_of: (p, l) => this.js_type_error_of(p, l),
+                    js_range_error_of: (p, l) => this.js_range_error_of(p, l),
+                    js_syntax_error_of: (p, l) => this.js_syntax_error_of(p, l),
+                    js_typeof: (h) => this.js_typeof(h),
+                    js_isNumber: (h) => this.js_isNumber(h),
+                    js_isBoolean: (h) => this.js_isBoolean(h),
+                    js_isString: (h) => this.js_isString(h),
+                    js_isBigInt: (h) => this.js_isBigInt(h),
+                    js_isSymbol: (h) => this.js_isSymbol(h),
+                    js_isUndefined: (h) => this.js_isUndefined(h),
+                    js_isNull: (h) => this.js_isNull(h),
+                    js_isObject: (h) => this.js_isObject(h),
+                    js_isFunction: (h) => this.js_isFunction(h),
+                    js_isError: (h) => this.js_isError(h),
+                    js_instanceof: (h, p, l) => this.js_instanceof(h, p, l),
+                    js_strictEquals: (h1, h2) => this.js_strictEquals(h1, h2),
+                    js_isNaN: (h) => this.js_isNaN(h),
+                    js_isFinite: (h) => this.js_isFinite(h),
+                    js_isInteger: (h) => this.js_isInteger(h),
+                    js_symbolDescription: (h) => this.js_symbolDescription(h),
+                    js_errorMessage: (h) => this.js_errorMessage(h),
+                    js_errorName: (h) => this.js_errorName(h),
+                    js_errorStack: (h) => this.js_errorStack(h),
                     thread_spawn: (p, l, a) => this.thread_spawn(p, l, a),
                     thread_sleep: (ms) => this.thread_sleep(ms),
                     thread_current_id: () => this.thread_current_id(),

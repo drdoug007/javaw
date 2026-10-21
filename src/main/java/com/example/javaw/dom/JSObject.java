@@ -3,20 +3,16 @@ package com.example.javaw.dom;
 /**
  * JSObject
  * Generic facade for dynamic JavaScript interop in Java WebAssembly applications.
+ * Extends JSValue to provide full prototype, property, method, and array manipulation.
  */
-public class JSObject {
-    private int handle;
+public class JSObject extends JSValue {
 
     public JSObject() {
-        this.handle = 0;
+        super(0);
     }
 
     public JSObject(int handle) {
-        this.handle = handle;
-    }
-
-    public int getHandle() {
-        return handle;
+        super(handle);
     }
 
     // Static constructors & evaluators
@@ -139,23 +135,6 @@ public class JSObject {
     }
 
     public boolean callBoolean(String methodName) {
-        return false;
-    }
-
-    // Conversions
-    public String asString() {
-        return null;
-    }
-
-    public int asInt() {
-        return 0;
-    }
-
-    public double asDouble() {
-        return 0.0;
-    }
-
-    public boolean asBoolean() {
         return false;
     }
 

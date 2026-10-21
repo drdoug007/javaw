@@ -6,6 +6,15 @@ import com.example.javaw.dom.CanvasRenderingContext2D;
 import com.example.javaw.dom.WebGLRenderingContext;
 import com.example.javaw.dom.Window;
 import com.example.javaw.dom.JSObject;
+import com.example.javaw.dom.JSValue;
+import com.example.javaw.dom.JSNumber;
+import com.example.javaw.dom.JSBoolean;
+import com.example.javaw.dom.JSString;
+import com.example.javaw.dom.JSBigInt;
+import com.example.javaw.dom.JSSymbol;
+import com.example.javaw.dom.JSUndefined;
+import com.example.javaw.dom.JSError;
+import com.example.javaw.dom.JSNull;
 import com.example.javaw.wasi.WASI;
 import com.example.javaw.wasi.WASIFile;
 import com.example.javaw.simd.Float32x4;
@@ -766,6 +775,67 @@ public class TestClass {
             total += v;
         }
         return total;
+    }
+
+    public int testJsValueHierarchy() {
+        JSValue numVal = JSValue.of(42);
+        JSValue strVal = JSValue.of("hello world");
+        JSValue boolVal = JSValue.of(true);
+        JSValue undefVal = JSValue.undefined();
+        JSValue nullVal = JSValue.nullValue();
+
+        int score = 0;
+        if (numVal.isNumber()) score += 1;
+        if (strVal.isString()) score += 2;
+        if (boolVal.isBoolean()) score += 4;
+        if (undefVal.isUndefined()) score += 8;
+        if (nullVal.isNull()) score += 16;
+        if ("number".equals(numVal.getTypeof())) score += 32;
+        if ("string".equals(strVal.getTypeof())) score += 64;
+        if ("boolean".equals(boolVal.getTypeof())) score += 128;
+
+        return score;
+    }
+
+    public int testJsNumberTyped() {
+        JSNumber num = JSNumber.of(100.5);
+        JSNumber intNum = JSNumber.of(50);
+        int score = 0;
+        if (num.doubleValue() > 100.0) score += 1;
+        if (intNum.intValue() == 50) score += 2;
+        if (!num.isNaN() && num.isFinite()) score += 4;
+        if (intNum.isInteger()) score += 8;
+        return score;
+    }
+
+    public int testJsSymbolAndBigInt() {
+        JSSymbol sym = JSSymbol.of("id_key");
+        JSBigInt big = JSBigInt.of("9007199254740995");
+        int score = 0;
+        if (sym.isSymbol()) score += 1;
+        if ("id_key".equals(sym.getDescription())) score += 2;
+        if (big.isBigInt()) score += 4;
+        return score;
+    }
+
+    public int testJsErrorAndInstanceof() {
+        JSError err = JSError.typeError("Invalid type argument");
+        int score = 0;
+        if (err.isError()) score += 1;
+        if ("Invalid type argument".equals(err.getMessage())) score += 2;
+        if ("TypeError".equals(err.getName())) score += 4;
+        if (err.instanceOf("Error") && err.instanceOf("TypeError")) score += 8;
+        return score;
+    }
+
+    public int testJsStrictEquals() {
+        JSValue v1 = JSValue.of(42);
+        JSValue v2 = JSValue.of(42);
+        JSValue v3 = JSValue.of("42");
+        int score = 0;
+        if (v1.strictEquals(v2)) score += 1;
+        if (!v1.strictEquals(v3)) score += 2;
+        return score;
     }
 }
 

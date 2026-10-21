@@ -636,6 +636,25 @@ async function runTest() {
 
                     console.log('✓ @JS.Coerce Automatic Type Coercion (arrays, map, reduce, JSON serialization) assertions passed.');
                 }
+
+                if (typeof instance.exports.testJsValueHierarchy === 'function') {
+                    const valueScore = instance.exports.testJsValueHierarchy();
+                    assert.strictEqual(valueScore, 255, `testJsValueHierarchy expected 255, got ${valueScore}`);
+
+                    const numberScore = instance.exports.testJsNumberTyped();
+                    assert.strictEqual(numberScore, 15, `testJsNumberTyped expected 15, got ${numberScore}`);
+
+                    const symbolBigIntScore = instance.exports.testJsSymbolAndBigInt();
+                    assert.strictEqual(symbolBigIntScore, 7, `testJsSymbolAndBigInt expected 7, got ${symbolBigIntScore}`);
+
+                    const errorScore = instance.exports.testJsErrorAndInstanceof();
+                    assert.strictEqual(errorScore, 15, `testJsErrorAndInstanceof expected 15, got ${errorScore}`);
+
+                    const strictEqScore = instance.exports.testJsStrictEquals();
+                    assert.strictEqual(strictEqScore, 3, `testJsStrictEquals expected 3, got ${strictEqScore}`);
+
+                    console.log('✓ JSValue Typed Value Hierarchy (JSValue, JSNumber, JSBoolean, JSString, JSBigInt, JSSymbol, JSUndefined, JSError, JSNull) assertions passed.');
+                }
             }
 
             console.log('✓ TestClass execution assertions passed (including for loops, for-each loops, arrays, switches, labeled break/continue, compound assignments, dynamic strings, OOP, Canvas 2D, WebGL, JSObject, WASI VFS, Threads/Atomics, Exceptions, Multi-Value Returns, Bulk Memory, Fixed-Width SIMD, and Multi-Memory Segregation).');

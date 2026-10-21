@@ -997,4 +997,33 @@ public class JavacToWasmTest {
         org.junit.jupiter.api.Assertions.assertTrue(json.contains("\"isCoerced\":true"));
         org.junit.jupiter.api.Assertions.assertTrue(json.contains("\"coerced\":true"));
     }
+
+    @Test
+    public void testJsValueHierarchyWatGeneration() {
+        String javaSource = "package com.example.javaw;\n" +
+                "import com.example.javaw.dom.*;\n" +
+                "public class JsValueApp {\n" +
+                "    public static int checkValues() {\n" +
+                "        JSValue n = JSValue.of(123);\n" +
+                "        JSNumber num = JSNumber.of(45.67);\n" +
+                "        JSString str = JSString.of(\"hello\");\n" +
+                "        JSError err = JSError.typeError(\"Bad type\");\n" +
+                "        boolean isNum = n.isNumber();\n" +
+                "        String t = str.getTypeof();\n" +
+                "        boolean inst = err.instanceOf(\"TypeError\");\n" +
+                "        return 1;\n" +
+                "    }\n" +
+                "}\n";
+
+        CompilationUnit cu = StaticJavaParser.parse(javaSource);
+        String wat = JavacToWasm.generateWat(cu);
+
+        assertTrue(wat.contains("(import \"dom\" \"js_number_of_int\" (func $dom_js_number_of_int (param i32) (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_number_of_double\" (func $dom_js_number_of_double (param f64) (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_string_of\" (func $dom_js_string_of (param i32 i32) (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_type_error_of\" (func $dom_js_type_error_of (param i32 i32) (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_isNumber\" (func $dom_js_isNumber (param i32) (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_typeof\" (func $dom_js_typeof (param i32) (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_instanceof\" (func $dom_js_instanceof (param i32 i32 i32) (result i32)))"));
+    }
 }

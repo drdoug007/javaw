@@ -35,6 +35,8 @@
   (import "dom" "js_callInt0" (func $dom_js_callInt0 (param i32 i32 i32) (result i32)))
   (import "dom" "js_callInt1_int" (func $dom_js_callInt1_int (param i32 i32 i32 i32) (result i32)))
   (import "dom" "js_asString" (func $dom_js_asString (param i32) (result i32)))
+  (import "dom" "js_asInt" (func $dom_js_asInt (param i32) (result i32)))
+  (import "dom" "js_asDouble" (func $dom_js_asDouble (param i32) (result f64)))
   (import "dom" "js_length" (func $dom_js_length (param i32) (result i32)))
   (import "dom" "js_getIndex" (func $dom_js_getIndex (param i32 i32) (result i32)))
   (import "dom" "js_setIndexObj" (func $dom_js_setIndexObj (param i32 i32 i32)))
@@ -47,6 +49,33 @@
   (import "dom" "js_pushInt" (func $dom_js_pushInt (param i32 i32)))
   (import "dom" "js_pushDouble" (func $dom_js_pushDouble (param i32 f64)))
   (import "dom" "js_pushBoolean" (func $dom_js_pushBoolean (param i32 i32)))
+  (import "dom" "js_number_of_int" (func $dom_js_number_of_int (param i32) (result i32)))
+  (import "dom" "js_number_of_double" (func $dom_js_number_of_double (param f64) (result i32)))
+  (import "dom" "js_boolean_of" (func $dom_js_boolean_of (param i32) (result i32)))
+  (import "dom" "js_string_of" (func $dom_js_string_of (param i32 i32) (result i32)))
+  (import "dom" "js_bigint_of_i64" (func $dom_js_bigint_of_i64 (param i64) (result i32)))
+  (import "dom" "js_bigint_of_str" (func $dom_js_bigint_of_str (param i32 i32) (result i32)))
+  (import "dom" "js_symbol_of" (func $dom_js_symbol_of (param i32 i32) (result i32)))
+  (import "dom" "js_undefined" (func $dom_js_undefined (result i32)))
+  (import "dom" "js_null" (func $dom_js_null (result i32)))
+  (import "dom" "js_type_error_of" (func $dom_js_type_error_of (param i32 i32) (result i32)))
+  (import "dom" "js_typeof" (func $dom_js_typeof (param i32) (result i32)))
+  (import "dom" "js_isNumber" (func $dom_js_isNumber (param i32) (result i32)))
+  (import "dom" "js_isBoolean" (func $dom_js_isBoolean (param i32) (result i32)))
+  (import "dom" "js_isString" (func $dom_js_isString (param i32) (result i32)))
+  (import "dom" "js_isBigInt" (func $dom_js_isBigInt (param i32) (result i32)))
+  (import "dom" "js_isSymbol" (func $dom_js_isSymbol (param i32) (result i32)))
+  (import "dom" "js_isUndefined" (func $dom_js_isUndefined (param i32) (result i32)))
+  (import "dom" "js_isNull" (func $dom_js_isNull (param i32) (result i32)))
+  (import "dom" "js_isError" (func $dom_js_isError (param i32) (result i32)))
+  (import "dom" "js_instanceof" (func $dom_js_instanceof (param i32 i32 i32) (result i32)))
+  (import "dom" "js_strictEquals" (func $dom_js_strictEquals (param i32 i32) (result i32)))
+  (import "dom" "js_isNaN" (func $dom_js_isNaN (param i32) (result i32)))
+  (import "dom" "js_isFinite" (func $dom_js_isFinite (param i32) (result i32)))
+  (import "dom" "js_isInteger" (func $dom_js_isInteger (param i32) (result i32)))
+  (import "dom" "js_symbolDescription" (func $dom_js_symbolDescription (param i32) (result i32)))
+  (import "dom" "js_errorMessage" (func $dom_js_errorMessage (param i32) (result i32)))
+  (import "dom" "js_errorName" (func $dom_js_errorName (param i32) (result i32)))
   (import "dom" "thread_sleep" (func $dom_thread_sleep (param i32)))
   (import "dom" "thread_current_id" (func $dom_thread_current_id (result i32)))
   (import "dom" "thread_hardware_concurrency" (func $dom_thread_hardware_concurrency (result i32)))
@@ -151,6 +180,16 @@
   (data (memory $strings) (i32.const 4850) "return arr.map(x => x * 2);\00")
   (data (memory $strings) (i32.const 4878) "return items.join(', ');\00")
   (data (memory $strings) (i32.const 4903) "return { title: 'WASM in Action', year: 2026 };\00")
+  (data (memory $strings) (i32.const 4951) "hello world\00")
+  (data (memory $strings) (i32.const 4963) "number\00")
+  (data (memory $strings) (i32.const 4970) "string\00")
+  (data (memory $strings) (i32.const 4977) "boolean\00")
+  (data (memory $strings) (i32.const 4985) "id_key\00")
+  (data (memory $strings) (i32.const 4992) "9007199254740995\00")
+  (data (memory $strings) (i32.const 5009) "Invalid type argument\00")
+  (data (memory $strings) (i32.const 5031) "TypeError\00")
+  (data (memory $strings) (i32.const 5041) "Error\00")
+  (data (memory $strings) (i32.const 5047) "42\00")
   (global $__heap_ptr (mut i32) (i32.const 0))
   ;; --- WebAssembly Function Type Signatures ---
   (type $t_sig_1 (func (param i32) (result i32)))
@@ -5876,6 +5915,359 @@
       )
     )
     local.get $total
+    return
+  )
+  (func $testJsValueHierarchy (export "testJsValueHierarchy") (result i32)
+    (local $numVal i32)
+    (local $strVal i32)
+    (local $boolVal i32)
+    (local $undefVal i32)
+    (local $nullVal i32)
+    (local $score i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__caught_exc i32)
+    i32.const 42
+    call $dom_js_number_of_int
+    local.set $numVal
+    i32.const 4951
+    i32.const 11
+    call $dom_js_string_of
+    local.set $strVal
+    i32.const 1
+    call $dom_js_boolean_of
+    local.set $boolVal
+    call $dom_js_undefined
+    local.set $undefVal
+    call $dom_js_null
+    local.set $nullVal
+    i32.const 0
+    local.set $score
+    local.get $numVal
+    call $dom_js_isNumber
+    if
+    local.get $score
+    i32.const 1
+    i32.add
+    local.set $score
+    end
+    local.get $strVal
+    call $dom_js_isString
+    if
+    local.get $score
+    i32.const 2
+    i32.add
+    local.set $score
+    end
+    local.get $boolVal
+    call $dom_js_isBoolean
+    if
+    local.get $score
+    i32.const 4
+    i32.add
+    local.set $score
+    end
+    local.get $undefVal
+    call $dom_js_isUndefined
+    if
+    local.get $score
+    i32.const 8
+    i32.add
+    local.set $score
+    end
+    local.get $nullVal
+    call $dom_js_isNull
+    if
+    local.get $score
+    i32.const 16
+    i32.add
+    local.set $score
+    end
+    i32.const 4963
+    local.get $numVal
+    call $dom_js_typeof
+    call $__str_equals
+    if
+    local.get $score
+    i32.const 32
+    i32.add
+    local.set $score
+    end
+    i32.const 4970
+    local.get $strVal
+    call $dom_js_typeof
+    call $__str_equals
+    if
+    local.get $score
+    i32.const 64
+    i32.add
+    local.set $score
+    end
+    i32.const 4977
+    local.get $boolVal
+    call $dom_js_typeof
+    call $__str_equals
+    if
+    local.get $score
+    i32.const 128
+    i32.add
+    local.set $score
+    end
+    local.get $score
+    return
+  )
+  (func $testJsNumberTyped (export "testJsNumberTyped") (result i32)
+    (local $num i32)
+    (local $intNum i32)
+    (local $score i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__caught_exc i32)
+    f64.const 100.5
+    call $dom_js_number_of_double
+    local.set $num
+    i32.const 50
+    call $dom_js_number_of_int
+    local.set $intNum
+    i32.const 0
+    local.set $score
+    local.get $num
+    call $dom_js_asDouble
+    f64.const 100.0
+    f64.gt
+    if
+    local.get $score
+    i32.const 1
+    i32.add
+    local.set $score
+    end
+    local.get $intNum
+    call $dom_js_asInt
+    i32.const 50
+    i32.eq
+    if
+    local.get $score
+    i32.const 2
+    i32.add
+    local.set $score
+    end
+    local.get $num
+    call $dom_js_isNaN
+    i32.eqz
+    local.get $num
+    call $dom_js_isFinite
+    i32.and
+    if
+    local.get $score
+    i32.const 4
+    i32.add
+    local.set $score
+    end
+    local.get $intNum
+    call $dom_js_isInteger
+    if
+    local.get $score
+    i32.const 8
+    i32.add
+    local.set $score
+    end
+    local.get $score
+    return
+  )
+  (func $testJsSymbolAndBigInt (export "testJsSymbolAndBigInt") (result i32)
+    (local $sym i32)
+    (local $big i32)
+    (local $score i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__caught_exc i32)
+    i32.const 4985
+    i32.const 6
+    call $dom_js_symbol_of
+    local.set $sym
+    i32.const 4992
+    i32.const 16
+    call $dom_js_bigint_of_str
+    local.set $big
+    i32.const 0
+    local.set $score
+    local.get $sym
+    call $dom_js_isSymbol
+    if
+    local.get $score
+    i32.const 1
+    i32.add
+    local.set $score
+    end
+    i32.const 4985
+    local.get $sym
+    call $dom_js_symbolDescription
+    call $__str_equals
+    if
+    local.get $score
+    i32.const 2
+    i32.add
+    local.set $score
+    end
+    local.get $big
+    call $dom_js_isBigInt
+    if
+    local.get $score
+    i32.const 4
+    i32.add
+    local.set $score
+    end
+    local.get $score
+    return
+  )
+  (func $testJsErrorAndInstanceof (export "testJsErrorAndInstanceof") (result i32)
+    (local $err i32)
+    (local $score i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__caught_exc i32)
+    i32.const 5009
+    i32.const 21
+    call $dom_js_type_error_of
+    local.set $err
+    i32.const 0
+    local.set $score
+    local.get $err
+    call $dom_js_isError
+    if
+    local.get $score
+    i32.const 1
+    i32.add
+    local.set $score
+    end
+    i32.const 5009
+    local.get $err
+    call $dom_js_errorMessage
+    call $__str_equals
+    if
+    local.get $score
+    i32.const 2
+    i32.add
+    local.set $score
+    end
+    i32.const 5031
+    local.get $err
+    call $dom_js_errorName
+    call $__str_equals
+    if
+    local.get $score
+    i32.const 4
+    i32.add
+    local.set $score
+    end
+    local.get $err
+    i32.const 5041
+    i32.const 5
+    call $dom_js_instanceof
+    local.get $err
+    i32.const 5031
+    i32.const 9
+    call $dom_js_instanceof
+    i32.and
+    if
+    local.get $score
+    i32.const 8
+    i32.add
+    local.set $score
+    end
+    local.get $score
+    return
+  )
+  (func $testJsStrictEquals (export "testJsStrictEquals") (result i32)
+    (local $v1 i32)
+    (local $v2 i32)
+    (local $v3 i32)
+    (local $score i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__caught_exc i32)
+    i32.const 42
+    call $dom_js_number_of_int
+    local.set $v1
+    i32.const 42
+    call $dom_js_number_of_int
+    local.set $v2
+    i32.const 5047
+    i32.const 2
+    call $dom_js_string_of
+    local.set $v3
+    i32.const 0
+    local.set $score
+    local.get $v1
+    local.get $v2
+    call $dom_js_strictEquals
+    if
+    local.get $score
+    i32.const 1
+    i32.add
+    local.set $score
+    end
+    local.get $v1
+    local.get $v3
+    call $dom_js_strictEquals
+    i32.eqz
+    if
+    local.get $score
+    i32.const 2
+    i32.add
+    local.set $score
+    end
+    local.get $score
     return
   )
   ;; Record: Pair
