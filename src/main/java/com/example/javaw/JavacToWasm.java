@@ -78,7 +78,7 @@ public class JavacToWasm {
             // Attempt to compile to binary WASM if wat2wasm is available
             boolean wasmGenerated = false;
             try {
-                Process process = new ProcessBuilder("wat2wasm", "--enable-threads", "--enable-exceptions", watFilePath.toString(), "-o", wasmFilePath.toString())
+                Process process = new ProcessBuilder("wat2wasm", "--enable-threads", "--enable-exceptions", "--enable-multi-memory", watFilePath.toString(), "-o", wasmFilePath.toString())
                         .redirectErrorStream(true)
                         .start();
                 int exitCode = process.waitFor();
@@ -96,7 +96,7 @@ public class JavacToWasm {
             // Attempt to optimize with wasm-opt if available
             if (wasmGenerated && optimize) {
                 try {
-                    Process optProcess = new ProcessBuilder("wasm-opt", "-O3", "--enable-simd", "--enable-threads", "--enable-exception-handling", "--enable-multivalue", "--enable-bulk-memory", wasmFilePath.toString(), "-o", wasmFilePath.toString())
+                    Process optProcess = new ProcessBuilder("wasm-opt", "-O3", "--enable-simd", "--enable-threads", "--enable-exception-handling", "--enable-multivalue", "--enable-bulk-memory", "--enable-multimemory", wasmFilePath.toString(), "-o", wasmFilePath.toString())
                             .redirectErrorStream(true)
                             .start();
                     int optExit = optProcess.waitFor();
@@ -220,10 +220,30 @@ public class JavacToWasm {
 
         watOutput.append("  (tag $Exception (export \"Exception\") (param i32))\n");
 
-        if (hasThreadsOrAtomics(cu)) {
-            watOutput.append("  (memory (export \"memory\") 2 20 shared)\n");
+        boolean multiMem = hasMultiMemory(cu);
+        boolean shared = hasThreadsOrAtomics(cu);
+
+        if (multiMem) {
+            watOutput.append("  (memory $strings 2)\n");
+            watOutput.append("  (export \"memory\" (memory $strings))\n");
+            watOutput.append("  (export \"strings\" (memory $strings))\n");
+            if (shared) {
+                watOutput.append("  (memory $heap 2 20 shared)\n");
+                watOutput.append("  (export \"heap\" (memory $heap))\n");
+                watOutput.append("  (memory $stack 2 20 shared)\n");
+                watOutput.append("  (export \"stack\" (memory $stack))\n");
+            } else {
+                watOutput.append("  (memory $heap 2)\n");
+                watOutput.append("  (export \"heap\" (memory $heap))\n");
+                watOutput.append("  (memory $stack 2)\n");
+                watOutput.append("  (export \"stack\" (memory $stack))\n");
+            }
         } else {
-            watOutput.append("  (memory (export \"memory\") 2)\n");
+            if (shared) {
+                watOutput.append("  (memory (export \"memory\") 2 20 shared)\n");
+            } else {
+                watOutput.append("  (memory (export \"memory\") 2)\n");
+            }
         }
 
         Map<String, GlobalVar> globalVars = collectGlobalVars(cu);
@@ -233,14 +253,19 @@ public class JavacToWasm {
         }
 
         Map<String, StringConstant> stringPool = collectStringLiterals(cu);
-        int heapStart = 65536; // Default to 64KB (1 WebAssembly page)
+        int heapStart = multiMem ? 0 : 65536; // Multi-memory isolates heap starting at 0; single-memory uses page 1+
         for (Map.Entry<String, StringConstant> entry : stringPool.entrySet()) {
             StringConstant sc = entry.getValue();
-            watOutput.append("  (data (i32.const ").append(sc.offset).append(") \"")
-                    .append(escapeForWat(sc.bytes)).append("\")\n");
-            int end = sc.offset + sc.length + 16;
-            if (end > heapStart) {
-                heapStart = ((end + 65535) / 65536) * 65536;
+            if (multiMem) {
+                watOutput.append("  (data (memory $strings) (i32.const ").append(sc.offset).append(") \"")
+                        .append(escapeForWat(sc.bytes)).append("\")\n");
+            } else {
+                watOutput.append("  (data (i32.const ").append(sc.offset).append(") \"")
+                        .append(escapeForWat(sc.bytes)).append("\")\n");
+                int end = sc.offset + sc.length + 16;
+                if (end > heapStart) {
+                    heapStart = ((end + 65535) / 65536) * 65536;
+                }
             }
         }
         watOutput.append("  (global $__heap_ptr (mut i32) (i32.const ").append(heapStart).append("))\n");
@@ -279,14 +304,14 @@ public class JavacToWasm {
             java.nio.file.Path tempWasm = java.nio.file.Files.createTempFile("javaw_", ".wasm");
             java.nio.file.Files.writeString(tempWat, watContent);
             try {
-                Process process = new ProcessBuilder("wat2wasm", "--enable-threads", "--enable-exceptions", tempWat.toString(), "-o", tempWasm.toString())
+                Process process = new ProcessBuilder("wat2wasm", "--enable-threads", "--enable-exceptions", "--enable-multi-memory", tempWat.toString(), "-o", tempWasm.toString())
                         .redirectErrorStream(true)
                         .start();
                 int exitCode = process.waitFor();
                 if (exitCode == 0) {
                     if (optimize) {
                         try {
-                            Process optProcess = new ProcessBuilder("wasm-opt", "-O3", "--enable-simd", "--enable-threads", "--enable-exception-handling", "--enable-multivalue", "--enable-bulk-memory", tempWasm.toString(), "-o", tempWasm.toString())
+                            Process optProcess = new ProcessBuilder("wasm-opt", "-O3", "--enable-simd", "--enable-threads", "--enable-exception-handling", "--enable-multivalue", "--enable-bulk-memory", "--enable-multimemory", tempWasm.toString(), "-o", tempWasm.toString())
                                     .redirectErrorStream(true)
                                     .start();
                             optProcess.waitFor();
@@ -325,6 +350,16 @@ public class JavacToWasm {
         public boolean isWasmGenerated() {
             return wasm != null && wasm.length > 0;
         }
+    }
+
+    public static boolean hasMultiMemory(CompilationUnit cu) {
+        if (cu.getImports().stream().anyMatch(i -> i.getNameAsString().startsWith("com.example.javaw.memory"))) {
+            return true;
+        }
+        return cu.findAll(com.github.javaparser.ast.expr.MethodCallExpr.class).stream()
+                .anyMatch(m -> m.getScope().map(s -> s.toString().equals("Memory") || s.toString().endsWith(".Memory")).orElse(false))
+                || cu.findAll(com.github.javaparser.ast.expr.FieldAccessExpr.class).stream()
+                .anyMatch(f -> f.getScope().toString().equals("Memory") || f.getScope().toString().endsWith(".Memory"));
     }
 
     public static String mapType(String typeStr) {

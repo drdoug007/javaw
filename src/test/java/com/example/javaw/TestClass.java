@@ -10,6 +10,7 @@ import com.example.javaw.wasi.WASI;
 import com.example.javaw.wasi.WASIFile;
 import com.example.javaw.simd.Float32x4;
 import com.example.javaw.simd.Int32x4;
+import com.example.javaw.memory.Memory;
 import java.util.Arrays;
 
 public class TestClass {
@@ -695,6 +696,34 @@ public class TestClass {
         Int32x4 doubled = vec.add(vec);
         doubled.store(arr, 0);
         return arr[0] + arr[1] + arr[2] + arr[3];
+    }
+
+    public int testMultiMemoryHeapOps(int val) {
+        Memory heap = Memory.HEAP;
+        heap.storeI32(0, val);
+        heap.storeI32(4, val * 2);
+        return heap.loadI32(0) + heap.loadI32(4);
+    }
+
+    public double testMultiMemoryDoubleOps(double val) {
+        Memory heap = Memory.HEAP;
+        heap.storeF64(16, val);
+        heap.storeF64(24, val * 3.0);
+        return heap.loadF64(16) + heap.loadF64(24);
+    }
+
+    public int testMultiMemoryCopyStringsToHeap() {
+        Memory heap = Memory.HEAP;
+        Memory.copy(heap, 100, Memory.STRINGS, 0, 5);
+        return heap.loadU8(100);
+    }
+
+    public int testMultiMemorySizeAndGrowth() {
+        Memory heap = Memory.HEAP;
+        int s1 = heap.size();
+        heap.grow(1);
+        int s2 = heap.size();
+        return s2 - s1;
     }
 }
 

@@ -569,9 +569,24 @@ async function runTest() {
                 const simdArraySum = instance.exports.testSimdArrayLoadStore();
                 assert.strictEqual(simdArraySum, 2000, `testSimdArrayLoadStore() expected 2000, got ${simdArraySum}`);
                 console.log('✓ Fixed-Width SIMD (v128, Float32x4, Int32x4, vector math, dot product, array load/store) assertions passed.');
+
+                // Multi-Memory Segregation Assertions
+                const mmHeapSum = instance.exports.testMultiMemoryHeapOps(25);
+                assert.strictEqual(mmHeapSum, 75, `testMultiMemoryHeapOps(25) expected 75, got ${mmHeapSum}`);
+
+                const mmDoubleSum = instance.exports.testMultiMemoryDoubleOps(1.5);
+                assert.strictEqual(mmDoubleSum, 6.0, `testMultiMemoryDoubleOps(1.5) expected 6.0, got ${mmDoubleSum}`);
+
+                const mmGrowth = instance.exports.testMultiMemorySizeAndGrowth();
+                assert.strictEqual(mmGrowth, 1, `testMultiMemorySizeAndGrowth() expected 1 page growth, got ${mmGrowth}`);
+
+                assert.ok(instance.exports.heap instanceof WebAssembly.Memory, 'Export "heap" must be a WebAssembly.Memory');
+                assert.ok(instance.exports.strings instanceof WebAssembly.Memory, 'Export "strings" must be a WebAssembly.Memory');
+                assert.ok(instance.exports.stack instanceof WebAssembly.Memory, 'Export "stack" must be a WebAssembly.Memory');
+                console.log('✓ Multi-Memory Segregation & Isolation (Memory.HEAP, Memory.STRINGS, Memory.STACK, loads/stores, growth) assertions passed.');
             }
 
-            console.log('✓ TestClass execution assertions passed (including for loops, for-each loops, arrays, switches, labeled break/continue, compound assignments, dynamic strings, OOP, Canvas 2D, WebGL, JSObject, WASI VFS, Threads/Atomics, Exceptions, Multi-Value Returns, Bulk Memory, and Fixed-Width SIMD).');
+            console.log('✓ TestClass execution assertions passed (including for loops, for-each loops, arrays, switches, labeled break/continue, compound assignments, dynamic strings, OOP, Canvas 2D, WebGL, JSObject, WASI VFS, Threads/Atomics, Exceptions, Multi-Value Returns, Bulk Memory, Fixed-Width SIMD, and Multi-Memory Segregation).');
         }
 
         // ==========================================

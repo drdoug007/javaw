@@ -1167,6 +1167,13 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             if (fName.equals("length")) {
                 translateExpression(fae.getScope(), collector, localTypes, localElementTypes, localJavaTypes, "i32");
                 collector.append("    i32.load\n");
+            } else if (fae.getScope().isNameExpr() && (fae.getScope().asNameExpr().getNameAsString().equals("Memory") || fae.getScope().asNameExpr().getNameAsString().endsWith(".Memory"))) {
+                int val = switch (fName) {
+                    case "HEAP" -> 1;
+                    case "STACK" -> 2;
+                    default -> 0; // DEFAULT or STRINGS
+                };
+                collector.append("    i32.const ").append(val).append("\n");
             } else if (fae.getScope().isNameExpr() && fae.getScope().asNameExpr().getNameAsString().equals("WebGLRenderingContext")) {
                 int val = switch (fName) {
                     case "COLOR_BUFFER_BIT" -> 0x00004000;
@@ -1427,6 +1434,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 translateMathCall(call, collector, localTypes, localElementTypes, localJavaTypes);
             } else if (isSimdCall(call, localJavaTypes)) {
                 translateSimdCall(call, collector, localTypes, localElementTypes, localJavaTypes, expectedType);
+            } else if (isMemoryCall(call, localJavaTypes)) {
+                translateMemoryCall(call, collector, localTypes, localElementTypes, localJavaTypes, expectedType);
             } else if (call.getScope().isPresent()) {
                 Expression scope = call.getScope().get();
                 String scopeStr = scope.toString();
@@ -1869,6 +1878,53 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     if (scopeStr.equals("Int32x4") || scopeStr.endsWith(".Int32x4")) return "Int32x4";
                 }
             }
+            if (mName.equals("loadI32") || mName.equals("loadU8") || mName.equals("loadI8") ||
+                    mName.equals("loadU16") || mName.equals("loadI16") || mName.equals("size") ||
+                    mName.equals("grow") || mName.equals("getIndex")) {
+                if (call.getScope().isPresent()) {
+                    String scopeStr = call.getScope().get().toString();
+                    String scopeType = getExpressionJavaType(call.getScope().get(), localJavaTypes);
+                    if ("Memory".equals(scopeStr) || "Memory".equals(scopeType) || (scopeType != null && scopeType.endsWith(".Memory"))) {
+                        return "int";
+                    }
+                }
+            }
+            if (mName.equals("loadI64")) {
+                if (call.getScope().isPresent()) {
+                    String scopeStr = call.getScope().get().toString();
+                    String scopeType = getExpressionJavaType(call.getScope().get(), localJavaTypes);
+                    if ("Memory".equals(scopeStr) || "Memory".equals(scopeType) || (scopeType != null && scopeType.endsWith(".Memory"))) {
+                        return "long";
+                    }
+                }
+            }
+            if (mName.equals("loadF32")) {
+                if (call.getScope().isPresent()) {
+                    String scopeStr = call.getScope().get().toString();
+                    String scopeType = getExpressionJavaType(call.getScope().get(), localJavaTypes);
+                    if ("Memory".equals(scopeStr) || "Memory".equals(scopeType) || (scopeType != null && scopeType.endsWith(".Memory"))) {
+                        return "float";
+                    }
+                }
+            }
+            if (mName.equals("loadF64")) {
+                if (call.getScope().isPresent()) {
+                    String scopeStr = call.getScope().get().toString();
+                    String scopeType = getExpressionJavaType(call.getScope().get(), localJavaTypes);
+                    if ("Memory".equals(scopeStr) || "Memory".equals(scopeType) || (scopeType != null && scopeType.endsWith(".Memory"))) {
+                        return "double";
+                    }
+                }
+            }
+            if (mName.equals("named") || (mName.equals("of") && call.getScope().isPresent() && call.getScope().get().toString().contains("Memory"))) {
+                return "Memory";
+            }
+            if (mName.equals("getName") && call.getScope().isPresent()) {
+                String scopeType = getExpressionJavaType(call.getScope().get(), localJavaTypes);
+                if ("Memory".equals(scopeType) || (scopeType != null && scopeType.endsWith(".Memory"))) {
+                    return "String";
+                }
+            }
             if (call.getScope().isPresent()) {
                 String scopeType = getExpressionJavaType(call.getScope().get(), localJavaTypes);
                 if (scopeType != null && classRegistry != null && classRegistry.isRecord(scopeType)) {
@@ -1975,7 +2031,11 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     mName.equals("not") || mName.equals("and") || mName.equals("or") || mName.equals("xor") ||
                     mName.equals("getX") || mName.equals("getY") || mName.equals("getZ") || mName.equals("getW") ||
                     mName.equals("extractLane") || mName.equals("add") || mName.equals("sub") ||
-                    mName.equals("mul") || mName.equals("div") || mName.equals("neg")) {
+                    mName.equals("mul") || mName.equals("div") || mName.equals("neg") ||
+                    mName.equals("loadI32") || mName.equals("loadI64") || mName.equals("loadF32") ||
+                    mName.equals("loadF64") || mName.equals("loadI8") || mName.equals("loadU8") ||
+                    mName.equals("loadI16") || mName.equals("loadU16") || mName.equals("size") ||
+                    mName.equals("grow") || mName.equals("getName") || mName.equals("getIndex")) {
                 return true;
             }
             if (call.getScope().isPresent()) {
@@ -3208,5 +3268,272 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             return "-" + getNumericLiteralString(expr.asUnaryExpr().getExpression(), isFloat);
         }
         return isFloat ? "0.0" : "0";
+    }
+
+    private boolean isMemoryCall(MethodCallExpr call, Map<String, String> localJavaTypes) {
+        if (!call.getScope().isPresent()) return false;
+        Expression scope = call.getScope().get();
+        String scopeStr = scope.toString();
+        String scopeJavaType = getExpressionJavaType(scope, localJavaTypes);
+
+        if (scopeStr.equals("Memory") || scopeStr.endsWith(".Memory") ||
+                "Memory".equals(scopeJavaType) || (scopeJavaType != null && scopeJavaType.endsWith(".Memory"))) {
+            return true;
+        }
+        return false;
+    }
+
+    private String resolveMemoryIdentifier(Expression expr, Map<String, String> localJavaTypes) {
+        if (expr == null) return "";
+        String s = expr.toString();
+        if (s.equals("Memory.HEAP") || s.endsWith(".HEAP")) return "$heap";
+        if (s.equals("Memory.STRINGS") || s.endsWith(".STRINGS")) return "$strings";
+        if (s.equals("Memory.STACK") || s.endsWith(".STACK")) return "$stack";
+        if (s.equals("Memory.DEFAULT") || s.endsWith(".DEFAULT")) return "";
+        if (expr.isStringLiteralExpr()) {
+            String val = expr.asStringLiteralExpr().getValue();
+            if (val.equalsIgnoreCase("heap")) return "$heap";
+            if (val.equalsIgnoreCase("strings")) return "$strings";
+            if (val.equalsIgnoreCase("stack")) return "$stack";
+            if (val.equalsIgnoreCase("memory") || val.isEmpty()) return "";
+            return "$" + val;
+        }
+        if (expr.isMethodCallExpr()) {
+            MethodCallExpr m = expr.asMethodCallExpr();
+            if ((m.getNameAsString().equals("of") || m.getNameAsString().equals("named")) && m.getArguments().size() > 0) {
+                return resolveMemoryIdentifier(m.getArgument(0), localJavaTypes);
+            }
+        }
+        if (expr.isObjectCreationExpr()) {
+            var oce = expr.asObjectCreationExpr();
+            if (oce.getArguments().size() > 0) {
+                return resolveMemoryIdentifier(oce.getArgument(0), localJavaTypes);
+            }
+        }
+        if (expr.isNameExpr()) {
+            String varName = expr.asNameExpr().getNameAsString();
+            if (varName.toLowerCase().contains("heap")) return "$heap";
+            if (varName.toLowerCase().contains("string")) return "$strings";
+            if (varName.toLowerCase().contains("stack")) return "$stack";
+        }
+        return "";
+    }
+
+    private void translateMemoryCall(MethodCallExpr call, StringBuilder collector, Map<String, String> localTypes, Map<String, String> localElementTypes, Map<String, String> localJavaTypes, String expectedType) {
+        Expression scope = call.getScope().get();
+        String mName = call.getNameAsString();
+        String memId = resolveMemoryIdentifier(scope, localJavaTypes);
+
+        if (mName.equals("size")) {
+            if (call.getArguments().size() > 0) {
+                memId = resolveMemoryIdentifier(call.getArgument(0), localJavaTypes);
+            }
+            collector.append(memId.isEmpty() ? "    memory.size\n" : "    memory.size " + memId + "\n");
+        } else if (mName.equals("grow")) {
+            Expression pagesArg;
+            if (call.getArguments().size() == 2) {
+                memId = resolveMemoryIdentifier(call.getArgument(0), localJavaTypes);
+                pagesArg = call.getArgument(1);
+            } else {
+                pagesArg = call.getArgument(0);
+            }
+            translateExpression(pagesArg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append(memId.isEmpty() ? "    memory.grow\n" : "    memory.grow " + memId + "\n");
+        } else if (mName.equals("copy")) {
+            if (call.getArguments().size() == 5) {
+                String dstMem = resolveMemoryIdentifier(call.getArgument(0), localJavaTypes);
+                Expression dstOffset = call.getArgument(1);
+                String srcMem = resolveMemoryIdentifier(call.getArgument(2), localJavaTypes);
+                Expression srcOffset = call.getArgument(3);
+                Expression byteCount = call.getArgument(4);
+
+                translateExpression(dstOffset, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                translateExpression(srcOffset, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                translateExpression(byteCount, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                if (dstMem.isEmpty() && srcMem.isEmpty()) {
+                    collector.append("    memory.copy\n");
+                } else {
+                    collector.append("    memory.copy ").append(dstMem.isEmpty() ? "$strings" : dstMem)
+                            .append(" ").append(srcMem.isEmpty() ? "$strings" : srcMem).append("\n");
+                }
+            } else if (call.getArguments().size() == 4) {
+                String dstMem = memId;
+                Expression dstOffset = call.getArgument(0);
+                String srcMem = resolveMemoryIdentifier(call.getArgument(1), localJavaTypes);
+                Expression srcOffset = call.getArgument(2);
+                Expression byteCount = call.getArgument(3);
+
+                translateExpression(dstOffset, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                translateExpression(srcOffset, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                translateExpression(byteCount, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                if (dstMem.isEmpty() && srcMem.isEmpty()) {
+                    collector.append("    memory.copy\n");
+                } else {
+                    collector.append("    memory.copy ").append(dstMem.isEmpty() ? "$strings" : dstMem)
+                            .append(" ").append(srcMem.isEmpty() ? "$strings" : srcMem).append("\n");
+                }
+            }
+        } else if (mName.equals("copyFrom")) {
+            String dstMem = memId;
+            Expression dstOffset = call.getArgument(0);
+            Expression srcOffset = call.getArgument(1);
+            Expression byteCount = call.getArgument(2);
+
+            translateExpression(dstOffset, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            translateExpression(srcOffset, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            translateExpression(byteCount, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            if (dstMem.isEmpty()) {
+                collector.append("    memory.copy\n");
+            } else {
+                collector.append("    memory.copy ").append(dstMem).append(" ").append(dstMem).append("\n");
+            }
+        } else if (mName.equals("fill")) {
+            Expression offsetArg, valArg, countArg;
+            if (call.getArguments().size() == 4) {
+                memId = resolveMemoryIdentifier(call.getArgument(0), localJavaTypes);
+                offsetArg = call.getArgument(1);
+                valArg = call.getArgument(2);
+                countArg = call.getArgument(3);
+            } else {
+                offsetArg = call.getArgument(0);
+                valArg = call.getArgument(1);
+                countArg = call.getArgument(2);
+            }
+            translateExpression(offsetArg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            translateExpression(valArg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            translateExpression(countArg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append(memId.isEmpty() ? "    memory.fill\n" : "    memory.fill " + memId + "\n");
+        } else if (mName.equals("loadI32")) {
+            Expression offsetArg;
+            if (call.getArguments().size() == 2) {
+                memId = resolveMemoryIdentifier(call.getArgument(0), localJavaTypes);
+                offsetArg = call.getArgument(1);
+            } else {
+                offsetArg = call.getArgument(0);
+            }
+            translateExpression(offsetArg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append(memId.isEmpty() ? "    i32.load\n" : "    i32.load " + memId + "\n");
+        } else if (mName.equals("storeI32")) {
+            Expression offsetArg, valArg;
+            if (call.getArguments().size() == 3) {
+                memId = resolveMemoryIdentifier(call.getArgument(0), localJavaTypes);
+                offsetArg = call.getArgument(1);
+                valArg = call.getArgument(2);
+            } else {
+                offsetArg = call.getArgument(0);
+                valArg = call.getArgument(1);
+            }
+            translateExpression(offsetArg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            translateExpression(valArg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append(memId.isEmpty() ? "    i32.store\n" : "    i32.store " + memId + "\n");
+        } else if (mName.equals("loadF64")) {
+            Expression offsetArg;
+            if (call.getArguments().size() == 2) {
+                memId = resolveMemoryIdentifier(call.getArgument(0), localJavaTypes);
+                offsetArg = call.getArgument(1);
+            } else {
+                offsetArg = call.getArgument(0);
+            }
+            translateExpression(offsetArg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append(memId.isEmpty() ? "    f64.load\n" : "    f64.load " + memId + "\n");
+        } else if (mName.equals("storeF64")) {
+            Expression offsetArg, valArg;
+            if (call.getArguments().size() == 3) {
+                memId = resolveMemoryIdentifier(call.getArgument(0), localJavaTypes);
+                offsetArg = call.getArgument(1);
+                valArg = call.getArgument(2);
+            } else {
+                offsetArg = call.getArgument(0);
+                valArg = call.getArgument(1);
+            }
+            translateExpression(offsetArg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            translateExpression(valArg, collector, localTypes, localElementTypes, localJavaTypes, "f64");
+            collector.append(memId.isEmpty() ? "    f64.store\n" : "    f64.store " + memId + "\n");
+        } else if (mName.equals("loadF32")) {
+            Expression offsetArg;
+            if (call.getArguments().size() == 2) {
+                memId = resolveMemoryIdentifier(call.getArgument(0), localJavaTypes);
+                offsetArg = call.getArgument(1);
+            } else {
+                offsetArg = call.getArgument(0);
+            }
+            translateExpression(offsetArg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append(memId.isEmpty() ? "    f32.load\n" : "    f32.load " + memId + "\n");
+        } else if (mName.equals("storeF32")) {
+            Expression offsetArg, valArg;
+            if (call.getArguments().size() == 3) {
+                memId = resolveMemoryIdentifier(call.getArgument(0), localJavaTypes);
+                offsetArg = call.getArgument(1);
+                valArg = call.getArgument(2);
+            } else {
+                offsetArg = call.getArgument(0);
+                valArg = call.getArgument(1);
+            }
+            translateExpression(offsetArg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            translateExpression(valArg, collector, localTypes, localElementTypes, localJavaTypes, "f32");
+            collector.append(memId.isEmpty() ? "    f32.store\n" : "    f32.store " + memId + "\n");
+        } else if (mName.equals("loadI64")) {
+            Expression offsetArg;
+            if (call.getArguments().size() == 2) {
+                memId = resolveMemoryIdentifier(call.getArgument(0), localJavaTypes);
+                offsetArg = call.getArgument(1);
+            } else {
+                offsetArg = call.getArgument(0);
+            }
+            translateExpression(offsetArg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append(memId.isEmpty() ? "    i64.load\n" : "    i64.load " + memId + "\n");
+        } else if (mName.equals("storeI64")) {
+            Expression offsetArg, valArg;
+            if (call.getArguments().size() == 3) {
+                memId = resolveMemoryIdentifier(call.getArgument(0), localJavaTypes);
+                offsetArg = call.getArgument(1);
+                valArg = call.getArgument(2);
+            } else {
+                offsetArg = call.getArgument(0);
+                valArg = call.getArgument(1);
+            }
+            translateExpression(offsetArg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            translateExpression(valArg, collector, localTypes, localElementTypes, localJavaTypes, "i64");
+            collector.append(memId.isEmpty() ? "    i64.store\n" : "    i64.store " + memId + "\n");
+        } else if (mName.equals("loadI8")) {
+            Expression offsetArg = call.getArgument(call.getArguments().size() - 1);
+            if (call.getArguments().size() == 2) memId = resolveMemoryIdentifier(call.getArgument(0), localJavaTypes);
+            translateExpression(offsetArg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append(memId.isEmpty() ? "    i32.load8_s\n" : "    i32.load8_s " + memId + "\n");
+        } else if (mName.equals("loadU8")) {
+            Expression offsetArg = call.getArgument(call.getArguments().size() - 1);
+            if (call.getArguments().size() == 2) memId = resolveMemoryIdentifier(call.getArgument(0), localJavaTypes);
+            translateExpression(offsetArg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append(memId.isEmpty() ? "    i32.load8_u\n" : "    i32.load8_u " + memId + "\n");
+        } else if (mName.equals("storeI8")) {
+            Expression offsetArg = call.getArgument(call.getArguments().size() - 2);
+            Expression valArg = call.getArgument(call.getArguments().size() - 1);
+            if (call.getArguments().size() == 3) memId = resolveMemoryIdentifier(call.getArgument(0), localJavaTypes);
+            translateExpression(offsetArg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            translateExpression(valArg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append(memId.isEmpty() ? "    i32.store8\n" : "    i32.store8 " + memId + "\n");
+        } else if (mName.equals("loadI16")) {
+            Expression offsetArg = call.getArgument(call.getArguments().size() - 1);
+            if (call.getArguments().size() == 2) memId = resolveMemoryIdentifier(call.getArgument(0), localJavaTypes);
+            translateExpression(offsetArg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append(memId.isEmpty() ? "    i32.load16_s\n" : "    i32.load16_s " + memId + "\n");
+        } else if (mName.equals("loadU16")) {
+            Expression offsetArg = call.getArgument(call.getArguments().size() - 1);
+            if (call.getArguments().size() == 2) memId = resolveMemoryIdentifier(call.getArgument(0), localJavaTypes);
+            translateExpression(offsetArg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append(memId.isEmpty() ? "    i32.load16_u\n" : "    i32.load16_u " + memId + "\n");
+        } else if (mName.equals("storeI16")) {
+            Expression offsetArg = call.getArgument(call.getArguments().size() - 2);
+            Expression valArg = call.getArgument(call.getArguments().size() - 1);
+            if (call.getArguments().size() == 3) memId = resolveMemoryIdentifier(call.getArgument(0), localJavaTypes);
+            translateExpression(offsetArg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            translateExpression(valArg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append(memId.isEmpty() ? "    i32.store16\n" : "    i32.store16 " + memId + "\n");
+        } else if (mName.equals("of") || mName.equals("named")) {
+            int idx = 0;
+            if (memId.equals("$heap")) idx = 1;
+            else if (memId.equals("$stack")) idx = 2;
+            collector.append("    i32.const ").append(idx).append("\n");
+        }
     }
 }

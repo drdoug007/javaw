@@ -784,4 +784,44 @@ public class JavacToWasmTest {
         assertTrue(wat.contains("i32x4.shl"));
         assertTrue(wat.contains("v128.store"));
     }
+
+    @Test
+    public void testMultiMemorySegregationWatGeneration() {
+        String javaSource = "package com.example.javaw;\n" +
+                "import com.example.javaw.memory.Memory;\n" +
+                "public class MultiMemoryApp {\n" +
+                "    public void runMemoryOperations() {\n" +
+                "        Memory heap = Memory.HEAP;\n" +
+                "        heap.storeI32(0, 42);\n" +
+                "        int val = heap.loadI32(0);\n" +
+                "        heap.storeF64(8, 3.14159);\n" +
+                "        double pi = heap.loadF64(8);\n" +
+                "        int size = heap.size();\n" +
+                "        heap.grow(1);\n" +
+                "        heap.copy(100, Memory.STRINGS, 0, 16);\n" +
+                "        heap.fill(200, 0, 32);\n" +
+                "        String hello = \"Hello segregated memory\";\n" +
+                "    }\n" +
+                "}\n";
+
+        CompilationUnit cu = StaticJavaParser.parse(javaSource);
+        String wat = JavacToWasm.generateWat(cu);
+
+        assertTrue(wat.contains("(memory $strings 2)"));
+        assertTrue(wat.contains("(export \"memory\" (memory $strings))"));
+        assertTrue(wat.contains("(export \"strings\" (memory $strings))"));
+        assertTrue(wat.contains("(memory $heap 2)"));
+        assertTrue(wat.contains("(export \"heap\" (memory $heap))"));
+        assertTrue(wat.contains("(memory $stack 2)"));
+        assertTrue(wat.contains("(export \"stack\" (memory $stack))"));
+        assertTrue(wat.contains("(data (memory $strings) (i32.const"));
+        assertTrue(wat.contains("i32.store $heap"));
+        assertTrue(wat.contains("i32.load $heap"));
+        assertTrue(wat.contains("f64.store $heap"));
+        assertTrue(wat.contains("f64.load $heap"));
+        assertTrue(wat.contains("memory.size $heap"));
+        assertTrue(wat.contains("memory.grow $heap"));
+        assertTrue(wat.contains("memory.copy $heap $strings"));
+        assertTrue(wat.contains("memory.fill $heap"));
+    }
 }

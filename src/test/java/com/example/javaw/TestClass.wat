@@ -67,67 +67,73 @@
   (import "wasi_snapshot_preview1" "path_create_directory" (func $__wasi_path_create_directory (param i32 i32 i32) (result i32)))
   (import "wasi_snapshot_preview1" "path_unlink_file" (func $__wasi_path_unlink_file (param i32 i32 i32) (result i32)))
   (tag $Exception (export "Exception") (param i32))
-  (memory (export "memory") 2 20 shared)
+  (memory $strings 2)
+  (export "memory" (memory $strings))
+  (export "strings" (memory $strings))
+  (memory $heap 2 20 shared)
+  (export "heap" (memory $heap))
+  (memory $stack 2 20 shared)
+  (export "stack" (memory $stack))
   (global $asyncCounter (mut i32) (i32.const 0))
   (global $asyncFetchedData (mut i32) (i32.const 0))
-  (data (i32.const 4096) "\00")
-  (data (i32.const 4097) "onTimerTick\00")
-  (data (i32.const 4109) "onFrameUpdate\00")
-  (data (i32.const 4123) "onFetchSuccess\00")
-  (data (i32.const 4138) "Hello\00")
-  (data (i32.const 4144) "WebAssembly\00")
-  (data (i32.const 4156) ", \00")
-  (data (i32.const 4159) "!\00")
-  (data (i32.const 4161) "User: \00")
-  (data (i32.const 4168) " (age: \00")
-  (data (i32.const 4176) ")\00")
-  (data (i32.const 4178) "Hello World\00")
-  (data (i32.const 4190) "World\00")
-  (data (i32.const 4196) "Java\00")
-  (data (i32.const 4201) "Count: \00")
-  (data (i32.const 4209) "testCanvas\00")
-  (data (i32.const 4220) "#ff0000\00")
-  (data (i32.const 4228) "glCanvas\00")
-  (data (i32.const 4237) "({ title: 'Dynamic JS', count: 42, active: true })\00")
-  (data (i32.const 4288) "title\00")
-  (data (i32.const 4294) "count\00")
-  (data (i32.const 4300) "active\00")
-  (data (i32.const 4307) "user\00")
-  (data (i32.const 4312) "Alice\00")
-  (data (i32.const 4318) "score\00")
-  (data (i32.const 4324) "rating\00")
-  (data (i32.const 4331) "premium\00")
-  (data (i32.const 4339) "item1\00")
-  (data (i32.const 4345) "item2\00")
-  (data (i32.const 4351) "updated\00")
-  (data (i32.const 4359) "Math\00")
-  (data (i32.const 4364) "max\00")
-  (data (i32.const 4368) "Testing WASI standard output from Java!\00")
-  (data (i32.const 4408) "Progress: \00")
-  (data (i32.const 4419) "WASI stderr stream message\00")
-  (data (i32.const 4446) "WASI Facade message: \00")
-  (data (i32.const 4468) "Active\00")
-  (data (i32.const 4475) "WASI Facade Error\00")
-  (data (i32.const 4493) "Test error\00")
-  (data (i32.const 4504) "Custom exception message\00")
-  (data (i32.const 4529) "App failed\00")
-  (data (i32.const 4540) "Code error\00")
-  (data (i32.const 4551) "Bad arg\00")
-  (data (i32.const 4559) "Generic error\00")
-  (data (i32.const 4573) "Inner error\00")
-  (data (i32.const 4585) "/hello.txt\00")
-  (data (i32.const 4596) "Hello WASI VFS\00")
-  (data (i32.const 4611) "/append.txt\00")
-  (data (i32.const 4623) "Part1\00")
-  (data (i32.const 4629) "Part2\00")
-  (data (i32.const 4635) "/to_delete.txt\00")
-  (data (i32.const 4650) "temp data\00")
-  (data (i32.const 4660) "/app/data.txt\00")
-  (data (i32.const 4674) "Config=42\00")
-  (data (i32.const 4684) ";Active=true\00")
-  (data (i32.const 4697) "/app/temp.log\00")
-  (data (i32.const 4711) "12345\00")
-  (global $__heap_ptr (mut i32) (i32.const 65536))
+  (data (memory $strings) (i32.const 4096) "\00")
+  (data (memory $strings) (i32.const 4097) "onTimerTick\00")
+  (data (memory $strings) (i32.const 4109) "onFrameUpdate\00")
+  (data (memory $strings) (i32.const 4123) "onFetchSuccess\00")
+  (data (memory $strings) (i32.const 4138) "Hello\00")
+  (data (memory $strings) (i32.const 4144) "WebAssembly\00")
+  (data (memory $strings) (i32.const 4156) ", \00")
+  (data (memory $strings) (i32.const 4159) "!\00")
+  (data (memory $strings) (i32.const 4161) "User: \00")
+  (data (memory $strings) (i32.const 4168) " (age: \00")
+  (data (memory $strings) (i32.const 4176) ")\00")
+  (data (memory $strings) (i32.const 4178) "Hello World\00")
+  (data (memory $strings) (i32.const 4190) "World\00")
+  (data (memory $strings) (i32.const 4196) "Java\00")
+  (data (memory $strings) (i32.const 4201) "Count: \00")
+  (data (memory $strings) (i32.const 4209) "testCanvas\00")
+  (data (memory $strings) (i32.const 4220) "#ff0000\00")
+  (data (memory $strings) (i32.const 4228) "glCanvas\00")
+  (data (memory $strings) (i32.const 4237) "({ title: 'Dynamic JS', count: 42, active: true })\00")
+  (data (memory $strings) (i32.const 4288) "title\00")
+  (data (memory $strings) (i32.const 4294) "count\00")
+  (data (memory $strings) (i32.const 4300) "active\00")
+  (data (memory $strings) (i32.const 4307) "user\00")
+  (data (memory $strings) (i32.const 4312) "Alice\00")
+  (data (memory $strings) (i32.const 4318) "score\00")
+  (data (memory $strings) (i32.const 4324) "rating\00")
+  (data (memory $strings) (i32.const 4331) "premium\00")
+  (data (memory $strings) (i32.const 4339) "item1\00")
+  (data (memory $strings) (i32.const 4345) "item2\00")
+  (data (memory $strings) (i32.const 4351) "updated\00")
+  (data (memory $strings) (i32.const 4359) "Math\00")
+  (data (memory $strings) (i32.const 4364) "max\00")
+  (data (memory $strings) (i32.const 4368) "Testing WASI standard output from Java!\00")
+  (data (memory $strings) (i32.const 4408) "Progress: \00")
+  (data (memory $strings) (i32.const 4419) "WASI stderr stream message\00")
+  (data (memory $strings) (i32.const 4446) "WASI Facade message: \00")
+  (data (memory $strings) (i32.const 4468) "Active\00")
+  (data (memory $strings) (i32.const 4475) "WASI Facade Error\00")
+  (data (memory $strings) (i32.const 4493) "Test error\00")
+  (data (memory $strings) (i32.const 4504) "Custom exception message\00")
+  (data (memory $strings) (i32.const 4529) "App failed\00")
+  (data (memory $strings) (i32.const 4540) "Code error\00")
+  (data (memory $strings) (i32.const 4551) "Bad arg\00")
+  (data (memory $strings) (i32.const 4559) "Generic error\00")
+  (data (memory $strings) (i32.const 4573) "Inner error\00")
+  (data (memory $strings) (i32.const 4585) "/hello.txt\00")
+  (data (memory $strings) (i32.const 4596) "Hello WASI VFS\00")
+  (data (memory $strings) (i32.const 4611) "/append.txt\00")
+  (data (memory $strings) (i32.const 4623) "Part1\00")
+  (data (memory $strings) (i32.const 4629) "Part2\00")
+  (data (memory $strings) (i32.const 4635) "/to_delete.txt\00")
+  (data (memory $strings) (i32.const 4650) "temp data\00")
+  (data (memory $strings) (i32.const 4660) "/app/data.txt\00")
+  (data (memory $strings) (i32.const 4674) "Config=42\00")
+  (data (memory $strings) (i32.const 4684) ";Active=true\00")
+  (data (memory $strings) (i32.const 4697) "/app/temp.log\00")
+  (data (memory $strings) (i32.const 4711) "12345\00")
+  (global $__heap_ptr (mut i32) (i32.const 0))
   ;; --- WebAssembly Function Type Signatures ---
   (type $t_sig_1 (func (param i32) (result i32)))
   (type $t_sig_2 (func (param i32 i32 i32)))
@@ -5570,6 +5576,126 @@
     i32.add
     i32.load offset=4
     i32.add
+    return
+  )
+  (func $testMultiMemoryHeapOps (export "testMultiMemoryHeapOps") (param $val i32) (result i32)
+    (local $heap i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__caught_exc i32)
+    i32.const 1
+    local.set $heap
+    i32.const 0
+    local.get $val
+    i32.store $heap
+    i32.const 4
+    local.get $val
+    i32.const 2
+    i32.mul
+    i32.store $heap
+    i32.const 0
+    i32.load $heap
+    i32.const 4
+    i32.load $heap
+    i32.add
+    return
+  )
+  (func $testMultiMemoryDoubleOps (export "testMultiMemoryDoubleOps") (param $val f64) (result f64)
+    (local $heap i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__caught_exc i32)
+    i32.const 1
+    local.set $heap
+    i32.const 16
+    local.get $val
+    f64.store $heap
+    i32.const 24
+    local.get $val
+    f64.const 3.0
+    f64.mul
+    f64.store $heap
+    i32.const 16
+    f64.load $heap
+    i32.const 24
+    f64.load $heap
+    f64.add
+    return
+  )
+  (func $testMultiMemoryCopyStringsToHeap (export "testMultiMemoryCopyStringsToHeap") (result i32)
+    (local $heap i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__caught_exc i32)
+    i32.const 1
+    local.set $heap
+    i32.const 100
+    i32.const 0
+    i32.const 5
+    memory.copy $heap $strings
+    i32.const 100
+    i32.load8_u $heap
+    return
+  )
+  (func $testMultiMemorySizeAndGrowth (export "testMultiMemorySizeAndGrowth") (result i32)
+    (local $heap i32)
+    (local $s1 i32)
+    (local $s2 i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__caught_exc i32)
+    i32.const 1
+    local.set $heap
+    memory.size $heap
+    local.set $s1
+    i32.const 1
+    memory.grow $heap
+    drop
+    memory.size $heap
+    local.set $s2
+    local.get $s2
+    local.get $s1
+    i32.sub
     return
   )
   ;; Record: Pair

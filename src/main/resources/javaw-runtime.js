@@ -92,8 +92,22 @@
             this.instance = instance;
         }
 
-        getMemory() {
-            return this.instance ? this.instance.exports.memory : null;
+        getMemory(name) {
+            if (!this.instance || !this.instance.exports) return null;
+            if (name && this.instance.exports[name]) return this.instance.exports[name];
+            return this.instance.exports.memory || this.instance.exports.strings || this.instance.exports.heap || null;
+        }
+
+        getHeapMemory() {
+            return this.getMemory('heap');
+        }
+
+        getStringsMemory() {
+            return this.getMemory('strings');
+        }
+
+        getStackMemory() {
+            return this.getMemory('stack');
         }
 
         getExportedFunction(name) {
@@ -109,8 +123,8 @@
             return null;
         }
 
-        readString(ptr, len) {
-            const memory = this.getMemory();
+        readString(ptr, len, memName) {
+            const memory = this.getMemory(memName || 'strings');
             if (!memory || len === 0) return '';
             const bytes = new Uint8Array(memory.buffer, ptr, len);
             return textDecoder.decode(bytes);

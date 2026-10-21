@@ -43,8 +43,12 @@ This roadmap organizes planned features by their utility and return on investmen
   - Lower `System.arraycopy(...)` and `Arrays.fill(...)` directly to WebAssembly `memory.copy` and `memory.fill` instructions for high-throughput block data transfers.
   - Implemented strongly-typed array utilities facade (`com.example.javaw.util.Arrays`) with `fill`, `copyOf`, `copyOfRange`, and `equals`.
   - Accelerated dynamic linear memory allocation (`$__heap_alloc`), dynamic string concatenation (`$__str_concat`), substring extraction (`$__str_substring`), and `StringBuilder` buffer expansions with block memory copies and fills.
-- [ ] **Multi-Memory Segregation & Isolation**
+- [x] **Multi-Memory Segregation & Isolation**
   - Leverage WebAssembly Multi-Memory proposal to segregate memory into discrete spaces: read-only static string pool (`$strings`), dynamic heap (`$heap`), and thread stack (`$stack`).
+  - Implemented strongly-typed WebAssembly memory facade (`com.example.javaw.memory.Memory`) supporting `Memory.HEAP`, `Memory.STRINGS`, `Memory.STACK`, `Memory.DEFAULT`, `Memory.of(name)`.
+  - Full AST lowering for memory operations: typed loads and stores (`loadI32`, `storeI32`, `loadI64`, `storeI64`, `loadF32`, `storeF32`, `loadF64`, `storeF64`, `loadI8`, `storeI8`, `loadI16`, `storeI16`), memory growth (`grow`), memory sizing (`size`), block filling (`fill`), and cross-memory bulk copying (`copy`, `copyFrom`).
+  - Updated assembler and optimizer flags (`wat2wasm --enable-multi-memory` and `wasm-opt --enable-multimemory`).
+  - Extended browser/Node JavaScript runtime bridge (`javaw-runtime.js`) with multi-memory accessors (`getMemory`, `getHeapMemory`, `getStringsMemory`, `getStackMemory`) and multiple memory string decoding.
 
 ---
 

@@ -29,8 +29,14 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
   - Strongly-typed array utility facade (`com.example.javaw.util.Arrays`) supporting `fill`, `copyOf`, `copyOfRange`, and `equals` for both `int[]` and `double[]`.
   - Accelerated dynamic heap zeroing (`$__heap_alloc`), dynamic string concatenation (`$__str_concat`), substring slicing (`$__str_substring`), and `StringBuilder` buffer expansion using zero-overhead memory copies.
 - **Binaryen Optimization Pipeline (`wasm-opt`)**:
-  - Integrates automated `wasm-opt -O3 --enable-simd --enable-threads --enable-exception-handling --enable-multivalue --enable-bulk-memory` optimization passes directly into the build pipeline for dead-code elimination, inlining, and binary size reduction.
+  - Integrates automated `wasm-opt -O3 --enable-multimemory --enable-simd --enable-threads --enable-exception-handling --enable-multivalue --enable-bulk-memory` optimization passes directly into the build pipeline for dead-code elimination, inlining, and binary size reduction.
   - Supports `--no-opt` / `-O0` flags to bypass optimization passes during development.
+- **WebAssembly Multi-Memory Segregation & Isolation (`Memory`)**:
+  - Leverages the WebAssembly Multi-Memory proposal to segregate memory into discrete spaces: read-only static string pool (`$strings`), dynamic heap allocation space (`$heap`), and execution thread stack (`$stack`).
+  - Strongly-typed `Memory` facade (`com.example.javaw.memory.Memory`) supporting `Memory.HEAP`, `Memory.STRINGS`, `Memory.STACK`, `Memory.DEFAULT`, and `Memory.of(name)`.
+  - Full AST lowering for memory instructions: typed loads and stores (`loadI32`, `storeI32`, `loadI64`, `storeI64`, `loadF32`, `storeF32`, `loadF64`, `storeF64`, `loadI8`, `storeI8`, `loadI16`, `storeI16`), memory sizing (`size()`), memory growth (`grow(pages)`), block filling (`fill`), and bulk copying across discrete memories (`copy`, `copyFrom`).
+  - Automatically configures toolchain flags (`wat2wasm --enable-multi-memory` and `wasm-opt --enable-multimemory`).
+  - JavaScript host runtime support in `javaw-runtime.js` (`getMemory`, `getHeapMemory`, `getStringsMemory`, `getStackMemory`) for multi-memory buffer access and UTF-8 string decoding across memories.
 - **Fixed-Width SIMD (`v128`) Vectorization Facades**:
   - Strongly typed 128-bit vector facades (`com.example.javaw.simd.Float32x4`, `Int32x4`, `Vector128`) mapping directly to native WebAssembly `v128` vector value types without heap allocation overhead.
   - Full support for vector math (`add`, `sub`, `mul`, `div`, `min`, `max`, `sqrt`, `abs`, `neg`), bitwise operations (`and`, `or`, `xor`, `not`, `shl`, `shr`), and scalar reductions (`dot`, `sum`).
@@ -157,6 +163,8 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
 │   │   │   │   ├── WebGLRenderingContext.java    # HTML5 WebGL graphics facade
 │   │   │   │   ├── Window.java        # Browser Window, timers & async fetch facade
 │   │   │   │   └── JSObject.java      # Generic dynamic JavaScript interop facade
+│   │   │   ├── memory
+│   │   │   │   └── Memory.java        # WebAssembly Multi-Memory segregation & operations facade
 │   │   │   ├── simd
 │   │   │   │   ├── Float32x4.java     # 128-bit float vector facade (f32x4)
 │   │   │   │   ├── Int32x4.java       # 128-bit integer vector facade (i32x4)
@@ -710,6 +718,39 @@ public class SimdDemo {
         // Store back to array in a single 128-bit operation (v128.store)
         shifted.store(data, 0);
         return shifted.sum();
+    }
+}
+```
+
+---
+
+#### Example O: WebAssembly Multi-Memory Segregation & Isolation (`Memory`)
+
+```java
+package com.example.javaw;
+
+import com.example.javaw.memory.Memory;
+
+public class MultiMemoryDemo {
+    public static int processIsolatedMemories(int baseValue) {
+        // Direct access to segregated linear memories
+        Memory heap = Memory.HEAP;
+        Memory strings = Memory.STRINGS;
+        
+        // Memory sizing and growth
+        int initialPages = heap.size();
+        heap.grow(1); // Grow heap memory dynamically
+        
+        // Store and load values in isolated heap space
+        heap.storeI32(0, baseValue);
+        heap.storeI32(4, baseValue * 2);
+        
+        // Bulk copy bytes across discrete memories (strings -> heap)
+        // Lowered to: memory.copy $heap $strings
+        Memory.copy(heap, 100, strings, 0, 16);
+        
+        int firstCopiedByte = heap.loadU8(100);
+        return heap.loadI32(0) + heap.loadI32(4) + firstCopiedByte;
     }
 }
 ```
