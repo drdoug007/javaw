@@ -954,3 +954,32 @@ class Rectangle extends Shape {
         return width * height;
     }
 }
+
+@com.example.javaw.js.JS.Export("JavaCounter")
+class ExportedCounter {
+    private int count;
+
+    public ExportedCounter(int initialCount) {
+        this.count = initialCount;
+    }
+
+    public void increment() {
+        this.count++;
+    }
+
+    public void add(int amount) {
+        this.count += amount;
+    }
+
+    public int getCount() {
+        return this.count;
+    }
+
+    public static int multiply(int a, int b) {
+        return a * b;
+    }
+
+    public String describe(String label) {
+        return label + ": " + this.count;
+    }
+}

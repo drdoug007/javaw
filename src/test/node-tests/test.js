@@ -326,7 +326,7 @@ async function runTest() {
             mockDoc.body.appendChild(glEl);
 
             const wasmBytes = fs.readFileSync(TESTCLASS_WASM);
-            const { instance, exports } = await instantiateJavaw(wasmBytes, {}, mockDoc);
+            const { instance, exports, runtime, classes } = await instantiateJavaw(wasmBytes, {}, mockDoc);
             assert.strictEqual(instance.exports.addNumbers(15, 27), 42);
             assert.ok(Math.abs(instance.exports.getPi() - 3.14159) < 0.0001);
             assert.strictEqual(instance.exports.calculateFactorial(5), 120);
@@ -670,6 +670,24 @@ async function runTest() {
                     assert.ok(jsonStr.includes('2026'), `testJsJsonImport expected '2026', got ${jsonStr}`);
 
                     console.log('✓ @JS.Import Global JavaScript Class & Object Binding (JSDate, JSMath, JSJSON) assertions passed.');
+                }
+
+                if ((runtime && runtime.classes && typeof runtime.classes.JavaCounter === 'function') || (typeof globalThis !== 'undefined' && typeof globalThis.JavaCounter === 'function')) {
+                    const CounterClass = (runtime && runtime.classes && runtime.classes.JavaCounter) || globalThis.JavaCounter;
+                    const counter = new CounterClass(10);
+                    assert.strictEqual(counter.getCount(), 10, 'Initial count should be 10');
+                    counter.increment();
+                    assert.strictEqual(counter.getCount(), 11, 'After increment count should be 11');
+                    counter.add(5);
+                    assert.strictEqual(counter.getCount(), 16, 'After add(5) count should be 16');
+
+                    const desc = counter.describe('Current');
+                    assert.strictEqual(desc, 'Current: 16', `describe() expected 'Current: 16', got '${desc}'`);
+
+                    const mult = CounterClass.multiply(6, 7);
+                    assert.strictEqual(mult, 42, `static multiply expected 42, got ${mult}`);
+
+                    console.log('✓ @JS.Export Java Class Exporting (JavaCounter constructor, prototype, instance/static methods) assertions passed.');
                 }
             }
 

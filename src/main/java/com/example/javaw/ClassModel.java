@@ -16,6 +16,7 @@ public class ClassModel {
     private final List<MethodModel> vtableSlots = new ArrayList<>();
     private int structSize = 8;
     private int vtableBase = 0;
+    private boolean isExported = false;
 
     public ClassModel(String name, String superClassName, boolean isInterface, int classId) {
         this.name = name;
@@ -101,6 +102,14 @@ public class ClassModel {
         this.vtableBase = vtableBase;
     }
 
+    public boolean isExported() {
+        return isExported;
+    }
+
+    public void setExported(boolean exported) {
+        this.isExported = exported;
+    }
+
     public boolean isOopClass() {
         boolean hasInstanceFields = false;
         for (FieldModel fm : fields.values()) {
@@ -109,6 +118,6 @@ public class ClassModel {
                 break;
             }
         }
-        return hasInstanceFields || !constructors.isEmpty() || superClassName != null;
+        return hasInstanceFields || !constructors.isEmpty() || superClassName != null || isExported;
     }
 }

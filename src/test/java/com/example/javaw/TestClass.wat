@@ -93,6 +93,7 @@
   (import "dom" "js_inline_TestClass_jsDoubleArray" (func $dom_js_inline_TestClass_jsDoubleArray (param i32) (result i32)))
   (import "dom" "js_inline_TestClass_jsJoinStrings" (func $dom_js_inline_TestClass_jsJoinStrings (param i32) (result i32)))
   (import "dom" "js_inline_TestClass_jsGetBookJson" (func $dom_js_inline_TestClass_jsGetBookJson (result i32)))
+  (@custom "javaw_js_exports" "[{\22className\22:\22ExportedCounter\22,\22exportName\22:\22JavaCounter\22,\22structSize\22:8,\22vtableBase\22:15,\22hasVtable\22:true,\22constructors\22:[{\22exportFunctionName\22:\22ExportedCounter__init\22,\22params\22:[{\22name\22:\22initialCount\22,\22javaType\22:\22int\22,\22wasmType\22:\22i32\22,\22coerced\22:false}]}],\22methods\22:[{\22methodName\22:\22increment\22,\22exportName\22:\22increment\22,\22wasmFunctionName\22:\22ExportedCounter_increment\22,\22returnType\22:\22void\22,\22returnWasmType\22:\22\22,\22isStatic\22:false,\22isCoerced\22:false,\22params\22:[]},{\22methodName\22:\22add\22,\22exportName\22:\22add\22,\22wasmFunctionName\22:\22ExportedCounter_add\22,\22returnType\22:\22void\22,\22returnWasmType\22:\22\22,\22isStatic\22:false,\22isCoerced\22:false,\22params\22:[{\22name\22:\22amount\22,\22javaType\22:\22int\22,\22wasmType\22:\22i32\22,\22coerced\22:false}]},{\22methodName\22:\22getCount\22,\22exportName\22:\22getCount\22,\22wasmFunctionName\22:\22ExportedCounter_getCount\22,\22returnType\22:\22int\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:false,\22isCoerced\22:false,\22params\22:[]},{\22methodName\22:\22multiply\22,\22exportName\22:\22multiply\22,\22wasmFunctionName\22:\22multiply\22,\22returnType\22:\22int\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22params\22:[{\22name\22:\22a\22,\22javaType\22:\22int\22,\22wasmType\22:\22i32\22,\22coerced\22:false},{\22name\22:\22b\22,\22javaType\22:\22int\22,\22wasmType\22:\22i32\22,\22coerced\22:false}]},{\22methodName\22:\22describe\22,\22exportName\22:\22describe\22,\22wasmFunctionName\22:\22ExportedCounter_describe\22,\22returnType\22:\22String\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:false,\22isCoerced\22:false,\22params\22:[{\22name\22:\22label\22,\22javaType\22:\22String\22,\22wasmType\22:\22i32\22,\22coerced\22:false}]}],\22fields\22:[]}]")
   ;; --- WASI Host Imports (wasi_snapshot_preview1) ---
   (import "wasi_snapshot_preview1" "fd_write" (func $__wasi_fd_write (param i32 i32 i32 i32) (result i32)))
   (import "wasi_snapshot_preview1" "fd_read" (func $__wasi_fd_read (param i32 i32 i32 i32) (result i32)))
@@ -197,13 +198,18 @@
   (data (memory $strings) (i32.const 5047) "42\00")
   (data (memory $strings) (i32.const 5050) "name\00")
   (data (memory $strings) (i32.const 5055) "version\00")
+  (data (memory $strings) (i32.const 5063) "JavaCounter\00")
+  (data (memory $strings) (i32.const 5075) ": \00")
   (global $__heap_ptr (mut i32) (i32.const 0))
   ;; --- WebAssembly Function Type Signatures ---
   (type $t_sig_1 (func (param i32) (result i32)))
   (type $t_sig_2 (func (param i32 i32 i32)))
+  (type $t_sig_3 (func (param i32)))
+  (type $t_sig_4 (func (param i32 i32)))
+  (type $t_sig_5 (func (param i32 i32) (result i32)))
   ;; --- WebAssembly Function Table (VTable) ---
-  (table (export "__vtable") 19 funcref)
-  (elem (i32.const 0) $Throwable_getMessage $Exception_getMessage $Exception_getMessage $CustomAppException_getCode $Point_getX $Point_getY $Point_setLocation $Point_distanceSq $Shape_getColor $Shape_area $Shape_getColor $Circle_area $Circle_getRadius $Shape_getColor $Rectangle_area $RuntimeException_getMessage $IllegalArgumentException_getMessage $IllegalStateException_getMessage $NullPointerException_getMessage)
+  (table (export "__vtable") 23 funcref)
+  (elem (i32.const 0) $Throwable_getMessage $Exception_getMessage $Exception_getMessage $CustomAppException_getCode $Point_getX $Point_getY $Point_setLocation $Point_distanceSq $Shape_getColor $Shape_area $Shape_getColor $Circle_area $Circle_getRadius $Shape_getColor $Rectangle_area $ExportedCounter_increment $ExportedCounter_add $ExportedCounter_getCount $ExportedCounter_describe $RuntimeException_getMessage $IllegalArgumentException_getMessage $IllegalStateException_getMessage $NullPointerException_getMessage)
   ;; --- Heap Allocation Functions ---
   (func $__heap_alloc (export "__heap_alloc") (param $size i32) (result i32)
     (local $ptr i32)
@@ -4131,7 +4137,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 15
+    i32.const 19
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 4493
@@ -4290,7 +4296,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 16
+    i32.const 20
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 4551
@@ -4353,7 +4359,7 @@
           local.set $__vtable_tmp
           i32.const 0
           local.get $__vtable_tmp
-          i32.const 16
+          i32.const 20
           i32.eq
           i32.or
         end
@@ -4403,7 +4409,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 15
+    i32.const 19
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 4573
@@ -6687,6 +6693,131 @@
     local.get $this
     i32.load offset=12
     i32.mul
+    return
+  )
+  ;; Class/Interface: ExportedCounter
+  (func $ExportedCounter__init (export "ExportedCounter__init") (param $this i32) (param $initialCount i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__caught_exc i32)
+    local.get $this
+    local.get $initialCount
+    i32.store offset=4
+  )
+  (func $ExportedCounter_increment (export "ExportedCounter_increment") (param $this i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__caught_exc i32)
+    local.get $this
+    local.set $__obj_tmp
+    local.get $__obj_tmp
+    local.get $__obj_tmp
+    i32.load offset=4
+    i32.const 1
+    i32.add
+    i32.store offset=4
+  )
+  (func $ExportedCounter_add (export "ExportedCounter_add") (param $this i32) (param $amount i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__caught_exc i32)
+    local.get $this
+    local.set $__obj_tmp
+    local.get $__obj_tmp
+    local.get $__obj_tmp
+    i32.load offset=4
+    local.get $amount
+    i32.add
+    i32.store offset=4
+  )
+  (func $ExportedCounter_getCount (export "ExportedCounter_getCount") (param $this i32) (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__caught_exc i32)
+    local.get $this
+    i32.load offset=4
+    return
+  )
+  (func $multiply (export "multiply") (param $a i32) (param $b i32) (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__caught_exc i32)
+    local.get $a
+    local.get $b
+    i32.mul
+    return
+  )
+  (func $ExportedCounter_describe (export "ExportedCounter_describe") (param $this i32) (param $label i32) (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__caught_exc i32)
+    local.get $label
+    i32.const 5075
+    call $__str_concat
+    local.get $this
+    i32.load offset=4
+    call $__str_from_i32
+    call $__str_concat
     return
   )
 )

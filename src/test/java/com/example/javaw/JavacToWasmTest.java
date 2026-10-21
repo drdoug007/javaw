@@ -1069,4 +1069,44 @@ public class JavacToWasmTest {
         org.junit.jupiter.api.Assertions.assertEquals("return new Date(ms);", snippets.get("js_inline_CustomDate_create").getJsCode());
         org.junit.jupiter.api.Assertions.assertEquals("return this.getTime();", snippets.get("js_inline_CustomDate_getTime").getJsCode());
     }
+
+    @Test
+    public void testJsExportAnnotationAndMetadata() {
+        String javaSource = "package com.example.javaw;\n" +
+                "import com.example.javaw.js.JS;\n" +
+                "@JS.Export(\"Calculator\")\n" +
+                "public class ExportedCalculator {\n" +
+                "    private int base;\n" +
+                "    public ExportedCalculator(int base) {\n" +
+                "        this.base = base;\n" +
+                "    }\n" +
+                "    public int add(int x) {\n" +
+                "        return this.base + x;\n" +
+                "    }\n" +
+                "    public static int multiply(int a, int b) {\n" +
+                "        return a * b;\n" +
+                "    }\n" +
+                "    public String format(String prefix) {\n" +
+                "        return prefix + \": \" + this.base;\n" +
+                "    }\n" +
+                "}\n";
+
+        CompilationUnit cu = StaticJavaParser.parse(javaSource);
+        String wat = JavacToWasm.generateWat(cu);
+
+        assertTrue(wat.contains("(@custom \"javaw_js_exports\""));
+        assertTrue(wat.contains("(func $ExportedCalculator__init (export \"ExportedCalculator__init\") (param $this i32) (param $base i32)"));
+        assertTrue(wat.contains("(func $ExportedCalculator_add (export \"ExportedCalculator_add\") (param $this i32) (param $x i32) (result i32)"));
+        assertTrue(wat.contains("(func $multiply (export \"multiply\") (param $a i32) (param $b i32) (result i32)"));
+
+        JavacToWasm.CompilationResult result = JavacToWasm.compile("ExportedCalculator.java", javaSource, true);
+        org.junit.jupiter.api.Assertions.assertNotNull(result.getJsExports());
+        var exports = result.getJsExports();
+        org.junit.jupiter.api.Assertions.assertTrue(exports.containsKey("Calculator"));
+        var calcExport = exports.get("Calculator");
+        org.junit.jupiter.api.Assertions.assertEquals("ExportedCalculator", calcExport.getClassName());
+        org.junit.jupiter.api.Assertions.assertEquals("Calculator", calcExport.getExportName());
+        org.junit.jupiter.api.Assertions.assertEquals(1, calcExport.getConstructors().size());
+        org.junit.jupiter.api.Assertions.assertEquals(3, calcExport.getMethods().size());
+    }
 }

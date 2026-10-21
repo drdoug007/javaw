@@ -918,19 +918,79 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 if (u.getExpression().isNameExpr()) {
                     String var = u.getExpression().asNameExpr().getNameAsString();
                     boolean isGlobal = globalVars != null && globalVars.containsKey(var) && !localTypes.containsKey(var);
-                    collector.append(isGlobal ? "    global.get $" : "    local.get $").append(var).append("\n");
-                    collector.append("    i32.const 1\n");
-                    collector.append("    i32.add\n");
-                    collector.append(isGlobal ? "    global.set $" : "    local.set $").append(var).append("\n");
+                    FieldModel fm = (currentClass != null && !localTypes.containsKey(var)) ? currentClass.getField(var) : null;
+                    if (fm != null && !fm.isStatic()) {
+                        collector.append("    local.get $this\n");
+                        collector.append("    local.get $this\n");
+                        collector.append("    ").append(fm.getWasmType()).append(".load offset=").append(fm.getOffset()).append("\n");
+                        collector.append("    i32.const 1\n");
+                        collector.append("    i32.add\n");
+                        collector.append("    ").append(fm.getWasmType()).append(".store offset=").append(fm.getOffset()).append("\n");
+                    } else {
+                        collector.append(isGlobal ? "    global.get $" : "    local.get $").append(var).append("\n");
+                        collector.append("    i32.const 1\n");
+                        collector.append("    i32.add\n");
+                        collector.append(isGlobal ? "    global.set $" : "    local.set $").append(var).append("\n");
+                    }
+                } else if (u.getExpression().isFieldAccessExpr()) {
+                    FieldAccessExpr fae = u.getExpression().asFieldAccessExpr();
+                    String fName = fae.getNameAsString();
+                    String targetType = getExpressionJavaType(fae.getScope(), localJavaTypes);
+                    FieldModel fm = null;
+                    if (targetType != null && classRegistry != null && classRegistry.hasClass(targetType)) {
+                        fm = classRegistry.getClass(targetType).getField(fName);
+                    } else if (currentClass != null && currentClass.getField(fName) != null) {
+                        fm = currentClass.getField(fName);
+                    }
+                    if (fm != null && !fm.isStatic()) {
+                        translateExpression(fae.getScope(), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                        collector.append("    local.set $__obj_tmp\n");
+                        collector.append("    local.get $__obj_tmp\n");
+                        collector.append("    local.get $__obj_tmp\n");
+                        collector.append("    ").append(fm.getWasmType()).append(".load offset=").append(fm.getOffset()).append("\n");
+                        collector.append("    i32.const 1\n");
+                        collector.append("    i32.add\n");
+                        collector.append("    ").append(fm.getWasmType()).append(".store offset=").append(fm.getOffset()).append("\n");
+                    }
                 }
             } else if (u.getOperator() == UnaryExpr.Operator.POSTFIX_DECREMENT || u.getOperator() == UnaryExpr.Operator.PREFIX_DECREMENT) {
                 if (u.getExpression().isNameExpr()) {
                     String var = u.getExpression().asNameExpr().getNameAsString();
                     boolean isGlobal = globalVars != null && globalVars.containsKey(var) && !localTypes.containsKey(var);
-                    collector.append(isGlobal ? "    global.get $" : "    local.get $").append(var).append("\n");
-                    collector.append("    i32.const 1\n");
-                    collector.append("    i32.sub\n");
-                    collector.append(isGlobal ? "    global.set $" : "    local.set $").append(var).append("\n");
+                    FieldModel fm = (currentClass != null && !localTypes.containsKey(var)) ? currentClass.getField(var) : null;
+                    if (fm != null && !fm.isStatic()) {
+                        collector.append("    local.get $this\n");
+                        collector.append("    local.get $this\n");
+                        collector.append("    ").append(fm.getWasmType()).append(".load offset=").append(fm.getOffset()).append("\n");
+                        collector.append("    i32.const 1\n");
+                        collector.append("    i32.sub\n");
+                        collector.append("    ").append(fm.getWasmType()).append(".store offset=").append(fm.getOffset()).append("\n");
+                    } else {
+                        collector.append(isGlobal ? "    global.get $" : "    local.get $").append(var).append("\n");
+                        collector.append("    i32.const 1\n");
+                        collector.append("    i32.sub\n");
+                        collector.append(isGlobal ? "    global.set $" : "    local.set $").append(var).append("\n");
+                    }
+                } else if (u.getExpression().isFieldAccessExpr()) {
+                    FieldAccessExpr fae = u.getExpression().asFieldAccessExpr();
+                    String fName = fae.getNameAsString();
+                    String targetType = getExpressionJavaType(fae.getScope(), localJavaTypes);
+                    FieldModel fm = null;
+                    if (targetType != null && classRegistry != null && classRegistry.hasClass(targetType)) {
+                        fm = classRegistry.getClass(targetType).getField(fName);
+                    } else if (currentClass != null && currentClass.getField(fName) != null) {
+                        fm = currentClass.getField(fName);
+                    }
+                    if (fm != null && !fm.isStatic()) {
+                        translateExpression(fae.getScope(), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                        collector.append("    local.set $__obj_tmp\n");
+                        collector.append("    local.get $__obj_tmp\n");
+                        collector.append("    local.get $__obj_tmp\n");
+                        collector.append("    ").append(fm.getWasmType()).append(".load offset=").append(fm.getOffset()).append("\n");
+                        collector.append("    i32.const 1\n");
+                        collector.append("    i32.sub\n");
+                        collector.append("    ").append(fm.getWasmType()).append(".store offset=").append(fm.getOffset()).append("\n");
+                    }
                 }
             } else {
                 translateExpression(u.getExpression(), collector, localTypes, localElementTypes, localJavaTypes, expectedType);

@@ -268,6 +268,8 @@ public class JavacToWasm {
         StringBuilder watOutput = new StringBuilder();
         watOutput.append("(module\n");
 
+        ClassRegistry classRegistry = ClassRegistry.build(cu);
+
         if (sourceMapGen != null && sourceMapGen.getFile() != null && !sourceMapGen.getFile().isEmpty()) {
             String mapUrl = sourceMapGen.getFile().endsWith(".wasm") ?
                     sourceMapGen.getFile() + ".map" :
@@ -289,6 +291,14 @@ public class JavacToWasm {
             for (JsSnippetModel snippet : jsSnippets.values()) {
                 watOutput.append("  ").append(snippet.getWasmImportSignature()).append("\n");
             }
+        }
+
+        Map<String, com.example.javaw.js.JsExportModel> jsExports = JsAnnotationHelper.collectJsExports(cu, classRegistry);
+        if (!jsExports.isEmpty()) {
+            String exportsJson = JsAnnotationHelper.exportsToJson(jsExports);
+            watOutput.append("  (@custom \"javaw_js_exports\" \"")
+                    .append(SourceMapGenerator.escapeRawCustomSectionPayload(exportsJson))
+                    .append("\")\n");
         }
 
         Set<String> wasiImports = WasiHelper.collectWasiImports(cu);
@@ -346,7 +356,6 @@ public class JavacToWasm {
         }
         watOutput.append("  (global $__heap_ptr (mut i32) (i32.const ").append(heapStart).append("))\n");
 
-        ClassRegistry classRegistry = ClassRegistry.build(cu);
         classRegistry.emitTypeSignaturesAndTable(watOutput);
 
         int trueOffset = stringPool.containsKey("true") ? stringPool.get("true").offset : 0;
@@ -377,7 +386,9 @@ public class JavacToWasm {
         String wat = generateWat(cu, sourceMapGen, fileName);
         byte[] wasm = assembleWasm(wat, optimize);
         Map<String, JsSnippetModel> jsSnippets = JsAnnotationHelper.collectJsSnippets(cu);
-        return new CompilationResult(wat, wasm, sourceMapGen, jsSnippets);
+        ClassRegistry classRegistry = ClassRegistry.build(cu);
+        Map<String, com.example.javaw.js.JsExportModel> jsExports = JsAnnotationHelper.collectJsExports(cu, classRegistry);
+        return new CompilationResult(wat, wasm, sourceMapGen, jsSnippets, jsExports);
     }
 
     public static byte[] assembleWasm(String watContent, boolean optimize) {
@@ -417,20 +428,28 @@ public class JavacToWasm {
         private final byte[] wasm;
         private final SourceMapGenerator sourceMapGenerator;
         private final Map<String, JsSnippetModel> jsSnippets;
+        private final Map<String, com.example.javaw.js.JsExportModel> jsExports;
 
         public CompilationResult(String wat, byte[] wasm) {
-            this(wat, wasm, null, java.util.Collections.emptyMap());
+            this(wat, wasm, null, java.util.Collections.emptyMap(), java.util.Collections.emptyMap());
         }
 
         public CompilationResult(String wat, byte[] wasm, SourceMapGenerator sourceMapGenerator) {
-            this(wat, wasm, sourceMapGenerator, java.util.Collections.emptyMap());
+            this(wat, wasm, sourceMapGenerator, java.util.Collections.emptyMap(), java.util.Collections.emptyMap());
         }
 
         public CompilationResult(String wat, byte[] wasm, SourceMapGenerator sourceMapGenerator, Map<String, JsSnippetModel> jsSnippets) {
+            this(wat, wasm, sourceMapGenerator, jsSnippets, java.util.Collections.emptyMap());
+        }
+
+        public CompilationResult(String wat, byte[] wasm, SourceMapGenerator sourceMapGenerator,
+                                 Map<String, JsSnippetModel> jsSnippets,
+                                 Map<String, com.example.javaw.js.JsExportModel> jsExports) {
             this.wat = wat;
             this.wasm = wasm;
             this.sourceMapGenerator = sourceMapGenerator;
             this.jsSnippets = jsSnippets != null ? jsSnippets : java.util.Collections.emptyMap();
+            this.jsExports = jsExports != null ? jsExports : java.util.Collections.emptyMap();
         }
 
         public String getWat() {
@@ -468,6 +487,14 @@ public class JavacToWasm {
 
         public String getJsSnippetsJson() {
             return JsAnnotationHelper.snippetsToJson(jsSnippets);
+        }
+
+        public Map<String, com.example.javaw.js.JsExportModel> getJsExports() {
+            return jsExports;
+        }
+
+        public String getJsExportsJson() {
+            return JsAnnotationHelper.exportsToJson(jsExports);
         }
     }
 

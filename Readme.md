@@ -14,6 +14,11 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
 
 ## Features
 
+- **Exporting Java Classes to JavaScript Scope (`@JS.Export`)**:
+  - Annotate Java classes with `@JS.Export` (or `@JS.Export("CustomName")`) to expose them directly to JavaScript environments (`globalThis.MyJavaClass = ...`), allowing JavaScript code to instantiate Java classes natively using `new MyJavaClass(...)`.
+  - Automatically synthesizes class metadata, constructor signatures, vtable bases, and method definitions into WebAssembly custom section `javaw_js_exports`.
+  - The runtime bridge (`javaw-runtime.js`) dynamically constructs JavaScript constructor functions and prototypes that allocate linear memory with `$__heap_alloc`, initialize object headers and vtables, and marshal arguments and return values across the WASM-JS runtime boundary.
+  - Supports instance methods (`this`), static methods, overloaded constructors, primitive/string/array parameters, object handles, and field modifications.
 - **`@JS` Inline JavaScript Annotations & Host Code Generation**:
   - Allows Java methods (declared `native`) to define inline JavaScript logic directly using `@JS("return Math.hypot(a, b);")`, `@JS("console.log(message);")`, or `@JS("return 'Hello ' + name;")`.
   - Automatic type marshalling and coercion via `@JS.Coerce` for Java primitives, strings, and arrays (`int[]`, `double[]`, `String[]` &harr; JavaScript `Array`) and automatic JSON serialization for JavaScript objects.
@@ -199,6 +204,7 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
 │   │   │   │   ├── JSConsole.java         # Standard JavaScript console facade (@JS.Import)
 │   │   │   │   ├── JSStorage.java         # Standard JavaScript Web Storage facade (@JS.Import)
 │   │   │   │   ├── JsSnippetModel.java    # Model for extracted @JS inline JavaScript snippets
+│   │   │   │   ├── JsExportModel.java     # Model for exported Java classes (@JS.Export)
 │   │   │   │   └── JsAnnotationHelper.java # AST visitor and annotation discovery helper
 │   │   │   ├── memory
 │   │   │   │   └── Memory.java        # WebAssembly Multi-Memory segregation & operations facade
@@ -1014,6 +1020,67 @@ public class JsImportDemo {
         JSConsole.log("Application started successfully in year " + year);
     }
 }
+```
+
+---
+
+#### Example T: Exporting Java Classes to JavaScript Scope (`@JS.Export`)
+
+Annotate Java classes with `@JS.Export` to allow JavaScript code to instantiate Java classes natively, pass arguments to constructors, and invoke instance or static methods:
+
+```java
+package com.example.javaw;
+
+import com.example.javaw.js.JS;
+
+@JS.Export("Counter")
+public class ExportedCounter {
+    private int count;
+
+    public ExportedCounter() {
+        this.count = 0;
+    }
+
+    public ExportedCounter(int initial) {
+        this.count = initial;
+    }
+
+    public int getCount() {
+        return this.count;
+    }
+
+    public int increment() {
+        this.count++;
+        return this.count;
+    }
+
+    public int add(int delta) {
+        this.count += delta;
+        return this.count;
+    }
+
+    public String format(String prefix) {
+        return prefix + ": " + this.count;
+    }
+
+    public static int multiply(int a, int b) {
+        return a * b;
+    }
+}
+```
+
+In JavaScript, once instantiated with `javaw-runtime.js`, `Counter` is available globally or on `runtime.classes`:
+
+```javascript
+// Instantiating Java class directly in JavaScript
+const counter = new Counter(10);
+console.log(counter.getCount());      // 10
+console.log(counter.increment());     // 11
+console.log(counter.add(5));          // 16
+console.log(counter.format("Score")); // "Score: 16"
+
+// Calling exported static methods
+console.log(Counter.multiply(6, 7));  // 42
 ```
 
 ---

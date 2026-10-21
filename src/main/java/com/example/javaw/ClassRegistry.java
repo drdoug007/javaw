@@ -35,6 +35,9 @@ public class ClassRegistry {
                 superClassName = cd.getExtendedTypes(0).getNameAsString();
             }
             ClassModel cm = new ClassModel(className, superClassName, cd.isInterface(), classIdCounter++);
+            if (com.example.javaw.js.JsAnnotationHelper.getClassExportAnnotation(cd).isPresent()) {
+                cm.setExported(true);
+            }
             classes.put(className, cm);
 
             // Collect static and instance fields

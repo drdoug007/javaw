@@ -18,6 +18,8 @@
             this.fds = new Map();
             this.nextFd = 3;
             this.inlineJsFunctions = new Map();
+            this.exportedClasses = new Map();
+            this.classes = {};
         }
 
         registerInlineJs(snippets) {
@@ -291,6 +293,206 @@
             } catch (e) {
                 console.warn('Error reading custom section javaw_js_snippets:', e);
             }
+
+            try {
+                const exportSections = WebAssembly.Module.customSections(module, 'javaw_js_exports');
+                if (exportSections && exportSections.length > 0) {
+                    for (const sec of exportSections) {
+                        const uint8 = new Uint8Array(sec);
+                        let jsonStr = textDecoder.decode(uint8);
+                        const firstChar = jsonStr.indexOf('[');
+                        if (firstChar >= 0) {
+                            jsonStr = jsonStr.substring(firstChar);
+                        }
+                        this.registerExportedClasses(jsonStr);
+                    }
+                }
+            } catch (e) {
+                console.warn('Error reading custom section javaw_js_exports:', e);
+            }
+        }
+
+        registerExportedClasses(exportsData) {
+            if (!exportsData) return;
+            let list = exportsData;
+            if (typeof exportsData === 'string') {
+                try {
+                    list = JSON.parse(exportsData);
+                } catch (e) {
+                    console.error('Failed to parse javaw_js_exports JSON:', e);
+                    return;
+                }
+            }
+            if (!Array.isArray(list)) list = [list];
+            for (const item of list) {
+                if (item && item.className) {
+                    this.exportedClasses.set(item.exportName || item.className, item);
+                }
+            }
+            if (this.instance) {
+                this.bindExportedClasses();
+            }
+        }
+
+        bindExportedClasses() {
+            if (!this.instance) return;
+            const runtime = this;
+            const memory = this.getMemory();
+
+            for (const [exportName, def] of this.exportedClasses.entries()) {
+                const className = def.className;
+                const structSize = def.structSize || 8;
+                const vtableBase = def.vtableBase || 0;
+                const hasVtable = Boolean(def.hasVtable);
+                const constructors = def.constructors || [];
+                const methods = def.methods || [];
+                const fields = def.fields || [];
+
+                function JavaExportedClass(...args) {
+                    if (!(this instanceof JavaExportedClass)) {
+                        return new JavaExportedClass(...args);
+                    }
+
+                    if (args.length === 2 && args[0] === '__RAW_PTR__') {
+                        this.__ptr = args[1];
+                        runtime.getOrCreateHandle(this);
+                        return;
+                    }
+
+                    let matchedCons = null;
+                    for (const cons of constructors) {
+                        if (cons.params.length === args.length) {
+                            matchedCons = cons;
+                            break;
+                        }
+                    }
+                    if (!matchedCons && constructors.length > 0) {
+                        matchedCons = constructors[0];
+                    }
+
+                    const allocFn = runtime.instance.exports.__heap_alloc;
+                    if (!allocFn) {
+                        throw new Error('WebAssembly module missing __heap_alloc export for Java class instantiation.');
+                    }
+
+                    const ptr = allocFn(structSize);
+                    if (hasVtable && memory && memory.buffer) {
+                        new DataView(memory.buffer).setInt32(ptr, vtableBase, true);
+                    }
+
+                    this.__ptr = ptr;
+                    runtime.getOrCreateHandle(this);
+
+                    if (matchedCons) {
+                        const initFnName = matchedCons.exportFunctionName;
+                        const initFn = runtime.instance.exports[initFnName] ||
+                                       runtime.instance.exports[className + '__init'] ||
+                                       runtime.instance.exports[className + '_init'];
+                        if (initFn) {
+                            const marshaledArgs = [];
+                            for (let i = 0; i < matchedCons.params.length; i++) {
+                                const p = matchedCons.params[i];
+                                const rawArg = args[i];
+                                marshaledArgs.push(runtime._marshalArgument(rawArg, p));
+                            }
+                            initFn(ptr, ...marshaledArgs);
+                        }
+                    }
+                }
+
+                JavaExportedClass.__className = className;
+                JavaExportedClass.__exportName = exportName;
+                JavaExportedClass.__structSize = structSize;
+
+                // Attach methods
+                for (const m of methods) {
+                    const methodName = m.exportName || m.methodName;
+                    const wasmFnName = m.wasmFunctionName || (m.isStatic ? m.methodName : className + '_' + m.methodName);
+                    const wasmFn = runtime.instance.exports[wasmFnName] ||
+                                   runtime.instance.exports[className + '_' + m.methodName] ||
+                                   runtime.instance.exports[m.methodName];
+
+                    if (!wasmFn) continue;
+
+                    if (m.isStatic) {
+                        JavaExportedClass[methodName] = function (...args) {
+                            const marshaledArgs = [];
+                            for (let i = 0; i < m.params.length; i++) {
+                                const p = m.params[i];
+                                marshaledArgs.push(runtime._marshalArgument(args[i], p));
+                            }
+                            const res = wasmFn(...marshaledArgs);
+                            return runtime._unmarshalResult(res, m);
+                        };
+                    } else {
+                        JavaExportedClass.prototype[methodName] = function (...args) {
+                            const marshaledArgs = [];
+                            for (let i = 0; i < m.params.length; i++) {
+                                const p = m.params[i];
+                                marshaledArgs.push(runtime._marshalArgument(args[i], p));
+                            }
+                            const res = wasmFn(this.__ptr, ...marshaledArgs);
+                            return runtime._unmarshalResult(res, m);
+                        };
+                    }
+                }
+
+                // Register class globally and on runtime
+                runtime.classes[exportName] = JavaExportedClass;
+                if (typeof globalThis !== 'undefined') globalThis[exportName] = JavaExportedClass;
+                if (typeof window !== 'undefined') window[exportName] = JavaExportedClass;
+                if (typeof global !== 'undefined') global[exportName] = JavaExportedClass;
+            }
+        }
+
+        _marshalArgument(val, paramDef) {
+            if (!paramDef) return typeof val === 'number' ? val : 0;
+            const pType = paramDef.javaType;
+            if (pType === 'String' || pType === 'java.lang.String') {
+                return this.writeString(val != null ? String(val) : '');
+            } else if (pType === 'boolean') {
+                return val ? 1 : 0;
+            } else if (pType === 'int[]' || pType === 'int') {
+                if (Array.isArray(val)) return this.writeIntArray(val);
+                return typeof val === 'number' ? (val | 0) : 0;
+            } else if (pType === 'double[]' || pType === 'double' || pType === 'float') {
+                if (Array.isArray(val)) return this.writeDoubleArray(val);
+                return typeof val === 'number' ? val : 0;
+            } else if (pType === 'String[]' || pType === 'java.lang.String[]') {
+                if (Array.isArray(val)) return this.writeStringArray(val);
+                return 0;
+            } else if (val && typeof val === 'object' && val.__ptr) {
+                return val.__ptr;
+            } else if (val && typeof val === 'object') {
+                return this.getOrCreateHandle(val);
+            }
+            return typeof val === 'number' ? val : 0;
+        }
+
+        _unmarshalResult(res, methodDef) {
+            if (!methodDef) return res;
+            const retType = methodDef.returnType;
+            if (retType === 'void') {
+                return undefined;
+            } else if (retType === 'String' || retType === 'java.lang.String') {
+                return this.readWasmStringFromPtr(res);
+            } else if (retType === 'boolean') {
+                return Boolean(res);
+            } else if (retType === 'int[]') {
+                return this.readIntArray(res);
+            } else if (retType === 'double[]') {
+                return this.readDoubleArray(res);
+            } else if (retType === 'String[]' || retType === 'java.lang.String[]') {
+                return this.readStringArray(res);
+            } else if (this.exportedClasses.has(retType)) {
+                const cls = this.classes[retType];
+                if (cls && res > 0) {
+                    const inst = new cls('__RAW_PTR__', res);
+                    return inst;
+                }
+                return res;
+            }
+            return res;
         }
 
         normalizePath(p) {
@@ -364,6 +566,7 @@
 
         setInstance(instance) {
             this.instance = instance;
+            this.bindExportedClasses();
         }
 
         getMemory(name) {
@@ -2002,7 +2205,8 @@
             instance,
             runtime,
             module,
-            exports: instance.exports
+            exports: instance.exports,
+            classes: runtime.classes
         };
     }
 

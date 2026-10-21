@@ -11,6 +11,7 @@ import com.github.javaparser.ast.expr.NormalAnnotationExpr;
 import com.github.javaparser.ast.expr.SingleMemberAnnotationExpr;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -325,6 +326,146 @@ public class JsAnnotationHelper {
         for (JsSnippetModel snippet : snippets.values()) {
             if (count > 0) sb.append(",");
             sb.append(snippet.toJson());
+            count++;
+        }
+        sb.append("]");
+        return sb.toString();
+    }
+
+    public static Optional<AnnotationExpr> getClassExportAnnotation(ClassOrInterfaceDeclaration cid) {
+        if (cid == null) return Optional.empty();
+        for (AnnotationExpr a : cid.getAnnotations()) {
+            String name = a.getNameAsString();
+            if (name.equals("Export") || name.equals("JS.Export") || name.endsWith(".Export")) {
+                return Optional.of(a);
+            }
+        }
+        return Optional.empty();
+    }
+
+    public static Optional<AnnotationExpr> getMethodExportAnnotation(MethodDeclaration md) {
+        if (md == null) return Optional.empty();
+        for (AnnotationExpr a : md.getAnnotations()) {
+            String name = a.getNameAsString();
+            if (name.equals("Export") || name.equals("JS.Export") || name.endsWith(".Export")) {
+                return Optional.of(a);
+            }
+        }
+        return Optional.empty();
+    }
+
+    public static Map<String, JsExportModel> collectJsExports(CompilationUnit cu, com.example.javaw.ClassRegistry classRegistry) {
+        Map<String, JsExportModel> exports = new LinkedHashMap<>();
+        if (cu == null) return exports;
+        List<ClassOrInterfaceDeclaration> classes = cu.findAll(ClassOrInterfaceDeclaration.class);
+
+        for (ClassOrInterfaceDeclaration cid : classes) {
+            Optional<AnnotationExpr> exportAnnoOpt = getClassExportAnnotation(cid);
+            if (!exportAnnoOpt.isPresent()) continue;
+
+            String className = cid.getNameAsString();
+            String exportName = extractAnnotationValue(exportAnnoOpt.get());
+            if (exportName == null || exportName.trim().isEmpty()) {
+                exportName = className;
+            }
+
+            com.example.javaw.ClassModel cm = classRegistry != null ? classRegistry.getClass(className) : null;
+            int structSize = cm != null ? cm.getStructSize() : 8;
+            int vtableBase = cm != null ? cm.getVtableBase() : 0;
+            boolean hasVtable = cm != null && !cm.getVtableSlots().isEmpty();
+
+            JsExportModel exportModel = new JsExportModel(className, exportName, structSize, vtableBase, hasVtable);
+            boolean isClassCoerced = hasCoerceAnnotation(cid);
+
+            // Collect constructors
+            if (cid.getConstructors().isEmpty()) {
+                String initFunc = className + "__init";
+                exportModel.addConstructor(initFunc, Collections.emptyList());
+            } else {
+                int consIdx = 0;
+                for (com.github.javaparser.ast.body.ConstructorDeclaration cd : cid.getConstructors()) {
+                    String initFunc = className + "__init" + (consIdx == 0 ? "" : "_" + consIdx);
+                    List<JsSnippetModel.JsParam> params = new ArrayList<>();
+                    for (Parameter p : cd.getParameters()) {
+                        String pName = p.getNameAsString();
+                        String pJavaType = p.getType().asString();
+                        String pWasmType = TypeMapper.mapType(p.getType());
+                        if (pWasmType == null) pWasmType = "i32";
+                        boolean coerced = hasCoerceAnnotation(p) || isClassCoerced;
+                        params.add(new JsSnippetModel.JsParam(pName, pJavaType, pWasmType, coerced));
+                    }
+                    exportModel.addConstructor(initFunc, params);
+                    consIdx++;
+                }
+            }
+
+            // Collect methods
+            for (MethodDeclaration md : cid.getMethods()) {
+                if (md.isPrivate()) continue;
+                String methodName = md.getNameAsString();
+                Optional<AnnotationExpr> methodExportOpt = getMethodExportAnnotation(md);
+                String methodExportName = methodName;
+                if (methodExportOpt.isPresent()) {
+                    String customName = extractAnnotationValue(methodExportOpt.get());
+                    if (customName != null && !customName.trim().isEmpty()) {
+                        methodExportName = customName;
+                    }
+                }
+
+                boolean isStatic = md.isStatic();
+                String wasmFuncName;
+                if (isStatic) {
+                    wasmFuncName = methodName;
+                } else {
+                    wasmFuncName = className + "_" + methodName;
+                }
+
+                String returnJavaType = md.getType().asString();
+                String returnWasmType = TypeMapper.mapType(md.getType());
+                boolean isMethodCoerced = isClassCoerced || hasCoerceAnnotation(md);
+
+                List<JsSnippetModel.JsParam> params = new ArrayList<>();
+                for (Parameter p : md.getParameters()) {
+                    String pName = p.getNameAsString();
+                    String pJavaType = p.getType().asString();
+                    String pWasmType = TypeMapper.mapType(p.getType());
+                    if (pWasmType == null) pWasmType = "i32";
+                    boolean coerced = isMethodCoerced || hasCoerceAnnotation(p);
+                    params.add(new JsSnippetModel.JsParam(pName, pJavaType, pWasmType, coerced));
+                }
+
+                exportModel.addMethod(methodName, methodExportName, wasmFuncName, returnJavaType, returnWasmType, isStatic, isMethodCoerced, params);
+            }
+
+            // Collect fields
+            for (com.github.javaparser.ast.body.FieldDeclaration fd : cid.getFields()) {
+                if (fd.isPrivate()) continue;
+                boolean isStatic = fd.isStatic();
+                for (com.github.javaparser.ast.body.VariableDeclarator vd : fd.getVariables()) {
+                    String fName = vd.getNameAsString();
+                    String fJavaType = vd.getType().asString();
+                    String fWasmType = TypeMapper.mapType(vd.getType());
+                    if (fWasmType == null) fWasmType = "i32";
+                    com.example.javaw.FieldModel fm = cm != null ? cm.getFields().get(fName) : null;
+                    int offset = fm != null ? fm.getOffset() : 0;
+                    int size = fm != null ? fm.getSize() : 4;
+                    exportModel.addField(fName, fJavaType, fWasmType, offset, size, isStatic);
+                }
+            }
+
+            exports.put(exportName, exportModel);
+        }
+
+        return exports;
+    }
+
+    public static String exportsToJson(Map<String, JsExportModel> exports) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("[");
+        int count = 0;
+        for (JsExportModel exp : exports.values()) {
+            if (count > 0) sb.append(",");
+            sb.append(exp.toJson());
             count++;
         }
         sb.append("]");

@@ -168,8 +168,11 @@ This roadmap organizes planned features by their utility and return on investmen
   - Implemented automatic snippet synthesizer for static and instance methods in `@JS.Import` classes with constructor instantiations (`new Date(...)`), direct method calls (`Math.hypot(...)`), and instance invocations (`this.getTime()`).
   - Added built-in standard facades `com.example.javaw.js.JSDate`, `JSMath`, `JSJSON`, `JSConsole`, `JSStorage`.
   - Full AST lowering and host runtime code synthesis in `javaw-runtime.js` supporting argument conversions, string decoding, handle registration, and native return marshalling.
-- [ ] **Exporting Java Classes to JavaScript Scope (`@JS.Export`)**
-  - Annotate Java classes with `@JS.Export` to register constructor functions and prototypes in JavaScript (`globalThis.MyJavaClass = ...`), allowing JavaScript to instantiate Java classes and call methods directly.
+- [x] **Exporting Java Classes to JavaScript Scope (`@JS.Export`)**
+  - Annotate Java classes with `@JS.Export` (or `@JS.Export("CustomName")`) to register constructor functions and prototypes in JavaScript (`globalThis.MyJavaClass = ...`), allowing JavaScript to instantiate Java classes and call methods directly.
+  - Implemented `JsExportModel` and metadata collection in `JsAnnotationHelper` serializing class layouts, constructor functions, and instance/static method signatures into custom section `javaw_js_exports`.
+  - Added automatic JavaScript constructor function generation in `javaw-runtime.js` invoking `$__heap_alloc`, vtable initializations, and `$ClassName__init` constructors with transparent argument marshaling and return value unmarshaling.
+  - Full support for prototype instance methods, static class methods, string parameters/returns, arrays, object handles, and field access across the WASM-JS runtime boundary.
 - [ ] **JavaScript Asset Bundling & Resource Embedding (`@JS.Code`, `@JS.Code.Include`, `@JSResource`)**
   - Embed external JavaScript scripts and static web resources directly into the compiled WebAssembly bundle or runtime harness.
 - [ ] **Interactive In-Browser Terminal & REPL Integration (WASI & xterm.js)**
