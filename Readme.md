@@ -20,8 +20,12 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
 - **Multi-File Java Compilation & Project Linking**:
   - Compiles multiple Java source files or entire project directories into a unified, linked WebAssembly module.
   - Automatically merges AST compilation units, resolves cross-file type references, and aggregates class hierarchies.
+- **WebAssembly Multi-Value Returns & Java Record Support**:
+  - Leverages WebAssembly multi-value return capability (`(result i32 i32 ...)`) to return multiple values on the evaluation stack without heap allocation overhead.
+  - Full AST lowering for Java `record` declarations (`RecordDeclaration`), component accessor methods (`p.x()`, `p.first()`), instance/static record methods, and constructor/parameter passing.
+  - Multi-value stack packing for record instantiations (`new Point(x, y)`), returns (`return new Point(...)`), and multi-value local variable unpacking (`Point p = makePoint(...)`).
 - **Binaryen Optimization Pipeline (`wasm-opt`)**:
-  - Integrates automated `wasm-opt -O3 --enable-threads --enable-exception-handling` optimization passes directly into the build pipeline for dead-code elimination, inlining, and binary size reduction.
+  - Integrates automated `wasm-opt -O3 --enable-threads --enable-exception-handling --enable-multivalue` optimization passes directly into the build pipeline for dead-code elimination, inlining, and binary size reduction.
   - Supports `--no-opt` / `-O0` flags to bypass optimization passes during development.
 - **WebAssembly Exception Handling (`try-catch-finally`, `throw`)**:
   - Direct translation of Java `try`, `catch`, `finally`, and `throw` statements to standard WebAssembly exception handling instructions (`(tag $Exception ...)`, `(try ... (catch $Exception ...) (catch_all ...))`, `throw $Exception`, `rethrow`).
@@ -122,6 +126,7 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
 │   │   │   ├── TypeMapper.java        # Java to WebAssembly type mapping
 │   │   │   ├── ClassRegistry.java     # Class layout, vtable calculation & dispatch manager
 │   │   │   ├── ClassModel.java        # Class metadata model
+│   │   │   ├── RecordModel.java       # Record components & multi-value signature model
 │   │   │   ├── FieldModel.java        # Field layout & byte offset model
 │   │   │   ├── MethodModel.java       # Method signature & vtable slot model
 │   │   │   ├── StringConstant.java    # String literal pool model
@@ -526,6 +531,43 @@ public class ExceptionDemo {
             System.out.println("Processing attempt completed");
         }
         return status;
+    }
+}
+```
+
+---
+
+#### Example J: WebAssembly Multi-Value Returns & Java Records
+
+```java
+package com.example.javaw;
+
+// Record definitions compiled to WebAssembly multi-value signatures
+record Point(int x, int y) {}
+
+record DivisionResult(int quotient, int remainder) {
+    public int total() {
+        return quotient() + remainder();
+    }
+}
+
+public class RecordDemo {
+    // Returns (result i32 i32) on the WebAssembly evaluation stack
+    public static Point createPoint(int x, int y) {
+        return new Point(x, y);
+    }
+
+    public static DivisionResult divide(int dividend, int divisor) {
+        return new DivisionResult(dividend / divisor, dividend % divisor);
+    }
+
+    public static int process() {
+        // Multi-value stack unpacking into local variables
+        Point pt = createPoint(15, 25);
+        int sum = pt.x() + pt.y();
+
+        DivisionResult div = divide(50, 6);
+        return sum + div.total(); // 40 + (8 + 2) = 50
     }
 }
 ```

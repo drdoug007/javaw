@@ -18,6 +18,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     private final ClassRegistry classRegistry;
     private final Deque<LoopContext> loopStack = new ArrayDeque<>();
     private ClassModel currentClass;
+    private RecordModel currentRecord;
     private int loopCounter = 0;
     private int forEachCounter = 0;
     private int switchCounter = 0;
@@ -104,9 +105,110 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     }
 
     @Override
+    public void visit(RecordDeclaration n, StringBuilder collector) {
+        String recordName = n.getNameAsString();
+        currentRecord = classRegistry != null ? classRegistry.getRecord(recordName) : null;
+
+        collector.append("  ;; Record: ").append(recordName).append("\n");
+
+        for (MethodDeclaration md : n.getMethods()) {
+            visitRecordMethod(md, collector, recordName);
+        }
+
+        currentRecord = null;
+    }
+
+    private void visitRecordMethod(MethodDeclaration n, StringBuilder collector, String recordName) {
+        String methodName = n.getNameAsString();
+        String returnWasmType = TypeMapper.mapType(n.getType());
+        String returnTypeName = n.getType().asString();
+        RecordModel returnRecord = classRegistry != null ? classRegistry.getRecord(returnTypeName) : null;
+
+        Map<String, String> localTypes = new HashMap<>();
+        Map<String, String> localElementTypes = new HashMap<>();
+        Map<String, String> localJavaTypes = new HashMap<>();
+        forEachCounter = 0;
+        switchCounter = 0;
+        switchExprCounter = 0;
+
+        boolean isStatic = n.isStatic();
+        String funcName = "$" + recordName + "_" + methodName;
+        String exportName = recordName + "_" + methodName;
+
+        collector.append("  (func ").append(funcName)
+                .append(" (export \"").append(exportName).append("\")");
+
+        if (!isStatic && currentRecord != null) {
+            localJavaTypes.put("this", recordName);
+            for (FieldModel c : currentRecord.getComponents()) {
+                String thisParam = "this$" + c.getName();
+                localTypes.put(thisParam, c.getWasmType());
+                localJavaTypes.put(thisParam, c.getTypeName());
+                collector.append(" (param $").append(thisParam).append(" ").append(c.getWasmType()).append(")");
+            }
+        }
+
+        // Process parameters
+        for (Parameter p : n.getParameters()) {
+            String pTypeName = p.getType().asString();
+            if (classRegistry != null && classRegistry.isRecord(pTypeName)) {
+                RecordModel pRecord = classRegistry.getRecord(pTypeName);
+                localJavaTypes.put(p.getNameAsString(), pTypeName);
+                for (FieldModel c : pRecord.getComponents()) {
+                    String paramLocal = p.getNameAsString() + "$" + c.getName();
+                    localTypes.put(paramLocal, c.getWasmType());
+                    localJavaTypes.put(paramLocal, c.getTypeName());
+                    collector.append(" (param $").append(paramLocal).append(" ").append(c.getWasmType()).append(")");
+                }
+            } else {
+                String pType = TypeMapper.mapType(p.getType());
+                if (pType == null) pType = "i32";
+                localTypes.put(p.getNameAsString(), pType);
+                localJavaTypes.put(p.getNameAsString(), p.getType().asString());
+                if (p.getType().isArrayType()) {
+                    localElementTypes.put(p.getNameAsString(), TypeMapper.mapType(p.getType().asArrayType().getComponentType()));
+                }
+                collector.append(" (param $").append(p.getNameAsString()).append(" ").append(pType).append(")");
+            }
+        }
+
+        // Return type
+        if (returnRecord != null) {
+            collector.append(" (result ").append(returnRecord.getWasmResultSignature()).append(")");
+        } else if (returnWasmType != null) {
+            collector.append(" (result ").append(returnWasmType).append(")");
+        }
+        collector.append("\n");
+
+        if (n.getBody().isPresent()) {
+            BlockStmt body = n.getBody().get();
+            emitLocalDeclarationsAndHelpers(body, collector, localTypes, localElementTypes, localJavaTypes);
+
+            for (Statement stmt : body.getStatements()) {
+                translateStatement(stmt, collector, localTypes, localElementTypes, localJavaTypes, returnWasmType);
+            }
+            if (returnRecord != null) {
+                if (body.getStatements().isEmpty() || !body.getStatements().get(body.getStatements().size() - 1).isReturnStmt()) {
+                    for (FieldModel c : returnRecord.getComponents()) {
+                        collector.append("    ").append(getWasmZeroConst(c.getWasmType())).append("\n");
+                    }
+                }
+            } else if (returnWasmType != null) {
+                if (body.getStatements().isEmpty() || !body.getStatements().get(body.getStatements().size() - 1).isReturnStmt()) {
+                    collector.append("    ").append(getWasmZeroConst(returnWasmType)).append("\n");
+                }
+            }
+        }
+
+        collector.append("  )\n");
+    }
+
+    @Override
     public void visit(MethodDeclaration n, StringBuilder collector) {
         String methodName = n.getNameAsString();
         String returnWasmType = TypeMapper.mapType(n.getType());
+        String returnTypeName = n.getType().asString();
+        RecordModel returnRecord = classRegistry != null ? classRegistry.getRecord(returnTypeName) : null;
 
         Map<String, String> localTypes = new HashMap<>();
         Map<String, String> localElementTypes = new HashMap<>();
@@ -139,18 +241,32 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
 
         // Process parameters
         for (Parameter p : n.getParameters()) {
-            String pType = TypeMapper.mapType(p.getType());
-            if (pType == null) pType = "i32";
-            localTypes.put(p.getNameAsString(), pType);
-            localJavaTypes.put(p.getNameAsString(), p.getType().asString());
-            if (p.getType().isArrayType()) {
-                localElementTypes.put(p.getNameAsString(), TypeMapper.mapType(p.getType().asArrayType().getComponentType()));
+            String pTypeName = p.getType().asString();
+            if (classRegistry != null && classRegistry.isRecord(pTypeName)) {
+                RecordModel pRecord = classRegistry.getRecord(pTypeName);
+                localJavaTypes.put(p.getNameAsString(), pTypeName);
+                for (FieldModel c : pRecord.getComponents()) {
+                    String paramLocal = p.getNameAsString() + "$" + c.getName();
+                    localTypes.put(paramLocal, c.getWasmType());
+                    localJavaTypes.put(paramLocal, c.getTypeName());
+                    collector.append(" (param $").append(paramLocal).append(" ").append(c.getWasmType()).append(")");
+                }
+            } else {
+                String pType = TypeMapper.mapType(p.getType());
+                if (pType == null) pType = "i32";
+                localTypes.put(p.getNameAsString(), pType);
+                localJavaTypes.put(p.getNameAsString(), p.getType().asString());
+                if (p.getType().isArrayType()) {
+                    localElementTypes.put(p.getNameAsString(), TypeMapper.mapType(p.getType().asArrayType().getComponentType()));
+                }
+                collector.append(" (param $").append(p.getNameAsString()).append(" ").append(pType).append(")");
             }
-            collector.append(" (param $").append(p.getNameAsString()).append(" ").append(pType).append(")");
         }
 
         // Return type
-        if (returnWasmType != null) {
+        if (returnRecord != null) {
+            collector.append(" (result ").append(returnRecord.getWasmResultSignature()).append(")");
+        } else if (returnWasmType != null) {
             collector.append(" (result ").append(returnWasmType).append(")");
         }
         collector.append("\n");
@@ -163,7 +279,13 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             for (Statement stmt : body.getStatements()) {
                 translateStatement(stmt, collector, localTypes, localElementTypes, localJavaTypes, returnWasmType);
             }
-            if (returnWasmType != null) {
+            if (returnRecord != null) {
+                if (body.getStatements().isEmpty() || !body.getStatements().get(body.getStatements().size() - 1).isReturnStmt()) {
+                    for (FieldModel c : returnRecord.getComponents()) {
+                        collector.append("    ").append(getWasmZeroConst(c.getWasmType())).append("\n");
+                    }
+                }
+            } else if (returnWasmType != null) {
                 if (body.getStatements().isEmpty() || !body.getStatements().get(body.getStatements().size() - 1).isReturnStmt()) {
                     if ("f64".equals(returnWasmType)) {
                         collector.append("    f64.const 0\n");
@@ -187,16 +309,31 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         List<VariableDeclarator> varDecls = body.findAll(VariableDeclarator.class);
         for (VariableDeclarator vd : varDecls) {
             String vName = vd.getNameAsString();
-            String vType = TypeMapper.mapType(vd.getType());
-            if (vType == null) vType = "i32";
-            localTypes.put(vName, vType);
-            localJavaTypes.put(vName, vd.getType().asString());
-            if (vd.getType().isArrayType()) {
-                localElementTypes.put(vName, TypeMapper.mapType(vd.getType().asArrayType().getComponentType()));
-            }
-            if (!declaredLocals.contains(vName)) {
-                declaredLocals.add(vName);
-                collector.append("    (local $").append(vName).append(" ").append(vType).append(")\n");
+            String vTypeName = vd.getType().asString();
+            if (classRegistry != null && classRegistry.isRecord(vTypeName)) {
+                RecordModel rm = classRegistry.getRecord(vTypeName);
+                localJavaTypes.put(vName, vTypeName);
+                for (FieldModel c : rm.getComponents()) {
+                    String compLocal = vName + "$" + c.getName();
+                    localTypes.put(compLocal, c.getWasmType());
+                    localJavaTypes.put(compLocal, c.getTypeName());
+                    if (!declaredLocals.contains(compLocal)) {
+                        declaredLocals.add(compLocal);
+                        collector.append("    (local $").append(compLocal).append(" ").append(c.getWasmType()).append(")\n");
+                    }
+                }
+            } else {
+                String vType = TypeMapper.mapType(vd.getType());
+                if (vType == null) vType = "i32";
+                localTypes.put(vName, vType);
+                localJavaTypes.put(vName, vd.getType().asString());
+                if (vd.getType().isArrayType()) {
+                    localElementTypes.put(vName, TypeMapper.mapType(vd.getType().asArrayType().getComponentType()));
+                }
+                if (!declaredLocals.contains(vName)) {
+                    declaredLocals.add(vName);
+                    collector.append("    (local $").append(vName).append(" ").append(vType).append(")\n");
+                }
             }
         }
 
@@ -271,7 +408,24 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         } else if (stmt.isReturnStmt()) {
             ReturnStmt ret = stmt.asReturnStmt();
             if (ret.getExpression().isPresent()) {
-                translateExpression(ret.getExpression().get(), collector, localTypes, localElementTypes, localJavaTypes, returnWasmType);
+                Expression retExpr = ret.getExpression().get();
+                if (retExpr.isObjectCreationExpr() && classRegistry != null && classRegistry.isRecord(retExpr.asObjectCreationExpr().getTypeAsString())) {
+                    ObjectCreationExpr oce = retExpr.asObjectCreationExpr();
+                    RecordModel rm = classRegistry.getRecord(oce.getTypeAsString());
+                    for (int i = 0; i < oce.getArguments().size(); i++) {
+                        String compWasm = i < rm.getComponents().size() ? rm.getComponents().get(i).getWasmType() : "i32";
+                        translateExpression(oce.getArgument(i), collector, localTypes, localElementTypes, localJavaTypes, compWasm);
+                    }
+                } else if (retExpr.isNameExpr() && localJavaTypes.containsKey(retExpr.asNameExpr().getNameAsString())
+                        && classRegistry != null && classRegistry.isRecord(localJavaTypes.get(retExpr.asNameExpr().getNameAsString()))) {
+                    String varName = retExpr.asNameExpr().getNameAsString();
+                    RecordModel rm = classRegistry.getRecord(localJavaTypes.get(varName));
+                    for (FieldModel c : rm.getComponents()) {
+                        collector.append("    local.get $").append(varName).append("$").append(c.getName()).append("\n");
+                    }
+                } else {
+                    translateExpression(retExpr, collector, localTypes, localElementTypes, localJavaTypes, returnWasmType);
+                }
             }
             collector.append("    return\n");
         } else if (stmt.isExpressionStmt()) {
@@ -778,9 +932,19 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             collector.append("    end\n");
         } else if (expr.isNameExpr()) {
             String var = expr.asNameExpr().getNameAsString();
-            if (localTypes.containsKey(var)) {
+            if (localJavaTypes.containsKey(var) && classRegistry != null && classRegistry.isRecord(localJavaTypes.get(var))) {
+                RecordModel rm = classRegistry.getRecord(localJavaTypes.get(var));
+                for (FieldModel c : rm.getComponents()) {
+                    collector.append("    local.get $").append(var).append("$").append(c.getName()).append("\n");
+                }
+            } else if (localTypes.containsKey(var)) {
                 collector.append("    local.get $").append(var).append("\n");
                 if ("f64".equals(expectedType) && "i32".equals(localTypes.get(var))) {
+                    collector.append("    f64.convert_i32_s\n");
+                }
+            } else if (localTypes.containsKey("this$" + var)) {
+                collector.append("    local.get $this$").append(var).append("\n");
+                if ("f64".equals(expectedType) && "i32".equals(localTypes.get("this$" + var))) {
                     collector.append("    f64.convert_i32_s\n");
                 }
             } else if (currentClass != null && currentClass.getField(var) != null && !currentClass.getField(var).isStatic()) {
@@ -830,6 +994,12 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     translateExpression(oce.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
                     collector.append("    i32.atomic.store offset=4\n");
                     collector.append("    local.get $__atomic_tmp\n");
+                }
+            } else if (classRegistry != null && classRegistry.isRecord(typeName)) {
+                RecordModel rm = classRegistry.getRecord(typeName);
+                for (int i = 0; i < oce.getArguments().size(); i++) {
+                    String pWasm = i < rm.getComponents().size() ? rm.getComponents().get(i).getWasmType() : "i32";
+                    translateExpression(oce.getArgument(i), collector, localTypes, localElementTypes, localJavaTypes, pWasm);
                 }
             } else if (classRegistry != null && classRegistry.hasClass(typeName)) {
                 ClassModel cm = classRegistry.getClass(typeName);
@@ -971,15 +1141,24 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 collector.append("    i32.const ").append(val).append("\n");
             } else {
                 String targetType = getExpressionJavaType(fae.getScope(), localJavaTypes);
-                FieldModel fm = null;
-                if (targetType != null && classRegistry != null && classRegistry.hasClass(targetType)) {
-                    fm = classRegistry.getClass(targetType).getField(fName);
-                } else if (currentClass != null && currentClass.getField(fName) != null) {
-                    fm = currentClass.getField(fName);
-                }
-                if (fm != null) {
-                    translateExpression(fae.getScope(), collector, localTypes, localElementTypes, localJavaTypes, "i32");
-                    collector.append("    ").append(getLoadInstruction(fm.getWasmType())).append(" offset=").append(fm.getOffset()).append("\n");
+                if (targetType != null && classRegistry != null && classRegistry.isRecord(targetType)) {
+                    if (fae.getScope().isThisExpr()) {
+                        collector.append("    local.get $this$").append(fName).append("\n");
+                    } else if (fae.getScope().isNameExpr()) {
+                        String scopeVar = fae.getScope().asNameExpr().getNameAsString();
+                        collector.append("    local.get $").append(scopeVar).append("$").append(fName).append("\n");
+                    }
+                } else {
+                    FieldModel fm = null;
+                    if (targetType != null && classRegistry != null && classRegistry.hasClass(targetType)) {
+                        fm = classRegistry.getClass(targetType).getField(fName);
+                    } else if (currentClass != null && currentClass.getField(fName) != null) {
+                        fm = currentClass.getField(fName);
+                    }
+                    if (fm != null) {
+                        translateExpression(fae.getScope(), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                        collector.append("    ").append(getLoadInstruction(fm.getWasmType())).append(" offset=").append(fm.getOffset()).append("\n");
+                    }
                 }
             }
         } else if (expr.isSwitchExpr()) {
@@ -1037,7 +1216,30 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 boolean isGlobal = globalVars != null && globalVars.containsKey(target) && !localTypes.containsKey(target);
                 boolean isInstanceField = currentClass != null && currentClass.getField(target) != null && !localTypes.containsKey(target) && !isGlobal;
 
-                if (isInstanceField) {
+                if (localJavaTypes.containsKey(target) && classRegistry != null && classRegistry.isRecord(localJavaTypes.get(target))) {
+                    RecordModel rm = classRegistry.getRecord(localJavaTypes.get(target));
+                    if (assign.getValue().isObjectCreationExpr()) {
+                        ObjectCreationExpr oce = assign.getValue().asObjectCreationExpr();
+                        for (int i = 0; i < oce.getArguments().size(); i++) {
+                            String compWasm = i < rm.getComponents().size() ? rm.getComponents().get(i).getWasmType() : "i32";
+                            translateExpression(oce.getArgument(i), collector, localTypes, localElementTypes, localJavaTypes, compWasm);
+                            String compName = i < rm.getComponents().size() ? rm.getComponents().get(i).getName() : ("comp" + i);
+                            collector.append("    local.set $").append(target).append("$").append(compName).append("\n");
+                        }
+                    } else if (assign.getValue().isNameExpr() && localJavaTypes.containsKey(assign.getValue().asNameExpr().getNameAsString())) {
+                        String otherVar = assign.getValue().asNameExpr().getNameAsString();
+                        for (FieldModel c : rm.getComponents()) {
+                            collector.append("    local.get $").append(otherVar).append("$").append(c.getName()).append("\n");
+                            collector.append("    local.set $").append(target).append("$").append(c.getName()).append("\n");
+                        }
+                    } else {
+                        translateExpression(assign.getValue(), collector, localTypes, localElementTypes, localJavaTypes, null);
+                        List<FieldModel> comps = rm.getComponents();
+                        for (int i = comps.size() - 1; i >= 0; i--) {
+                            collector.append("    local.set $").append(target).append("$").append(comps.get(i).getName()).append("\n");
+                        }
+                    }
+                } else if (isInstanceField) {
                     FieldModel fm = currentClass.getField(target);
                     if (op == AssignExpr.Operator.ASSIGN) {
                         collector.append("    local.get $this\n");
@@ -1141,7 +1343,34 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         } else if (expr.isVariableDeclarationExpr()) {
             VariableDeclarationExpr vde = expr.asVariableDeclarationExpr();
             for (VariableDeclarator vd : vde.getVariables()) {
-                if (vd.getInitializer().isPresent()) {
+                String vTypeName = vd.getType().asString();
+                if (classRegistry != null && classRegistry.isRecord(vTypeName)) {
+                    RecordModel rm = classRegistry.getRecord(vTypeName);
+                    if (vd.getInitializer().isPresent()) {
+                        Expression init = vd.getInitializer().get();
+                        if (init.isObjectCreationExpr()) {
+                            ObjectCreationExpr oce = init.asObjectCreationExpr();
+                            for (int i = 0; i < oce.getArguments().size(); i++) {
+                                String compWasm = i < rm.getComponents().size() ? rm.getComponents().get(i).getWasmType() : "i32";
+                                translateExpression(oce.getArgument(i), collector, localTypes, localElementTypes, localJavaTypes, compWasm);
+                                String compName = i < rm.getComponents().size() ? rm.getComponents().get(i).getName() : ("comp" + i);
+                                collector.append("    local.set $").append(vd.getNameAsString()).append("$").append(compName).append("\n");
+                            }
+                        } else if (init.isNameExpr() && localJavaTypes.containsKey(init.asNameExpr().getNameAsString())) {
+                            String otherVar = init.asNameExpr().getNameAsString();
+                            for (FieldModel c : rm.getComponents()) {
+                                collector.append("    local.get $").append(otherVar).append("$").append(c.getName()).append("\n");
+                                collector.append("    local.set $").append(vd.getNameAsString()).append("$").append(c.getName()).append("\n");
+                            }
+                        } else {
+                            translateExpression(init, collector, localTypes, localElementTypes, localJavaTypes, null);
+                            List<FieldModel> comps = rm.getComponents();
+                            for (int i = comps.size() - 1; i >= 0; i--) {
+                                collector.append("    local.set $").append(vd.getNameAsString()).append("$").append(comps.get(i).getName()).append("\n");
+                            }
+                        }
+                    }
+                } else if (vd.getInitializer().isPresent()) {
                     String vType = TypeMapper.mapType(vd.getType());
                     String elemType = vd.getType().isArrayType() ? TypeMapper.mapType(vd.getType().asArrayType().getComponentType()) : null;
                     translateExpression(vd.getInitializer().get(), collector, localTypes, localElementTypes, localJavaTypes, elemType != null ? elemType : vType);
@@ -1374,10 +1603,53 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     collector.append("    call $").append(superClassName).append("_").append(mName).append("\n");
                 } else {
                     String targetType = getExpressionJavaType(scope, localJavaTypes);
+                    if (targetType != null && classRegistry != null && classRegistry.isRecord(targetType)) {
+                        RecordModel rm = classRegistry.getRecord(targetType);
+                        if (rm.getComponent(mName) != null) {
+                            if (scope.isThisExpr()) {
+                                collector.append("    local.get $this$").append(mName).append("\n");
+                            } else if (scope.isNameExpr()) {
+                                String scopeVar = scope.asNameExpr().getNameAsString();
+                                collector.append("    local.get $").append(scopeVar).append("$").append(mName).append("\n");
+                            }
+                            return;
+                        }
+                        MethodModel rmm = rm.getMethodByName(mName);
+                        if (rmm != null) {
+                            if (!rmm.isStatic()) {
+                                if (scope.isThisExpr()) {
+                                    for (FieldModel c : rm.getComponents()) {
+                                        collector.append("    local.get $this$").append(c.getName()).append("\n");
+                                    }
+                                } else if (scope.isNameExpr()) {
+                                    String scopeVar = scope.asNameExpr().getNameAsString();
+                                    for (FieldModel c : rm.getComponents()) {
+                                        collector.append("    local.get $").append(scopeVar).append("$").append(c.getName()).append("\n");
+                                    }
+                                }
+                            }
+                            for (int i = 0; i < call.getArguments().size(); i++) {
+                                String pWasm = i < rmm.getParamWasmTypes().size() ? rmm.getParamWasmTypes().get(i) : "i32";
+                                translateExpression(call.getArgument(i), collector, localTypes, localElementTypes, localJavaTypes, pWasm);
+                            }
+                            collector.append("    call ").append(rmm.getFunctionName()).append("\n");
+                            return;
+                        }
+                    } else if (scope.isNameExpr() && classRegistry != null && classRegistry.isRecord(scope.asNameExpr().getNameAsString())) {
+                        String recName = scope.asNameExpr().getNameAsString();
+                        RecordModel rm = classRegistry.getRecord(recName);
+                        MethodModel rmm = rm.getMethodByName(mName);
+                        for (int i = 0; i < call.getArguments().size(); i++) {
+                            String pWasm = (rmm != null && i < rmm.getParamWasmTypes().size()) ? rmm.getParamWasmTypes().get(i) : "i32";
+                            translateExpression(call.getArgument(i), collector, localTypes, localElementTypes, localJavaTypes, pWasm);
+                        }
+                        collector.append("    call $").append(recName).append("_").append(mName).append("\n");
+                        return;
+                    }
                     ClassModel targetCm = (targetType != null && classRegistry != null) ? classRegistry.getClass(targetType) : null;
                     MethodModel targetMm = targetCm != null ? targetCm.getMethodByName(mName) : null;
 
-                    if (targetMm != null && targetMm.isVirtual()) {
+                    if (targetMm != null && targetMm.isVirtual() && targetCm != null && targetCm.isOopClass()) {
                         // Dynamic dispatch via vtable and call_indirect
                         translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
                         collector.append("    local.set $__obj_tmp\n");
@@ -1392,7 +1664,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                         collector.append("    i32.add\n");
                         collector.append("    call_indirect (type ").append(targetMm.getTypeSignatureName()).append(")\n");
                     } else if (targetMm != null) {
-                        if (!targetMm.isStatic()) {
+                        if (!targetMm.isStatic() && targetCm != null && targetCm.isOopClass()) {
                             translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
                         }
                         for (int i = 0; i < call.getArguments().size(); i++) {
@@ -1409,7 +1681,9 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     }
                 }
             } else {
-                if (DomHelper.isDomStaticMethod(mName)) {
+                if (currentRecord != null && currentRecord.getComponent(mName) != null) {
+                    collector.append("    local.get $this$").append(mName).append("\n");
+                } else if (DomHelper.isDomStaticMethod(mName)) {
                     translateDomOrWindowStaticCall(call, collector, localTypes, localElementTypes, localJavaTypes);
                 } else if (DomHelper.isDomInstanceMethod(mName)) {
                     for (Expression arg : call.getArguments()) {
@@ -1418,7 +1692,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     collector.append("    call $dom_").append(mName).append("\n");
                 } else if (currentClass != null && currentClass.getMethodByName(mName) != null) {
                     MethodModel mm = currentClass.getMethodByName(mName);
-                    if (mm.isVirtual()) {
+                    if (mm.isVirtual() && currentClass.isOopClass()) {
                         collector.append("    local.get $this\n");
                         for (int i = 0; i < call.getArguments().size(); i++) {
                             String pWasm = i < mm.getParamWasmTypes().size() ? mm.getParamWasmTypes().get(i) : "i32";
@@ -1430,7 +1704,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                         collector.append("    i32.add\n");
                         collector.append("    call_indirect (type ").append(mm.getTypeSignatureName()).append(")\n");
                     } else {
-                        if (!mm.isStatic()) {
+                        if (!mm.isStatic() && currentClass.isOopClass()) {
                             collector.append("    local.get $this\n");
                         }
                         for (int i = 0; i < call.getArguments().size(); i++) {
@@ -1454,7 +1728,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             return localJavaTypes.get(expr.asNameExpr().getNameAsString());
         }
         if (expr.isThisExpr()) {
-            return currentClass != null ? currentClass.getName() : null;
+            return currentClass != null ? currentClass.getName() : (currentRecord != null ? currentRecord.getName() : null);
         }
         if (expr.isObjectCreationExpr()) {
             return expr.asObjectCreationExpr().getTypeAsString();
@@ -1507,12 +1781,25 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             }
             if (call.getScope().isPresent()) {
                 String scopeType = getExpressionJavaType(call.getScope().get(), localJavaTypes);
-                if (scopeType != null && classRegistry != null && classRegistry.hasClass(scopeType)) {
+                if (scopeType != null && classRegistry != null && classRegistry.isRecord(scopeType)) {
+                    RecordModel rm = classRegistry.getRecord(scopeType);
+                    if (rm.getComponent(mName) != null) {
+                        return rm.getComponent(mName).getTypeName();
+                    }
+                    MethodModel mm = rm.getMethodByName(mName);
+                    if (mm != null) return mm.getReturnTypeName();
+                } else if (scopeType != null && classRegistry != null && classRegistry.hasClass(scopeType)) {
                     MethodModel mm = classRegistry.getClass(scopeType).getMethodByName(mName);
                     if (mm != null) return mm.getReturnTypeName();
                 }
             } else if (currentClass != null) {
                 MethodModel mm = currentClass.getMethodByName(mName);
+                if (mm != null) return mm.getReturnTypeName();
+            } else if (currentRecord != null) {
+                if (currentRecord.getComponent(mName) != null) {
+                    return currentRecord.getComponent(mName).getTypeName();
+                }
+                MethodModel mm = currentRecord.getMethodByName(mName);
                 if (mm != null) return mm.getReturnTypeName();
             }
         }
@@ -1526,7 +1813,10 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         if (expr.isFieldAccessExpr()) {
             FieldAccessExpr fae = expr.asFieldAccessExpr();
             String scopeType = getExpressionJavaType(fae.getScope(), localJavaTypes);
-            if (scopeType != null && classRegistry != null && classRegistry.hasClass(scopeType)) {
+            if (scopeType != null && classRegistry != null && classRegistry.isRecord(scopeType)) {
+                FieldModel fm = classRegistry.getRecord(scopeType).getComponent(fae.getNameAsString());
+                if (fm != null) return fm.getTypeName();
+            } else if (scopeType != null && classRegistry != null && classRegistry.hasClass(scopeType)) {
                 FieldModel fm = classRegistry.getClass(scopeType).getField(fae.getNameAsString());
                 if (fm != null) return fm.getTypeName();
             }
@@ -2123,6 +2413,9 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     }
 
     private String inferType(Expression expr, Map<String, String> localTypes, Map<String, String> localElementTypes, Map<String, String> localJavaTypes, String fallback) {
+        if (expr.isEnclosedExpr()) {
+            return inferType(expr.asEnclosedExpr().getInner(), localTypes, localElementTypes, localJavaTypes, fallback);
+        }
         if (expr.isDoubleLiteralExpr()) return "f64";
         if (expr.isLongLiteralExpr()) return "i64";
         if (expr.isIntegerLiteralExpr() || expr.isBooleanLiteralExpr() || expr.isCharLiteralExpr()) return "i32";
@@ -2155,7 +2448,10 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             FieldAccessExpr fae = expr.asFieldAccessExpr();
             if (fae.getNameAsString().equals("length")) return "i32";
             String targetType = getExpressionJavaType(fae.getScope(), localJavaTypes);
-            if (targetType != null && classRegistry != null && classRegistry.hasClass(targetType)) {
+            if (targetType != null && classRegistry != null && classRegistry.isRecord(targetType)) {
+                FieldModel fm = classRegistry.getRecord(targetType).getComponent(fae.getNameAsString());
+                if (fm != null) return fm.getWasmType();
+            } else if (targetType != null && classRegistry != null && classRegistry.hasClass(targetType)) {
                 FieldModel fm = classRegistry.getClass(targetType).getField(fae.getNameAsString());
                 if (fm != null) return fm.getWasmType();
             }

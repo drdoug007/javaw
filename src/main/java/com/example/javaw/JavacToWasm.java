@@ -23,6 +23,9 @@ import java.util.Set;
  * Main compiler entry point and coordinator for compiling Java source code into WebAssembly.
  */
 public class JavacToWasm {
+    static {
+        StaticJavaParser.getConfiguration().setLanguageLevel(com.github.javaparser.ParserConfiguration.LanguageLevel.JAVA_17);
+    }
 
     public static void main(String[] args) {
         if (args.length < 1) {
@@ -93,7 +96,7 @@ public class JavacToWasm {
             // Attempt to optimize with wasm-opt if available
             if (wasmGenerated && optimize) {
                 try {
-                    Process optProcess = new ProcessBuilder("wasm-opt", "-O3", "--enable-threads", "--enable-exception-handling", wasmFilePath.toString(), "-o", wasmFilePath.toString())
+                    Process optProcess = new ProcessBuilder("wasm-opt", "-O3", "--enable-threads", "--enable-exception-handling", "--enable-multivalue", wasmFilePath.toString(), "-o", wasmFilePath.toString())
                             .redirectErrorStream(true)
                             .start();
                     int optExit = optProcess.waitFor();

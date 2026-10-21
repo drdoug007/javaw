@@ -535,6 +535,46 @@ public class TestClass {
         }
         return state;
     }
+
+    public Pair makePair(int a, int b) {
+        return new Pair(a, b);
+    }
+
+    public int sumPair(Pair p) {
+        return p.first() + p.second();
+    }
+
+    public int computePairDifference(int a, int b) {
+        Pair p = makePair(a, b);
+        return p.first() - p.second();
+    }
+
+    public DivisionResult divideWithRemainder(int dividend, int divisor) {
+        return new DivisionResult(dividend / divisor, dividend % divisor);
+    }
+
+    public int sumDivisionResult(int dividend, int divisor) {
+        DivisionResult res = divideWithRemainder(dividend, divisor);
+        return res.total();
+    }
+
+    public Point3D scalePoint3D(Point3D pt, double factor) {
+        return new Point3D(pt.x() * factor, pt.y() * factor, pt.z() * factor);
+    }
+
+    public double dotProductPoint3D(Point3D a, Point3D b) {
+        return (a.x() * b.x()) + (a.y() * b.y()) + (a.z() * b.z());
+    }
+}
+
+record Pair(int first, int second) {}
+
+record Point3D(double x, double y, double z) {}
+
+record DivisionResult(int quotient, int remainder) {
+    public int total() {
+        return quotient() + remainder();
+    }
 }
 
 class CustomAppException extends Exception {

@@ -25,8 +25,10 @@ This roadmap organizes planned features by their utility and return on investmen
   - Pre-registered built-in exception hierarchy (`Throwable`, `Exception`, `RuntimeException`, `IllegalArgumentException`, `IllegalStateException`, `NullPointerException`) and custom exception class support.
   - Multi-catch type dispatch with dynamic inheritance subtype checking and fallback rethrowing.
   - Zero-cost exception propagation without JavaScript bridge overhead.
-- [ ] **Multi-Value Returns (`(result ...)`)**
-  - Support multi-value returns on the WebAssembly evaluation stack for tuples, records, and internal helper routines without heap allocation overhead.
+- [x] **Multi-Value Returns (`(result ...)`) & Record Support**
+  - Support multi-value returns on the WebAssembly evaluation stack for Java records, tuples, and multi-component returns without heap allocation overhead.
+  - Full AST lowering for `RecordDeclaration`, component accessor methods (`p.x()`, `p.first()`), instance/static record methods, and parameter passing.
+  - Multi-value stack packing for record instantiations (`new Point(x, y)`), returns (`return new Point(x, y)`), and multi-value local variable unpacking (`Point p = makePoint(...)`).
 
 ---
 

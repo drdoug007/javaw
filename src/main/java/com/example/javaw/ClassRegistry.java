@@ -12,6 +12,7 @@ import java.util.*;
  */
 public class ClassRegistry {
     private final Map<String, ClassModel> classes = new LinkedHashMap<>();
+    private final Map<String, RecordModel> records = new LinkedHashMap<>();
     private final List<String> tableFunctions = new ArrayList<>();
     private final Map<String, String> typeSignatures = new LinkedHashMap<>(); // sigWat -> sigName
     private int typeSigCounter = 0;
@@ -101,6 +102,43 @@ public class ClassRegistry {
             }
         }
 
+        // Register Java records
+        List<RecordDeclaration> recordDecls = cu.findAll(RecordDeclaration.class);
+        for (RecordDeclaration rd : recordDecls) {
+            String recName = rd.getNameAsString();
+            RecordModel rm = new RecordModel(recName);
+            records.put(recName, rm);
+
+            for (Parameter p : rd.getParameters()) {
+                String cName = p.getNameAsString();
+                String cType = p.getType().asString();
+                String wasmType = TypeMapper.mapType(p.getType());
+                if (wasmType == null) wasmType = "i32";
+                int size = ("i64".equals(wasmType) || "f64".equals(wasmType)) ? 8 : 4;
+                rm.addComponent(new FieldModel(cName, cType, wasmType, 0, size, false));
+            }
+
+            for (MethodDeclaration md : rd.getMethods()) {
+                String mName = md.getNameAsString();
+                String retTypeName = md.getType().asString();
+                String retWasmType = TypeMapper.mapType(md.getType());
+                boolean isStatic = md.isStatic();
+                List<String> paramNames = new ArrayList<>();
+                List<String> paramTypeNames = new ArrayList<>();
+                List<String> paramWasmTypes = new ArrayList<>();
+                for (Parameter p : md.getParameters()) {
+                    paramNames.add(p.getNameAsString());
+                    paramTypeNames.add(p.getType().asString());
+                    String pWasm = TypeMapper.mapType(p.getType());
+                    paramWasmTypes.add(pWasm != null ? pWasm : "i32");
+                }
+                String funcName = "$" + recName + "_" + mName;
+                MethodModel mm = new MethodModel(mName, recName, funcName, retTypeName, retWasmType,
+                        paramNames, paramTypeNames, paramWasmTypes, isStatic, false);
+                rm.addMethod(mm);
+            }
+        }
+
         // Pre-register built-in exception classes if not defined in source
         String[][] builtins = {
                 {"Throwable", null},
@@ -169,7 +207,7 @@ public class ClassRegistry {
 
         // Phase 3: Compute VTable slots and function table layout
         for (ClassModel cm : getClassesInHierarchyOrder()) {
-            if (cm.isInterface()) continue;
+            if (cm.isInterface() || !cm.isOopClass()) continue;
 
             List<MethodModel> slots = cm.getVtableSlots();
             if (cm.getSuperClassName() != null && classes.containsKey(cm.getSuperClassName())) {
@@ -250,6 +288,18 @@ public class ClassRegistry {
 
     public Map<String, String> getTypeSignatures() {
         return typeSignatures;
+    }
+
+    public boolean isRecord(String name) {
+        return name != null && records.containsKey(name);
+    }
+
+    public RecordModel getRecord(String name) {
+        return records.get(name);
+    }
+
+    public Map<String, RecordModel> getRecords() {
+        return records;
     }
 
     public boolean isSubclassOf(String subClass, String superClass) {

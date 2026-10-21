@@ -7,6 +7,9 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class JavacToWasmTest {
+    static {
+        StaticJavaParser.getConfiguration().setLanguageLevel(com.github.javaparser.ParserConfiguration.LanguageLevel.JAVA_17);
+    }
 
     @Test
     public void testGenerateWatFromSource() {
@@ -613,5 +616,46 @@ public class JavacToWasmTest {
         assertTrue(wat.contains("(catch $Exception"));
         assertTrue(wat.contains("(catch_all"));
         assertTrue(wat.contains("(rethrow 0)"));
+    }
+
+    @Test
+    public void testGenerateWatWithRecordAndMultiValueReturns() {
+        String javaSource = "package com.example.javaw;\n" +
+                "record Point(int x, int y) {}\n" +
+                "public class RecordApp {\n" +
+                "    public Point createPoint(int x, int y) {\n" +
+                "        return new Point(x, y);\n" +
+                "    }\n" +
+                "    public int sumPoint(Point p) {\n" +
+                "        return p.x() + p.y();\n" +
+                "    }\n" +
+                "    public int testUnpack() {\n" +
+                "        Point pt = createPoint(10, 20);\n" +
+                "        return pt.x() + pt.y();\n" +
+                "    }\n" +
+                "}\n";
+
+        CompilationUnit cu = StaticJavaParser.parse(javaSource);
+        String wat = JavacToWasm.generateWat(cu);
+
+        assertTrue(wat.contains("(func $createPoint (export \"createPoint\") (param $x i32) (param $y i32) (result i32 i32)"));
+        assertTrue(wat.contains("(func $sumPoint (export \"sumPoint\") (param $p$x i32) (param $p$y i32) (result i32)"));
+        assertTrue(wat.contains("(local $pt$x i32)"));
+        assertTrue(wat.contains("(local $pt$y i32)"));
+    }
+
+    @Test
+    public void testRecordMethodsAndComponentAccess() {
+        String javaSource = "package com.example.javaw;\n" +
+                "record DivResult(int quotient, int remainder) {\n" +
+                "    public static DivResult divide(int a, int b) {\n" +
+                "        return new DivResult(a / b, a % b);\n" +
+                "    }\n" +
+                "}\n";
+
+        CompilationUnit cu = StaticJavaParser.parse(javaSource);
+        String wat = JavacToWasm.generateWat(cu);
+
+        assertTrue(wat.contains("(func $DivResult_divide (export \"DivResult_divide\") (param $a i32) (param $b i32) (result i32 i32)"));
     }
 }

@@ -502,7 +502,24 @@ async function runTest() {
                 console.log('✓ WebAssembly Exception Handling (try-catch-finally, throw, multi-catch) assertions passed.');
             }
 
-            console.log('✓ TestClass execution assertions passed (including for loops, for-each loops, arrays, switches, labeled break/continue, compound assignments, dynamic strings, OOP, Canvas 2D, WebGL, JSObject, WASI, Threads/Atomics, and Exceptions).');
+            // Test Multi-Value Returns & Record Support
+            if (typeof instance.exports.makePair === 'function') {
+                const pairRes = instance.exports.makePair(10, 20);
+                assert.deepStrictEqual(pairRes, [10, 20], 'makePair(10, 20) should return [10, 20]');
+                assert.strictEqual(instance.exports.sumPair(10, 20), 30, 'sumPair(10, 20) should return 30');
+                assert.strictEqual(instance.exports.computePairDifference(100, 35), 65, 'computePairDifference(100, 35) should return 65');
+
+                const divRes = instance.exports.divideWithRemainder(29, 6);
+                assert.deepStrictEqual(divRes, [4, 5], 'divideWithRemainder(29, 6) should return [4, 5]');
+                assert.strictEqual(instance.exports.sumDivisionResult(29, 6), 9, 'sumDivisionResult(29, 6) should return 9');
+
+                const scaled = instance.exports.scalePoint3D(1.0, 2.0, 3.0, 2.5);
+                assert.deepStrictEqual(scaled, [2.5, 5.0, 7.5], 'scalePoint3D should scale 3D coords');
+                assert.strictEqual(instance.exports.dotProductPoint3D(1.0, 2.0, 3.0, 4.0, 5.0, 6.0), 32.0, 'dotProductPoint3D should compute dot product');
+                console.log('✓ Multi-Value Returns and Record support assertions passed.');
+            }
+
+            console.log('✓ TestClass execution assertions passed (including for loops, for-each loops, arrays, switches, labeled break/continue, compound assignments, dynamic strings, OOP, Canvas 2D, WebGL, JSObject, WASI, Threads/Atomics, Exceptions, and Multi-Value Returns).');
         }
 
         // ==========================================

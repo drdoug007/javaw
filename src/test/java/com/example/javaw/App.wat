@@ -56,11 +56,10 @@
   (data (i32.const 4425) ".item-tag\00")
   (global $__heap_ptr (mut i32) (i32.const 65536))
   ;; --- WebAssembly Function Type Signatures ---
-  (type $t_sig_1 (func (param i32)))
-  (type $t_sig_2 (func (param i32) (result i32)))
+  (type $t_sig_1 (func (param i32) (result i32)))
   ;; --- WebAssembly Function Table (VTable) ---
-  (table (export "__vtable") 13 funcref)
-  (elem (i32.const 0) $start $increment $readStatusText $readInputValue $readCheckboxState $countItemTags $removeFirstItem $Throwable_getMessage $Exception_getMessage $RuntimeException_getMessage $IllegalArgumentException_getMessage $IllegalStateException_getMessage $NullPointerException_getMessage)
+  (table (export "__vtable") 6 funcref)
+  (elem (i32.const 0) $Throwable_getMessage $Exception_getMessage $RuntimeException_getMessage $IllegalArgumentException_getMessage $IllegalStateException_getMessage $NullPointerException_getMessage)
   ;; --- Heap Allocation Functions ---
   (func $__heap_alloc (export "__heap_alloc") (param $size i32) (result i32)
     (local $ptr i32)

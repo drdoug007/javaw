@@ -102,20 +102,11 @@
   (data (i32.const 4573) "Inner error\00")
   (global $__heap_ptr (mut i32) (i32.const 65536))
   ;; --- WebAssembly Function Type Signatures ---
-  (type $t_sig_1 (func (param i32)))
-  (type $t_sig_2 (func (param i32 f64)))
-  (type $t_sig_3 (func (param i32 i32)))
-  (type $t_sig_4 (func (param i32 i32) (result i32)))
-  (type $t_sig_5 (func (param i32) (result i32)))
-  (type $t_sig_6 (func (param i32 i32 i32) (result i32)))
-  (type $t_sig_7 (func (param i32) (result f64)))
-  (type $t_sig_8 (func (param i32 i32) (result f64)))
-  (type $t_sig_9 (func (param i32 i32 i32 i32) (result i32)))
-  (type $t_sig_10 (func (param i32 i32 i32 i32 i32) (result i32)))
-  (type $t_sig_11 (func (param i32 i32 i32)))
+  (type $t_sig_1 (func (param i32) (result i32)))
+  (type $t_sig_2 (func (param i32 i32 i32)))
   ;; --- WebAssembly Function Table (VTable) ---
-  (table (export "__vtable") 76 funcref)
-  (elem (i32.const 0) $onTimerTick $onFrameUpdate $onFetchSuccess $testScheduleTimer $testScheduleInterval $testRequestAnimationFrame $testFetchData $testConfirm $sayHello $addNumbers $getPi $calculateFactorial $sumRangeWithSkips $sumArray $sumArrayWithSkips $sumDoubleArray $sumInlineArray $createAndSumArray $evaluateSwitch $switchFallthrough $switchInsideLoop $labeledBreakNestedLoops $labeledContinueNestedLoops $labeledBlockBreak $labeledWhileBreak $concatStrings $formatUser $getStringLength $getCharAtIndex $getSubString $compareStrings $findSubstringIndex $findMissingSubstringIndex $buildCustomString $manipulateStringBuilder $testPointObject $testDirectFieldAccess $testPolymorphismArea $testInheritedColor $testInstanceOf $testObjectArray $testCanvasDraw $testWebGLInit $testJsEvalAndGet $testJsCreateAndSet $testJsArrayOperations $testJsGlobalMathCall $testWasiOutput $testWasiFacade $testAtomicIntegerOperations $testAtomicsArrayOperations $testWasmThread $testSimpleTryCatch $testExceptionMessage $testCustomExceptionHandling $testMultiCatchDispatch $testTryFinally $Throwable_getMessage $Exception_getMessage $Exception_getMessage $CustomAppException_getCode $Point_getX $Point_getY $Point_setLocation $Point_distanceSq $Shape_getColor $Shape_area $Shape_getColor $Circle_area $Circle_getRadius $Shape_getColor $Rectangle_area $RuntimeException_getMessage $IllegalArgumentException_getMessage $IllegalStateException_getMessage $NullPointerException_getMessage)
+  (table (export "__vtable") 19 funcref)
+  (elem (i32.const 0) $Throwable_getMessage $Exception_getMessage $Exception_getMessage $CustomAppException_getCode $Point_getX $Point_getY $Point_setLocation $Point_distanceSq $Shape_getColor $Shape_area $Shape_getColor $Circle_area $Circle_getRadius $Shape_getColor $Rectangle_area $RuntimeException_getMessage $IllegalArgumentException_getMessage $IllegalStateException_getMessage $NullPointerException_getMessage)
   ;; --- Heap Allocation Functions ---
   (func $__heap_alloc (export "__heap_alloc") (param $size i32) (result i32)
     (local $ptr i32)
@@ -2410,7 +2401,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 61
+    i32.const 4
     i32.store offset=0
     local.get $__obj_alloc_ptr
     local.get $x
@@ -2431,7 +2422,7 @@
     i32.load offset=0
     i32.const 2
     i32.add
-    call_indirect (type $t_sig_11)
+    call_indirect (type $t_sig_2)
     local.get $p
     local.set $__obj_tmp
     local.get $__obj_tmp
@@ -2439,7 +2430,7 @@
     i32.load offset=0
     i32.const 3
     i32.add
-    call_indirect (type $t_sig_5)
+    call_indirect (type $t_sig_1)
     return
   )
   (func $testDirectFieldAccess (export "testDirectFieldAccess") (param $x i32) (param $y i32) (result i32)
@@ -2460,7 +2451,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 61
+    i32.const 4
     i32.store offset=0
     local.get $__obj_alloc_ptr
     local.get $x
@@ -2513,7 +2504,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 67
+    i32.const 10
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 100
@@ -2526,7 +2517,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 70
+    i32.const 13
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 200
@@ -2543,7 +2534,7 @@
     i32.load offset=0
     i32.const 1
     i32.add
-    call_indirect (type $t_sig_5)
+    call_indirect (type $t_sig_1)
     return
   )
   (func $testInheritedColor (export "testInheritedColor") (param $type i32) (param $color i32) (param $param1 i32) (param $param2 i32) (result i32)
@@ -2568,7 +2559,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 67
+    i32.const 10
     i32.store offset=0
     local.get $__obj_alloc_ptr
     local.get $color
@@ -2581,7 +2572,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 70
+    i32.const 13
     i32.store offset=0
     local.get $__obj_alloc_ptr
     local.get $color
@@ -2598,7 +2589,7 @@
     i32.load offset=0
     i32.const 0
     i32.add
-    call_indirect (type $t_sig_5)
+    call_indirect (type $t_sig_1)
     return
   )
   (func $testInstanceOf (export "testInstanceOf") (param $type i32) (result i32)
@@ -2623,7 +2614,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 67
+    i32.const 10
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 10
@@ -2636,7 +2627,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 70
+    i32.const 13
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 20
@@ -2658,7 +2649,7 @@
       local.set $__vtable_tmp
       i32.const 0
       local.get $__vtable_tmp
-      i32.const 67
+      i32.const 10
       i32.eq
       i32.or
     end
@@ -2678,7 +2669,7 @@
       local.set $__vtable_tmp
       i32.const 0
       local.get $__vtable_tmp
-      i32.const 70
+      i32.const 13
       i32.eq
       i32.or
     end
@@ -2737,7 +2728,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 61
+    i32.const 4
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 1
@@ -2754,7 +2745,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 61
+    i32.const 4
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 3
@@ -2771,7 +2762,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 61
+    i32.const 4
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 5
@@ -2810,7 +2801,7 @@
     i32.load offset=0
     i32.const 3
     i32.add
-    call_indirect (type $t_sig_5)
+    call_indirect (type $t_sig_1)
     i32.add
     local.set $totalDist
         )
@@ -3440,7 +3431,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 72
+    i32.const 15
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 4493
@@ -3482,7 +3473,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 58
+    i32.const 1
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 4504
@@ -3501,7 +3492,7 @@
     i32.load offset=0
     i32.const 0
     i32.add
-    call_indirect (type $t_sig_5)
+    call_indirect (type $t_sig_1)
     return
       )
     )
@@ -3527,7 +3518,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 59
+    i32.const 2
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 4529
@@ -3547,7 +3538,7 @@
     i32.load offset=0
     i32.const 1
     i32.add
-    call_indirect (type $t_sig_5)
+    call_indirect (type $t_sig_1)
     return
       )
     )
@@ -3579,7 +3570,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 59
+    i32.const 2
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 4540
@@ -3596,7 +3587,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 73
+    i32.const 16
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 4551
@@ -3608,7 +3599,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 58
+    i32.const 1
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 4559
@@ -3630,7 +3621,7 @@
           local.set $__vtable_tmp
           i32.const 0
           local.get $__vtable_tmp
-          i32.const 59
+          i32.const 2
           i32.eq
           i32.or
         end
@@ -3645,7 +3636,7 @@
     i32.load offset=0
     i32.const 1
     i32.add
-    call_indirect (type $t_sig_5)
+    call_indirect (type $t_sig_1)
     i32.add
     return
         else
@@ -3659,7 +3650,7 @@
           local.set $__vtable_tmp
           i32.const 0
           local.get $__vtable_tmp
-          i32.const 73
+          i32.const 16
           i32.eq
           i32.or
         end
@@ -3708,7 +3699,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 72
+    i32.const 15
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 4573
@@ -3746,6 +3737,183 @@
     i32.add
     local.set $state
     local.get $state
+    return
+  )
+  (func $makePair (export "makePair") (param $a i32) (param $b i32) (result i32 i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__caught_exc i32)
+    local.get $a
+    local.get $b
+    return
+  )
+  (func $sumPair (export "sumPair") (param $p$first i32) (param $p$second i32) (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__caught_exc i32)
+    local.get $p$first
+    local.get $p$second
+    i32.add
+    return
+  )
+  (func $computePairDifference (export "computePairDifference") (param $a i32) (param $b i32) (result i32)
+    (local $p$first i32)
+    (local $p$second i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__caught_exc i32)
+    local.get $a
+    local.get $b
+    call $makePair
+    local.set $p$second
+    local.set $p$first
+    local.get $p$first
+    local.get $p$second
+    i32.sub
+    return
+  )
+  (func $divideWithRemainder (export "divideWithRemainder") (param $dividend i32) (param $divisor i32) (result i32 i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__caught_exc i32)
+    local.get $dividend
+    local.get $divisor
+    i32.div_s
+    local.get $dividend
+    local.get $divisor
+    i32.rem_s
+    return
+  )
+  (func $sumDivisionResult (export "sumDivisionResult") (param $dividend i32) (param $divisor i32) (result i32)
+    (local $res$quotient i32)
+    (local $res$remainder i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__caught_exc i32)
+    local.get $dividend
+    local.get $divisor
+    call $divideWithRemainder
+    local.set $res$remainder
+    local.set $res$quotient
+    local.get $res$quotient
+    local.get $res$remainder
+    call $DivisionResult_total
+    return
+  )
+  (func $scalePoint3D (export "scalePoint3D") (param $pt$x f64) (param $pt$y f64) (param $pt$z f64) (param $factor f64) (result f64 f64 f64)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__caught_exc i32)
+    local.get $pt$x
+    local.get $factor
+    f64.mul
+    local.get $pt$y
+    local.get $factor
+    f64.mul
+    local.get $pt$z
+    local.get $factor
+    f64.mul
+    return
+  )
+  (func $dotProductPoint3D (export "dotProductPoint3D") (param $a$x f64) (param $a$y f64) (param $a$z f64) (param $b$x f64) (param $b$y f64) (param $b$z f64) (result f64)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__caught_exc i32)
+    local.get $a$x
+    local.get $b$x
+    f64.mul
+    local.get $a$y
+    local.get $b$y
+    f64.mul
+    f64.add
+    local.get $a$z
+    local.get $b$z
+    f64.mul
+    f64.add
+    return
+  )
+  ;; Record: Pair
+  ;; Record: Point3D
+  ;; Record: DivisionResult
+  (func $DivisionResult_total (export "DivisionResult_total") (param $this$quotient i32) (param $this$remainder i32) (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__caught_exc i32)
+    local.get $this$quotient
+    local.get $this$remainder
+    i32.add
     return
   )
   ;; Class/Interface: CustomAppException
