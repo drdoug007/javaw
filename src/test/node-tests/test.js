@@ -93,6 +93,11 @@ async function runTest() {
         assert.ok(testContent.includes('(func $getPi'), 'Must contain getPi');
         assert.ok(testContent.includes('(func $calculateFactorial'), 'Must contain calculateFactorial');
         assert.ok(testContent.includes('(func $sumRangeWithSkips'), 'Must contain sumRangeWithSkips');
+        assert.ok(testContent.includes('(func $sumArray'), 'Must contain sumArray');
+        assert.ok(testContent.includes('(func $sumArrayWithSkips'), 'Must contain sumArrayWithSkips');
+        assert.ok(testContent.includes('(func $sumDoubleArray'), 'Must contain sumDoubleArray');
+        assert.ok(testContent.includes('(func $sumInlineArray'), 'Must contain sumInlineArray');
+        assert.ok(testContent.includes('(func $createAndSumArray'), 'Must contain createAndSumArray');
 
         if (fs.existsSync(TESTCLASS_WASM)) {
             const wasmBytes = fs.readFileSync(TESTCLASS_WASM);
@@ -101,7 +106,44 @@ async function runTest() {
             assert.ok(Math.abs(instance.exports.getPi() - 3.14159) < 0.0001);
             assert.strictEqual(instance.exports.calculateFactorial(5), 120);
             assert.strictEqual(instance.exports.sumRangeWithSkips(10), 33);
-            console.log('✓ TestClass execution assertions passed (including for loops, break/continue, and compound assignments).');
+
+            // Test for-each loop with array inline creation & allocation
+            assert.strictEqual(instance.exports.sumInlineArray(), 100);
+            assert.strictEqual(instance.exports.createAndSumArray(15, 25, 35), 75);
+
+            // Test for-each loop with memory buffer array passing
+            const memory = instance.exports.memory;
+            const intArrPtr = 80000;
+            const intArrView = new Int32Array(memory.buffer, intArrPtr, 6);
+            intArrView[0] = 5; // length
+            intArrView[1] = 10;
+            intArrView[2] = 20;
+            intArrView[3] = 30;
+            intArrView[4] = 40;
+            intArrView[5] = 50;
+            assert.strictEqual(instance.exports.sumArray(intArrPtr), 150);
+
+            // Test for-each loop with skips (continue on 3, break on >8)
+            const skipArrPtr = 81000;
+            const skipArrView = new Int32Array(memory.buffer, skipArrPtr, 6);
+            skipArrView[0] = 5; // length
+            skipArrView[1] = 1;
+            skipArrView[2] = 2;
+            skipArrView[3] = 3; // skipped
+            skipArrView[4] = 4;
+            skipArrView[5] = 10; // triggers break
+            assert.strictEqual(instance.exports.sumArrayWithSkips(skipArrPtr), 7); // 1 + 2 + 4 = 7
+
+            // Test for-each loop over double[] array
+            const dblArrPtr = 82000;
+            new Int32Array(memory.buffer, dblArrPtr, 1)[0] = 3; // length
+            const dblView = new Float64Array(memory.buffer, dblArrPtr + 8, 3);
+            dblView[0] = 1.5;
+            dblView[1] = 2.5;
+            dblView[2] = 3.5;
+            assert.ok(Math.abs(instance.exports.sumDoubleArray(dblArrPtr) - 7.5) < 0.0001);
+
+            console.log('✓ TestClass execution assertions passed (including for loops, for-each loops, arrays, break/continue, and compound assignments).');
         }
 
         // ==========================================
@@ -121,7 +163,7 @@ async function runTest() {
         assert.ok(appWat.includes('(import "dom" "setAttribute"'), 'Must declare setAttribute import');
         assert.ok(appWat.includes('(import "dom" "appendChild"'), 'Must declare appendChild import');
         assert.ok(appWat.includes('(import "dom" "addEventListener"'), 'Must declare addEventListener import');
-        assert.ok(appWat.includes('(memory (export "memory") 1)'), 'Must export linear memory');
+        assert.ok(appWat.includes('(memory (export "memory")'), 'Must export linear memory');
         console.log('✓ App.wat import signatures and memory declarations verified.');
 
         if (fs.existsSync(APP_WASM)) {

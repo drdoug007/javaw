@@ -7,9 +7,13 @@ import com.github.javaparser.ast.body.FieldDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.body.Parameter;
 import com.github.javaparser.ast.body.VariableDeclarator;
+import com.github.javaparser.ast.expr.ArrayAccessExpr;
+import com.github.javaparser.ast.expr.ArrayCreationExpr;
+import com.github.javaparser.ast.expr.ArrayInitializerExpr;
 import com.github.javaparser.ast.expr.AssignExpr;
 import com.github.javaparser.ast.expr.BinaryExpr;
 import com.github.javaparser.ast.expr.Expression;
+import com.github.javaparser.ast.expr.FieldAccessExpr;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.expr.StringLiteralExpr;
 import com.github.javaparser.ast.expr.UnaryExpr;
@@ -18,6 +22,7 @@ import com.github.javaparser.ast.stmt.BlockStmt;
 import com.github.javaparser.ast.stmt.BreakStmt;
 import com.github.javaparser.ast.stmt.ContinueStmt;
 import com.github.javaparser.ast.stmt.ExpressionStmt;
+import com.github.javaparser.ast.stmt.ForEachStmt;
 import com.github.javaparser.ast.stmt.ForStmt;
 import com.github.javaparser.ast.stmt.IfStmt;
 import com.github.javaparser.ast.stmt.ReturnStmt;
@@ -222,7 +227,7 @@ public class JavacToWasm {
             watOutput.append("  (import \"dom\" \"addEventListener\" (func $dom_addEventListener (param i32 i32 i32 i32 i32)))\n");
         }
 
-        watOutput.append("  (memory (export \"memory\") 1)\n");
+        watOutput.append("  (memory (export \"memory\") 2)\n");
 
         Map<String, GlobalVar> globalVars = collectGlobalVars(cu);
         for (GlobalVar gv : globalVars.values()) {
@@ -231,11 +236,17 @@ public class JavacToWasm {
         }
 
         Map<String, StringConstant> stringPool = collectStringLiterals(cu);
+        int heapStart = 65536; // Default to 64KB (1 WebAssembly page)
         for (Map.Entry<String, StringConstant> entry : stringPool.entrySet()) {
             StringConstant sc = entry.getValue();
             watOutput.append("  (data (i32.const ").append(sc.offset).append(") \"")
                     .append(escapeForWat(sc.bytes)).append("\")\n");
+            int end = sc.offset + sc.length + 16;
+            if (end > heapStart) {
+                heapStart = ((end + 65535) / 65536) * 65536;
+            }
         }
+        watOutput.append("  (global $__heap_ptr (mut i32) (i32.const ").append(heapStart).append("))\n");
 
         cu.accept(new WasmGeneratorVisitor(stringPool, globalVars), watOutput);
         watOutput.append(")\n");
@@ -247,6 +258,9 @@ public class JavacToWasm {
      */
     public static String mapType(String typeStr) {
         if (typeStr == null) {
+            return "i32";
+        }
+        if (typeStr.endsWith("[]")) {
             return "i32";
         }
         return switch (typeStr) {
@@ -281,6 +295,7 @@ public class JavacToWasm {
         private final Map<String, GlobalVar> globalVars;
         private final Deque<LoopContext> loopStack = new ArrayDeque<>();
         private int loopCounter = 0;
+        private int forEachCounter = 0;
 
         public WasmGeneratorVisitor(Map<String, StringConstant> stringPool, Map<String, GlobalVar> globalVars) {
             this.stringPool = stringPool;
@@ -299,6 +314,8 @@ public class JavacToWasm {
             String returnWasmType = mapType(n.getType());
 
             Map<String, String> localTypes = new HashMap<>();
+            Map<String, String> localElementTypes = new HashMap<>();
+            forEachCounter = 0;
 
             collector.append("  (func $").append(methodName)
                     .append(" (export \"").append(methodName).append("\")");
@@ -307,6 +324,9 @@ public class JavacToWasm {
             for (Parameter p : n.getParameters()) {
                 String pType = mapType(p.getType());
                 localTypes.put(p.getNameAsString(), pType);
+                if (p.getType().isArrayType()) {
+                    localElementTypes.put(p.getNameAsString(), mapType(p.getType().asArrayType().getComponentType()));
+                }
                 collector.append(" (param $").append(p.getNameAsString()).append(" ").append(pType).append(")");
             }
 
@@ -327,40 +347,53 @@ public class JavacToWasm {
                     String vName = vd.getNameAsString();
                     String vType = mapType(vd.getType());
                     localTypes.put(vName, vType);
+                    if (vd.getType().isArrayType()) {
+                        localElementTypes.put(vName, mapType(vd.getType().asArrayType().getComponentType()));
+                    }
                     if (!declaredLocals.contains(vName)) {
                         declaredLocals.add(vName);
                         collector.append("    (local $").append(vName).append(" ").append(vType).append(")\n");
                     }
                 }
 
+                // Helper locals for for-each loops and array operations
+                List<ForEachStmt> forEachStmts = body.findAll(ForEachStmt.class);
+                for (int i = 1; i <= forEachStmts.size(); i++) {
+                    collector.append("    (local $__arr_ptr_").append(i).append(" i32)\n");
+                    collector.append("    (local $__arr_len_").append(i).append(" i32)\n");
+                    collector.append("    (local $__arr_idx_").append(i).append(" i32)\n");
+                }
+                collector.append("    (local $__arr_alloc_ptr i32)\n");
+                collector.append("    (local $__arr_alloc_len i32)\n");
+
                 // Translate statements
                 for (Statement stmt : body.getStatements()) {
-                    translateStatement(stmt, collector, localTypes, returnWasmType);
+                    translateStatement(stmt, collector, localTypes, localElementTypes, returnWasmType);
                 }
             }
 
             collector.append("  )\n");
         }
 
-        private void translateStatement(Statement stmt, StringBuilder collector, Map<String, String> localTypes, String returnWasmType) {
+        private void translateStatement(Statement stmt, StringBuilder collector, Map<String, String> localTypes, Map<String, String> localElementTypes, String returnWasmType) {
             if (stmt.isReturnStmt()) {
                 ReturnStmt ret = stmt.asReturnStmt();
                 if (ret.getExpression().isPresent()) {
-                    translateExpression(ret.getExpression().get(), collector, localTypes, returnWasmType);
+                    translateExpression(ret.getExpression().get(), collector, localTypes, localElementTypes, returnWasmType);
                 }
             } else if (stmt.isExpressionStmt()) {
                 ExpressionStmt exprStmt = stmt.asExpressionStmt();
-                translateExpression(exprStmt.getExpression(), collector, localTypes, returnWasmType);
+                translateExpression(exprStmt.getExpression(), collector, localTypes, localElementTypes, returnWasmType);
             } else if (stmt.isIfStmt()) {
                 IfStmt ifStmt = stmt.asIfStmt();
-                translateExpression(ifStmt.getCondition(), collector, localTypes, "i32");
+                translateExpression(ifStmt.getCondition(), collector, localTypes, localElementTypes, "i32");
                 collector.append("    (if\n");
                 collector.append("      (then\n");
-                translateStatement(ifStmt.getThenStmt(), collector, localTypes, returnWasmType);
+                translateStatement(ifStmt.getThenStmt(), collector, localTypes, localElementTypes, returnWasmType);
                 collector.append("      )\n");
                 if (ifStmt.getElseStmt().isPresent()) {
                     collector.append("      (else\n");
-                    translateStatement(ifStmt.getElseStmt().get(), collector, localTypes, returnWasmType);
+                    translateStatement(ifStmt.getElseStmt().get(), collector, localTypes, localElementTypes, returnWasmType);
                     collector.append("      )\n");
                 }
                 collector.append("    )\n");
@@ -374,10 +407,10 @@ public class JavacToWasm {
 
                 collector.append("    (block $").append(breakLabel).append("\n");
                 collector.append("      (loop $").append(loopLabel).append("\n");
-                translateExpression(whileStmt.getCondition(), collector, localTypes, "i32");
+                translateExpression(whileStmt.getCondition(), collector, localTypes, localElementTypes, "i32");
                 collector.append("        i32.eqz\n");
                 collector.append("        br_if $").append(breakLabel).append("\n");
-                translateStatement(whileStmt.getBody(), collector, localTypes, returnWasmType);
+                translateStatement(whileStmt.getBody(), collector, localTypes, localElementTypes, returnWasmType);
                 collector.append("        br $").append(loopLabel).append("\n");
                 collector.append("      )\n");
                 collector.append("    )\n");
@@ -392,7 +425,7 @@ public class JavacToWasm {
 
                 // 1. Initialization expressions
                 for (Expression initExpr : forStmt.getInitialization()) {
-                    translateExpression(initExpr, collector, localTypes, null);
+                    translateExpression(initExpr, collector, localTypes, localElementTypes, null);
                 }
 
                 loopStack.push(new LoopContext(breakLabel, continueLabel));
@@ -402,21 +435,87 @@ public class JavacToWasm {
 
                 // 2. Condition check
                 if (forStmt.getCompare().isPresent()) {
-                    translateExpression(forStmt.getCompare().get(), collector, localTypes, "i32");
+                    translateExpression(forStmt.getCompare().get(), collector, localTypes, localElementTypes, "i32");
                     collector.append("        i32.eqz\n");
                     collector.append("        br_if $").append(breakLabel).append("\n");
                 }
 
                 // 3. Body with continue target
                 collector.append("        (block $").append(continueLabel).append("\n");
-                translateStatement(forStmt.getBody(), collector, localTypes, returnWasmType);
+                translateStatement(forStmt.getBody(), collector, localTypes, localElementTypes, returnWasmType);
                 collector.append("        )\n");
 
                 // 4. Update expressions
                 for (Expression updateExpr : forStmt.getUpdate()) {
-                    translateExpression(updateExpr, collector, localTypes, null);
+                    translateExpression(updateExpr, collector, localTypes, localElementTypes, null);
                 }
 
+                collector.append("        br $").append(loopLabel).append("\n");
+                collector.append("      )\n");
+                collector.append("    )\n");
+
+                loopStack.pop();
+            } else if (stmt.isForEachStmt()) {
+                ForEachStmt forEach = stmt.asForEachStmt();
+                int forEachId = ++forEachCounter;
+                int loopId = ++loopCounter;
+                String breakLabel = "break_foreach_" + loopId;
+                String loopLabel = "loop_foreach_" + loopId;
+                String continueLabel = "continue_foreach_" + loopId;
+
+                String ptrVar = "__arr_ptr_" + forEachId;
+                String lenVar = "__arr_len_" + forEachId;
+                String idxVar = "__arr_idx_" + forEachId;
+
+                VariableDeclarator varDecl = forEach.getVariable().getVariable(0);
+                String elemVar = varDecl.getNameAsString();
+                String elemType = mapType(varDecl.getType());
+                int headerOffset = (elemType.equals("f64") || elemType.equals("i64")) ? 8 : 4;
+                int elemSize = (elemType.equals("f64") || elemType.equals("i64")) ? 8 : 4;
+
+                // 1. Evaluate iterable expression and store into ptrVar
+                translateExpression(forEach.getIterable(), collector, localTypes, localElementTypes, "i32");
+                collector.append("    local.set $").append(ptrVar).append("\n");
+
+                // 2. Load array length from ptrVar
+                collector.append("    local.get $").append(ptrVar).append("\n");
+                collector.append("    i32.load\n");
+                collector.append("    local.set $").append(lenVar).append("\n");
+
+                // 3. Initialize index = 0
+                collector.append("    i32.const 0\n");
+                collector.append("    local.set $").append(idxVar).append("\n");
+
+                loopStack.push(new LoopContext(breakLabel, continueLabel));
+
+                collector.append("    (block $").append(breakLabel).append("\n");
+                collector.append("      (loop $").append(loopLabel).append("\n");
+
+                // 4. Condition check: idx >= len -> break
+                collector.append("        local.get $").append(idxVar).append("\n");
+                collector.append("        local.get $").append(lenVar).append("\n");
+                collector.append("        i32.ge_s\n");
+                collector.append("        br_if $").append(breakLabel).append("\n");
+
+                // 5. Load element at idx into elemVar
+                collector.append("        local.get $").append(ptrVar).append("\n");
+                collector.append("        local.get $").append(idxVar).append("\n");
+                collector.append("        i32.const ").append(elemSize).append("\n");
+                collector.append("        i32.mul\n");
+                collector.append("        i32.add\n");
+                collector.append("        ").append(getLoadInstruction(elemType)).append(" offset=").append(headerOffset).append("\n");
+                collector.append("        local.set $").append(elemVar).append("\n");
+
+                // 6. Body with continue target
+                collector.append("        (block $").append(continueLabel).append("\n");
+                translateStatement(forEach.getBody(), collector, localTypes, localElementTypes, returnWasmType);
+                collector.append("        )\n");
+
+                // 7. Update index: idx++
+                collector.append("        local.get $").append(idxVar).append("\n");
+                collector.append("        i32.const 1\n");
+                collector.append("        i32.add\n");
+                collector.append("        local.set $").append(idxVar).append("\n");
                 collector.append("        br $").append(loopLabel).append("\n");
                 collector.append("      )\n");
                 collector.append("    )\n");
@@ -432,42 +531,42 @@ public class JavacToWasm {
                 }
             } else if (stmt.isBlockStmt()) {
                 for (Statement s : stmt.asBlockStmt().getStatements()) {
-                    translateStatement(s, collector, localTypes, returnWasmType);
+                    translateStatement(s, collector, localTypes, localElementTypes, returnWasmType);
                 }
             }
         }
 
-        private void translateExpression(Expression expr, StringBuilder collector, Map<String, String> localTypes, String expectedType) {
+        private void translateExpression(Expression expr, StringBuilder collector, Map<String, String> localTypes, Map<String, String> localElementTypes, String expectedType) {
             if (expr.isBinaryExpr()) {
                 BinaryExpr bin = expr.asBinaryExpr();
-                String opType = inferType(bin, localTypes, expectedType);
-                translateExpression(bin.getLeft(), collector, localTypes, opType);
-                translateExpression(bin.getRight(), collector, localTypes, opType);
+                String opType = inferType(bin, localTypes, localElementTypes, expectedType);
+                translateExpression(bin.getLeft(), collector, localTypes, localElementTypes, opType);
+                translateExpression(bin.getRight(), collector, localTypes, localElementTypes, opType);
                 collector.append("    ").append(getWasmBinaryOp(bin.getOperator(), opType)).append("\n");
             } else if (expr.isUnaryExpr()) {
                 UnaryExpr u = expr.asUnaryExpr();
-                String uType = inferType(u.getExpression(), localTypes, expectedType);
+                String uType = inferType(u.getExpression(), localTypes, localElementTypes, expectedType);
                 if (u.getOperator() == UnaryExpr.Operator.MINUS) {
                     if ("f64".equals(uType)) {
-                        translateExpression(u.getExpression(), collector, localTypes, uType);
+                        translateExpression(u.getExpression(), collector, localTypes, localElementTypes, uType);
                         collector.append("    f64.neg\n");
                     } else if ("f32".equals(uType)) {
-                        translateExpression(u.getExpression(), collector, localTypes, uType);
+                        translateExpression(u.getExpression(), collector, localTypes, localElementTypes, uType);
                         collector.append("    f32.neg\n");
                     } else if ("i64".equals(uType)) {
                         collector.append("    i64.const 0\n");
-                        translateExpression(u.getExpression(), collector, localTypes, uType);
+                        translateExpression(u.getExpression(), collector, localTypes, localElementTypes, uType);
                         collector.append("    i64.sub\n");
                     } else {
                         collector.append("    i32.const 0\n");
-                        translateExpression(u.getExpression(), collector, localTypes, uType);
+                        translateExpression(u.getExpression(), collector, localTypes, localElementTypes, uType);
                         collector.append("    i32.sub\n");
                     }
                 } else if (u.getOperator() == UnaryExpr.Operator.LOGICAL_COMPLEMENT) {
-                    translateExpression(u.getExpression(), collector, localTypes, "i32");
+                    translateExpression(u.getExpression(), collector, localTypes, localElementTypes, "i32");
                     collector.append("    i32.eqz\n");
                 } else if (u.getOperator() == UnaryExpr.Operator.BITWISE_COMPLEMENT) {
-                    translateExpression(u.getExpression(), collector, localTypes, uType);
+                    translateExpression(u.getExpression(), collector, localTypes, localElementTypes, uType);
                     if ("i64".equals(uType)) {
                         collector.append("    i64.const -1\n    i64.xor\n");
                     } else {
@@ -492,7 +591,7 @@ public class JavacToWasm {
                         collector.append(isGlobal ? "    global.set $" : "    local.set $").append(var).append("\n");
                     }
                 } else {
-                    translateExpression(u.getExpression(), collector, localTypes, expectedType);
+                    translateExpression(u.getExpression(), collector, localTypes, localElementTypes, expectedType);
                 }
             } else if (expr.isIntegerLiteralExpr()) {
                 collector.append("    i32.const ").append(expr.asIntegerLiteralExpr().getValue()).append("\n");
@@ -519,7 +618,107 @@ public class JavacToWasm {
                 boolean isGlobal = globalVars != null && globalVars.containsKey(var) && !localTypes.containsKey(var);
                 collector.append(isGlobal ? "    global.get $" : "    local.get $").append(var).append("\n");
             } else if (expr.isEnclosedExpr()) {
-                translateExpression(expr.asEnclosedExpr().getInner(), collector, localTypes, expectedType);
+                translateExpression(expr.asEnclosedExpr().getInner(), collector, localTypes, localElementTypes, expectedType);
+            } else if (expr.isArrayCreationExpr()) {
+                ArrayCreationExpr ace = expr.asArrayCreationExpr();
+                String elemType = mapType(ace.getElementType());
+                int headerOffset = (elemType.equals("f64") || elemType.equals("i64")) ? 8 : 4;
+                int elemSize = (elemType.equals("f64") || elemType.equals("i64")) ? 8 : 4;
+
+                if (ace.getInitializer().isPresent()) {
+                    ArrayInitializerExpr init = ace.getInitializer().get();
+                    int n = init.getValues().size();
+                    int totalBytes = headerOffset + n * elemSize;
+                    int alignedBytes = (totalBytes + 7) & ~7;
+
+                    collector.append("    global.get $__heap_ptr\n");
+                    collector.append("    local.set $__arr_alloc_ptr\n");
+                    collector.append("    global.get $__heap_ptr\n");
+                    collector.append("    i32.const ").append(alignedBytes).append("\n");
+                    collector.append("    i32.add\n");
+                    collector.append("    global.set $__heap_ptr\n");
+
+                    collector.append("    local.get $__arr_alloc_ptr\n");
+                    collector.append("    i32.const ").append(n).append("\n");
+                    collector.append("    i32.store\n");
+
+                    for (int i = 0; i < n; i++) {
+                        collector.append("    local.get $__arr_alloc_ptr\n");
+                        translateExpression(init.getValues().get(i), collector, localTypes, localElementTypes, elemType);
+                        int offset = headerOffset + i * elemSize;
+                        collector.append("    ").append(getStoreInstruction(elemType)).append(" offset=").append(offset).append("\n");
+                    }
+                    collector.append("    local.get $__arr_alloc_ptr\n");
+                } else if (!ace.getLevels().isEmpty() && ace.getLevels().get(0).getDimension().isPresent()) {
+                    Expression dimExpr = ace.getLevels().get(0).getDimension().get();
+                    translateExpression(dimExpr, collector, localTypes, localElementTypes, "i32");
+                    collector.append("    local.set $__arr_alloc_len\n");
+                    collector.append("    global.get $__heap_ptr\n");
+                    collector.append("    local.set $__arr_alloc_ptr\n");
+
+                    collector.append("    local.get $__arr_alloc_ptr\n");
+                    collector.append("    local.get $__arr_alloc_len\n");
+                    collector.append("    i32.store\n");
+
+                    collector.append("    global.get $__heap_ptr\n");
+                    collector.append("    i32.const ").append(headerOffset + 7).append("\n");
+                    collector.append("    local.get $__arr_alloc_len\n");
+                    collector.append("    i32.const ").append(elemSize).append("\n");
+                    collector.append("    i32.mul\n");
+                    collector.append("    i32.add\n");
+                    collector.append("    i32.const -8\n");
+                    collector.append("    i32.and\n");
+                    collector.append("    i32.add\n");
+                    collector.append("    global.set $__heap_ptr\n");
+
+                    collector.append("    local.get $__arr_alloc_ptr\n");
+                }
+            } else if (expr.isArrayInitializerExpr()) {
+                ArrayInitializerExpr init = expr.asArrayInitializerExpr();
+                String elemType = (expectedType != null && !expectedType.equals("i32")) ? expectedType : "i32";
+                int headerOffset = (elemType.equals("f64") || elemType.equals("i64")) ? 8 : 4;
+                int elemSize = (elemType.equals("f64") || elemType.equals("i64")) ? 8 : 4;
+
+                int n = init.getValues().size();
+                int totalBytes = headerOffset + n * elemSize;
+                int alignedBytes = (totalBytes + 7) & ~7;
+
+                collector.append("    global.get $__heap_ptr\n");
+                collector.append("    local.set $__arr_alloc_ptr\n");
+                collector.append("    global.get $__heap_ptr\n");
+                collector.append("    i32.const ").append(alignedBytes).append("\n");
+                collector.append("    i32.add\n");
+                collector.append("    global.set $__heap_ptr\n");
+
+                collector.append("    local.get $__arr_alloc_ptr\n");
+                collector.append("    i32.const ").append(n).append("\n");
+                collector.append("    i32.store\n");
+
+                for (int i = 0; i < n; i++) {
+                    collector.append("    local.get $__arr_alloc_ptr\n");
+                    translateExpression(init.getValues().get(i), collector, localTypes, localElementTypes, elemType);
+                    int offset = headerOffset + i * elemSize;
+                    collector.append("    ").append(getStoreInstruction(elemType)).append(" offset=").append(offset).append("\n");
+                }
+                collector.append("    local.get $__arr_alloc_ptr\n");
+            } else if (expr.isArrayAccessExpr()) {
+                ArrayAccessExpr aae = expr.asArrayAccessExpr();
+                String elemType = getArrayElementType(aae, localElementTypes, expectedType);
+                int headerOffset = (elemType.equals("f64") || elemType.equals("i64")) ? 8 : 4;
+                int elemSize = (elemType.equals("f64") || elemType.equals("i64")) ? 8 : 4;
+
+                translateExpression(aae.getName(), collector, localTypes, localElementTypes, "i32");
+                translateExpression(aae.getIndex(), collector, localTypes, localElementTypes, "i32");
+                collector.append("    i32.const ").append(elemSize).append("\n");
+                collector.append("    i32.mul\n");
+                collector.append("    i32.add\n");
+                collector.append("    ").append(getLoadInstruction(elemType)).append(" offset=").append(headerOffset).append("\n");
+            } else if (expr.isFieldAccessExpr()) {
+                FieldAccessExpr fae = expr.asFieldAccessExpr();
+                if (fae.getNameAsString().equals("length")) {
+                    translateExpression(fae.getScope(), collector, localTypes, localElementTypes, "i32");
+                    collector.append("    i32.load\n");
+                }
             } else if (expr.isAssignExpr()) {
                 AssignExpr assign = expr.asAssignExpr();
                 AssignExpr.Operator op = assign.getOperator();
@@ -529,27 +728,61 @@ public class JavacToWasm {
                     String targetType = isGlobal ? globalVars.get(target).type : localTypes.getOrDefault(target, "i32");
 
                     if (op == AssignExpr.Operator.ASSIGN) {
-                        translateExpression(assign.getValue(), collector, localTypes, targetType);
+                        translateExpression(assign.getValue(), collector, localTypes, localElementTypes, targetType);
                         collector.append(isGlobal ? "    global.set $" : "    local.set $").append(target).append("\n");
                     } else {
                         // Compound assignment (e.g. +=, -=, *=, /=)
                         collector.append(isGlobal ? "    global.get $" : "    local.get $").append(target).append("\n");
-                        translateExpression(assign.getValue(), collector, localTypes, targetType);
+                        translateExpression(assign.getValue(), collector, localTypes, localElementTypes, targetType);
                         BinaryExpr.Operator binOp = mapAssignOpToBinaryOp(op);
                         if (binOp != null) {
                             collector.append("    ").append(getWasmBinaryOp(binOp, targetType)).append("\n");
                         }
                         collector.append(isGlobal ? "    global.set $" : "    local.set $").append(target).append("\n");
                     }
+                } else if (assign.getTarget().isArrayAccessExpr()) {
+                    ArrayAccessExpr aae = assign.getTarget().asArrayAccessExpr();
+                    String elemType = getArrayElementType(aae, localElementTypes, expectedType);
+                    int headerOffset = (elemType.equals("f64") || elemType.equals("i64")) ? 8 : 4;
+                    int elemSize = (elemType.equals("f64") || elemType.equals("i64")) ? 8 : 4;
+
+                    if (op == AssignExpr.Operator.ASSIGN) {
+                        translateExpression(aae.getName(), collector, localTypes, localElementTypes, "i32");
+                        translateExpression(aae.getIndex(), collector, localTypes, localElementTypes, "i32");
+                        collector.append("    i32.const ").append(elemSize).append("\n");
+                        collector.append("    i32.mul\n");
+                        collector.append("    i32.add\n");
+                        translateExpression(assign.getValue(), collector, localTypes, localElementTypes, elemType);
+                        collector.append("    ").append(getStoreInstruction(elemType)).append(" offset=").append(headerOffset).append("\n");
+                    } else {
+                        // Compound assignment on array element: arr[i] += val
+                        translateExpression(aae.getName(), collector, localTypes, localElementTypes, "i32");
+                        translateExpression(aae.getIndex(), collector, localTypes, localElementTypes, "i32");
+                        collector.append("    i32.const ").append(elemSize).append("\n");
+                        collector.append("    i32.mul\n");
+                        collector.append("    i32.add\n");
+                        collector.append("    local.set $__arr_alloc_ptr\n");
+
+                        collector.append("    local.get $__arr_alloc_ptr\n");
+                        collector.append("    local.get $__arr_alloc_ptr\n");
+                        collector.append("    ").append(getLoadInstruction(elemType)).append(" offset=").append(headerOffset).append("\n");
+                        translateExpression(assign.getValue(), collector, localTypes, localElementTypes, elemType);
+                        BinaryExpr.Operator binOp = mapAssignOpToBinaryOp(op);
+                        if (binOp != null) {
+                            collector.append("    ").append(getWasmBinaryOp(binOp, elemType)).append("\n");
+                        }
+                        collector.append("    ").append(getStoreInstruction(elemType)).append(" offset=").append(headerOffset).append("\n");
+                    }
                 } else {
-                    translateExpression(assign.getValue(), collector, localTypes, expectedType);
+                    translateExpression(assign.getValue(), collector, localTypes, localElementTypes, expectedType);
                 }
             } else if (expr.isVariableDeclarationExpr()) {
                 VariableDeclarationExpr vde = expr.asVariableDeclarationExpr();
                 for (VariableDeclarator vd : vde.getVariables()) {
                     if (vd.getInitializer().isPresent()) {
                         String vType = mapType(vd.getType());
-                        translateExpression(vd.getInitializer().get(), collector, localTypes, vType);
+                        String elemType = vd.getType().isArrayType() ? mapType(vd.getType().asArrayType().getComponentType()) : null;
+                        translateExpression(vd.getInitializer().get(), collector, localTypes, localElementTypes, elemType != null ? elemType : vType);
                         collector.append("    local.set $").append(vd.getNameAsString()).append("\n");
                     }
                 }
@@ -560,31 +793,31 @@ public class JavacToWasm {
                     Expression scope = call.getScope().get();
                     if (scope.isNameExpr() && scope.asNameExpr().getNameAsString().equals("DOM")) {
                         for (Expression arg : call.getArguments()) {
-                            translateExpression(arg, collector, localTypes, null);
+                            translateExpression(arg, collector, localTypes, localElementTypes, null);
                         }
                         collector.append("    call $dom_").append(mName).append("\n");
                     } else if (isDomInstanceMethod(mName)) {
-                        translateExpression(scope, collector, localTypes, "i32");
+                        translateExpression(scope, collector, localTypes, localElementTypes, "i32");
                         for (Expression arg : call.getArguments()) {
-                            translateExpression(arg, collector, localTypes, null);
+                            translateExpression(arg, collector, localTypes, localElementTypes, null);
                         }
                         collector.append("    call $dom_").append(mName).append("\n");
                     } else {
-                        translateExpression(scope, collector, localTypes, null);
+                        translateExpression(scope, collector, localTypes, localElementTypes, null);
                         for (Expression arg : call.getArguments()) {
-                            translateExpression(arg, collector, localTypes, null);
+                            translateExpression(arg, collector, localTypes, localElementTypes, null);
                         }
                         collector.append("    call $").append(mName).append("\n");
                     }
                 } else {
                     if (isDomStaticMethod(mName) || isDomInstanceMethod(mName)) {
                         for (Expression arg : call.getArguments()) {
-                            translateExpression(arg, collector, localTypes, null);
+                            translateExpression(arg, collector, localTypes, localElementTypes, null);
                         }
                         collector.append("    call $dom_").append(mName).append("\n");
                     } else {
                         for (Expression arg : call.getArguments()) {
-                            translateExpression(arg, collector, localTypes, null);
+                            translateExpression(arg, collector, localTypes, localElementTypes, null);
                         }
                         collector.append("    call $").append(mName).append("\n");
                     }
@@ -592,7 +825,32 @@ public class JavacToWasm {
             }
         }
 
-        private String inferType(Expression expr, Map<String, String> localTypes, String fallback) {
+        private String getArrayElementType(ArrayAccessExpr aae, Map<String, String> localElementTypes, String fallback) {
+            if (aae.getName().isNameExpr()) {
+                String arrName = aae.getName().asNameExpr().getNameAsString();
+                String elemType = localElementTypes.get(arrName);
+                if (elemType != null) {
+                    return elemType;
+                }
+            }
+            return (fallback != null && !fallback.equals("i32")) ? fallback : "i32";
+        }
+
+        private static String getLoadInstruction(String type) {
+            if ("f64".equals(type)) return "f64.load";
+            if ("f32".equals(type)) return "f32.load";
+            if ("i64".equals(type)) return "i64.load";
+            return "i32.load";
+        }
+
+        private static String getStoreInstruction(String type) {
+            if ("f64".equals(type)) return "f64.store";
+            if ("f32".equals(type)) return "f32.store";
+            if ("i64".equals(type)) return "i64.store";
+            return "i32.store";
+        }
+
+        private String inferType(Expression expr, Map<String, String> localTypes, Map<String, String> localElementTypes, String fallback) {
             if (expr.isDoubleLiteralExpr()) {
                 return "f64";
             }
@@ -612,19 +870,28 @@ public class JavacToWasm {
                     return globalVars.get(name).type;
                 }
             }
+            if (expr.isArrayAccessExpr()) {
+                return getArrayElementType(expr.asArrayAccessExpr(), localElementTypes, fallback);
+            }
+            if (expr.isFieldAccessExpr() && expr.asFieldAccessExpr().getNameAsString().equals("length")) {
+                return "i32";
+            }
+            if (expr.isArrayCreationExpr()) {
+                return "i32";
+            }
             if (expr.isBinaryExpr()) {
                 BinaryExpr b = expr.asBinaryExpr();
-                String left = inferType(b.getLeft(), localTypes, null);
+                String left = inferType(b.getLeft(), localTypes, localElementTypes, null);
                 if ("f64".equals(left)) return "f64";
                 if ("i64".equals(left)) return "i64";
                 if ("f32".equals(left)) return "f32";
-                String right = inferType(b.getRight(), localTypes, null);
+                String right = inferType(b.getRight(), localTypes, localElementTypes, null);
                 if ("f64".equals(right)) return "f64";
                 if ("i64".equals(right)) return "i64";
                 if ("f32".equals(right)) return "f32";
             }
             if (expr.isEnclosedExpr()) {
-                return inferType(expr.asEnclosedExpr().getInner(), localTypes, fallback);
+                return inferType(expr.asEnclosedExpr().getInner(), localTypes, localElementTypes, fallback);
             }
             return (fallback != null) ? fallback : "i32";
         }

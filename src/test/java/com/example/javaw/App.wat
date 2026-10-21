@@ -5,7 +5,7 @@
   (import "dom" "setAttribute" (func $dom_setAttribute (param i32 i32 i32 i32 i32)))
   (import "dom" "appendChild" (func $dom_appendChild (param i32 i32)))
   (import "dom" "addEventListener" (func $dom_addEventListener (param i32 i32 i32 i32 i32)))
-  (memory (export "memory") 1)
+  (memory (export "memory") 2)
   (global $counter (mut i32) (i32.const 0))
   (data (i32.const 4096) "app\00")
   (data (i32.const 4100) "h1\00")
@@ -24,12 +24,15 @@
   (data (i32.const 4228) "Count: 1 click\00")
   (data (i32.const 4243) "Count: 2 clicks\00")
   (data (i32.const 4259) "Count: multiple clicks\00")
+  (global $__heap_ptr (mut i32) (i32.const 65536))
   ;; Class/Interface: App
   (func $start (export "start")
     (local $app i32)
     (local $heading i32)
     (local $status i32)
     (local $btn i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
     i32.const 4096
     i32.const 3
     call $dom_getElementById
@@ -94,6 +97,8 @@
   )
   (func $increment (export "increment")
     (local $status i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
     global.get $counter
     i32.const 1
     i32.add

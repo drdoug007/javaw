@@ -34,4 +34,51 @@ public class TestClass {
         }
         return sum;
     }
+
+    public int sumArray(int[] numbers) {
+        int total = 0;
+        for (int n : numbers) {
+            total += n;
+        }
+        return total;
+    }
+
+    public int sumArrayWithSkips(int[] numbers) {
+        int total = 0;
+        for (int n : numbers) {
+            if (n == 3) {
+                continue;
+            }
+            if (n > 8) {
+                break;
+            }
+            total += n;
+        }
+        return total;
+    }
+
+    public double sumDoubleArray(double[] values) {
+        double total = 0.0;
+        for (double v : values) {
+            total += v;
+        }
+        return total;
+    }
+
+    public int sumInlineArray() {
+        int total = 0;
+        for (int x : new int[]{10, 20, 30, 40}) {
+            total += x;
+        }
+        return total;
+    }
+
+    public int createAndSumArray(int a, int b, int c) {
+        int[] arr = new int[]{a, b, c};
+        int sum = 0;
+        for (int x : arr) {
+            sum += x;
+        }
+        return sum;
+    }
 }

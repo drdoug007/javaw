@@ -41,10 +41,47 @@ public class JavacToWasmTest {
         CompilationUnit cu = StaticJavaParser.parse(javaSource);
         String wat = JavacToWasm.generateWat(cu);
 
-        assertTrue(wat.contains("(memory (export \"memory\") 1)"));
+        assertTrue(wat.contains("(memory (export \"memory\")"));
         assertTrue(wat.contains("(data (i32.const 4096) \"Hello, WebAssembly!\\00\")"));
         assertTrue(wat.contains("i32.const 4096"));
         assertTrue(wat.contains("i32.const 19")); // length of "Hello, WebAssembly!"
+    }
+
+    @Test
+    public void testGenerateWatWithForEachLoopAndArrays() {
+        String javaSource = "package com.example.javaw;\n" +
+                "public class ForEachApp {\n" +
+                "    public int sum(int[] numbers) {\n" +
+                "        int total = 0;\n" +
+                "        for (int n : numbers) {\n" +
+                "            if (n == 3) continue;\n" +
+                "            if (n > 8) break;\n" +
+                "            total += n;\n" +
+                "        }\n" +
+                "        return total;\n" +
+                "    }\n" +
+                "    public double sumDoubles(double[] vals) {\n" +
+                "        double total = 0.0;\n" +
+                "        for (double v : vals) {\n" +
+                "            total += v;\n" +
+                "        }\n" +
+                "        return total;\n" +
+                "    }\n" +
+                "}\n";
+
+        CompilationUnit cu = StaticJavaParser.parse(javaSource);
+        String wat = JavacToWasm.generateWat(cu);
+
+        assertTrue(wat.contains("(func $sum (export \"sum\") (param $numbers i32) (result i32)"));
+        assertTrue(wat.contains("(local $__arr_ptr_1 i32)"));
+        assertTrue(wat.contains("(local $__arr_len_1 i32)"));
+        assertTrue(wat.contains("(local $__arr_idx_1 i32)"));
+        assertTrue(wat.contains("block $break_foreach_"));
+        assertTrue(wat.contains("loop $loop_foreach_"));
+        assertTrue(wat.contains("block $continue_foreach_"));
+        assertTrue(wat.contains("i32.load offset=4"));
+        assertTrue(wat.contains("(func $sumDoubles (export \"sumDoubles\") (param $vals i32) (result f64)"));
+        assertTrue(wat.contains("f64.load offset=8"));
     }
 
     @Test

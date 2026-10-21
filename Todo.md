@@ -9,8 +9,11 @@ This roadmap organizes planned features by their utility and return on investmen
 - [x] **Standard `for` loop lowering (`ForStmt`)**
   - Translate Java `for (init; condition; update) { ... }` into WebAssembly `block` / `loop` / `br_if` structures with proper iteration semantics.
   - Implemented support for `break`, `continue`, and compound assignments (`+=`, `-=`, `*=`, `/=`, etc.).
-- [ ] **Enhanced `for-each` loop lowering (`ForEachStmt`)**
-  - Support iteration over primitive arrays and iterable structures.
+- [x] **Enhanced `for-each` loop lowering (`ForEachStmt`)**
+  - Support iteration over primitive arrays (`int[]`, `double[]`, etc.) and iterable structures.
+  - Linear memory array layout `[length: i32, element_0, element_1, ...]`.
+  - Array instantiation (`new int[n]`, `new int[]{...}`), array indexing (`arr[i]`), element updates (`arr[i] = val`, `arr[i] += val`), and length property (`arr.length`).
+  - Loop control with `break` and `continue` support.
 - [ ] **`switch` statements & expressions (`SwitchStmt`)**
   - Lower dense integer switches to WebAssembly `br_table` jump tables and sparse cases to binary search branching.
 - [ ] **Enhanced `break` and `continue` with labels**
