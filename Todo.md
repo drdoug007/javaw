@@ -14,8 +14,9 @@ This roadmap organizes planned features by their utility and return on investmen
   - Linear memory array layout `[length: i32, element_0, element_1, ...]`.
   - Array instantiation (`new int[n]`, `new int[]{...}`), array indexing (`arr[i]`), element updates (`arr[i] = val`, `arr[i] += val`), and length property (`arr.length`).
   - Loop control with `break` and `continue` support.
-- [ ] **`switch` statements & expressions (`SwitchStmt`)**
-  - Lower dense integer switches to WebAssembly `br_table` jump tables and sparse cases to binary search branching.
+- [x] **`switch` statements & expressions (`SwitchStmt`, `SwitchExpr`)**
+  - Lower switch statements to nested WebAssembly blocks with conditional branching dispatch and fallthrough support.
+  - Support `break` (switch exit), `yield` (switch expression value return), and enclosing loop `continue` forwarding.
 - [ ] **Enhanced `break` and `continue` with labels**
   - Map labeled break/continue statements to outer WebAssembly block/loop depths.
 

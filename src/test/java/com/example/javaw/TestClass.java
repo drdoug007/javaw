@@ -81,4 +81,59 @@ public class TestClass {
         }
         return sum;
     }
+
+    public int evaluateSwitch(int code) {
+        int result = 0;
+        switch (code) {
+            case 1:
+                result = 100;
+                break;
+            case 2:
+                result = 200;
+                break;
+            case 3:
+                result = 300;
+                break;
+            default:
+                result = -1;
+                break;
+        }
+        return result;
+    }
+
+    public int switchFallthrough(int code) {
+        int result = 0;
+        switch (code) {
+            case 1:
+                result += 10;
+            case 2:
+                result += 20;
+                break;
+            case 3:
+                result += 30;
+                break;
+            default:
+                result += 5;
+                break;
+        }
+        return result;
+    }
+
+    public int switchInsideLoop(int limit) {
+        int total = 0;
+        for (int i = 1; i <= limit; i++) {
+            switch (i) {
+                case 2:
+                    total += 20;
+                    break;
+                case 4:
+                    total += 40;
+                    break;
+                default:
+                    total += 1;
+                    break;
+            }
+        }
+        return total;
+    }
 }

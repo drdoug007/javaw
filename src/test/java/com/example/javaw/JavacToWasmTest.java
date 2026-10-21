@@ -146,4 +146,36 @@ public class JavacToWasmTest {
         assertTrue(wat.contains("br $break_for_"));
         assertTrue(wat.contains("i32.add"));
     }
+
+    @Test
+    public void testGenerateWatWithSwitchStatement() {
+        String javaSource = "package com.example.javaw;\n" +
+                "public class SwitchApp {\n" +
+                "    public int runSwitch(int code) {\n" +
+                "        int res = 0;\n" +
+                "        switch (code) {\n" +
+                "            case 1:\n" +
+                "                res = 100;\n" +
+                "                break;\n" +
+                "            case 2:\n" +
+                "                res = 200;\n" +
+                "                break;\n" +
+                "            default:\n" +
+                "                res = -1;\n" +
+                "                break;\n" +
+                "        }\n" +
+                "        return res;\n" +
+                "    }\n" +
+                "}\n";
+
+        CompilationUnit cu = StaticJavaParser.parse(javaSource);
+        String wat = JavacToWasm.generateWat(cu);
+
+        assertTrue(wat.contains("(func $runSwitch (export \"runSwitch\") (param $code i32) (result i32)"));
+        assertTrue(wat.contains("(local $__switch_val_1 i32)"));
+        assertTrue(wat.contains("block $break_switch_"));
+        assertTrue(wat.contains("block $case_"));
+        assertTrue(wat.contains("i32.eq"));
+        assertTrue(wat.contains("br_if $case_"));
+    }
 }

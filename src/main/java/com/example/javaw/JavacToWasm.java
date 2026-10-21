@@ -16,6 +16,7 @@ import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.expr.FieldAccessExpr;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.expr.StringLiteralExpr;
+import com.github.javaparser.ast.expr.SwitchExpr;
 import com.github.javaparser.ast.expr.UnaryExpr;
 import com.github.javaparser.ast.expr.VariableDeclarationExpr;
 import com.github.javaparser.ast.stmt.BlockStmt;
@@ -27,7 +28,10 @@ import com.github.javaparser.ast.stmt.ForStmt;
 import com.github.javaparser.ast.stmt.IfStmt;
 import com.github.javaparser.ast.stmt.ReturnStmt;
 import com.github.javaparser.ast.stmt.Statement;
+import com.github.javaparser.ast.stmt.SwitchEntry;
+import com.github.javaparser.ast.stmt.SwitchStmt;
 import com.github.javaparser.ast.stmt.WhileStmt;
+import com.github.javaparser.ast.stmt.YieldStmt;
 import com.github.javaparser.ast.type.Type;
 import com.github.javaparser.ast.visitor.VoidVisitorAdapter;
 
@@ -296,6 +300,8 @@ public class JavacToWasm {
         private final Deque<LoopContext> loopStack = new ArrayDeque<>();
         private int loopCounter = 0;
         private int forEachCounter = 0;
+        private int switchCounter = 0;
+        private int switchExprCounter = 0;
 
         public WasmGeneratorVisitor(Map<String, StringConstant> stringPool, Map<String, GlobalVar> globalVars) {
             this.stringPool = stringPool;
@@ -316,6 +322,8 @@ public class JavacToWasm {
             Map<String, String> localTypes = new HashMap<>();
             Map<String, String> localElementTypes = new HashMap<>();
             forEachCounter = 0;
+            switchCounter = 0;
+            switchExprCounter = 0;
 
             collector.append("  (func $").append(methodName)
                     .append(" (export \"").append(methodName).append("\")");
@@ -365,6 +373,16 @@ public class JavacToWasm {
                 }
                 collector.append("    (local $__arr_alloc_ptr i32)\n");
                 collector.append("    (local $__arr_alloc_len i32)\n");
+
+                // Helper locals for switch statements and expressions
+                List<SwitchStmt> switchStmts = body.findAll(SwitchStmt.class);
+                for (int i = 1; i <= switchStmts.size(); i++) {
+                    collector.append("    (local $__switch_val_").append(i).append(" i32)\n");
+                }
+                List<SwitchExpr> switchExprs = body.findAll(SwitchExpr.class);
+                for (int i = 1; i <= switchExprs.size(); i++) {
+                    collector.append("    (local $__switchexpr_val_").append(i).append(" i32)\n");
+                }
 
                 // Translate statements
                 for (Statement stmt : body.getStatements()) {
@@ -521,6 +539,76 @@ public class JavacToWasm {
                 collector.append("    )\n");
 
                 loopStack.pop();
+            } else if (stmt.isSwitchStmt()) {
+                SwitchStmt switchStmt = stmt.asSwitchStmt();
+                int switchNum = ++switchCounter;
+                int switchId = ++loopCounter;
+                String breakLabel = "break_switch_" + switchId;
+                String valVar = "__switch_val_" + switchNum;
+
+                // 1. Evaluate selector expression
+                translateExpression(switchStmt.getSelector(), collector, localTypes, localElementTypes, "i32");
+                collector.append("    local.set $").append(valVar).append("\n");
+
+                String enclosingContinueLabel = loopStack.isEmpty() ? null : loopStack.peek().continueLabel;
+                loopStack.push(new LoopContext(breakLabel, enclosingContinueLabel));
+
+                collector.append("    (block $").append(breakLabel).append("\n");
+
+                List<SwitchEntry> entries = switchStmt.getEntries();
+                int numEntries = entries.size();
+
+                // Find if there is a default entry
+                int defaultIndex = -1;
+                for (int i = 0; i < numEntries; i++) {
+                    if (entries.get(i).getLabels().isEmpty()) {
+                        defaultIndex = i;
+                        break;
+                    }
+                }
+
+                // Open blocks in reverse order: from entry numEntries - 1 down to 0
+                for (int i = numEntries - 1; i >= 0; i--) {
+                    collector.append("      (block $case_").append(switchId).append("_").append(i).append("\n");
+                }
+
+                // Dispatch block (innermost block before case 0)
+                collector.append("        ;; Dispatch logic for switch\n");
+                for (int i = 0; i < numEntries; i++) {
+                    SwitchEntry entry = entries.get(i);
+                    for (Expression label : entry.getLabels()) {
+                        collector.append("        local.get $").append(valVar).append("\n");
+                        translateExpression(label, collector, localTypes, localElementTypes, "i32");
+                        collector.append("        i32.eq\n");
+                        collector.append("        br_if $case_").append(switchId).append("_").append(i).append("\n");
+                    }
+                }
+
+                // If no case matched, jump to default (if present) or break switch
+                if (defaultIndex >= 0) {
+                    collector.append("        br $case_").append(switchId).append("_").append(defaultIndex).append("\n");
+                } else {
+                    collector.append("        br $").append(breakLabel).append("\n");
+                }
+
+                // Close each case block and emit its statements
+                for (int i = 0; i < numEntries; i++) {
+                    collector.append("      )\n"); // closes $case_switchId_i
+                    collector.append("      ;; Statements for case ").append(i).append("\n");
+                    for (Statement s : entries.get(i).getStatements()) {
+                        translateStatement(s, collector, localTypes, localElementTypes, returnWasmType);
+                    }
+                }
+
+                collector.append("    )\n"); // closes $break_switch_switchId
+
+                loopStack.pop();
+            } else if (stmt.isYieldStmt()) {
+                YieldStmt ys = stmt.asYieldStmt();
+                translateExpression(ys.getExpression(), collector, localTypes, localElementTypes, returnWasmType);
+                if (!loopStack.isEmpty()) {
+                    collector.append("    br $").append(loopStack.peek().breakLabel).append("\n");
+                }
             } else if (stmt.isBreakStmt()) {
                 if (!loopStack.isEmpty()) {
                     collector.append("    br $").append(loopStack.peek().breakLabel).append("\n");
@@ -719,6 +807,66 @@ public class JavacToWasm {
                     translateExpression(fae.getScope(), collector, localTypes, localElementTypes, "i32");
                     collector.append("    i32.load\n");
                 }
+            } else if (expr.isSwitchExpr()) {
+                SwitchExpr switchExpr = expr.asSwitchExpr();
+                int switchNum = ++switchExprCounter;
+                int switchId = ++loopCounter;
+                String breakLabel = "break_switchexpr_" + switchId;
+                String valVar = "__switchexpr_val_" + switchNum;
+                String exprType = inferType(switchExpr, localTypes, localElementTypes, expectedType);
+
+                translateExpression(switchExpr.getSelector(), collector, localTypes, localElementTypes, "i32");
+                collector.append("    local.set $").append(valVar).append("\n");
+
+                String enclosingContinueLabel = loopStack.isEmpty() ? null : loopStack.peek().continueLabel;
+                loopStack.push(new LoopContext(breakLabel, enclosingContinueLabel));
+
+                collector.append("    (block $").append(breakLabel).append(" (result ").append(exprType).append(")\n");
+
+                List<SwitchEntry> entries = switchExpr.getEntries();
+                int numEntries = entries.size();
+
+                int defaultIndex = -1;
+                for (int i = 0; i < numEntries; i++) {
+                    if (entries.get(i).getLabels().isEmpty()) {
+                        defaultIndex = i;
+                        break;
+                    }
+                }
+
+                for (int i = numEntries - 1; i >= 0; i--) {
+                    collector.append("      (block $case_").append(switchId).append("_").append(i).append("\n");
+                }
+
+                collector.append("        ;; Dispatch logic for switch expression\n");
+                for (int i = 0; i < numEntries; i++) {
+                    SwitchEntry entry = entries.get(i);
+                    for (Expression label : entry.getLabels()) {
+                        collector.append("        local.get $").append(valVar).append("\n");
+                        translateExpression(label, collector, localTypes, localElementTypes, "i32");
+                        collector.append("        i32.eq\n");
+                        collector.append("        br_if $case_").append(switchId).append("_").append(i).append("\n");
+                    }
+                }
+
+                if (defaultIndex >= 0) {
+                    collector.append("        br $case_").append(switchId).append("_").append(defaultIndex).append("\n");
+                } else {
+                    collector.append("        ").append(exprType).append(".const 0\n");
+                    collector.append("        br $").append(breakLabel).append("\n");
+                }
+
+                for (int i = 0; i < numEntries; i++) {
+                    collector.append("      )\n");
+                    SwitchEntry entry = entries.get(i);
+                    for (Statement s : entry.getStatements()) {
+                        translateStatement(s, collector, localTypes, localElementTypes, exprType);
+                    }
+                }
+
+                collector.append("    )\n");
+
+                loopStack.pop();
             } else if (expr.isAssignExpr()) {
                 AssignExpr assign = expr.asAssignExpr();
                 AssignExpr.Operator op = assign.getOperator();
@@ -878,6 +1026,19 @@ public class JavacToWasm {
             }
             if (expr.isArrayCreationExpr()) {
                 return "i32";
+            }
+            if (expr.isSwitchExpr()) {
+                SwitchExpr se = expr.asSwitchExpr();
+                for (SwitchEntry entry : se.getEntries()) {
+                    for (Statement s : entry.getStatements()) {
+                        if (s.isYieldStmt()) {
+                            return inferType(s.asYieldStmt().getExpression(), localTypes, localElementTypes, fallback);
+                        }
+                        if (s.isExpressionStmt()) {
+                            return inferType(s.asExpressionStmt().getExpression(), localTypes, localElementTypes, fallback);
+                        }
+                    }
+                }
             }
             if (expr.isBinaryExpr()) {
                 BinaryExpr b = expr.asBinaryExpr();

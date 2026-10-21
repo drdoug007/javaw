@@ -98,6 +98,9 @@ async function runTest() {
         assert.ok(testContent.includes('(func $sumDoubleArray'), 'Must contain sumDoubleArray');
         assert.ok(testContent.includes('(func $sumInlineArray'), 'Must contain sumInlineArray');
         assert.ok(testContent.includes('(func $createAndSumArray'), 'Must contain createAndSumArray');
+        assert.ok(testContent.includes('(func $evaluateSwitch'), 'Must contain evaluateSwitch');
+        assert.ok(testContent.includes('(func $switchFallthrough'), 'Must contain switchFallthrough');
+        assert.ok(testContent.includes('(func $switchInsideLoop'), 'Must contain switchInsideLoop');
 
         if (fs.existsSync(TESTCLASS_WASM)) {
             const wasmBytes = fs.readFileSync(TESTCLASS_WASM);
@@ -143,7 +146,22 @@ async function runTest() {
             dblView[2] = 3.5;
             assert.ok(Math.abs(instance.exports.sumDoubleArray(dblArrPtr) - 7.5) < 0.0001);
 
-            console.log('✓ TestClass execution assertions passed (including for loops, for-each loops, arrays, break/continue, and compound assignments).');
+            // Test Switch statements
+            assert.strictEqual(instance.exports.evaluateSwitch(1), 100);
+            assert.strictEqual(instance.exports.evaluateSwitch(2), 200);
+            assert.strictEqual(instance.exports.evaluateSwitch(3), 300);
+            assert.strictEqual(instance.exports.evaluateSwitch(99), -1);
+
+            // Test Switch fallthrough
+            assert.strictEqual(instance.exports.switchFallthrough(1), 30); // 10 + 20 (falls through to case 2 and breaks)
+            assert.strictEqual(instance.exports.switchFallthrough(2), 20); // 20
+            assert.strictEqual(instance.exports.switchFallthrough(3), 30); // 30
+            assert.strictEqual(instance.exports.switchFallthrough(99), 5); // default
+
+            // Test Switch inside loop
+            assert.strictEqual(instance.exports.switchInsideLoop(5), 63); // i=1(1) + i=2(20) + i=3(1) + i=4(40) + i=5(1) = 63
+
+            console.log('✓ TestClass execution assertions passed (including for loops, for-each loops, arrays, switches, break/continue, and compound assignments).');
         }
 
         // ==========================================

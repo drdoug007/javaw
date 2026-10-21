@@ -379,4 +379,181 @@
     )
     local.get $sum
   )
+  (func $evaluateSwitch (export "evaluateSwitch") (param $code i32) (result i32)
+    (local $result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__switch_val_1 i32)
+    i32.const 0
+    local.set $result
+    local.get $code
+    local.set $__switch_val_1
+    (block $break_switch_8
+      (block $case_8_3
+      (block $case_8_2
+      (block $case_8_1
+      (block $case_8_0
+        ;; Dispatch logic for switch
+        local.get $__switch_val_1
+    i32.const 1
+        i32.eq
+        br_if $case_8_0
+        local.get $__switch_val_1
+    i32.const 2
+        i32.eq
+        br_if $case_8_1
+        local.get $__switch_val_1
+    i32.const 3
+        i32.eq
+        br_if $case_8_2
+        br $case_8_3
+      )
+      ;; Statements for case 0
+    i32.const 100
+    local.set $result
+    br $break_switch_8
+      )
+      ;; Statements for case 1
+    i32.const 200
+    local.set $result
+    br $break_switch_8
+      )
+      ;; Statements for case 2
+    i32.const 300
+    local.set $result
+    br $break_switch_8
+      )
+      ;; Statements for case 3
+    i32.const 0
+    i32.const 1
+    i32.sub
+    local.set $result
+    br $break_switch_8
+    )
+    local.get $result
+  )
+  (func $switchFallthrough (export "switchFallthrough") (param $code i32) (result i32)
+    (local $result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__switch_val_1 i32)
+    i32.const 0
+    local.set $result
+    local.get $code
+    local.set $__switch_val_1
+    (block $break_switch_9
+      (block $case_9_3
+      (block $case_9_2
+      (block $case_9_1
+      (block $case_9_0
+        ;; Dispatch logic for switch
+        local.get $__switch_val_1
+    i32.const 1
+        i32.eq
+        br_if $case_9_0
+        local.get $__switch_val_1
+    i32.const 2
+        i32.eq
+        br_if $case_9_1
+        local.get $__switch_val_1
+    i32.const 3
+        i32.eq
+        br_if $case_9_2
+        br $case_9_3
+      )
+      ;; Statements for case 0
+    local.get $result
+    i32.const 10
+    i32.add
+    local.set $result
+      )
+      ;; Statements for case 1
+    local.get $result
+    i32.const 20
+    i32.add
+    local.set $result
+    br $break_switch_9
+      )
+      ;; Statements for case 2
+    local.get $result
+    i32.const 30
+    i32.add
+    local.set $result
+    br $break_switch_9
+      )
+      ;; Statements for case 3
+    local.get $result
+    i32.const 5
+    i32.add
+    local.set $result
+    br $break_switch_9
+    )
+    local.get $result
+  )
+  (func $switchInsideLoop (export "switchInsideLoop") (param $limit i32) (result i32)
+    (local $total i32)
+    (local $i i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__switch_val_1 i32)
+    i32.const 0
+    local.set $total
+    i32.const 1
+    local.set $i
+    (block $break_for_10
+      (loop $loop_for_10
+    local.get $i
+    local.get $limit
+    i32.le_s
+        i32.eqz
+        br_if $break_for_10
+        (block $continue_for_10
+    local.get $i
+    local.set $__switch_val_1
+    (block $break_switch_11
+      (block $case_11_2
+      (block $case_11_1
+      (block $case_11_0
+        ;; Dispatch logic for switch
+        local.get $__switch_val_1
+    i32.const 2
+        i32.eq
+        br_if $case_11_0
+        local.get $__switch_val_1
+    i32.const 4
+        i32.eq
+        br_if $case_11_1
+        br $case_11_2
+      )
+      ;; Statements for case 0
+    local.get $total
+    i32.const 20
+    i32.add
+    local.set $total
+    br $break_switch_11
+      )
+      ;; Statements for case 1
+    local.get $total
+    i32.const 40
+    i32.add
+    local.set $total
+    br $break_switch_11
+      )
+      ;; Statements for case 2
+    local.get $total
+    i32.const 1
+    i32.add
+    local.set $total
+    br $break_switch_11
+    )
+        )
+    local.get $i
+    i32.const 1
+    i32.add
+    local.set $i
+        br $loop_for_10
+      )
+    )
+    local.get $total
+  )
 )
