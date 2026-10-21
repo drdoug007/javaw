@@ -90,6 +90,19 @@ public class WASI {
         System.exit(code);
     }
 
+    public static String readLine() {
+        return "";
+    }
+
+    public static String readLine(String prompt) {
+        print(prompt);
+        return readLine();
+    }
+
+    public static int readChar() {
+        return 0;
+    }
+
     // Extended WASI & Virtual File System (VFS) Operations
 
     public static String readString(String path) {

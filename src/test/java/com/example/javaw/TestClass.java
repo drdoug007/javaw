@@ -17,6 +17,8 @@ import com.example.javaw.dom.JSError;
 import com.example.javaw.dom.JSNull;
 import com.example.javaw.wasi.WASI;
 import com.example.javaw.wasi.WASIFile;
+import com.example.javaw.wasi.WASITerminal;
+import com.example.javaw.terminal.Terminal;
 import com.example.javaw.simd.Float32x4;
 import com.example.javaw.simd.Int32x4;
 import com.example.javaw.memory.Memory;
@@ -887,6 +889,29 @@ public class TestClass {
     public int testBundledJsCode() {
         JSValue val = JSObject.global().get("__bundled_test_var");
         return val.asInt();
+    }
+
+    public String testTerminalReadLine(String prompt) {
+        return WASITerminal.readLine(prompt);
+    }
+
+    public int testTerminalReadChar() {
+        return WASITerminal.readChar();
+    }
+
+    public void testTerminalPrint(String msg) {
+        WASITerminal.setColor(WASITerminal.GREEN);
+        WASITerminal.print("[WASI] ");
+        WASITerminal.resetColor();
+        WASITerminal.println(msg);
+    }
+
+    public int testTerminalDimensions() {
+        return WASITerminal.getColumns() * 100 + WASITerminal.getRows();
+    }
+
+    public void testTerminalClear() {
+        WASITerminal.clear();
     }
 }
 

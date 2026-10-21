@@ -201,6 +201,43 @@ public class JavacToWasm {
                 currentOffset += bytes.length + 1; // null-terminated spacing
             }
         }
+
+        List<com.github.javaparser.ast.expr.FieldAccessExpr> fieldAccesses = cu.findAll(com.github.javaparser.ast.expr.FieldAccessExpr.class);
+        for (com.github.javaparser.ast.expr.FieldAccessExpr fae : fieldAccesses) {
+            String scope = fae.getScope().toString();
+            if (scope.equals("WASITerminal") || scope.endsWith(".WASITerminal") || scope.equals("Terminal") || scope.endsWith(".Terminal")) {
+                String ansi = switch (fae.getNameAsString()) {
+                    case "RESET" -> "\u001B[0m";
+                    case "BLACK" -> "\u001B[30m";
+                    case "RED" -> "\u001B[31m";
+                    case "GREEN" -> "\u001B[32m";
+                    case "YELLOW" -> "\u001B[33m";
+                    case "BLUE" -> "\u001B[34m";
+                    case "MAGENTA" -> "\u001B[35m";
+                    case "CYAN" -> "\u001B[36m";
+                    case "WHITE" -> "\u001B[37m";
+                    case "BRIGHT_BLACK" -> "\u001B[90m";
+                    case "BRIGHT_RED" -> "\u001B[91m";
+                    case "BRIGHT_GREEN" -> "\u001B[92m";
+                    case "BRIGHT_YELLOW" -> "\u001B[93m";
+                    case "BRIGHT_BLUE" -> "\u001B[94m";
+                    case "BRIGHT_MAGENTA" -> "\u001B[95m";
+                    case "BRIGHT_CYAN" -> "\u001B[96m";
+                    case "BRIGHT_WHITE" -> "\u001B[97m";
+                    case "BOLD" -> "\u001B[1m";
+                    case "DIM" -> "\u001B[2m";
+                    case "ITALIC" -> "\u001B[3m";
+                    case "UNDERLINE" -> "\u001B[4m";
+                    case "REVERSE" -> "\u001B[7m";
+                    default -> "";
+                };
+                if (!ansi.isEmpty() && !pool.containsKey(ansi)) {
+                    byte[] bytes = ansi.getBytes(StandardCharsets.UTF_8);
+                    pool.put(ansi, new StringConstant(currentOffset, bytes.length, bytes));
+                    currentOffset += bytes.length + 1;
+                }
+            }
+        }
         return pool;
     }
 

@@ -1308,6 +1308,35 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     default -> 0;
                 };
                 collector.append("    i32.const ").append(val).append("\n");
+            } else if (fae.getScope().isNameExpr() && (fae.getScope().asNameExpr().getNameAsString().equals("WASITerminal") || fae.getScope().asNameExpr().getNameAsString().endsWith(".WASITerminal") || fae.getScope().asNameExpr().getNameAsString().equals("Terminal") || fae.getScope().asNameExpr().getNameAsString().endsWith(".Terminal"))) {
+                String ansi = switch (fName) {
+                    case "RESET" -> "\u001B[0m";
+                    case "BLACK" -> "\u001B[30m";
+                    case "RED" -> "\u001B[31m";
+                    case "GREEN" -> "\u001B[32m";
+                    case "YELLOW" -> "\u001B[33m";
+                    case "BLUE" -> "\u001B[34m";
+                    case "MAGENTA" -> "\u001B[35m";
+                    case "CYAN" -> "\u001B[36m";
+                    case "WHITE" -> "\u001B[37m";
+                    case "BRIGHT_BLACK" -> "\u001B[90m";
+                    case "BRIGHT_RED" -> "\u001B[91m";
+                    case "BRIGHT_GREEN" -> "\u001B[92m";
+                    case "BRIGHT_YELLOW" -> "\u001B[93m";
+                    case "BRIGHT_BLUE" -> "\u001B[94m";
+                    case "BRIGHT_MAGENTA" -> "\u001B[95m";
+                    case "BRIGHT_CYAN" -> "\u001B[96m";
+                    case "BRIGHT_WHITE" -> "\u001B[97m";
+                    case "BOLD" -> "\u001B[1m";
+                    case "DIM" -> "\u001B[2m";
+                    case "ITALIC" -> "\u001B[3m";
+                    case "UNDERLINE" -> "\u001B[4m";
+                    case "REVERSE" -> "\u001B[7m";
+                    default -> "";
+                };
+                StringConstant sc = stringPool != null ? stringPool.get(ansi) : null;
+                int offset = sc != null ? sc.offset : 0;
+                collector.append("    i32.const ").append(offset).append("\n");
             } else {
                 String targetType = getExpressionJavaType(fae.getScope(), localJavaTypes);
                 if (targetType != null && classRegistry != null && classRegistry.isRecord(targetType)) {
@@ -1985,7 +2014,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     mName.equals("getStyle") || mName.equals("getFillStyle") || mName.equals("getStrokeStyle") ||
                     mName.equals("getFont") || mName.equals("getTextAlign") ||
                     mName.equals("getString") || mName.equals("callString") || mName.equals("asString") ||
-                    mName.equals("readString") || mName.equals("getPath") || mName.equals("getAsString")) {
+                    mName.equals("readString") || mName.equals("getPath") || mName.equals("getAsString") ||
+                    mName.equals("readLine")) {
                 return "String";
             }
             if (mName.equals("listResources")) {
@@ -2040,7 +2070,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     mName.equals("setTimeout") || mName.equals("setInterval") || mName.equals("requestAnimationFrame") ||
                     mName.equals("getInt") || mName.equals("callInt") || mName.equals("asInt") ||
                     mName.equals("fileLength") || mName.equals("fileSize") || mName.equals("open") || mName.equals("close") ||
-                    mName.equals("seek") || mName.equals("randomInt") || mName.equals("randomGet") || mName.equals("getLength")) {
+                    mName.equals("seek") || mName.equals("randomInt") || mName.equals("randomGet") || mName.equals("getLength") ||
+                    mName.equals("readChar") || mName.equals("getColumns") || mName.equals("getRows")) {
                 return "int";
             }
             if (mName.equals("getLineWidth") || mName.equals("getGlobalAlpha") ||
@@ -2198,6 +2229,40 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             } else {
                 collector.append("    i32.const 0\n    i32.const 0\n");
             }
+        } else if (arg.isFieldAccessExpr() && (arg.asFieldAccessExpr().getScope().toString().contains("Terminal") || arg.asFieldAccessExpr().getScope().toString().contains("WASITerminal"))) {
+            String fName = arg.asFieldAccessExpr().getNameAsString();
+            String ansi = switch (fName) {
+                case "RESET" -> "\u001B[0m";
+                case "BLACK" -> "\u001B[30m";
+                case "RED" -> "\u001B[31m";
+                case "GREEN" -> "\u001B[32m";
+                case "YELLOW" -> "\u001B[33m";
+                case "BLUE" -> "\u001B[34m";
+                case "MAGENTA" -> "\u001B[35m";
+                case "CYAN" -> "\u001B[36m";
+                case "WHITE" -> "\u001B[37m";
+                case "BRIGHT_BLACK" -> "\u001B[90m";
+                case "BRIGHT_RED" -> "\u001B[91m";
+                case "BRIGHT_GREEN" -> "\u001B[92m";
+                case "BRIGHT_YELLOW" -> "\u001B[93m";
+                case "BRIGHT_BLUE" -> "\u001B[94m";
+                case "BRIGHT_MAGENTA" -> "\u001B[95m";
+                case "BRIGHT_CYAN" -> "\u001B[96m";
+                case "BRIGHT_WHITE" -> "\u001B[97m";
+                case "BOLD" -> "\u001B[1m";
+                case "DIM" -> "\u001B[2m";
+                case "ITALIC" -> "\u001B[3m";
+                case "UNDERLINE" -> "\u001B[4m";
+                case "REVERSE" -> "\u001B[7m";
+                default -> "";
+            };
+            StringConstant sc = stringPool != null ? stringPool.get(ansi) : null;
+            if (sc != null) {
+                collector.append("    i32.const ").append(sc.offset).append("\n");
+                collector.append("    i32.const ").append(sc.length).append("\n");
+            } else {
+                collector.append("    i32.const 0\n    i32.const 0\n");
+            }
         } else {
             translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "String");
             collector.append("    local.set $__str_arg_ptr\n");
@@ -2295,7 +2360,15 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     mName.equals("getFillStyle") || mName.equals("getStrokeStyle") ||
                     mName.equals("getFont") || mName.equals("getTextAlign") ||
                     mName.equals("getString") || mName.equals("callString") || mName.equals("asString") ||
+                    mName.equals("readLine") ||
                     mName.equals("prompt") || "String".equals(getExpressionJavaType(expr, localJavaTypes))) return true;
+        }
+        if (expr.isFieldAccessExpr()) {
+            FieldAccessExpr fae = expr.asFieldAccessExpr();
+            String scope = fae.getScope().toString();
+            if (scope.equals("WASITerminal") || scope.endsWith(".WASITerminal") || scope.equals("Terminal") || scope.endsWith(".Terminal")) {
+                return true;
+            }
         }
         if (expr.isEnclosedExpr()) {
             return isStringType(expr.asEnclosedExpr().getInner(), localJavaTypes);
@@ -2328,7 +2401,10 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         if (scopeStr.equals("System")) {
             return mName.equals("exit");
         }
-        if (scopeStr.equals("WASI") || scopeStr.endsWith(".WASI") || scopeStr.equals("WASIFile") || scopeStr.endsWith(".WASIFile")) {
+        if (scopeStr.equals("WASI") || scopeStr.endsWith(".WASI") ||
+            scopeStr.equals("WASIFile") || scopeStr.endsWith(".WASIFile") ||
+            scopeStr.equals("WASITerminal") || scopeStr.endsWith(".WASITerminal") ||
+            scopeStr.equals("Terminal") || scopeStr.endsWith(".Terminal")) {
             return true;
         }
         String scopeJavaType = getExpressionJavaType(call.getScope().get(), localJavaTypes);
@@ -2485,6 +2561,80 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             collector.append("    drop\n");
             collector.append("    i32.const 24\n");
             collector.append("    i32.load\n");
+            return;
+        }
+
+        if (mName.equals("readLine")) {
+            if (call.getArguments().size() > 0) {
+                translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
+            } else {
+                collector.append("    i32.const 0\n");
+            }
+            collector.append("    call $__wasi_read_line\n");
+            return;
+        }
+
+        if (mName.equals("readChar")) {
+            collector.append("    call $__wasi_read_char\n");
+            return;
+        }
+
+        if (mName.equals("clear") && (scopeStr.contains("Terminal") || scopeStr.equals("Terminal") || scopeStr.equals("WASITerminal"))) {
+            collector.append("    call $dom_terminal_clear\n");
+            return;
+        }
+
+        if (mName.equals("setColor") && (scopeStr.contains("Terminal") || scopeStr.equals("Terminal") || scopeStr.equals("WASITerminal"))) {
+            collector.append("    i32.const 1\n");
+            translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
+            collector.append("    i32.const 0\n");
+            collector.append("    call $__wasi_print_str\n");
+            return;
+        }
+
+        if ((mName.equals("resetColor") || mName.equals("reset")) && (scopeStr.contains("Terminal") || scopeStr.equals("Terminal") || scopeStr.equals("WASITerminal"))) {
+            collector.append("    i32.const 1\n");
+            translateDomStringArg(new com.github.javaparser.ast.expr.StringLiteralExpr("\u001b[0m"), collector, localTypes, localElementTypes, localJavaTypes);
+            collector.append("    i32.const 0\n");
+            collector.append("    call $__wasi_print_str\n");
+            return;
+        }
+
+        if (mName.equals("getColumns")) {
+            collector.append("    call $dom_terminal_get_columns\n");
+            return;
+        }
+
+        if (mName.equals("getRows")) {
+            collector.append("    call $dom_terminal_get_rows\n");
+            return;
+        }
+
+        if (mName.equals("setCursor") && (scopeStr.contains("Terminal") || scopeStr.equals("Terminal") || scopeStr.equals("WASITerminal"))) {
+            collector.append("    i32.const 1\n");
+            translateDomStringArg(new com.github.javaparser.ast.expr.StringLiteralExpr("\u001b["), collector, localTypes, localElementTypes, localJavaTypes);
+            collector.append("    i32.const 0\n");
+            collector.append("    call $__wasi_print_str\n");
+
+            collector.append("    i32.const 1\n");
+            translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    i32.const 0\n");
+            collector.append("    call $__wasi_print_int\n");
+
+            collector.append("    i32.const 1\n");
+            translateDomStringArg(new com.github.javaparser.ast.expr.StringLiteralExpr(";"), collector, localTypes, localElementTypes, localJavaTypes);
+            collector.append("    i32.const 0\n");
+            collector.append("    call $__wasi_print_str\n");
+
+            collector.append("    i32.const 1\n");
+            translateExpression(call.getArgument(1), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    i32.const 0\n");
+            collector.append("    call $__wasi_print_int\n");
+
+            collector.append("    i32.const 1\n");
+            translateDomStringArg(new com.github.javaparser.ast.expr.StringLiteralExpr("H"), collector, localTypes, localElementTypes, localJavaTypes);
+            collector.append("    i32.const 0\n");
+            collector.append("    call $__wasi_print_str\n");
             return;
         }
 

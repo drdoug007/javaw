@@ -85,6 +85,9 @@
   (import "dom" "js_resource_inject_style" (func $dom_js_resource_inject_style (param i32 i32)))
   (import "dom" "js_resource_inject_stylesheet" (func $dom_js_resource_inject_stylesheet (param i32 i32)))
   (import "dom" "js_resource_inject_script" (func $dom_js_resource_inject_script (param i32 i32)))
+  (import "dom" "terminal_clear" (func $dom_terminal_clear))
+  (import "dom" "terminal_get_columns" (func $dom_terminal_get_columns (result i32)))
+  (import "dom" "terminal_get_rows" (func $dom_terminal_get_rows (result i32)))
   (@custom "javaw_js_snippets" "[{\22className\22:\22JSMath\22,\22methodName\22:\22hypot\22,\22importName\22:\22js_inline_JSMath_hypot\22,\22jsCode\22:\22return Math.hypot(a, b);\22,\22returnType\22:\22double\22,\22returnWasmType\22:\22f64\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22a\22,\22javaType\22:\22double\22,\22wasmType\22:\22f64\22,\22coerced\22:false},{\22name\22:\22b\22,\22javaType\22:\22double\22,\22wasmType\22:\22f64\22,\22coerced\22:false}]},{\22className\22:\22JSMath\22,\22methodName\22:\22PI\22,\22importName\22:\22js_inline_JSMath_PI\22,\22jsCode\22:\22return Math.PI;\22,\22returnType\22:\22double\22,\22returnWasmType\22:\22f64\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[]},{\22className\22:\22JSDate\22,\22methodName\22:\22create\22,\22importName\22:\22js_inline_JSDate_create\22,\22jsCode\22:\22return new Date(ms);\22,\22returnType\22:\22JSDate\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22ms\22,\22javaType\22:\22double\22,\22wasmType\22:\22f64\22,\22coerced\22:false}]},{\22className\22:\22JSDate\22,\22methodName\22:\22getTime\22,\22importName\22:\22js_inline_JSDate_getTime\22,\22jsCode\22:\22return this.getTime();\22,\22returnType\22:\22double\22,\22returnWasmType\22:\22f64\22,\22isStatic\22:false,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22this\22,\22javaType\22:\22JSDate\22,\22wasmType\22:\22i32\22,\22coerced\22:false}]},{\22className\22:\22JSJSON\22,\22methodName\22:\22stringify\22,\22importName\22:\22js_inline_JSJSON_stringify\22,\22jsCode\22:\22return JSON.stringify(val);\22,\22returnType\22:\22String\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22val\22,\22javaType\22:\22JSValue\22,\22wasmType\22:\22i32\22,\22coerced\22:false}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsHypot\22,\22importName\22:\22js_inline_TestClass_jsHypot\22,\22jsCode\22:\22return Math.hypot(a, b);\22,\22returnType\22:\22double\22,\22returnWasmType\22:\22f64\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22a\22,\22javaType\22:\22double\22,\22wasmType\22:\22f64\22,\22coerced\22:false},{\22name\22:\22b\22,\22javaType\22:\22double\22,\22wasmType\22:\22f64\22,\22coerced\22:false}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsGreet\22,\22importName\22:\22js_inline_TestClass_jsGreet\22,\22jsCode\22:\22return 'Hello ' + name + '!';\22,\22returnType\22:\22String\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22name\22,\22javaType\22:\22String\22,\22wasmType\22:\22i32\22,\22coerced\22:false}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsMultiplyAndAdd\22,\22importName\22:\22js_inline_TestClass_jsMultiplyAndAdd\22,\22jsCode\22:\22return a * b + 10;\22,\22returnType\22:\22int\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22a\22,\22javaType\22:\22int\22,\22wasmType\22:\22i32\22,\22coerced\22:false},{\22name\22:\22b\22,\22javaType\22:\22int\22,\22wasmType\22:\22i32\22,\22coerced\22:false}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsIsGreaterThan100\22,\22importName\22:\22js_inline_TestClass_jsIsGreaterThan100\22,\22jsCode\22:\22return x > 100;\22,\22returnType\22:\22boolean\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22x\22,\22javaType\22:\22int\22,\22wasmType\22:\22i32\22,\22coerced\22:false}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsSumArray\22,\22importName\22:\22js_inline_TestClass_jsSumArray\22,\22jsCode\22:\22return arr.reduce((acc, x) => acc + x, 0);\22,\22returnType\22:\22int\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22arr\22,\22javaType\22:\22int[]\22,\22wasmType\22:\22i32\22,\22coerced\22:true}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsDoubleArray\22,\22importName\22:\22js_inline_TestClass_jsDoubleArray\22,\22jsCode\22:\22return arr.map(x => x * 2);\22,\22returnType\22:\22int[]\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:true,\22parameters\22:[{\22name\22:\22arr\22,\22javaType\22:\22int[]\22,\22wasmType\22:\22i32\22,\22coerced\22:true}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsJoinStrings\22,\22importName\22:\22js_inline_TestClass_jsJoinStrings\22,\22jsCode\22:\22return items.join(', ');\22,\22returnType\22:\22String\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22items\22,\22javaType\22:\22String[]\22,\22wasmType\22:\22i32\22,\22coerced\22:true}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsGetBookJson\22,\22importName\22:\22js_inline_TestClass_jsGetBookJson\22,\22jsCode\22:\22return { title: 'WASM in Action', year: 2026 };\22,\22returnType\22:\22String\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:true,\22parameters\22:[]}]")
   (import "dom" "js_inline_JSMath_hypot" (func $dom_js_inline_JSMath_hypot (param f64 f64) (result f64)))
   (import "dom" "js_inline_JSMath_PI" (func $dom_js_inline_JSMath_PI (result f64)))
@@ -215,8 +218,10 @@
   (data (memory $strings) (i32.const 5251) ".app-header { font-size: 24px; }\00")
   (data (memory $strings) (i32.const 5284) "globalThis.__injected_script_run = true;\00")
   (data (memory $strings) (i32.const 5325) "__bundled_test_var\00")
-  (data (memory $strings) (i32.const 5344) "JavaCounter\00")
-  (data (memory $strings) (i32.const 5356) ": \00")
+  (data (memory $strings) (i32.const 5344) "[WASI] \00")
+  (data (memory $strings) (i32.const 5352) "JavaCounter\00")
+  (data (memory $strings) (i32.const 5364) ": \00")
+  (data (memory $strings) (i32.const 5367) "\1b[32m\00")
   (global $__heap_ptr (mut i32) (i32.const 0))
   ;; --- WebAssembly Function Type Signatures ---
   (type $t_sig_1 (func (param i32) (result i32)))
@@ -1485,6 +1490,105 @@
     i32.const 0
     i32.const 1
     call $__wasi_print_str
+  )
+  (func $__wasi_read_char (export "__wasi_read_char") (result i32)
+    (local $nread i32)
+    i32.const 8
+    i32.const 0
+    i32.store
+    i32.const 12
+    i32.const 1
+    i32.store
+    i32.const 0
+    i32.const 8
+    i32.const 1
+    i32.const 24
+    call $__wasi_fd_read
+    drop
+    i32.const 24
+    i32.load
+    local.set $nread
+    local.get $nread
+    i32.const 0
+    i32.le_s
+    if (result i32)
+      i32.const -1
+    else
+      i32.const 0
+      i32.load8_u
+    end
+  )
+  (func $__wasi_read_line (export "__wasi_read_line") (param $prompt_ptr i32) (result i32)
+    (local $buf i32)
+    (local $cap i32)
+    (local $len i32)
+    (local $c i32)
+    (local $res i32)
+    local.get $prompt_ptr
+    i32.const 0
+    i32.gt_s
+    if
+      i32.const 1
+      local.get $prompt_ptr
+      local.get $prompt_ptr
+      call $__str_length
+      i32.const 0
+      call $__wasi_print_str
+    end
+    i32.const 512
+    local.set $cap
+    local.get $cap
+    call $__heap_alloc
+    local.set $buf
+    i32.const 0
+    local.set $len
+    block $exit_loop
+      loop $read_loop
+        call $__wasi_read_char
+        local.set $c
+        local.get $c
+        i32.const -1
+        i32.eq
+        br_if $exit_loop
+        local.get $c
+        i32.const 10
+        i32.eq
+        br_if $exit_loop
+        local.get $c
+        i32.const 13
+        i32.eq
+        if
+          br $read_loop
+        end
+        local.get $buf
+        local.get $len
+        i32.add
+        local.get $c
+        i32.store8
+        local.get $len
+        i32.const 1
+        i32.add
+        local.set $len
+        local.get $len
+        local.get $cap
+        i32.ge_s
+        br_if $exit_loop
+        br $read_loop
+      end
+    end
+    local.get $len
+    call $__str_alloc
+    local.set $res
+    local.get $res
+    local.get $buf
+    local.get $len
+    memory.copy
+    local.get $res
+    local.get $len
+    i32.add
+    i32.const 0
+    i32.store8
+    local.get $res
   )
   (func $__wasi_path_open_helper (export "__wasi_path_open_helper") (param $path_ptr i32) (param $oflags i32) (result i32)
     (local $len i32)
@@ -6521,6 +6625,120 @@
     call $dom_js_asInt
     return
   )
+  (func $testTerminalReadLine (export "testTerminalReadLine") (param $prompt i32) (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__caught_exc i32)
+    local.get $prompt
+    local.set $__str_arg_ptr
+    local.get $__str_arg_ptr
+    local.get $__str_arg_ptr
+    call $__str_length
+    call $__wasi_read_line
+    return
+  )
+  (func $testTerminalReadChar (export "testTerminalReadChar") (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__caught_exc i32)
+    call $__wasi_read_char
+    return
+  )
+  (func $testTerminalPrint (export "testTerminalPrint") (param $msg i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__caught_exc i32)
+    i32.const 1
+    i32.const 5367
+    i32.const 5
+    i32.const 0
+    call $__wasi_print_str
+    i32.const 1
+    i32.const 5344
+    i32.const 7
+    i32.const 0
+    call $__wasi_print_str
+    i32.const 1
+    i32.const 0
+    i32.const 0
+    i32.const 0
+    call $__wasi_print_str
+    i32.const 1
+    local.get $msg
+    local.set $__str_arg_ptr
+    local.get $__str_arg_ptr
+    local.get $__str_arg_ptr
+    call $__str_length
+    i32.const 1
+    call $__wasi_print_str
+  )
+  (func $testTerminalDimensions (export "testTerminalDimensions") (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__caught_exc i32)
+    call $dom_terminal_get_columns
+    i32.const 100
+    i32.mul
+    call $dom_terminal_get_rows
+    i32.add
+    return
+  )
+  (func $testTerminalClear (export "testTerminalClear")
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__caught_exc i32)
+    call $dom_terminal_clear
+  )
   ;; Record: Pair
   ;; Record: Point3D
   ;; Record: DivisionResult
@@ -6969,7 +7187,7 @@
     (local $__simd_tmp v128)
     (local $__caught_exc i32)
     local.get $label
-    i32.const 5356
+    i32.const 5364
     call $__str_concat
     local.get $this
     i32.load offset=4

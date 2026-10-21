@@ -14,7 +14,9 @@ public class DomHelper {
         List<MethodCallExpr> calls = cu.findAll(MethodCallExpr.class);
         for (MethodCallExpr call : calls) {
             String mName = call.getNameAsString();
-            if (isDomStaticMethod(mName) || isDomInstanceMethod(mName)) {
+            if (isTerminalMethod(mName, call)) {
+                addTerminalImports(mName, imports);
+            } else if (isDomStaticMethod(mName) || isDomInstanceMethod(mName)) {
                 if (mName.equals("drawImage") && call.getArguments().size() > 5) {
                     imports.add("drawImageFull");
                 } else if (isWebGLMethod(mName, call)) {
@@ -39,6 +41,23 @@ public class DomHelper {
             }
         }
         return imports;
+    }
+
+    private static boolean isTerminalMethod(String mName, MethodCallExpr call) {
+        if (!call.getScope().isPresent()) return false;
+        String scope = call.getScope().get().toString();
+        return scope.equals("WASITerminal") || scope.endsWith(".WASITerminal") ||
+               scope.equals("Terminal") || scope.endsWith(".Terminal");
+    }
+
+    private static void addTerminalImports(String mName, Set<String> imports) {
+        if (mName.equals("clear")) {
+            imports.add("dom_terminal_clear");
+        } else if (mName.equals("getColumns")) {
+            imports.add("dom_terminal_get_columns");
+        } else if (mName.equals("getRows")) {
+            imports.add("dom_terminal_get_rows");
+        }
     }
 
     private static boolean isThreadMethod(String mName, MethodCallExpr call) {
@@ -238,6 +257,12 @@ public class DomHelper {
             imports.add("js_resource_list");
         } else if (mName.equals("mountAll")) {
             imports.add("js_resource_mount_all");
+        } else if (mName.equals("getColumns")) {
+            imports.add("dom_terminal_get_columns");
+        } else if (mName.equals("getRows")) {
+            imports.add("dom_terminal_get_rows");
+        } else if (mName.equals("clear") && (call != null && call.getScope().map(s -> s.toString().contains("Terminal")).orElse(false))) {
+            imports.add("dom_terminal_clear");
         }
     }
 
@@ -928,6 +953,15 @@ public class DomHelper {
         }
         if (domImports.contains("js_resource_mount_all")) {
             watOutput.append("  (import \"dom\" \"js_resource_mount_all\" (func $dom_js_resource_mount_all))\n");
+        }
+        if (domImports.contains("dom_terminal_clear")) {
+            watOutput.append("  (import \"dom\" \"terminal_clear\" (func $dom_terminal_clear))\n");
+        }
+        if (domImports.contains("dom_terminal_get_columns")) {
+            watOutput.append("  (import \"dom\" \"terminal_get_columns\" (func $dom_terminal_get_columns (result i32)))\n");
+        }
+        if (domImports.contains("dom_terminal_get_rows")) {
+            watOutput.append("  (import \"dom\" \"terminal_get_rows\" (func $dom_terminal_get_rows (result i32)))\n");
         }
     }
 }

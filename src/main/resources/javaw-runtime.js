@@ -22,6 +22,50 @@
             this.classes = {};
             this.bundledCodeBlocks = [];
             this.resources = new Map();
+            this.stdinQueue = [];
+            this.terminal = null;
+            this.stdoutListeners = [];
+            this.stderrListeners = [];
+        }
+
+        writeStdin(strOrBytes) {
+            if (typeof strOrBytes === 'string') {
+                const bytes = textEncoder.encode(strOrBytes);
+                for (let i = 0; i < bytes.length; i++) {
+                    this.stdinQueue.push(bytes[i]);
+                }
+            } else if (strOrBytes instanceof Uint8Array || Array.isArray(strOrBytes)) {
+                for (let i = 0; i < strOrBytes.length; i++) {
+                    this.stdinQueue.push(strOrBytes[i]);
+                }
+            }
+        }
+
+        setStdin(data) {
+            this.stdinQueue = [];
+            this.writeStdin(data);
+        }
+
+        onStdout(fn) {
+            if (typeof fn === 'function') {
+                this.stdoutListeners.push(fn);
+            }
+        }
+
+        onStderr(fn) {
+            if (typeof fn === 'function') {
+                this.stderrListeners.push(fn);
+            }
+        }
+
+        createTerminal(container, options) {
+            const term = new JavawTerminal(this, container, options);
+            this.terminal = term;
+            return term;
+        }
+
+        attachTerminal(container, options) {
+            return this.createTerminal(container, options);
         }
 
         registerInlineJs(snippets) {
@@ -2152,6 +2196,15 @@
                     js_resource_inject_script_tag: (p, l) => this.js_resource_inject_script_tag(p, l),
                     js_resource_list: () => this.js_resource_list(),
                     js_resource_mount_all: () => this.js_resource_mount_all(),
+                    terminal_clear: () => {
+                        if (this.terminal) this.terminal.clear();
+                    },
+                    terminal_get_columns: () => {
+                        return this.terminal ? this.terminal.columns : 80;
+                    },
+                    terminal_get_rows: () => {
+                        return this.terminal ? this.terminal.rows : 24;
+                    },
                     ...(customImports.dom || {})
                 },
                 wasi_snapshot_preview1: {
@@ -2176,6 +2229,12 @@
                             if (fd === 1) {
                                 let str = '';
                                 for (const c of chunks) str += textDecoder.decode(c);
+                                if (this.terminal) {
+                                    this.terminal.write(str);
+                                }
+                                for (const listener of this.stdoutListeners) {
+                                    try { listener(str); } catch (e) { console.error(e); }
+                                }
                                 if (typeof process !== 'undefined' && process.stdout && typeof process.stdout.write === 'function') {
                                     process.stdout.write(str);
                                 } else {
@@ -2184,6 +2243,12 @@
                             } else if (fd === 2) {
                                 let str = '';
                                 for (const c of chunks) str += textDecoder.decode(c);
+                                if (this.terminal) {
+                                    this.terminal.write(str);
+                                }
+                                for (const listener of this.stderrListeners) {
+                                    try { listener(str); } catch (e) { console.error(e); }
+                                }
                                 if (typeof process !== 'undefined' && process.stderr && typeof process.stderr.write === 'function') {
                                     process.stderr.write(str);
                                 } else {
@@ -2213,7 +2278,19 @@
                         const memory = this.getMemory();
                         if (memory && memory.buffer) {
                             const view = new DataView(memory.buffer);
-                            if (this.fds.has(fd)) {
+                            if (fd === 0) {
+                                for (let i = 0; i < iovs_len; i++) {
+                                    const bufPtr = view.getUint32(iovs_ptr + i * 8, true);
+                                    const bufLen = view.getUint32(iovs_ptr + i * 8 + 4, true);
+                                    if (bufLen <= 0 || this.stdinQueue.length === 0) break;
+                                    const toRead = Math.min(bufLen, this.stdinQueue.length);
+                                    const dest = new Uint8Array(memory.buffer, bufPtr, toRead);
+                                    for (let j = 0; j < toRead; j++) {
+                                        dest[j] = this.stdinQueue.shift();
+                                    }
+                                    totalRead += toRead;
+                                }
+                            } else if (this.fds.has(fd)) {
                                 const entry = this.fds.get(fd);
                                 const fileObj = entry.vfsFile;
                                 for (let i = 0; i < iovs_len; i++) {
@@ -2383,6 +2460,491 @@
         }
     }
 
+    function ansiToHtml(str) {
+        if (!str) return '';
+        str = str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const colorMap = {
+            '30': '#1e1e1e',
+            '31': '#f7768e',
+            '32': '#9ece6a',
+            '33': '#e0af68',
+            '34': '#7aa2f7',
+            '35': '#bb9af7',
+            '36': '#7dcfff',
+            '37': '#c0caf5',
+            '90': '#565f89',
+            '91': '#ff7a93',
+            '92': '#b9f27c',
+            '93': '#ff9e3b',
+            '94': '#7da6ff',
+            '95': '#c792ea',
+            '96': '#0db9d7',
+            '97': '#ffffff',
+        };
+
+        let result = '';
+        let openTags = 0;
+        const regex = /(?:\x1b|\u001b)\[([0-9;]*)m/g;
+        let lastIndex = 0;
+        let match;
+
+        while ((match = regex.exec(str)) !== null) {
+            result += str.substring(lastIndex, match.index);
+            lastIndex = regex.lastIndex;
+            const codeStr = match[1] || '0';
+            const codes = codeStr.split(';').map(c => parseInt(c, 10) || 0);
+
+            for (const code of codes) {
+                if (code === 0) {
+                    while (openTags > 0) {
+                        result += '</span>';
+                        openTags--;
+                    }
+                } else if (code === 1) {
+                    result += '<span style="font-weight:bold;">';
+                    openTags++;
+                } else if (code === 2) {
+                    result += '<span style="opacity:0.7;">';
+                    openTags++;
+                } else if (code === 3) {
+                    result += '<span style="font-style:italic;">';
+                    openTags++;
+                } else if (code === 4) {
+                    result += '<span style="text-decoration:underline;">';
+                    openTags++;
+                } else if (colorMap[code.toString()]) {
+                    result += `<span style="color:${colorMap[code.toString()]};">`;
+                    openTags++;
+                } else if (code >= 40 && code <= 47) {
+                    const bgCode = (code - 10).toString();
+                    if (colorMap[bgCode]) {
+                        result += `<span style="background-color:${colorMap[bgCode]};">`;
+                        openTags++;
+                    }
+                }
+            }
+        }
+        result += str.substring(lastIndex);
+        while (openTags > 0) {
+            result += '</span>';
+            openTags--;
+        }
+        return result;
+    }
+
+    class JavawTerminal {
+        constructor(runtime, container, options = {}) {
+            this.runtime = runtime;
+            this.options = options || {};
+            this.promptStr = options.prompt !== undefined ? options.prompt : 'javaw> ';
+            this.columns = options.cols || 80;
+            this.rows = options.rows || 24;
+            this.history = [];
+            this.historyIndex = -1;
+            this.customCommands = new Map();
+            this.commandHandler = options.onCommand || null;
+            this.xterm = null;
+            this.screenEl = null;
+            this.inputEl = null;
+            this.promptEl = null;
+            this.domContainer = null;
+            this.buffer = '';
+
+            if (container) {
+                this.mount(container);
+            }
+        }
+
+        mount(container) {
+            if (typeof container === 'string' && typeof document !== 'undefined') {
+                container = document.querySelector(container);
+            }
+            if (!container) return;
+            this.container = container;
+
+            if (typeof window !== 'undefined' && window.Terminal && !this.options.forceBuiltIn) {
+                try {
+                    this.xterm = new window.Terminal({
+                        cols: this.columns,
+                        rows: this.rows,
+                        cursorBlink: true,
+                        theme: {
+                            background: '#1a1b26',
+                            foreground: '#c0caf5',
+                            cursor: '#ffffff',
+                            ...(this.options.theme || {})
+                        },
+                        ...this.options
+                    });
+                    this.xterm.open(container);
+                    this.xterm.onData((data) => {
+                        this.handleXtermInput(data);
+                    });
+                    this.writeln('\u001b[1m\u001b[36m=== javaw WASI Interactive Terminal (xterm.js) ===\u001b[0m');
+                    this.writePrompt();
+                    return;
+                } catch (e) {
+                    console.warn('Failed to initialize xterm.js, using built-in terminal:', e);
+                }
+            }
+
+            if (typeof document !== 'undefined') {
+                this.buildDomTerminal(container);
+            }
+        }
+
+        buildDomTerminal(container) {
+            container.innerHTML = '';
+            const wrapper = document.createElement('div');
+            wrapper.className = 'javaw-terminal-wrapper';
+            wrapper.style.cssText = `
+                background-color: #1a1b26;
+                color: #c0caf5;
+                font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+                font-size: 14px;
+                line-height: 1.5;
+                border-radius: 8px;
+                padding: 14px;
+                box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+                display: flex;
+                flex-direction: column;
+                min-height: 320px;
+                max-height: 520px;
+                overflow: hidden;
+                border: 1px solid #414868;
+                box-sizing: border-box;
+            `;
+
+            const header = document.createElement('div');
+            header.className = 'javaw-terminal-header';
+            header.style.cssText = `
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding-bottom: 8px;
+                margin-bottom: 8px;
+                border-bottom: 1px solid #24283b;
+                font-size: 12px;
+                color: #7aa2f7;
+                font-weight: bold;
+                user-select: none;
+            `;
+            header.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background-color:#9ece6a;"></span>
+                    <span>${this.options.title || 'javaw WebAssembly Terminal / REPL'}</span>
+                </div>
+                <div style="color: #565f89; font-weight: normal; font-size: 11px;">WASI Standard I/O</div>
+            `;
+            wrapper.appendChild(header);
+
+            const screen = document.createElement('div');
+            screen.className = 'javaw-terminal-screen';
+            screen.style.cssText = `
+                flex: 1;
+                overflow-y: auto;
+                white-space: pre-wrap;
+                word-break: break-all;
+                padding-bottom: 6px;
+                scrollbar-width: thin;
+            `;
+            wrapper.appendChild(screen);
+            this.screenEl = screen;
+
+            const inputRow = document.createElement('div');
+            inputRow.className = 'javaw-terminal-input-row';
+            inputRow.style.cssText = `
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                margin-top: 4px;
+            `;
+
+            const promptSpan = document.createElement('span');
+            promptSpan.className = 'javaw-terminal-prompt';
+            promptSpan.style.cssText = 'color: #7aa2f7; font-weight: bold; user-select: none;';
+            promptSpan.textContent = this.promptStr;
+            this.promptEl = promptSpan;
+            inputRow.appendChild(promptSpan);
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'javaw-terminal-input';
+            input.style.cssText = `
+                flex: 1;
+                background: transparent;
+                border: none;
+                outline: none;
+                color: #c0caf5;
+                font-family: inherit;
+                font-size: inherit;
+                padding: 0;
+                margin: 0;
+            `;
+            input.autocomplete = 'off';
+            input.spellcheck = false;
+            this.inputEl = input;
+            inputRow.appendChild(input);
+            wrapper.appendChild(inputRow);
+
+            container.appendChild(wrapper);
+            this.domContainer = wrapper;
+
+            wrapper.addEventListener('click', () => {
+                input.focus();
+            });
+
+            input.addEventListener('keydown', (e) => {
+                this.handleKeyDown(e);
+            });
+
+            this.writeln('\u001b[1m\u001b[36m=== javaw WASI Interactive Terminal & REPL ===\u001b[0m');
+            this.writeln('Type \u001b[33mhelp\u001b[0m for available commands, or enter Java CLI expressions.');
+        }
+
+        handleKeyDown(e) {
+            if (e.key === 'Enter') {
+                const val = this.inputEl.value;
+                if (val.trim()) {
+                    this.history.push(val);
+                }
+                this.historyIndex = -1;
+                this.writeln(`${this.promptStr}${val}`);
+                this.inputEl.value = '';
+                this.executeLine(val);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (this.history.length > 0) {
+                    if (this.historyIndex === -1) {
+                        this.historyIndex = this.history.length - 1;
+                    } else if (this.historyIndex > 0) {
+                        this.historyIndex--;
+                    }
+                    this.inputEl.value = this.history[this.historyIndex] || '';
+                }
+            } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (this.history.length > 0 && this.historyIndex !== -1) {
+                    if (this.historyIndex < this.history.length - 1) {
+                        this.historyIndex++;
+                        this.inputEl.value = this.history[this.historyIndex] || '';
+                    } else {
+                        this.historyIndex = -1;
+                        this.inputEl.value = '';
+                    }
+                }
+            } else if (e.key === 'l' && e.ctrlKey) {
+                e.preventDefault();
+                this.clear();
+            } else if (e.key === 'c' && e.ctrlKey) {
+                e.preventDefault();
+                this.writeln(`${this.promptStr}${this.inputEl.value}^C`);
+                this.inputEl.value = '';
+            }
+        }
+
+        handleXtermInput(data) {
+            if (data === '\r') {
+                this.xterm.write('\r\n');
+                const line = this.buffer;
+                this.buffer = '';
+                if (line.trim()) this.history.push(line);
+                this.executeLine(line).then(() => {
+                    this.writePrompt();
+                });
+            } else if (data === '\u007F') {
+                if (this.buffer.length > 0) {
+                    this.buffer = this.buffer.slice(0, -1);
+                    this.xterm.write('\b \b');
+                }
+            } else if (data === '\u0003') {
+                this.xterm.write('^C\r\n');
+                this.buffer = '';
+                this.writePrompt();
+            } else if (data === '\u000C') {
+                this.clear();
+                this.writePrompt();
+            } else if (data >= ' ' || data === '\t') {
+                this.buffer += data;
+                this.xterm.write(data);
+            }
+        }
+
+        writePrompt() {
+            if (this.xterm) {
+                this.xterm.write(`\u001b[1m\u001b[34m${this.promptStr}\u001b[0m`);
+            }
+        }
+
+        write(text) {
+            if (text === null || text === undefined) return;
+            text = String(text);
+
+            if (text.includes('\u001b[2J') || text.includes('\x1b[2J')) {
+                this.clear();
+                text = text.replace(/\x1b\[2J|\u001b\[2J/g, '');
+            }
+
+            if (this.xterm) {
+                this.xterm.write(text.replace(/\n/g, '\r\n'));
+            } else if (this.screenEl) {
+                const html = ansiToHtml(text);
+                const span = document.createElement('span');
+                span.innerHTML = html;
+                this.screenEl.appendChild(span);
+                this.screenEl.scrollTop = this.screenEl.scrollHeight;
+            }
+        }
+
+        writeln(text) {
+            this.write((text !== undefined ? text : '') + '\n');
+        }
+
+        clear() {
+            if (this.xterm) {
+                this.xterm.clear();
+            } else if (this.screenEl) {
+                this.screenEl.innerHTML = '';
+            }
+        }
+
+        setPrompt(prompt) {
+            this.promptStr = prompt || '';
+            if (this.promptEl) {
+                this.promptEl.textContent = this.promptStr;
+            }
+        }
+
+        getPrompt() {
+            return this.promptStr;
+        }
+
+        sendInput(text) {
+            this.runtime.writeStdin(text);
+        }
+
+        onCommand(handler) {
+            this.commandHandler = handler;
+        }
+
+        registerCommand(name, fn, description) {
+            this.customCommands.set(name, { fn, description });
+        }
+
+        getHistory() {
+            return [...this.history];
+        }
+
+        focus() {
+            if (this.inputEl) {
+                this.inputEl.focus();
+            } else if (this.xterm) {
+                this.xterm.focus();
+            }
+        }
+
+        async executeLine(line) {
+            line = line.trim();
+            if (!line) return;
+
+            const parts = line.split(/\s+/);
+            const cmd = parts[0];
+            const args = parts.slice(1);
+
+            if (this.customCommands.has(cmd)) {
+                try {
+                    const res = await this.customCommands.get(cmd).fn(args.join(' '), this);
+                    if (res !== undefined) this.writeln(String(res));
+                } catch (e) {
+                    this.writeln(`\u001b[31mError executing ${cmd}: ${e.message}\u001b[0m`);
+                }
+                return;
+            }
+
+            if (cmd === 'help') {
+                this.writeln('\u001b[1m\u001b[36m--- javaw WebAssembly Terminal & REPL ---\u001b[0m');
+                this.writeln('  \u001b[33mhelp\u001b[0m                - Display this help message');
+                this.writeln('  \u001b[33mclear\u001b[0m               - Clear the terminal screen');
+                this.writeln('  \u001b[33mhistory\u001b[0m             - List command history');
+                this.writeln('  \u001b[33mrun <fn> [args...]\u001b[0m  - Invoke an exported WebAssembly function');
+                this.writeln('  \u001b[33mjs <expr>\u001b[0m           - Evaluate dynamic JavaScript expression');
+                this.writeln('  \u001b[33mls\u001b[0m                  - List files in virtual file system (VFS)');
+                for (const [name, info] of this.customCommands.entries()) {
+                    this.writeln(`  \u001b[33m${name}\u001b[0m               - ${info.description || 'Custom command'}`);
+                }
+                return;
+            }
+
+            if (cmd === 'clear') {
+                this.clear();
+                return;
+            }
+
+            if (cmd === 'history') {
+                this.history.forEach((h, idx) => {
+                    this.writeln(`  ${idx + 1}: ${h}`);
+                });
+                return;
+            }
+
+            if (cmd === 'ls') {
+                const files = Array.from(this.runtime.vfs.keys());
+                if (files.length === 0) {
+                    this.writeln('(no files in VFS)');
+                } else {
+                    files.forEach(f => this.writeln(`  \u001b[34m${f}\u001b[0m`));
+                }
+                return;
+            }
+
+            if (cmd === 'js') {
+                const expr = args.join(' ');
+                try {
+                    const fn = new Function('runtime', 'terminal', `return (${expr});`);
+                    const res = fn(this.runtime, this);
+                    this.writeln(`\u001b[32m${typeof res === 'object' ? JSON.stringify(res, null, 2) : res}\u001b[0m`);
+                } catch (e) {
+                    this.writeln(`\u001b[31mJavaScript Error: ${e.message}\u001b[0m`);
+                }
+                return;
+            }
+
+            if (cmd === 'run') {
+                const fnName = args[0];
+                const fnArgs = args.slice(1).map(a => !isNaN(Number(a)) ? Number(a) : a);
+                if (this.runtime.instance && this.runtime.instance.exports[fnName]) {
+                    try {
+                        const res = this.runtime.instance.exports[fnName](...fnArgs);
+                        this.writeln(`\u001b[32m=> ${res}\u001b[0m`);
+                    } catch (e) {
+                        this.writeln(`\u001b[31mWASM Execution Error: ${e.message}\u001b[0m`);
+                    }
+                } else {
+                    this.writeln(`\u001b[31mExport '${fnName}' not found in WebAssembly module.\u001b[0m`);
+                }
+                return;
+            }
+
+            if (this.commandHandler) {
+                try {
+                    const res = await this.commandHandler(line, this);
+                    if (res !== undefined) this.writeln(String(res));
+                } catch (e) {
+                    this.writeln(`\u001b[31mError: ${e.message}\u001b[0m`);
+                }
+            } else if (this.runtime.instance && this.runtime.instance.exports.repl_eval) {
+                try {
+                    this.runtime.writeStdin(line + '\n');
+                    this.runtime.instance.exports.repl_eval();
+                } catch (e) {
+                    this.writeln(`\u001b[31mREPL Error: ${e.message}\u001b[0m`);
+                }
+            } else {
+                this.runtime.writeStdin(line + '\n');
+            }
+        }
+    }
+
     async function instantiateJavaw(wasmSource, customImports = {}, doc = null) {
         const runtime = new JavawRuntime(doc);
         let module;
@@ -2416,6 +2978,7 @@
 
     const javawLib = {
         JavawRuntime,
+        JavawTerminal,
         instantiateJavaw
     };
 
@@ -2425,10 +2988,12 @@
     if (typeof window !== 'undefined') {
         window.Javaw = javawLib;
         window.JavawRuntime = JavawRuntime;
+        window.JavawTerminal = JavawTerminal;
         window.instantiateJavaw = instantiateJavaw;
     } else if (typeof global !== 'undefined') {
         global.Javaw = javawLib;
         global.JavawRuntime = JavawRuntime;
+        global.JavawTerminal = JavawTerminal;
         global.instantiateJavaw = instantiateJavaw;
     }
 })(typeof globalThis !== 'undefined' ? globalThis : this);

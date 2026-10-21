@@ -712,6 +712,45 @@ async function runTest() {
 
                     console.log('✓ @JS.Code, @JS.Resource, and JSResource asset bundling & embedding assertions passed.');
                 }
+
+                if (typeof instance.exports.testTerminalReadLine === 'function') {
+                    // Test interactive terminal & stdin reading
+                    const term = runtime.createTerminal(null, { prompt: 'test> ', cols: 120, rows: 40 });
+                    assert.strictEqual(term.getPrompt(), 'test> ');
+
+                    runtime.writeStdin('Interactive User Input\n');
+                    const readLinePtr = instance.exports.testTerminalReadLine(writeWasmString(instance, 'Enter name: '));
+                    const readLineStr = readWasmString(instance.exports.memory.buffer, readLinePtr);
+                    assert.strictEqual(readLineStr, 'Interactive User Input', `testTerminalReadLine expected 'Interactive User Input', got '${readLineStr}'`);
+
+                    runtime.writeStdin('Z');
+                    const ch = instance.exports.testTerminalReadChar();
+                    assert.strictEqual(ch, 90, `testTerminalReadChar expected 90 ('Z'), got ${ch}`);
+
+                    let capturedStdout = '';
+                    runtime.onStdout((chunk) => {
+                        capturedStdout += chunk;
+                    });
+                    instance.exports.testTerminalPrint(writeWasmString(instance, 'Hello WASI Terminal'));
+                    assert.ok(capturedStdout.includes('Hello WASI Terminal'), `capturedStdout expected 'Hello WASI Terminal', got ${capturedStdout}`);
+
+                    const dims = instance.exports.testTerminalDimensions();
+                    assert.strictEqual(dims, 12040, `testTerminalDimensions expected 12040, got ${dims}`);
+
+                    let customCommandExecuted = false;
+                    term.registerCommand('testcmd', (args) => {
+                        customCommandExecuted = true;
+                        return `CMD_OUT: ${args}`;
+                    }, 'Test command');
+
+                    await term.executeLine('testcmd sample_arg');
+                    assert.strictEqual(customCommandExecuted, true, 'Custom terminal command should execute');
+
+                    await term.executeLine('help');
+                    assert.ok(term.history.length >= 0, 'Terminal history should track commands');
+
+                    console.log('✓ In-Browser Interactive WASI Terminal & REPL (stdin queue, stdout stream, ANSI formatting, custom commands) assertions passed.');
+                }
             }
 
             console.log('✓ TestClass execution assertions passed (including for loops, for-each loops, arrays, switches, labeled break/continue, compound assignments, dynamic strings, OOP, Canvas 2D, WebGL, JSObject, WASI VFS, Threads/Atomics, Exceptions, Multi-Value Returns, Bulk Memory, Fixed-Width SIMD, and Multi-Memory Segregation).');

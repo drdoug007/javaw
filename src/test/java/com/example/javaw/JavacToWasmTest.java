@@ -1153,4 +1153,34 @@ public class JavacToWasmTest {
         org.junit.jupiter.api.Assertions.assertEquals("h1 { color: blue; }", result.getJsResources().get("styles.css"));
         org.junit.jupiter.api.Assertions.assertEquals("{\\\"version\\\": 1}", result.getJsResources().get("app.json"));
     }
+
+    @Test
+    public void testWasiTerminalAndRepl() {
+        String javaSource = "package com.example.javaw;\n" +
+                "import com.example.javaw.wasi.WASITerminal;\n" +
+                "public class TerminalApp {\n" +
+                "    public static String runRepl() {\n" +
+                "        WASITerminal.setColor(WASITerminal.BRIGHT_CYAN);\n" +
+                "        WASITerminal.println(\"=== javaw WASI Shell ===\");\n" +
+                "        WASITerminal.resetColor();\n" +
+                "        String input = WASITerminal.readLine(\"prompt> \");\n" +
+                "        int ch = WASITerminal.readChar();\n" +
+                "        int cols = WASITerminal.getColumns();\n" +
+                "        int rows = WASITerminal.getRows();\n" +
+                "        WASITerminal.clear();\n" +
+                "        return input;\n" +
+                "    }\n" +
+                "}\n";
+
+        CompilationUnit cu = StaticJavaParser.parse(javaSource);
+        String wat = JavacToWasm.generateWat(cu);
+
+        assertTrue(wat.contains("(import \"wasi_snapshot_preview1\" \"fd_write\""));
+        assertTrue(wat.contains("(import \"wasi_snapshot_preview1\" \"fd_read\""));
+        assertTrue(wat.contains("(import \"dom\" \"terminal_clear\" (func $dom_terminal_clear))"));
+        assertTrue(wat.contains("(import \"dom\" \"terminal_get_columns\" (func $dom_terminal_get_columns (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"terminal_get_rows\" (func $dom_terminal_get_rows (result i32)))"));
+        assertTrue(wat.contains("call $__wasi_read_line"));
+        assertTrue(wat.contains("call $__wasi_read_char"));
+    }
 }

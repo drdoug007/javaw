@@ -27,7 +27,10 @@ public class WasiHelper {
                     if (mName.equals("exit")) {
                         imports.add("proc_exit");
                     }
-                } else if (scopeStr.equals("WASI") || scopeStr.endsWith(".WASI") || scopeStr.equals("WASIFile") || scopeStr.endsWith(".WASIFile")) {
+                } else if (scopeStr.equals("WASI") || scopeStr.endsWith(".WASI") ||
+                           scopeStr.equals("WASIFile") || scopeStr.endsWith(".WASIFile") ||
+                           scopeStr.equals("WASITerminal") || scopeStr.endsWith(".WASITerminal") ||
+                           scopeStr.equals("Terminal") || scopeStr.endsWith(".Terminal")) {
                     imports.add("wasi_all");
                 }
             }

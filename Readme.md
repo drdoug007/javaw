@@ -14,6 +14,10 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
 
 ## Features
 
+- **Interactive In-Browser WASI Terminal & REPL Integration (WASI & ANSI)**:
+  - Strongly-typed Java facades `com.example.javaw.wasi.WASITerminal` and `com.example.javaw.terminal.Terminal` providing standard ANSI color palette constants (`BLACK`, `RED`, `GREEN`, `YELLOW`, `BLUE`, `MAGENTA`, `CYAN`, `WHITE`, and `BRIGHT_*` variants), text attributes (`BOLD`, `DIM`, `ITALIC`, `UNDERLINE`, `REVERSE`), cursor positioning (`setCursor`), screen clearing (`clear`), and dimensions (`getColumns`, `getRows`).
+  - Interactive line and character reading (`readLine()`, `readLine(prompt)`, `readChar()`) wired directly to WASI standard input (`fd 0` stdin queue) with linear memory string decoding.
+  - Runtime terminal component `JavawTerminal` in `javaw-runtime.js` supporting both xterm.js and a zero-dependency DOM terminal with full ANSI escape rendering, customizable prompt (`javaw> `), command history (Up/Down arrow navigation), keyboard shortcuts (Ctrl+L clear, Ctrl+C interrupt), and custom command dispatch (`help`, `clear`, `history`, `ls`, `js`, `run <wasmExport>`).
 - **Exporting Java Classes to JavaScript Scope (`@JS.Export`)**:
   - Annotate Java classes with `@JS.Export` (or `@JS.Export("CustomName")`) to expose them directly to JavaScript environments (`globalThis.MyJavaClass = ...`), allowing JavaScript code to instantiate Java classes natively using `new MyJavaClass(...)`.
   - Automatically synthesizes class metadata, constructor signatures, vtable bases, and method definitions into WebAssembly custom section `javaw_js_exports`.
@@ -224,12 +228,15 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
 │   │   │   │   ├── SourceMap.java     # Source Map v3 parser and consumer
 │   │   │   │   ├── SourceMapGenerator.java # Source Map v3 generator and custom section injector
 │   │   │   │   └── SourceMapTracker.java   # AST source position tracking visitor helper
+│   │   │   ├── terminal
+│   │   │   │   └── Terminal.java      # Terminal facade for interactive console & ANSI styling
 │   │   │   ├── util
 │   │   │   │   ├── Arrays.java        # High-performance array utilities & bulk memory operations
 │   │   │   │   └── StringBuilder.java # Dynamic string builder facade
 │   │   │   └── wasi
 │   │   │       ├── WASI.java          # WASI snapshot preview 1 system & VFS facade
-│   │   │       └── WASIFile.java      # Object-oriented WASI Virtual File System abstraction
+│   │   │       ├── WASIFile.java      # Object-oriented WASI Virtual File System abstraction
+│   │   │       └── WASITerminal.java  # Interactive WASI terminal, ANSI palette & stdin stream facade
 │   │   └── resources
 │   │       └── javaw-runtime.js       # JavaScript WebAssembly host runtime bridge
 │   └── test
@@ -1129,6 +1136,63 @@ public class AssetDemo {
         JSResource.mountAll();
     }
 }
+```
+
+---
+
+#### Example V: Interactive In-Browser WASI Terminal & REPL Integration (`WASITerminal`, `Terminal`, `JavawTerminal`)
+
+Build interactive command-line interfaces, diagnostic shells, or REPLs that run directly inside the browser using standard I/O streams and ANSI escape styling:
+
+```java
+package com.example.javaw;
+
+import com.example.javaw.terminal.Terminal;
+
+public class ShellApp {
+
+    public static void runShell() {
+        // Clear terminal screen and show banner
+        Terminal.clear();
+        Terminal.println(Terminal.BRIGHT_CYAN + Terminal.BOLD + "=== Javaw Interactive Browser Shell ===" + Terminal.RESET);
+        Terminal.println(Terminal.DIM + "Type 'help' for commands or 'exit' to quit." + Terminal.RESET);
+
+        boolean running = true;
+        while (running) {
+            // Read input with prompt
+            String line = Terminal.readLine(Terminal.BRIGHT_GREEN + "javaw> " + Terminal.RESET);
+            if (line == null || line.equals("exit")) {
+                running = false;
+                Terminal.println(Terminal.YELLOW + "Session terminated." + Terminal.RESET);
+            } else if (line.equals("help")) {
+                Terminal.println(Terminal.BOLD + "Available Commands:" + Terminal.RESET);
+                Terminal.println("  " + Terminal.CYAN + "clear" + Terminal.RESET + "   - Clear the terminal screen");
+                Terminal.println("  " + Terminal.CYAN + "info" + Terminal.RESET + "    - Show terminal dimensions");
+                Terminal.println("  " + Terminal.CYAN + "exit" + Terminal.RESET + "    - Quit the shell session");
+            } else if (line.equals("clear")) {
+                Terminal.clear();
+            } else if (line.equals("info")) {
+                Terminal.println("Columns: " + Terminal.getColumns() + ", Rows: " + Terminal.getRows());
+            } else if (!line.isEmpty()) {
+                Terminal.println(Terminal.RED + "Unknown command: " + line + Terminal.RESET);
+            }
+        }
+    }
+}
+```
+
+Attach `JavawTerminal` in JavaScript to an xterm.js instance or zero-dependency DOM element:
+
+```javascript
+// Attach interactive terminal to a DOM element
+const terminal = runtime.createTerminal('#terminal-container', {
+    prompt: 'javaw> ',
+    cols: 80,
+    rows: 24
+});
+
+// Run the Java WebAssembly shell routine
+runtime.instance.exports.runShell();
 ```
 
 ---

@@ -396,6 +396,37 @@ public class AppBrowserTest {
         tempWasm.delete();
     }
 
+    @Test
+    public void testBrowserInteractiveTerminalAndRepl() {
+        Page page = browser.newPage();
+        page.navigate("http://127.0.0.1:" + port + "/demo/index.html");
+
+        // Wait for terminal wrapper
+        page.waitForSelector(".javaw-terminal-wrapper");
+        assertEquals("javaw> ", page.textContent(".javaw-terminal-prompt"));
+
+        // Type 'help' and submit
+        page.fill(".javaw-terminal-input", "help");
+        page.press(".javaw-terminal-input", "Enter");
+
+        page.waitForFunction("() => document.querySelector('.javaw-terminal-screen').innerText.includes('Display this help message')");
+        String screenText = page.textContent(".javaw-terminal-screen");
+        assertTrue(screenText.contains("javaw WebAssembly Terminal & REPL"));
+        assertTrue(screenText.contains("help"));
+
+        // Type 'js 123 + 456' and submit
+        page.fill(".javaw-terminal-input", "js 123 + 456");
+        page.press(".javaw-terminal-input", "Enter");
+        page.waitForFunction("() => document.querySelector('.javaw-terminal-screen').innerText.includes('579')");
+
+        // Type 'history' and submit
+        page.fill(".javaw-terminal-input", "history");
+        page.press(".javaw-terminal-input", "Enter");
+        page.waitForFunction("() => document.querySelector('.javaw-terminal-screen').innerText.includes('1: help')");
+
+        page.close();
+    }
+
     private static class FileHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
