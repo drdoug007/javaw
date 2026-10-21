@@ -824,4 +824,92 @@ public class JavacToWasmTest {
         assertTrue(wat.contains("memory.copy $heap $strings"));
         assertTrue(wat.contains("memory.fill $heap"));
     }
+
+    @Test
+    public void testBase64VLQEncodingAndDecoding() {
+        int[] testValues = {0, 1, -1, 2, -2, 15, -15, 16, -16, 31, -31, 32, -32, 127, -127, 1000, -1000, 65536, -65536};
+        for (int val : testValues) {
+            String encoded = com.example.javaw.sourcemap.Base64VLQ.encode(val);
+            java.util.List<Integer> decoded = com.example.javaw.sourcemap.Base64VLQ.decode(encoded);
+            org.junit.jupiter.api.Assertions.assertEquals(1, decoded.size(), "Decoded size mismatch for: " + val);
+            org.junit.jupiter.api.Assertions.assertEquals(val, (int) decoded.get(0), "Decoded value mismatch for: " + val);
+        }
+    }
+
+    @Test
+    public void testSourceMapGeneratorAndParser() {
+        com.example.javaw.sourcemap.SourceMapGenerator generator = new com.example.javaw.sourcemap.SourceMapGenerator("TestClass.wat");
+        generator.addSource("TestClass.java", "public class TestClass { ... }");
+        generator.addName("addNumbers");
+
+        // genLine=0, genCol=0 -> srcIdx=0, origLine=0, origCol=0
+        generator.addMapping(0, 0, "TestClass.java", 0, 0, "addNumbers");
+        // genLine=1, genCol=2 -> srcIdx=0, origLine=1, origCol=4
+        generator.addMapping(1, 2, "TestClass.java", 1, 4, null);
+        // genLine=2, genCol=4 -> srcIdx=0, origLine=2, origCol=8
+        generator.addMapping(2, 4, "TestClass.java", 2, 8, null);
+
+        String json = generator.generateJson();
+        org.junit.jupiter.api.Assertions.assertTrue(json.contains("\"version\": 3"));
+        org.junit.jupiter.api.Assertions.assertTrue(json.contains("\"file\": \"TestClass.wat\""));
+        org.junit.jupiter.api.Assertions.assertTrue(json.contains("\"TestClass.java\""));
+        org.junit.jupiter.api.Assertions.assertTrue(json.contains("\"mappings\":"));
+
+        com.example.javaw.sourcemap.SourceMap parsed = com.example.javaw.sourcemap.SourceMap.parse(json);
+        org.junit.jupiter.api.Assertions.assertEquals(3, parsed.getVersion());
+        org.junit.jupiter.api.Assertions.assertEquals("TestClass.wat", parsed.getFile());
+        org.junit.jupiter.api.Assertions.assertEquals(1, parsed.getSources().size());
+        org.junit.jupiter.api.Assertions.assertEquals("TestClass.java", parsed.getSources().get(0));
+
+        com.example.javaw.sourcemap.MappingEntry m0 = parsed.findMapping(0, 0);
+        org.junit.jupiter.api.Assertions.assertNotNull(m0);
+        org.junit.jupiter.api.Assertions.assertEquals(0, m0.getOriginalLine());
+        org.junit.jupiter.api.Assertions.assertEquals(0, m0.getOriginalColumn());
+        org.junit.jupiter.api.Assertions.assertEquals("addNumbers", m0.getName());
+
+        com.example.javaw.sourcemap.MappingEntry m1 = parsed.findMapping(1, 2);
+        org.junit.jupiter.api.Assertions.assertNotNull(m1);
+        org.junit.jupiter.api.Assertions.assertEquals(1, m1.getOriginalLine());
+        org.junit.jupiter.api.Assertions.assertEquals(4, m1.getOriginalColumn());
+
+        com.example.javaw.sourcemap.MappingEntry m2 = parsed.findMapping(2, 4);
+        org.junit.jupiter.api.Assertions.assertNotNull(m2);
+        org.junit.jupiter.api.Assertions.assertEquals(2, m2.getOriginalLine());
+        org.junit.jupiter.api.Assertions.assertEquals(8, m2.getOriginalColumn());
+    }
+
+    @Test
+    public void testSourceMapWasmEmbeddingAndExtraction() {
+        byte[] dummyWasm = new byte[]{0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00};
+        String mapUrl = "App.wasm.map";
+
+        byte[] embedded = com.example.javaw.sourcemap.SourceMapGenerator.embedSourceMapInWasm(dummyWasm, mapUrl);
+        org.junit.jupiter.api.Assertions.assertTrue(embedded.length > dummyWasm.length);
+
+        String extracted = com.example.javaw.sourcemap.SourceMapGenerator.extractSourceMapUrlFromWasm(embedded);
+        org.junit.jupiter.api.Assertions.assertEquals(mapUrl, extracted);
+    }
+
+    @Test
+    public void testCompilationResultWithSourceMap() {
+        String javaSource = "package com.example.javaw;\n" +
+                "public class DebuggableApp {\n" +
+                "    public int calculate(int x, int y) {\n" +
+                "        int sum = x + y;\n" +
+                "        return sum * 2;\n" +
+                "    }\n" +
+                "}\n";
+
+        JavacToWasm.CompilationResult result = JavacToWasm.compile("DebuggableApp.java", javaSource, true);
+        org.junit.jupiter.api.Assertions.assertNotNull(result.getSourceMapGenerator());
+        org.junit.jupiter.api.Assertions.assertNotNull(result.getSourceMapJson());
+        org.junit.jupiter.api.Assertions.assertTrue(result.getSourceMapJson().contains("\"mappings\""));
+        org.junit.jupiter.api.Assertions.assertTrue(result.getSourceMapDataUri().startsWith("data:application/json;charset=utf-8;base64,"));
+        org.junit.jupiter.api.Assertions.assertTrue(result.getWat().contains("(@custom \"sourceMappingURL\""));
+
+        com.example.javaw.sourcemap.SourceMap map = result.getSourceMap();
+        org.junit.jupiter.api.Assertions.assertNotNull(map);
+        org.junit.jupiter.api.Assertions.assertTrue(map.getMappings().size() >= 3);
+        org.junit.jupiter.api.Assertions.assertEquals("DebuggableApp.java", map.getSources().get(0));
+    }
 }

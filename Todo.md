@@ -77,6 +77,7 @@ This roadmap organizes planned features by their utility and return on investmen
   - Linear memory reference arrays (`MyClass[]`) with indexing and iteration support.
 - [ ] **WasmGC Target Proposal**
   - Emit native WebAssembly Garbage Collection types (`(type $Class (struct ...))`, `struct.new`, `struct.get`).
+  - *Note*: Evaluated as an alternative standalone backend (`WasmGcVisitor`) rather than in-line linear memory branching to avoid visitor fragmentation, preserve universal linear memory compatibility, and isolate GC struct type hierarchies.
 
 ---
 
@@ -136,8 +137,11 @@ This roadmap organizes planned features by their utility and return on investmen
 
 - [x] **Binaryen Optimization Pass (`wasm-opt`)**
   - Automated dead-code elimination, inlining, and binary size reduction via integrated `wasm-opt -O3 --enable-threads` pipeline.
-- [ ] **Source Maps & DWARF Debugging**
-  - Generate source maps mapping WebAssembly bytecode to Java source lines.
+- [x] **Source Maps & DWARF Debugging**
+  - Generate standard Source Map v3 (`.wasm.map` / `.wat.map`) mapping WebAssembly instructions to original Java source files and line/column numbers.
+  - Implemented `SourceMapGenerator` and `SourceMap` with Base64 VLQ encoding/decoding, sources content embedding, and AST range tracking across statements and expressions.
+  - Added WebAssembly `sourceMappingURL` custom section embedding (`(@custom "sourceMappingURL" ...)` and binary section injection) for browser Chrome/Firefox DevTools debugging.
+  - Added CLI flag `--source-map` and in-memory compilation result accessors (`CompilationResult.getSourceMap()`, `getSourceMapJson()`, `getSourceMapDataUri()`).
 - [x] **Multi-File Compilation & Project Linking**
   - Compile multiple Java source files or entire directories into a unified WebAssembly module.
 - [x] **In-Memory Java Compiler API & Embedded REPL**

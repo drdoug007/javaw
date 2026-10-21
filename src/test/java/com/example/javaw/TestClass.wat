@@ -1,4 +1,5 @@
 (module
+  (@custom "sourceMappingURL" "\12TestClass.wasm.map")
   (import "dom" "getElementById" (func $dom_getElementById (param i32 i32) (result i32)))
   (import "dom" "getContext2D" (func $dom_getContext2D (param i32) (result i32)))
   (import "dom" "getWebGLContext" (func $dom_getWebGLContext (param i32) (result i32)))

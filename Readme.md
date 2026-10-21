@@ -20,6 +20,11 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
 - **Multi-File Java Compilation & Project Linking**:
   - Compiles multiple Java source files or entire project directories into a unified, linked WebAssembly module.
   - Automatically merges AST compilation units, resolves cross-file type references, and aggregates class hierarchies.
+- **Source Maps & Browser DevTools Debugging (Source Map v3)**:
+  - Generates standard Source Map v3 files (`.wasm.map` and `.wat.map`) mapping WebAssembly instructions directly back to original Java source lines and columns.
+  - Full Base64 VLQ encoding and decoding, embedded source contents, and AST location tracking across classes, constructors, methods, fields, and statements.
+  - Automatically injects `sourceMappingURL` custom sections into generated WAT (`(@custom "sourceMappingURL" ...)`) and binary `.wasm` files for step-through debugging inside Chrome and Firefox DevTools.
+  - CLI flag `--source-map` and in-memory compilation result accessors (`CompilationResult.getSourceMap()`, `getSourceMapJson()`, `getSourceMapDataUri()`).
 - **WebAssembly Multi-Value Returns & Java Record Support**:
   - Leverages WebAssembly multi-value return capability (`(result i32 i32 ...)`) to return multiple values on the evaluation stack without heap allocation overhead.
   - Full AST lowering for Java `record` declarations (`RecordDeclaration`), component accessor methods (`p.x()`, `p.first()`), instance/static record methods, and constructor/parameter passing.
@@ -169,6 +174,12 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
 │   │   │   │   ├── Float32x4.java     # 128-bit float vector facade (f32x4)
 │   │   │   │   ├── Int32x4.java       # 128-bit integer vector facade (i32x4)
 │   │   │   │   └── Vector128.java     # 128-bit SIMD constants and utilities
+│   │   │   ├── sourcemap
+│   │   │   │   ├── Base64VLQ.java     # Base64 Variable-Length Quantity (VLQ) encoder/decoder
+│   │   │   │   ├── MappingEntry.java  # Generated to original source coordinate mapping model
+│   │   │   │   ├── SourceMap.java     # Source Map v3 parser and consumer
+│   │   │   │   ├── SourceMapGenerator.java # Source Map v3 generator and custom section injector
+│   │   │   │   └── SourceMapTracker.java   # AST source position tracking visitor helper
 │   │   │   ├── util
 │   │   │   │   ├── Arrays.java        # High-performance array utilities & bulk memory operations
 │   │   │   │   └── StringBuilder.java # Dynamic string builder facade
@@ -244,9 +255,18 @@ To skip the `wasm-opt` optimization pass during development:
 java -jar target/javaw-1.0-SNAPSHOT.jar --no-opt src/test/java/com/example/javaw/App.java
 ```
 
+#### Generating Source Maps
+To generate standard Source Map v3 files (`.wat.map` and `.wasm.map`) with embedded source locations for DevTools step-through debugging:
+
+```bash
+java -jar target/javaw-1.0-SNAPSHOT.jar --source-map src/test/java/com/example/javaw/App.java
+```
+
 This generates:
 - `<filename>.wat`: WebAssembly Text representation.
-- `<filename>.wasm`: Compiled and optimized binary WebAssembly (if `wat2wasm` and `wasm-opt` are available on `PATH`).
+- `<filename>.wat.map`: Source Map v3 for the text format.
+- `<filename>.wasm`: Compiled and optimized binary WebAssembly with embedded `sourceMappingURL` custom section.
+- `<filename>.wasm.map`: Source Map v3 for the binary module.
 
 ---
 
@@ -751,6 +771,52 @@ public class MultiMemoryDemo {
         
         int firstCopiedByte = heap.loadU8(100);
         return heap.loadI32(0) + heap.loadI32(4) + firstCopiedByte;
+    }
+}
+```
+
+---
+
+#### Example P: Source Maps & Browser DevTools Debugging
+
+Generate Source Map v3 mappings programmatically or via CLI for step-through debugging inside browser Developer Tools:
+
+```java
+package com.example.javaw;
+
+import com.example.javaw.sourcemap.SourceMap;
+import com.example.javaw.sourcemap.MappingEntry;
+
+public class SourceMapDemo {
+    public static void main(String[] args) {
+        String javaSource = """
+            package com.example.app;
+            public class App {
+                public static int calculate(int x) {
+                    int factor = 5;
+                    return x * factor + 10;
+                }
+            }
+            """;
+
+        // In-memory compilation with Source Map generation enabled
+        JavacToWasm.CompilationResult result = JavacToWasm.compile(javaSource, true, true);
+        
+        // Retrieve generated WAT, optimized WASM binary, and Source Map JSON
+        String wat = result.getWat();
+        byte[] wasm = result.getWasm();
+        String sourceMapJson = result.getSourceMapJson();
+        String dataUri = result.getSourceMapDataUri();
+
+        // Inspect and parse source map entries
+        SourceMap map = SourceMap.fromJson(sourceMapJson);
+        System.out.println("Sources: " + map.getSources());
+        
+        // Find Java source position corresponding to a generated WebAssembly line
+        MappingEntry entry = map.findMappingForGenerated(4, 0);
+        if (entry != null) {
+            System.out.println("Mapped to Java line: " + (entry.getOriginalLine() + 1));
+        }
     }
 }
 ```

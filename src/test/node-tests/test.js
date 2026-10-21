@@ -28,10 +28,14 @@ const JAR_PATH = path.resolve(__dirname, '../../../target/javaw-1.0-SNAPSHOT.jar
 const TESTCLASS_JAVA = path.resolve(__dirname, '../java/com/example/javaw/TestClass.java');
 const TESTCLASS_WAT = path.resolve(__dirname, '../java/com/example/javaw/TestClass.wat');
 const TESTCLASS_WASM = path.resolve(__dirname, '../java/com/example/javaw/TestClass.wasm');
+const TESTCLASS_WAT_MAP = path.resolve(__dirname, '../java/com/example/javaw/TestClass.wat.map');
+const TESTCLASS_WASM_MAP = path.resolve(__dirname, '../java/com/example/javaw/TestClass.wasm.map');
 
 const APP_JAVA = path.resolve(__dirname, '../java/com/example/javaw/App.java');
 const APP_WAT = path.resolve(__dirname, '../java/com/example/javaw/App.wat');
 const APP_WASM = path.resolve(__dirname, '../java/com/example/javaw/App.wasm');
+const APP_WAT_MAP = path.resolve(__dirname, '../java/com/example/javaw/App.wat.map');
+const APP_WASM_MAP = path.resolve(__dirname, '../java/com/example/javaw/App.wasm.map');
 
 // Lightweight DOM Mock for Node.js testing
 class MockCanvasContext2D {
@@ -283,9 +287,19 @@ async function runTest() {
         console.log('\n--- Testing TestClass.java (Arithmetic & Primitives) ---');
         if (fs.existsSync(TESTCLASS_WAT)) fs.unlinkSync(TESTCLASS_WAT);
         if (fs.existsSync(TESTCLASS_WASM)) fs.unlinkSync(TESTCLASS_WASM);
+        if (fs.existsSync(TESTCLASS_WAT_MAP)) fs.unlinkSync(TESTCLASS_WAT_MAP);
+        if (fs.existsSync(TESTCLASS_WASM_MAP)) fs.unlinkSync(TESTCLASS_WASM_MAP);
 
         execSync(`java -jar ${JAR_PATH} ${TESTCLASS_JAVA}`, { stdio: 'inherit' });
         assert.strictEqual(fs.existsSync(TESTCLASS_WAT), true, 'TestClass.wat must exist');
+        assert.strictEqual(fs.existsSync(TESTCLASS_WAT_MAP), true, 'TestClass.wat.map must exist');
+        assert.strictEqual(fs.existsSync(TESTCLASS_WASM_MAP), true, 'TestClass.wasm.map must exist');
+
+        const mapJson = JSON.parse(fs.readFileSync(TESTCLASS_WASM_MAP, 'utf8'));
+        assert.strictEqual(mapJson.version, 3, 'Source map version must be 3');
+        assert.ok(Array.isArray(mapJson.sources) && mapJson.sources.includes('TestClass.java'), 'Sources must contain TestClass.java');
+        assert.ok(typeof mapJson.mappings === 'string' && mapJson.mappings.length > 0, 'Mappings must be present');
+        console.log('✓ Source Map v3 (TestClass.wasm.map & TestClass.wat.map) generated and verified.');
 
         const testContent = fs.readFileSync(TESTCLASS_WAT, 'utf8');
         assert.ok(testContent.includes('(func $addNumbers'), 'Must contain addNumbers');
@@ -595,9 +609,18 @@ async function runTest() {
         console.log('\n--- Testing App.java (DOM Operations & Events) ---');
         if (fs.existsSync(APP_WAT)) fs.unlinkSync(APP_WAT);
         if (fs.existsSync(APP_WASM)) fs.unlinkSync(APP_WASM);
+        if (fs.existsSync(APP_WAT_MAP)) fs.unlinkSync(APP_WAT_MAP);
+        if (fs.existsSync(APP_WASM_MAP)) fs.unlinkSync(APP_WASM_MAP);
 
         execSync(`java -jar ${JAR_PATH} ${APP_JAVA}`, { stdio: 'inherit' });
         assert.strictEqual(fs.existsSync(APP_WAT), true, 'App.wat must exist');
+        assert.strictEqual(fs.existsSync(APP_WAT_MAP), true, 'App.wat.map must exist');
+        assert.strictEqual(fs.existsSync(APP_WASM_MAP), true, 'App.wasm.map must exist');
+
+        const appMapJson = JSON.parse(fs.readFileSync(APP_WASM_MAP, 'utf8'));
+        assert.strictEqual(appMapJson.version, 3, 'App source map version must be 3');
+        assert.ok(appMapJson.sources.includes('App.java'), 'Sources must contain App.java');
+        console.log('✓ App.wasm.map Source Map v3 verified.');
 
         const appWat = fs.readFileSync(APP_WAT, 'utf8');
         assert.ok(appWat.includes('(import "dom" "getElementById"'), 'Must declare getElementById import');

@@ -1,5 +1,6 @@
 package com.example.javaw;
 
+import com.example.javaw.sourcemap.SourceMapTracker;
 import com.github.javaparser.ast.body.*;
 import com.github.javaparser.ast.expr.*;
 import com.github.javaparser.ast.stmt.*;
@@ -16,6 +17,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     private final Map<String, StringConstant> stringPool;
     private final Map<String, GlobalVar> globalVars;
     private final ClassRegistry classRegistry;
+    private final SourceMapTracker sourceMapTracker;
     private final Deque<LoopContext> loopStack = new ArrayDeque<>();
     private ClassModel currentClass;
     private RecordModel currentRecord;
@@ -24,20 +26,29 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     private int switchCounter = 0;
     private int switchExprCounter = 0;
 
-    public WasmGeneratorVisitor(Map<String, StringConstant> stringPool, Map<String, GlobalVar> globalVars, ClassRegistry classRegistry) {
+    public WasmGeneratorVisitor(Map<String, StringConstant> stringPool, Map<String, GlobalVar> globalVars, ClassRegistry classRegistry, SourceMapTracker sourceMapTracker) {
         this.stringPool = stringPool;
         this.globalVars = globalVars;
         this.classRegistry = classRegistry;
+        this.sourceMapTracker = sourceMapTracker;
+    }
+
+    public WasmGeneratorVisitor(Map<String, StringConstant> stringPool, Map<String, GlobalVar> globalVars, ClassRegistry classRegistry) {
+        this(stringPool, globalVars, classRegistry, null);
     }
 
     public WasmGeneratorVisitor(Map<String, StringConstant> stringPool, Map<String, GlobalVar> globalVars) {
-        this(stringPool, globalVars, null);
+        this(stringPool, globalVars, null, null);
     }
 
     @Override
     public void visit(ClassOrInterfaceDeclaration n, StringBuilder collector) {
         String className = n.getNameAsString();
         currentClass = classRegistry != null ? classRegistry.getClass(className) : null;
+
+        if (sourceMapTracker != null) {
+            sourceMapTracker.track(collector, n, className);
+        }
 
         collector.append("  ;; Class/Interface: ").append(className).append("\n");
 
@@ -66,6 +77,9 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         switchExprCounter = 0;
 
         String funcName = "$" + className + "__init";
+        if (sourceMapTracker != null) {
+            sourceMapTracker.track(collector, n, className + "__init");
+        }
         collector.append("  (func ").append(funcName)
                 .append(" (export \"").append(className).append("__init\")")
                 .append(" (param $this i32)");
@@ -109,6 +123,10 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         String recordName = n.getNameAsString();
         currentRecord = classRegistry != null ? classRegistry.getRecord(recordName) : null;
 
+        if (sourceMapTracker != null) {
+            sourceMapTracker.track(collector, n, recordName);
+        }
+
         collector.append("  ;; Record: ").append(recordName).append("\n");
 
         for (MethodDeclaration md : n.getMethods()) {
@@ -134,6 +152,10 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         boolean isStatic = n.isStatic();
         String funcName = "$" + recordName + "_" + methodName;
         String exportName = recordName + "_" + methodName;
+
+        if (sourceMapTracker != null) {
+            sourceMapTracker.track(collector, n, exportName);
+        }
 
         collector.append("  (func ").append(funcName)
                 .append(" (export \"").append(exportName).append("\")");
@@ -228,6 +250,10 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         } else {
             funcName = "$" + methodName;
             exportName = methodName;
+        }
+
+        if (sourceMapTracker != null) {
+            sourceMapTracker.track(collector, n, exportName);
         }
 
         collector.append("  (func ").append(funcName)
@@ -387,6 +413,9 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     }
 
     private void translateStatement(Statement stmt, StringBuilder collector, Map<String, String> localTypes, Map<String, String> localElementTypes, Map<String, String> localJavaTypes, String returnWasmType, List<String> pendingLabels) {
+        if (sourceMapTracker != null && !stmt.isBlockStmt()) {
+            sourceMapTracker.track(collector, stmt);
+        }
         if (stmt.isExplicitConstructorInvocationStmt()) {
             ExplicitConstructorInvocationStmt ecis = stmt.asExplicitConstructorInvocationStmt();
             collector.append("    local.get $this\n");

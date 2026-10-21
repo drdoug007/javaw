@@ -1,5 +1,8 @@
 package com.example.javaw;
 
+import com.example.javaw.sourcemap.SourceMap;
+import com.example.javaw.sourcemap.SourceMapGenerator;
+import com.example.javaw.sourcemap.SourceMapTracker;
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.FieldDeclaration;
@@ -11,6 +14,7 @@ import com.github.javaparser.ast.type.Type;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -29,15 +33,25 @@ public class JavacToWasm {
 
     public static void main(String[] args) {
         if (args.length < 1) {
-            System.err.println("Usage: javaw <JavaFile.java | dir> [extra files...]");
+            System.err.println("Usage: javaw <JavaFile.java | dir> [extra files...] [-O0|--no-opt] [-g|--source-map]");
             System.exit(1);
         }
 
         List<Path> javaFiles = new ArrayList<>();
         boolean optimize = true;
+        boolean generateSourceMap = true;
+
         for (String arg : args) {
             if (arg.equals("-O0") || arg.equals("--no-opt")) {
                 optimize = false;
+                continue;
+            }
+            if (arg.equals("-g") || arg.equals("--source-map")) {
+                generateSourceMap = true;
+                continue;
+            }
+            if (arg.equals("--no-source-map")) {
+                generateSourceMap = false;
                 continue;
             }
             Path p = Paths.get(arg).toAbsolutePath().normalize();
@@ -61,30 +75,59 @@ public class JavacToWasm {
         String stem = firstPath.getFileName().toString().replace(".java", "");
         Path watFilePath = firstPath.getParent().resolve(stem + ".wat");
         Path wasmFilePath = firstPath.getParent().resolve(stem + ".wasm");
+        Path watMapFilePath = firstPath.getParent().resolve(stem + ".wat.map");
+        Path wasmMapFilePath = firstPath.getParent().resolve(stem + ".wasm.map");
 
         try {
             System.out.println("Compiling " + javaFiles.size() + " Java source file(s)...");
             List<CompilationUnit> cus = new ArrayList<>();
+            SourceMapGenerator sourceMapGen = generateSourceMap ? new SourceMapGenerator(stem + ".wat") : null;
+
             for (Path path : javaFiles) {
-                cus.add(StaticJavaParser.parse(path));
+                CompilationUnit cu = StaticJavaParser.parse(path);
+                cus.add(cu);
+                if (sourceMapGen != null) {
+                    try {
+                        String sourceContent = Files.readString(path);
+                        sourceMapGen.addSource(path.getFileName().toString(), sourceContent);
+                    } catch (Exception ignored) {
+                        sourceMapGen.addSource(path.getFileName().toString(), null);
+                    }
+                }
             }
 
-            String watContent = generateWat(cus);
+            String watContent = generateWat(cus, sourceMapGen);
             try (FileWriter writer = new FileWriter(watFilePath.toFile())) {
                 writer.write(watContent);
             }
             System.out.println("WAT generation successful: " + watFilePath);
 
+            if (sourceMapGen != null) {
+                String sourceMapJson = sourceMapGen.generateJson();
+                Files.writeString(watMapFilePath, sourceMapJson);
+                Files.writeString(wasmMapFilePath, sourceMapJson);
+                System.out.println("Source Map generated: " + wasmMapFilePath);
+            }
+
             // Attempt to compile to binary WASM if wat2wasm is available
             boolean wasmGenerated = false;
             try {
-                Process process = new ProcessBuilder("wat2wasm", "--enable-threads", "--enable-exceptions", "--enable-multi-memory", watFilePath.toString(), "-o", wasmFilePath.toString())
+                Process process = new ProcessBuilder("wat2wasm", "--enable-threads", "--enable-exceptions", "--enable-multi-memory", "--enable-annotations", watFilePath.toString(), "-o", wasmFilePath.toString())
                         .redirectErrorStream(true)
                         .start();
                 int exitCode = process.waitFor();
                 if (exitCode == 0) {
                     System.out.println("Binary WASM generated: " + wasmFilePath);
                     wasmGenerated = true;
+
+                    // Ensure sourceMappingURL is embedded in the binary
+                    if (generateSourceMap) {
+                        byte[] wasmBytes = Files.readAllBytes(wasmFilePath);
+                        byte[] embedded = SourceMapGenerator.embedSourceMapInWasm(wasmBytes, stem + ".wasm.map");
+                        if (embedded.length != wasmBytes.length) {
+                            Files.write(wasmFilePath, embedded);
+                        }
+                    }
                 } else {
                     System.err.println("wat2wasm compilation exited with code: " + exitCode);
                 }
@@ -190,11 +233,16 @@ public class JavacToWasm {
     }
 
     public static String generateWat(List<CompilationUnit> cus) {
+        return generateWat(cus, null);
+    }
+
+    public static String generateWat(List<CompilationUnit> cus, SourceMapGenerator sourceMapGen) {
         if (cus.isEmpty()) {
             return "(module)\n";
         }
         if (cus.size() == 1) {
-            return generateWat(cus.get(0));
+            String sourceName = cus.get(0).getStorage().map(s -> s.getPath().getFileName().toString()).orElse("Source.java");
+            return generateWat(cus.get(0), sourceMapGen, sourceName);
         }
         CompilationUnit merged = new CompilationUnit();
         for (CompilationUnit cu : cus) {
@@ -205,12 +253,26 @@ public class JavacToWasm {
             });
             cu.getTypes().forEach(t -> merged.addType(t.clone()));
         }
-        return generateWat(merged);
+        String sourceName = cus.get(0).getStorage().map(s -> s.getPath().getFileName().toString()).orElse("Source.java");
+        return generateWat(merged, sourceMapGen, sourceName);
     }
 
     public static String generateWat(CompilationUnit cu) {
+        return generateWat(cu, null, "Source.java");
+    }
+
+    public static String generateWat(CompilationUnit cu, SourceMapGenerator sourceMapGen, String sourceName) {
         StringBuilder watOutput = new StringBuilder();
         watOutput.append("(module\n");
+
+        if (sourceMapGen != null && sourceMapGen.getFile() != null && !sourceMapGen.getFile().isEmpty()) {
+            String mapUrl = sourceMapGen.getFile().endsWith(".wasm") ?
+                    sourceMapGen.getFile() + ".map" :
+                    sourceMapGen.getFile().replace(".wat", ".wasm") + ".map";
+            watOutput.append("  (@custom \"sourceMappingURL\" \"")
+                    .append(SourceMapGenerator.escapeCustomSectionPayload(mapUrl))
+                    .append("\")\n");
+        }
 
         Set<String> domImports = DomHelper.collectDomImports(cu);
         DomHelper.emitDomImports(domImports, watOutput);
@@ -278,7 +340,8 @@ public class JavacToWasm {
 
         WasmRuntime.emitRuntimeFunctions(watOutput, trueOffset, falseOffset, !wasiImports.isEmpty());
 
-        cu.accept(new WasmGeneratorVisitor(stringPool, globalVars, classRegistry), watOutput);
+        SourceMapTracker tracker = sourceMapGen != null ? new SourceMapTracker(sourceMapGen, sourceName) : null;
+        cu.accept(new WasmGeneratorVisitor(stringPool, globalVars, classRegistry, tracker), watOutput);
         watOutput.append(")\n");
         return watOutput.toString();
     }
@@ -293,9 +356,13 @@ public class JavacToWasm {
 
     public static CompilationResult compile(String fileName, String javaSource, boolean optimize) {
         CompilationUnit cu = StaticJavaParser.parse(javaSource);
-        String wat = generateWat(cu);
+        String stem = fileName.endsWith(".java") ? fileName.substring(0, fileName.length() - 5) : fileName;
+        SourceMapGenerator sourceMapGen = new SourceMapGenerator(stem + ".wat");
+        sourceMapGen.addSource(fileName, javaSource);
+
+        String wat = generateWat(cu, sourceMapGen, fileName);
         byte[] wasm = assembleWasm(wat, optimize);
-        return new CompilationResult(wat, wasm);
+        return new CompilationResult(wat, wasm, sourceMapGen);
     }
 
     public static byte[] assembleWasm(String watContent, boolean optimize) {
@@ -304,7 +371,7 @@ public class JavacToWasm {
             java.nio.file.Path tempWasm = java.nio.file.Files.createTempFile("javaw_", ".wasm");
             java.nio.file.Files.writeString(tempWat, watContent);
             try {
-                Process process = new ProcessBuilder("wat2wasm", "--enable-threads", "--enable-exceptions", "--enable-multi-memory", tempWat.toString(), "-o", tempWasm.toString())
+                Process process = new ProcessBuilder("wat2wasm", "--enable-threads", "--enable-exceptions", "--enable-multi-memory", "--enable-annotations", tempWat.toString(), "-o", tempWasm.toString())
                         .redirectErrorStream(true)
                         .start();
                 int exitCode = process.waitFor();
@@ -333,10 +400,16 @@ public class JavacToWasm {
     public static class CompilationResult {
         private final String wat;
         private final byte[] wasm;
+        private final SourceMapGenerator sourceMapGenerator;
 
         public CompilationResult(String wat, byte[] wasm) {
+            this(wat, wasm, null);
+        }
+
+        public CompilationResult(String wat, byte[] wasm, SourceMapGenerator sourceMapGenerator) {
             this.wat = wat;
             this.wasm = wasm;
+            this.sourceMapGenerator = sourceMapGenerator;
         }
 
         public String getWat() {
@@ -349,6 +422,23 @@ public class JavacToWasm {
 
         public boolean isWasmGenerated() {
             return wasm != null && wasm.length > 0;
+        }
+
+        public SourceMapGenerator getSourceMapGenerator() {
+            return sourceMapGenerator;
+        }
+
+        public SourceMap getSourceMap() {
+            if (sourceMapGenerator == null) return null;
+            return SourceMap.parse(sourceMapGenerator.generateJson());
+        }
+
+        public String getSourceMapJson() {
+            return sourceMapGenerator != null ? sourceMapGenerator.generateJson() : null;
+        }
+
+        public String getSourceMapDataUri() {
+            return sourceMapGenerator != null ? sourceMapGenerator.generateBase64DataUri() : null;
         }
     }
 
