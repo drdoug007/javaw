@@ -220,6 +220,24 @@ public class DomHelper {
             imports.add("js_pushDouble");
             imports.add("js_pushBoolean");
             imports.add("js_pushObj");
+        } else if (mName.equals("getAsString")) {
+            imports.add("js_resource_get_string");
+        } else if (mName.equals("hasResource")) {
+            imports.add("js_resource_has");
+        } else if (mName.equals("getLength")) {
+            imports.add("js_resource_get_length");
+        } else if (mName.equals("injectStyle")) {
+            imports.add("js_resource_inject_style");
+        } else if (mName.equals("injectStyleSheet")) {
+            imports.add("js_resource_inject_stylesheet");
+        } else if (mName.equals("injectScript")) {
+            imports.add("js_resource_inject_script");
+        } else if (mName.equals("injectScriptTag")) {
+            imports.add("js_resource_inject_script_tag");
+        } else if (mName.equals("listResources")) {
+            imports.add("js_resource_list");
+        } else if (mName.equals("mountAll")) {
+            imports.add("js_resource_mount_all");
         }
     }
 
@@ -227,6 +245,12 @@ public class DomHelper {
         if (mName.equals("global") || mName.equals("getWindow") || mName.equals("eval") ||
                 mName.equals("createObject") || mName.equals("createArray") ||
                 mName.equals("undefined") || mName.equals("nullValue")) {
+            return true;
+        }
+        if (mName.equals("getAsString") || mName.equals("hasResource") || mName.equals("getLength") ||
+                mName.equals("injectStyle") || mName.equals("injectStyleSheet") ||
+                mName.equals("injectScript") || mName.equals("injectScriptTag") ||
+                mName.equals("listResources") || mName.equals("mountAll")) {
             return true;
         }
         if (mName.equals("of") || mName.equals("forSymbol") || mName.equals("typeError") ||
@@ -877,6 +901,33 @@ public class DomHelper {
         }
         if (domImports.contains("thread_hardware_concurrency")) {
             watOutput.append("  (import \"dom\" \"thread_hardware_concurrency\" (func $dom_thread_hardware_concurrency (result i32)))\n");
+        }
+        if (domImports.contains("js_resource_get_string")) {
+            watOutput.append("  (import \"dom\" \"js_resource_get_string\" (func $dom_js_resource_get_string (param i32 i32) (result i32)))\n");
+        }
+        if (domImports.contains("js_resource_has")) {
+            watOutput.append("  (import \"dom\" \"js_resource_has\" (func $dom_js_resource_has (param i32 i32) (result i32)))\n");
+        }
+        if (domImports.contains("js_resource_get_length")) {
+            watOutput.append("  (import \"dom\" \"js_resource_get_length\" (func $dom_js_resource_get_length (param i32 i32) (result i32)))\n");
+        }
+        if (domImports.contains("js_resource_inject_style")) {
+            watOutput.append("  (import \"dom\" \"js_resource_inject_style\" (func $dom_js_resource_inject_style (param i32 i32)))\n");
+        }
+        if (domImports.contains("js_resource_inject_stylesheet")) {
+            watOutput.append("  (import \"dom\" \"js_resource_inject_stylesheet\" (func $dom_js_resource_inject_stylesheet (param i32 i32)))\n");
+        }
+        if (domImports.contains("js_resource_inject_script")) {
+            watOutput.append("  (import \"dom\" \"js_resource_inject_script\" (func $dom_js_resource_inject_script (param i32 i32)))\n");
+        }
+        if (domImports.contains("js_resource_inject_script_tag")) {
+            watOutput.append("  (import \"dom\" \"js_resource_inject_script_tag\" (func $dom_js_resource_inject_script_tag (param i32 i32)))\n");
+        }
+        if (domImports.contains("js_resource_list")) {
+            watOutput.append("  (import \"dom\" \"js_resource_list\" (func $dom_js_resource_list (result i32)))\n");
+        }
+        if (domImports.contains("js_resource_mount_all")) {
+            watOutput.append("  (import \"dom\" \"js_resource_mount_all\" (func $dom_js_resource_mount_all))\n");
         }
     }
 }

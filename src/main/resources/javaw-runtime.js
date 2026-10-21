@@ -20,6 +20,8 @@
             this.inlineJsFunctions = new Map();
             this.exportedClasses = new Map();
             this.classes = {};
+            this.bundledCodeBlocks = [];
+            this.resources = new Map();
         }
 
         registerInlineJs(snippets) {
@@ -309,6 +311,90 @@
                 }
             } catch (e) {
                 console.warn('Error reading custom section javaw_js_exports:', e);
+            }
+
+            try {
+                const codeSections = WebAssembly.Module.customSections(module, 'javaw_js_code');
+                if (codeSections && codeSections.length > 0) {
+                    for (const sec of codeSections) {
+                        const uint8 = new Uint8Array(sec);
+                        let jsonStr = textDecoder.decode(uint8);
+                        const firstChar = jsonStr.indexOf('[');
+                        if (firstChar >= 0) {
+                            jsonStr = jsonStr.substring(firstChar);
+                        }
+                        this.registerBundledCode(jsonStr);
+                    }
+                }
+            } catch (e) {
+                console.warn('Error reading custom section javaw_js_code:', e);
+            }
+
+            try {
+                const resSections = WebAssembly.Module.customSections(module, 'javaw_js_resources');
+                if (resSections && resSections.length > 0) {
+                    for (const sec of resSections) {
+                        const uint8 = new Uint8Array(sec);
+                        let jsonStr = textDecoder.decode(uint8);
+                        const firstChar = jsonStr.indexOf('{');
+                        if (firstChar >= 0) {
+                            jsonStr = jsonStr.substring(firstChar);
+                        }
+                        this.registerResources(jsonStr);
+                    }
+                }
+            } catch (e) {
+                console.warn('Error reading custom section javaw_js_resources:', e);
+            }
+        }
+
+        registerBundledCode(codeData) {
+            if (!codeData) return;
+            let list = codeData;
+            if (typeof codeData === 'string') {
+                try {
+                    list = JSON.parse(codeData);
+                } catch (e) {
+                    console.error('Failed to parse javaw_js_code JSON:', e);
+                    return;
+                }
+            }
+            if (!Array.isArray(list)) list = [list];
+            for (const code of list) {
+                if (typeof code === 'string' && code.trim().length > 0) {
+                    try {
+                        (0, eval)(code);
+                        this.bundledCodeBlocks.push(code);
+                    } catch (e) {
+                        try {
+                            const target = (typeof globalThis !== 'undefined' ? globalThis : (typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global : this)));
+                            (new Function(code)).call(target);
+                            this.bundledCodeBlocks.push(code);
+                        } catch (e2) {
+                            console.error('Error executing bundled JavaScript code block:', e2);
+                        }
+                    }
+                }
+            }
+        }
+
+        registerResources(resData) {
+            if (!resData) return;
+            let obj = resData;
+            if (typeof resData === 'string') {
+                try {
+                    obj = JSON.parse(resData);
+                } catch (e) {
+                    console.error('Failed to parse javaw_js_resources JSON:', e);
+                    return;
+                }
+            }
+            if (obj && typeof obj === 'object') {
+                for (const [key, val] of Object.entries(obj)) {
+                    const content = String(val);
+                    this.resources.set(key, content);
+                    this.mount(key, content);
+                }
             }
         }
 
@@ -1774,6 +1860,115 @@
             return 4;
         }
 
+        js_resource_get_string(ptr, len) {
+            const path = this.readString(ptr, len);
+            let content = this.resources.get(path);
+            if (content === undefined && this.vfs) {
+                const norm = this.normalizePath(path);
+                const fileObj = this.vfs.get(norm);
+                if (fileObj) {
+                    content = typeof fileObj.content === 'string' ? fileObj.content : textDecoder.decode(fileObj.content);
+                }
+            }
+            if (content === undefined) content = '';
+            const str = typeof content === 'string' ? content : textDecoder.decode(content);
+            return this.writeString(str);
+        }
+
+        js_resource_has(ptr, len) {
+            const path = this.readString(ptr, len);
+            if (this.resources.has(path)) return 1;
+            if (this.vfs && this.vfs.has(this.normalizePath(path))) return 1;
+            return 0;
+        }
+
+        js_resource_get_length(ptr, len) {
+            const path = this.readString(ptr, len);
+            let content = this.resources.get(path);
+            if (content === undefined && this.vfs) {
+                const norm = this.normalizePath(path);
+                const fileObj = this.vfs.get(norm);
+                if (fileObj) {
+                    content = fileObj.content;
+                }
+            }
+            if (!content) return 0;
+            return typeof content === 'string' ? content.length : (content.length || 0);
+        }
+
+        js_resource_inject_style(ptr, len) {
+            const css = this.readString(ptr, len);
+            if (!css) return;
+            const targetDoc = this.doc || (typeof document !== 'undefined' ? document : null);
+            if (targetDoc && targetDoc.head) {
+                const style = targetDoc.createElement('style');
+                style.textContent = css;
+                targetDoc.head.appendChild(style);
+            }
+        }
+
+        js_resource_inject_stylesheet(ptr, len) {
+            const path = this.readString(ptr, len);
+            let css = this.resources.get(path);
+            if (css === undefined && this.vfs) {
+                const norm = this.normalizePath(path);
+                const fileObj = this.vfs.get(norm);
+                if (fileObj) {
+                    css = typeof fileObj.content === 'string' ? fileObj.content : textDecoder.decode(fileObj.content);
+                }
+            }
+            if (css) {
+                const targetDoc = this.doc || (typeof document !== 'undefined' ? document : null);
+                if (targetDoc && targetDoc.head) {
+                    const style = targetDoc.createElement('style');
+                    style.textContent = css;
+                    targetDoc.head.appendChild(style);
+                }
+            }
+        }
+
+        js_resource_inject_script(ptr, len) {
+            const js = this.readString(ptr, len);
+            if (!js) return;
+            try {
+                const target = (typeof globalThis !== 'undefined' ? globalThis : (typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global : this)));
+                (new Function(js)).call(target);
+            } catch (e) {
+                console.error('Error executing injected script:', e);
+            }
+        }
+
+        js_resource_inject_script_tag(ptr, len) {
+            const path = this.readString(ptr, len);
+            let js = this.resources.get(path);
+            if (js === undefined && this.vfs) {
+                const norm = this.normalizePath(path);
+                const fileObj = this.vfs.get(norm);
+                if (fileObj) {
+                    js = typeof fileObj.content === 'string' ? fileObj.content : textDecoder.decode(fileObj.content);
+                }
+            }
+            if (js) {
+                try {
+                    const target = (typeof globalThis !== 'undefined' ? globalThis : (typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global : this)));
+                    (new Function(js)).call(target);
+                } catch (e) {
+                    console.error('Error executing injected script tag for ' + path + ':', e);
+                }
+            }
+        }
+
+        js_resource_list() {
+            const keys = Array.from(this.resources.keys());
+            return this.writeStringArray(keys);
+        }
+
+        js_resource_mount_all() {
+            for (const [k, v] of this.resources.entries()) {
+                this.mount(k, v);
+            }
+        }
+
         getImports(customImports = {}) {
             const inlineObj = {};
             for (const [key, fn] of this.inlineJsFunctions.entries()) {
@@ -1948,6 +2143,15 @@
                     thread_sleep: (ms) => this.thread_sleep(ms),
                     thread_current_id: () => this.thread_current_id(),
                     thread_hardware_concurrency: () => this.thread_hardware_concurrency(),
+                    js_resource_get_string: (p, l) => this.js_resource_get_string(p, l),
+                    js_resource_has: (p, l) => this.js_resource_has(p, l),
+                    js_resource_get_length: (p, l) => this.js_resource_get_length(p, l),
+                    js_resource_inject_style: (p, l) => this.js_resource_inject_style(p, l),
+                    js_resource_inject_stylesheet: (p, l) => this.js_resource_inject_stylesheet(p, l),
+                    js_resource_inject_script: (p, l) => this.js_resource_inject_script(p, l),
+                    js_resource_inject_script_tag: (p, l) => this.js_resource_inject_script_tag(p, l),
+                    js_resource_list: () => this.js_resource_list(),
+                    js_resource_mount_all: () => this.js_resource_mount_all(),
                     ...(customImports.dom || {})
                 },
                 wasi_snapshot_preview1: {

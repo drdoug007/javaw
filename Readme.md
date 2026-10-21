@@ -19,6 +19,11 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
   - Automatically synthesizes class metadata, constructor signatures, vtable bases, and method definitions into WebAssembly custom section `javaw_js_exports`.
   - The runtime bridge (`javaw-runtime.js`) dynamically constructs JavaScript constructor functions and prototypes that allocate linear memory with `$__heap_alloc`, initialize object headers and vtables, and marshal arguments and return values across the WASM-JS runtime boundary.
   - Supports instance methods (`this`), static methods, overloaded constructors, primitive/string/array parameters, object handles, and field modifications.
+- **JavaScript Asset Bundling & Resource Embedding (`@JS.Code`, `@JS.Code.Include`, `@JS.Resource`, `JSResource`)**:
+  - Embed arbitrary JavaScript script blocks directly into Java classes using `@JS.Code("...")` or bundle external JavaScript files using `@JS.Code.Include({"script1.js", "script2.js"})`.
+  - Embed static web assets (CSS stylesheets, JSON configurations, HTML templates, text files) using `@JS.Resource(value = "...", path = "...")` serialized into custom WebAssembly sections `javaw_js_code` and `javaw_js_resources`.
+  - The runtime bridge (`javaw-runtime.js`) automatically executes bundled JavaScript scripts upon module instantiation in the global scope and registers embedded resources into memory and VFS.
+  - Strongly-typed `JSResource` facade (`com.example.javaw.js.JSResource`) provides methods to query assets (`getAsString`, `hasResource`, `getLength`, `listResources`), inject styles into `<head>` (`injectStyle`, `injectStyleSheet`), execute script snippets (`injectScript`, `injectScriptTag`), and mount resources into WASI VFS (`mountAll`).
 - **`@JS` Inline JavaScript Annotations & Host Code Generation**:
   - Allows Java methods (declared `native`) to define inline JavaScript logic directly using `@JS("return Math.hypot(a, b);")`, `@JS("console.log(message);")`, or `@JS("return 'Hello ' + name;")`.
   - Automatic type marshalling and coercion via `@JS.Coerce` for Java primitives, strings, and arrays (`int[]`, `double[]`, `String[]` &harr; JavaScript `Array`) and automatic JSON serialization for JavaScript objects.
@@ -198,6 +203,7 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
 │   │   │   │   └── JSNull.java        # JavaScript Null wrapper
 │   │   │   ├── js
 │   │   │   │   ├── JS.java                # @JS annotation and sub-annotation definitions
+│   │   │   │   ├── JSResource.java        # Static asset & embedded resource facade (@JS.Resource)
 │   │   │   │   ├── JSDate.java            # Standard JavaScript Date facade (@JS.Import)
 │   │   │   │   ├── JSMath.java            # Standard JavaScript Math facade (@JS.Import)
 │   │   │   │   ├── JSJSON.java            # Standard JavaScript JSON facade (@JS.Import)
@@ -1081,6 +1087,48 @@ console.log(counter.format("Score")); // "Score: 16"
 
 // Calling exported static methods
 console.log(Counter.multiply(6, 7));  // 42
+```
+
+---
+
+#### Example U: JavaScript Asset Bundling & Resource Embedding (`@JS.Code`, `@JS.Resource`, `JSResource`)
+
+Embed JavaScript helper functions, stylesheet assets, and JSON configurations into compiled WebAssembly modules and interact with them using `JSResource`:
+
+```java
+package com.example.javaw;
+
+import com.example.javaw.js.JS;
+import com.example.javaw.js.JSResource;
+
+// Bundle JavaScript script executed upon WebAssembly module initialization
+@JS.Code("function initChartLibrary() { console.log('Chart library initialized'); }")
+// Embed static CSS stylesheet resource
+@JS.Resource(value = "body { margin: 0; font-family: sans-serif; } .card { padding: 16px; }", path = "app.css")
+// Embed configuration JSON
+@JS.Resource(value = "{\"title\":\"Javaw App\",\"theme\":\"dark\",\"version\":2}", path = "config.json")
+public class AssetDemo {
+
+    public static void setup() {
+        // Query embedded static resources
+        if (JSResource.hasResource("config.json")) {
+            String configJson = JSResource.getAsString("config.json");
+            int len = JSResource.getLength("config.json");
+        }
+
+        // Dynamically inject stylesheet into browser <head>
+        JSResource.injectStyleSheet("app.css");
+
+        // Inject and execute dynamic script
+        JSResource.injectScript("initChartLibrary();");
+
+        // List all bundled assets
+        String[] assets = JSResource.listResources();
+
+        // Mount all bundled resources into the WASI virtual file system (VFS)
+        JSResource.mountAll();
+    }
+}
 ```
 
 ---

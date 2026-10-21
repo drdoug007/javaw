@@ -689,6 +689,29 @@ async function runTest() {
 
                     console.log('✓ @JS.Export Java Class Exporting (JavaCounter constructor, prototype, instance/static methods) assertions passed.');
                 }
+
+                if (typeof instance.exports.testBundledJsCode === 'function') {
+                    assert.strictEqual(typeof bundledCalc, 'function', 'bundledCalc should be defined in global scope');
+                    assert.strictEqual(bundledCalc(10), 30, 'bundledCalc(10) should return 30');
+
+                    const bundledVar = instance.exports.testBundledJsCode();
+                    assert.strictEqual(bundledVar, 777, `testBundledJsCode expected 777, got ${bundledVar}`);
+
+                    const resStrPtr = instance.exports.testJsResourceGetString();
+                    const resStr = readWasmString(instance.exports.memory.buffer, resStrPtr);
+                    assert.ok(resStr.includes('8080'), `testJsResourceGetString expected '8080', got ${resStr}`);
+
+                    const resHas = instance.exports.testJsResourceHas();
+                    assert.strictEqual(resHas, 1, `testJsResourceHas expected 1, got ${resHas}`);
+
+                    const resLen = instance.exports.testJsResourceLength();
+                    assert.ok(resLen > 10, `testJsResourceLength expected > 10, got ${resLen}`);
+
+                    instance.exports.testJsResourceInjectScript();
+                    assert.strictEqual(global.__injected_script_run || globalThis.__injected_script_run, true, 'injected script should have run');
+
+                    console.log('✓ @JS.Code, @JS.Resource, and JSResource asset bundling & embedding assertions passed.');
+                }
             }
 
             console.log('✓ TestClass execution assertions passed (including for loops, for-each loops, arrays, switches, labeled break/continue, compound assignments, dynamic strings, OOP, Canvas 2D, WebGL, JSObject, WASI VFS, Threads/Atomics, Exceptions, Multi-Value Returns, Bulk Memory, Fixed-Width SIMD, and Multi-Memory Segregation).');

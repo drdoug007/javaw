@@ -1,6 +1,7 @@
 package com.example.javaw.js;
 
 import java.lang.annotation.ElementType;
+import java.lang.annotation.Repeatable;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
@@ -47,13 +48,37 @@ public @interface JS {
      */
     @Retention(RetentionPolicy.RUNTIME)
     @Target({ElementType.TYPE, ElementType.METHOD})
+    @Repeatable(Code.List.class)
     @interface Code {
         String value() default "";
 
         @Retention(RetentionPolicy.RUNTIME)
-        @Target(ElementType.TYPE)
+        @Target({ElementType.TYPE, ElementType.METHOD})
         @interface Include {
             String[] value() default {};
+        }
+
+        @Retention(RetentionPolicy.RUNTIME)
+        @Target({ElementType.TYPE, ElementType.METHOD})
+        @interface List {
+            Code[] value();
+        }
+    }
+
+    /**
+     * Embedded static web resource (CSS, JSON, HTML, text, binary asset).
+     */
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD})
+    @Repeatable(Resource.List.class)
+    @interface Resource {
+        String value() default "";
+        String path() default "";
+
+        @Retention(RetentionPolicy.RUNTIME)
+        @Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD})
+        @interface List {
+            Resource[] value();
         }
     }
 }

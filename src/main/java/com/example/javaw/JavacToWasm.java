@@ -301,6 +301,22 @@ public class JavacToWasm {
                     .append("\")\n");
         }
 
+        List<String> jsCodeBlocks = JsAnnotationHelper.collectJsCodeBlocks(cu);
+        if (!jsCodeBlocks.isEmpty()) {
+            String codeJson = JsAnnotationHelper.codeBlocksToJson(jsCodeBlocks);
+            watOutput.append("  (@custom \"javaw_js_code\" \"")
+                    .append(SourceMapGenerator.escapeRawCustomSectionPayload(codeJson))
+                    .append("\")\n");
+        }
+
+        Map<String, String> jsResources = JsAnnotationHelper.collectJsResources(cu);
+        if (!jsResources.isEmpty()) {
+            String resourcesJson = JsAnnotationHelper.resourcesToJson(jsResources);
+            watOutput.append("  (@custom \"javaw_js_resources\" \"")
+                    .append(SourceMapGenerator.escapeRawCustomSectionPayload(resourcesJson))
+                    .append("\")\n");
+        }
+
         Set<String> wasiImports = WasiHelper.collectWasiImports(cu);
         WasiHelper.emitWasiImports(wasiImports, watOutput);
 
@@ -388,7 +404,9 @@ public class JavacToWasm {
         Map<String, JsSnippetModel> jsSnippets = JsAnnotationHelper.collectJsSnippets(cu);
         ClassRegistry classRegistry = ClassRegistry.build(cu);
         Map<String, com.example.javaw.js.JsExportModel> jsExports = JsAnnotationHelper.collectJsExports(cu, classRegistry);
-        return new CompilationResult(wat, wasm, sourceMapGen, jsSnippets, jsExports);
+        List<String> jsCodeBlocks = JsAnnotationHelper.collectJsCodeBlocks(cu);
+        Map<String, String> jsResources = JsAnnotationHelper.collectJsResources(cu);
+        return new CompilationResult(wat, wasm, sourceMapGen, jsSnippets, jsExports, jsCodeBlocks, jsResources);
     }
 
     public static byte[] assembleWasm(String watContent, boolean optimize) {
@@ -429,27 +447,39 @@ public class JavacToWasm {
         private final SourceMapGenerator sourceMapGenerator;
         private final Map<String, JsSnippetModel> jsSnippets;
         private final Map<String, com.example.javaw.js.JsExportModel> jsExports;
+        private final List<String> jsCodeBlocks;
+        private final Map<String, String> jsResources;
 
         public CompilationResult(String wat, byte[] wasm) {
-            this(wat, wasm, null, java.util.Collections.emptyMap(), java.util.Collections.emptyMap());
+            this(wat, wasm, null, java.util.Collections.emptyMap(), java.util.Collections.emptyMap(), java.util.Collections.emptyList(), java.util.Collections.emptyMap());
         }
 
         public CompilationResult(String wat, byte[] wasm, SourceMapGenerator sourceMapGenerator) {
-            this(wat, wasm, sourceMapGenerator, java.util.Collections.emptyMap(), java.util.Collections.emptyMap());
+            this(wat, wasm, sourceMapGenerator, java.util.Collections.emptyMap(), java.util.Collections.emptyMap(), java.util.Collections.emptyList(), java.util.Collections.emptyMap());
         }
 
         public CompilationResult(String wat, byte[] wasm, SourceMapGenerator sourceMapGenerator, Map<String, JsSnippetModel> jsSnippets) {
-            this(wat, wasm, sourceMapGenerator, jsSnippets, java.util.Collections.emptyMap());
+            this(wat, wasm, sourceMapGenerator, jsSnippets, java.util.Collections.emptyMap(), java.util.Collections.emptyList(), java.util.Collections.emptyMap());
         }
 
         public CompilationResult(String wat, byte[] wasm, SourceMapGenerator sourceMapGenerator,
                                  Map<String, JsSnippetModel> jsSnippets,
                                  Map<String, com.example.javaw.js.JsExportModel> jsExports) {
+            this(wat, wasm, sourceMapGenerator, jsSnippets, jsExports, java.util.Collections.emptyList(), java.util.Collections.emptyMap());
+        }
+
+        public CompilationResult(String wat, byte[] wasm, SourceMapGenerator sourceMapGenerator,
+                                 Map<String, JsSnippetModel> jsSnippets,
+                                 Map<String, com.example.javaw.js.JsExportModel> jsExports,
+                                 List<String> jsCodeBlocks,
+                                 Map<String, String> jsResources) {
             this.wat = wat;
             this.wasm = wasm;
             this.sourceMapGenerator = sourceMapGenerator;
             this.jsSnippets = jsSnippets != null ? jsSnippets : java.util.Collections.emptyMap();
             this.jsExports = jsExports != null ? jsExports : java.util.Collections.emptyMap();
+            this.jsCodeBlocks = jsCodeBlocks != null ? jsCodeBlocks : java.util.Collections.emptyList();
+            this.jsResources = jsResources != null ? jsResources : java.util.Collections.emptyMap();
         }
 
         public String getWat() {
@@ -495,6 +525,22 @@ public class JavacToWasm {
 
         public String getJsExportsJson() {
             return JsAnnotationHelper.exportsToJson(jsExports);
+        }
+
+        public List<String> getJsCodeBlocks() {
+            return jsCodeBlocks;
+        }
+
+        public String getJsCodeBlocksJson() {
+            return JsAnnotationHelper.codeBlocksToJson(jsCodeBlocks);
+        }
+
+        public Map<String, String> getJsResources() {
+            return jsResources;
+        }
+
+        public String getJsResourcesJson() {
+            return JsAnnotationHelper.resourcesToJson(jsResources);
         }
     }
 

@@ -79,6 +79,12 @@
   (import "dom" "thread_sleep" (func $dom_thread_sleep (param i32)))
   (import "dom" "thread_current_id" (func $dom_thread_current_id (result i32)))
   (import "dom" "thread_hardware_concurrency" (func $dom_thread_hardware_concurrency (result i32)))
+  (import "dom" "js_resource_get_string" (func $dom_js_resource_get_string (param i32 i32) (result i32)))
+  (import "dom" "js_resource_has" (func $dom_js_resource_has (param i32 i32) (result i32)))
+  (import "dom" "js_resource_get_length" (func $dom_js_resource_get_length (param i32 i32) (result i32)))
+  (import "dom" "js_resource_inject_style" (func $dom_js_resource_inject_style (param i32 i32)))
+  (import "dom" "js_resource_inject_stylesheet" (func $dom_js_resource_inject_stylesheet (param i32 i32)))
+  (import "dom" "js_resource_inject_script" (func $dom_js_resource_inject_script (param i32 i32)))
   (@custom "javaw_js_snippets" "[{\22className\22:\22JSMath\22,\22methodName\22:\22hypot\22,\22importName\22:\22js_inline_JSMath_hypot\22,\22jsCode\22:\22return Math.hypot(a, b);\22,\22returnType\22:\22double\22,\22returnWasmType\22:\22f64\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22a\22,\22javaType\22:\22double\22,\22wasmType\22:\22f64\22,\22coerced\22:false},{\22name\22:\22b\22,\22javaType\22:\22double\22,\22wasmType\22:\22f64\22,\22coerced\22:false}]},{\22className\22:\22JSMath\22,\22methodName\22:\22PI\22,\22importName\22:\22js_inline_JSMath_PI\22,\22jsCode\22:\22return Math.PI;\22,\22returnType\22:\22double\22,\22returnWasmType\22:\22f64\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[]},{\22className\22:\22JSDate\22,\22methodName\22:\22create\22,\22importName\22:\22js_inline_JSDate_create\22,\22jsCode\22:\22return new Date(ms);\22,\22returnType\22:\22JSDate\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22ms\22,\22javaType\22:\22double\22,\22wasmType\22:\22f64\22,\22coerced\22:false}]},{\22className\22:\22JSDate\22,\22methodName\22:\22getTime\22,\22importName\22:\22js_inline_JSDate_getTime\22,\22jsCode\22:\22return this.getTime();\22,\22returnType\22:\22double\22,\22returnWasmType\22:\22f64\22,\22isStatic\22:false,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22this\22,\22javaType\22:\22JSDate\22,\22wasmType\22:\22i32\22,\22coerced\22:false}]},{\22className\22:\22JSJSON\22,\22methodName\22:\22stringify\22,\22importName\22:\22js_inline_JSJSON_stringify\22,\22jsCode\22:\22return JSON.stringify(val);\22,\22returnType\22:\22String\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22val\22,\22javaType\22:\22JSValue\22,\22wasmType\22:\22i32\22,\22coerced\22:false}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsHypot\22,\22importName\22:\22js_inline_TestClass_jsHypot\22,\22jsCode\22:\22return Math.hypot(a, b);\22,\22returnType\22:\22double\22,\22returnWasmType\22:\22f64\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22a\22,\22javaType\22:\22double\22,\22wasmType\22:\22f64\22,\22coerced\22:false},{\22name\22:\22b\22,\22javaType\22:\22double\22,\22wasmType\22:\22f64\22,\22coerced\22:false}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsGreet\22,\22importName\22:\22js_inline_TestClass_jsGreet\22,\22jsCode\22:\22return 'Hello ' + name + '!';\22,\22returnType\22:\22String\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22name\22,\22javaType\22:\22String\22,\22wasmType\22:\22i32\22,\22coerced\22:false}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsMultiplyAndAdd\22,\22importName\22:\22js_inline_TestClass_jsMultiplyAndAdd\22,\22jsCode\22:\22return a * b + 10;\22,\22returnType\22:\22int\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22a\22,\22javaType\22:\22int\22,\22wasmType\22:\22i32\22,\22coerced\22:false},{\22name\22:\22b\22,\22javaType\22:\22int\22,\22wasmType\22:\22i32\22,\22coerced\22:false}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsIsGreaterThan100\22,\22importName\22:\22js_inline_TestClass_jsIsGreaterThan100\22,\22jsCode\22:\22return x > 100;\22,\22returnType\22:\22boolean\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22x\22,\22javaType\22:\22int\22,\22wasmType\22:\22i32\22,\22coerced\22:false}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsSumArray\22,\22importName\22:\22js_inline_TestClass_jsSumArray\22,\22jsCode\22:\22return arr.reduce((acc, x) => acc + x, 0);\22,\22returnType\22:\22int\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22arr\22,\22javaType\22:\22int[]\22,\22wasmType\22:\22i32\22,\22coerced\22:true}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsDoubleArray\22,\22importName\22:\22js_inline_TestClass_jsDoubleArray\22,\22jsCode\22:\22return arr.map(x => x * 2);\22,\22returnType\22:\22int[]\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:true,\22parameters\22:[{\22name\22:\22arr\22,\22javaType\22:\22int[]\22,\22wasmType\22:\22i32\22,\22coerced\22:true}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsJoinStrings\22,\22importName\22:\22js_inline_TestClass_jsJoinStrings\22,\22jsCode\22:\22return items.join(', ');\22,\22returnType\22:\22String\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22items\22,\22javaType\22:\22String[]\22,\22wasmType\22:\22i32\22,\22coerced\22:true}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsGetBookJson\22,\22importName\22:\22js_inline_TestClass_jsGetBookJson\22,\22jsCode\22:\22return { title: 'WASM in Action', year: 2026 };\22,\22returnType\22:\22String\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:true,\22parameters\22:[]}]")
   (import "dom" "js_inline_JSMath_hypot" (func $dom_js_inline_JSMath_hypot (param f64 f64) (result f64)))
   (import "dom" "js_inline_JSMath_PI" (func $dom_js_inline_JSMath_PI (result f64)))
@@ -94,6 +100,8 @@
   (import "dom" "js_inline_TestClass_jsJoinStrings" (func $dom_js_inline_TestClass_jsJoinStrings (param i32) (result i32)))
   (import "dom" "js_inline_TestClass_jsGetBookJson" (func $dom_js_inline_TestClass_jsGetBookJson (result i32)))
   (@custom "javaw_js_exports" "[{\22className\22:\22ExportedCounter\22,\22exportName\22:\22JavaCounter\22,\22structSize\22:8,\22vtableBase\22:15,\22hasVtable\22:true,\22constructors\22:[{\22exportFunctionName\22:\22ExportedCounter__init\22,\22params\22:[{\22name\22:\22initialCount\22,\22javaType\22:\22int\22,\22wasmType\22:\22i32\22,\22coerced\22:false}]}],\22methods\22:[{\22methodName\22:\22increment\22,\22exportName\22:\22increment\22,\22wasmFunctionName\22:\22ExportedCounter_increment\22,\22returnType\22:\22void\22,\22returnWasmType\22:\22\22,\22isStatic\22:false,\22isCoerced\22:false,\22params\22:[]},{\22methodName\22:\22add\22,\22exportName\22:\22add\22,\22wasmFunctionName\22:\22ExportedCounter_add\22,\22returnType\22:\22void\22,\22returnWasmType\22:\22\22,\22isStatic\22:false,\22isCoerced\22:false,\22params\22:[{\22name\22:\22amount\22,\22javaType\22:\22int\22,\22wasmType\22:\22i32\22,\22coerced\22:false}]},{\22methodName\22:\22getCount\22,\22exportName\22:\22getCount\22,\22wasmFunctionName\22:\22ExportedCounter_getCount\22,\22returnType\22:\22int\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:false,\22isCoerced\22:false,\22params\22:[]},{\22methodName\22:\22multiply\22,\22exportName\22:\22multiply\22,\22wasmFunctionName\22:\22multiply\22,\22returnType\22:\22int\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22params\22:[{\22name\22:\22a\22,\22javaType\22:\22int\22,\22wasmType\22:\22i32\22,\22coerced\22:false},{\22name\22:\22b\22,\22javaType\22:\22int\22,\22wasmType\22:\22i32\22,\22coerced\22:false}]},{\22methodName\22:\22describe\22,\22exportName\22:\22describe\22,\22wasmFunctionName\22:\22ExportedCounter_describe\22,\22returnType\22:\22String\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:false,\22isCoerced\22:false,\22params\22:[{\22name\22:\22label\22,\22javaType\22:\22String\22,\22wasmType\22:\22i32\22,\22coerced\22:false}]}],\22fields\22:[]}]")
+  (@custom "javaw_js_code" "[\22globalThis.__bundled_test_var = 777; function bundledCalc(n) { return n * 3; }\22]")
+  (@custom "javaw_js_resources" "{\22theme.css\22:\22body { background-color: #f0f0f0; }\22,\22config.json\22:\22{\5c\5c\5c\22theme\5c\5c\5c\22:\5c\5c\5c\22dark\5c\5c\5c\22,\5c\5c\5c\22port\5c\5c\5c\22:8080}\22}")
   ;; --- WASI Host Imports (wasi_snapshot_preview1) ---
   (import "wasi_snapshot_preview1" "fd_write" (func $__wasi_fd_write (param i32 i32 i32 i32) (result i32)))
   (import "wasi_snapshot_preview1" "fd_read" (func $__wasi_fd_read (param i32 i32 i32 i32) (result i32)))
@@ -121,85 +129,94 @@
   (export "stack" (memory $stack))
   (global $asyncCounter (mut i32) (i32.const 0))
   (global $asyncFetchedData (mut i32) (i32.const 0))
-  (data (memory $strings) (i32.const 4096) "\00")
-  (data (memory $strings) (i32.const 4097) "onTimerTick\00")
-  (data (memory $strings) (i32.const 4109) "onFrameUpdate\00")
-  (data (memory $strings) (i32.const 4123) "onFetchSuccess\00")
-  (data (memory $strings) (i32.const 4138) "Hello\00")
-  (data (memory $strings) (i32.const 4144) "WebAssembly\00")
-  (data (memory $strings) (i32.const 4156) ", \00")
-  (data (memory $strings) (i32.const 4159) "!\00")
-  (data (memory $strings) (i32.const 4161) "User: \00")
-  (data (memory $strings) (i32.const 4168) " (age: \00")
-  (data (memory $strings) (i32.const 4176) ")\00")
-  (data (memory $strings) (i32.const 4178) "Hello World\00")
-  (data (memory $strings) (i32.const 4190) "World\00")
-  (data (memory $strings) (i32.const 4196) "Java\00")
-  (data (memory $strings) (i32.const 4201) "Count: \00")
-  (data (memory $strings) (i32.const 4209) "testCanvas\00")
-  (data (memory $strings) (i32.const 4220) "#ff0000\00")
-  (data (memory $strings) (i32.const 4228) "glCanvas\00")
-  (data (memory $strings) (i32.const 4237) "({ title: 'Dynamic JS', count: 42, active: true })\00")
-  (data (memory $strings) (i32.const 4288) "title\00")
-  (data (memory $strings) (i32.const 4294) "count\00")
-  (data (memory $strings) (i32.const 4300) "active\00")
-  (data (memory $strings) (i32.const 4307) "user\00")
-  (data (memory $strings) (i32.const 4312) "Alice\00")
-  (data (memory $strings) (i32.const 4318) "score\00")
-  (data (memory $strings) (i32.const 4324) "rating\00")
-  (data (memory $strings) (i32.const 4331) "premium\00")
-  (data (memory $strings) (i32.const 4339) "item1\00")
-  (data (memory $strings) (i32.const 4345) "item2\00")
-  (data (memory $strings) (i32.const 4351) "updated\00")
-  (data (memory $strings) (i32.const 4359) "Math\00")
-  (data (memory $strings) (i32.const 4364) "max\00")
-  (data (memory $strings) (i32.const 4368) "Testing WASI standard output from Java!\00")
-  (data (memory $strings) (i32.const 4408) "Progress: \00")
-  (data (memory $strings) (i32.const 4419) "WASI stderr stream message\00")
-  (data (memory $strings) (i32.const 4446) "WASI Facade message: \00")
-  (data (memory $strings) (i32.const 4468) "Active\00")
-  (data (memory $strings) (i32.const 4475) "WASI Facade Error\00")
-  (data (memory $strings) (i32.const 4493) "Test error\00")
-  (data (memory $strings) (i32.const 4504) "Custom exception message\00")
-  (data (memory $strings) (i32.const 4529) "App failed\00")
-  (data (memory $strings) (i32.const 4540) "Code error\00")
-  (data (memory $strings) (i32.const 4551) "Bad arg\00")
-  (data (memory $strings) (i32.const 4559) "Generic error\00")
-  (data (memory $strings) (i32.const 4573) "Inner error\00")
-  (data (memory $strings) (i32.const 4585) "/hello.txt\00")
-  (data (memory $strings) (i32.const 4596) "Hello WASI VFS\00")
-  (data (memory $strings) (i32.const 4611) "/append.txt\00")
-  (data (memory $strings) (i32.const 4623) "Part1\00")
-  (data (memory $strings) (i32.const 4629) "Part2\00")
-  (data (memory $strings) (i32.const 4635) "/to_delete.txt\00")
-  (data (memory $strings) (i32.const 4650) "temp data\00")
-  (data (memory $strings) (i32.const 4660) "/app/data.txt\00")
-  (data (memory $strings) (i32.const 4674) "Config=42\00")
-  (data (memory $strings) (i32.const 4684) ";Active=true\00")
-  (data (memory $strings) (i32.const 4697) "/app/temp.log\00")
-  (data (memory $strings) (i32.const 4711) "12345\00")
-  (data (memory $strings) (i32.const 4717) "return Math.hypot(a, b);\00")
-  (data (memory $strings) (i32.const 4742) "return 'Hello ' + name + '!';\00")
-  (data (memory $strings) (i32.const 4772) "return a * b + 10;\00")
-  (data (memory $strings) (i32.const 4791) "return x > 100;\00")
-  (data (memory $strings) (i32.const 4807) "return arr.reduce((acc, x) => acc + x, 0);\00")
-  (data (memory $strings) (i32.const 4850) "return arr.map(x => x * 2);\00")
-  (data (memory $strings) (i32.const 4878) "return items.join(', ');\00")
-  (data (memory $strings) (i32.const 4903) "return { title: 'WASM in Action', year: 2026 };\00")
-  (data (memory $strings) (i32.const 4951) "hello world\00")
-  (data (memory $strings) (i32.const 4963) "number\00")
-  (data (memory $strings) (i32.const 4970) "string\00")
-  (data (memory $strings) (i32.const 4977) "boolean\00")
-  (data (memory $strings) (i32.const 4985) "id_key\00")
-  (data (memory $strings) (i32.const 4992) "9007199254740995\00")
-  (data (memory $strings) (i32.const 5009) "Invalid type argument\00")
-  (data (memory $strings) (i32.const 5031) "TypeError\00")
-  (data (memory $strings) (i32.const 5041) "Error\00")
-  (data (memory $strings) (i32.const 5047) "42\00")
-  (data (memory $strings) (i32.const 5050) "name\00")
-  (data (memory $strings) (i32.const 5055) "version\00")
-  (data (memory $strings) (i32.const 5063) "JavaCounter\00")
-  (data (memory $strings) (i32.const 5075) ": \00")
+  (data (memory $strings) (i32.const 4096) "globalThis.__bundled_test_var = 777; function bundledCalc(n) { return n * 3; }\00")
+  (data (memory $strings) (i32.const 4175) "body { background-color: #f0f0f0; }\00")
+  (data (memory $strings) (i32.const 4211) "theme.css\00")
+  (data (memory $strings) (i32.const 4221) "{\5c\22theme\5c\22:\5c\22dark\5c\22,\5c\22port\5c\22:8080}\00")
+  (data (memory $strings) (i32.const 4256) "config.json\00")
+  (data (memory $strings) (i32.const 4268) "\00")
+  (data (memory $strings) (i32.const 4269) "onTimerTick\00")
+  (data (memory $strings) (i32.const 4281) "onFrameUpdate\00")
+  (data (memory $strings) (i32.const 4295) "onFetchSuccess\00")
+  (data (memory $strings) (i32.const 4310) "Hello\00")
+  (data (memory $strings) (i32.const 4316) "WebAssembly\00")
+  (data (memory $strings) (i32.const 4328) ", \00")
+  (data (memory $strings) (i32.const 4331) "!\00")
+  (data (memory $strings) (i32.const 4333) "User: \00")
+  (data (memory $strings) (i32.const 4340) " (age: \00")
+  (data (memory $strings) (i32.const 4348) ")\00")
+  (data (memory $strings) (i32.const 4350) "Hello World\00")
+  (data (memory $strings) (i32.const 4362) "World\00")
+  (data (memory $strings) (i32.const 4368) "Java\00")
+  (data (memory $strings) (i32.const 4373) "Count: \00")
+  (data (memory $strings) (i32.const 4381) "testCanvas\00")
+  (data (memory $strings) (i32.const 4392) "#ff0000\00")
+  (data (memory $strings) (i32.const 4400) "glCanvas\00")
+  (data (memory $strings) (i32.const 4409) "({ title: 'Dynamic JS', count: 42, active: true })\00")
+  (data (memory $strings) (i32.const 4460) "title\00")
+  (data (memory $strings) (i32.const 4466) "count\00")
+  (data (memory $strings) (i32.const 4472) "active\00")
+  (data (memory $strings) (i32.const 4479) "user\00")
+  (data (memory $strings) (i32.const 4484) "Alice\00")
+  (data (memory $strings) (i32.const 4490) "score\00")
+  (data (memory $strings) (i32.const 4496) "rating\00")
+  (data (memory $strings) (i32.const 4503) "premium\00")
+  (data (memory $strings) (i32.const 4511) "item1\00")
+  (data (memory $strings) (i32.const 4517) "item2\00")
+  (data (memory $strings) (i32.const 4523) "updated\00")
+  (data (memory $strings) (i32.const 4531) "Math\00")
+  (data (memory $strings) (i32.const 4536) "max\00")
+  (data (memory $strings) (i32.const 4540) "Testing WASI standard output from Java!\00")
+  (data (memory $strings) (i32.const 4580) "Progress: \00")
+  (data (memory $strings) (i32.const 4591) "WASI stderr stream message\00")
+  (data (memory $strings) (i32.const 4618) "WASI Facade message: \00")
+  (data (memory $strings) (i32.const 4640) "Active\00")
+  (data (memory $strings) (i32.const 4647) "WASI Facade Error\00")
+  (data (memory $strings) (i32.const 4665) "Test error\00")
+  (data (memory $strings) (i32.const 4676) "Custom exception message\00")
+  (data (memory $strings) (i32.const 4701) "App failed\00")
+  (data (memory $strings) (i32.const 4712) "Code error\00")
+  (data (memory $strings) (i32.const 4723) "Bad arg\00")
+  (data (memory $strings) (i32.const 4731) "Generic error\00")
+  (data (memory $strings) (i32.const 4745) "Inner error\00")
+  (data (memory $strings) (i32.const 4757) "/hello.txt\00")
+  (data (memory $strings) (i32.const 4768) "Hello WASI VFS\00")
+  (data (memory $strings) (i32.const 4783) "/append.txt\00")
+  (data (memory $strings) (i32.const 4795) "Part1\00")
+  (data (memory $strings) (i32.const 4801) "Part2\00")
+  (data (memory $strings) (i32.const 4807) "/to_delete.txt\00")
+  (data (memory $strings) (i32.const 4822) "temp data\00")
+  (data (memory $strings) (i32.const 4832) "/app/data.txt\00")
+  (data (memory $strings) (i32.const 4846) "Config=42\00")
+  (data (memory $strings) (i32.const 4856) ";Active=true\00")
+  (data (memory $strings) (i32.const 4869) "/app/temp.log\00")
+  (data (memory $strings) (i32.const 4883) "12345\00")
+  (data (memory $strings) (i32.const 4889) "return Math.hypot(a, b);\00")
+  (data (memory $strings) (i32.const 4914) "return 'Hello ' + name + '!';\00")
+  (data (memory $strings) (i32.const 4944) "return a * b + 10;\00")
+  (data (memory $strings) (i32.const 4963) "return x > 100;\00")
+  (data (memory $strings) (i32.const 4979) "return arr.reduce((acc, x) => acc + x, 0);\00")
+  (data (memory $strings) (i32.const 5022) "return arr.map(x => x * 2);\00")
+  (data (memory $strings) (i32.const 5050) "return items.join(', ');\00")
+  (data (memory $strings) (i32.const 5075) "return { title: 'WASM in Action', year: 2026 };\00")
+  (data (memory $strings) (i32.const 5123) "hello world\00")
+  (data (memory $strings) (i32.const 5135) "number\00")
+  (data (memory $strings) (i32.const 5142) "string\00")
+  (data (memory $strings) (i32.const 5149) "boolean\00")
+  (data (memory $strings) (i32.const 5157) "id_key\00")
+  (data (memory $strings) (i32.const 5164) "9007199254740995\00")
+  (data (memory $strings) (i32.const 5181) "Invalid type argument\00")
+  (data (memory $strings) (i32.const 5203) "TypeError\00")
+  (data (memory $strings) (i32.const 5213) "Error\00")
+  (data (memory $strings) (i32.const 5219) "42\00")
+  (data (memory $strings) (i32.const 5222) "name\00")
+  (data (memory $strings) (i32.const 5227) "version\00")
+  (data (memory $strings) (i32.const 5235) "nonexistent.txt\00")
+  (data (memory $strings) (i32.const 5251) ".app-header { font-size: 24px; }\00")
+  (data (memory $strings) (i32.const 5284) "globalThis.__injected_script_run = true;\00")
+  (data (memory $strings) (i32.const 5325) "__bundled_test_var\00")
+  (data (memory $strings) (i32.const 5344) "JavaCounter\00")
+  (data (memory $strings) (i32.const 5356) ": \00")
   (global $__heap_ptr (mut i32) (i32.const 0))
   ;; --- WebAssembly Function Type Signatures ---
   (type $t_sig_1 (func (param i32) (result i32)))
@@ -1767,7 +1784,7 @@
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
     (local $__caught_exc i32)
-    i32.const 4097
+    i32.const 4269
     i32.const 11
     local.get $delay
     call $dom_setTimeout
@@ -1787,7 +1804,7 @@
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
     (local $__caught_exc i32)
-    i32.const 4097
+    i32.const 4269
     i32.const 11
     local.get $delay
     call $dom_setInterval
@@ -1807,7 +1824,7 @@
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
     (local $__caught_exc i32)
-    i32.const 4109
+    i32.const 4281
     i32.const 13
     call $dom_requestAnimationFrame
     return
@@ -1831,7 +1848,7 @@
     local.get $__str_arg_ptr
     local.get $__str_arg_ptr
     call $__str_length
-    i32.const 4123
+    i32.const 4295
     i32.const 14
     call $dom_fetch
   )
@@ -2807,16 +2824,16 @@
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
     (local $__caught_exc i32)
-    i32.const 4138
+    i32.const 4310
     local.set $greeting
-    i32.const 4144
+    i32.const 4316
     local.set $target
     local.get $greeting
-    i32.const 4156
+    i32.const 4328
     call $__str_concat
     local.get $target
     call $__str_concat
-    i32.const 4159
+    i32.const 4331
     call $__str_concat
     return
   )
@@ -2834,15 +2851,15 @@
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
     (local $__caught_exc i32)
-    i32.const 4161
+    i32.const 4333
     local.get $name
     call $__str_concat
-    i32.const 4168
+    i32.const 4340
     call $__str_concat
     local.get $age
     call $__str_from_i32
     call $__str_concat
-    i32.const 4176
+    i32.const 4348
     call $__str_concat
     return
   )
@@ -2861,7 +2878,7 @@
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
     (local $__caught_exc i32)
-    i32.const 4144
+    i32.const 4316
     local.set $s
     local.get $s
     call $__str_length
@@ -2882,7 +2899,7 @@
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
     (local $__caught_exc i32)
-    i32.const 4144
+    i32.const 4316
     local.set $s
     local.get $s
     local.get $idx
@@ -2904,7 +2921,7 @@
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
     (local $__caught_exc i32)
-    i32.const 4178
+    i32.const 4350
     local.set $s
     local.get $s
     local.get $start
@@ -2951,10 +2968,10 @@
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
     (local $__caught_exc i32)
-    i32.const 4178
+    i32.const 4350
     local.set $s
     local.get $s
-    i32.const 4190
+    i32.const 4362
     call $__str_indexOf
     return
   )
@@ -2973,10 +2990,10 @@
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
     (local $__caught_exc i32)
-    i32.const 4178
+    i32.const 4350
     local.set $s
     local.get $s
-    i32.const 4196
+    i32.const 4368
     call $__str_indexOf
     return
   )
@@ -3000,7 +3017,7 @@
     call $__sb_new
     local.set $__sb_tmp
     local.get $__sb_tmp
-    i32.const 4201
+    i32.const 4373
     call $__sb_append_str
     drop
     local.get $__sb_tmp
@@ -3054,7 +3071,7 @@
     call $__sb_new
     local.set $__sb_tmp
     local.get $__sb_tmp
-    i32.const 4196
+    i32.const 4368
     call $__sb_append_str
     drop
     local.get $__sb_tmp
@@ -3525,7 +3542,7 @@
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
     (local $__caught_exc i32)
-    i32.const 4209
+    i32.const 4381
     i32.const 10
     call $dom_getElementById
     local.set $canvas
@@ -3539,7 +3556,7 @@
     call $dom_getContext2D
     local.set $ctx
     local.get $ctx
-    i32.const 4220
+    i32.const 4392
     i32.const 7
     call $dom_setFillStyle
     local.get $ctx
@@ -3583,7 +3600,7 @@
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
     (local $__caught_exc i32)
-    i32.const 4228
+    i32.const 4400
     i32.const 8
     call $dom_getElementById
     local.set $glCanvas
@@ -3620,22 +3637,22 @@
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
     (local $__caught_exc i32)
-    i32.const 4237
+    i32.const 4409
     i32.const 50
     call $dom_js_eval
     local.set $obj
     local.get $obj
-    i32.const 4288
+    i32.const 4460
     i32.const 5
     call $dom_js_getString
     local.set $title
     local.get $obj
-    i32.const 4294
+    i32.const 4466
     i32.const 5
     call $dom_js_getInt
     local.set $count
     local.get $obj
-    i32.const 4300
+    i32.const 4472
     i32.const 6
     call $dom_js_getBoolean
     local.set $active
@@ -3677,38 +3694,38 @@
     call $dom_js_createObject
     local.set $obj
     local.get $obj
-    i32.const 4307
+    i32.const 4479
     i32.const 4
-    i32.const 4312
+    i32.const 4484
     i32.const 5
     call $dom_js_setString
     local.get $obj
-    i32.const 4318
+    i32.const 4490
     i32.const 5
     i32.const 95
     call $dom_js_setInt
     local.get $obj
-    i32.const 4324
+    i32.const 4496
     i32.const 6
     f64.const 4.8
     call $dom_js_setDouble
     local.get $obj
-    i32.const 4331
+    i32.const 4503
     i32.const 7
     i32.const 1
     call $dom_js_setBoolean
     local.get $obj
-    i32.const 4307
+    i32.const 4479
     i32.const 4
     call $dom_js_getString
     local.set $user
     local.get $obj
-    i32.const 4318
+    i32.const 4490
     i32.const 5
     call $dom_js_getInt
     local.set $score
     local.get $obj
-    i32.const 4331
+    i32.const 4503
     i32.const 7
     call $dom_js_getBoolean
     local.set $premium
@@ -3745,11 +3762,11 @@
     call $dom_js_createArray
     local.set $arr
     local.get $arr
-    i32.const 4339
+    i32.const 4511
     i32.const 5
     call $dom_js_pushStr
     local.get $arr
-    i32.const 4345
+    i32.const 4517
     i32.const 5
     call $dom_js_pushStr
     local.get $arr
@@ -3760,7 +3777,7 @@
     local.set $len
     local.get $arr
     i32.const 1
-    i32.const 4351
+    i32.const 4523
     i32.const 7
     call $dom_js_setIndexStr
     local.get $arr
@@ -3800,12 +3817,12 @@
     (local $__simd_tmp v128)
     (local $__caught_exc i32)
     call $dom_js_global
-    i32.const 4359
+    i32.const 4531
     i32.const 4
     call $dom_js_get
     local.set $math
     local.get $math
-    i32.const 4364
+    i32.const 4536
     i32.const 3
     i32.const 100
     call $dom_js_callInt1_int
@@ -3828,12 +3845,12 @@
     (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 1
-    i32.const 4368
+    i32.const 4540
     i32.const 39
     i32.const 1
     call $__wasi_print_str
     i32.const 1
-    i32.const 4408
+    i32.const 4580
     i32.const 10
     i32.const 0
     call $__wasi_print_str
@@ -3842,7 +3859,7 @@
     i32.const 1
     call $__wasi_print_int
     i32.const 2
-    i32.const 4419
+    i32.const 4591
     i32.const 26
     i32.const 1
     call $__wasi_print_str
@@ -3864,12 +3881,12 @@
     (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 1
-    i32.const 4446
+    i32.const 4618
     i32.const 21
     i32.const 0
     call $__wasi_print_str
     i32.const 1
-    i32.const 4468
+    i32.const 4640
     i32.const 6
     i32.const 1
     call $__wasi_print_str
@@ -3878,7 +3895,7 @@
     i32.const 1
     call $__wasi_print_int
     i32.const 2
-    i32.const 4475
+    i32.const 4647
     i32.const 17
     i32.const 1
     call $__wasi_print_str
@@ -4140,7 +4157,7 @@
     i32.const 19
     i32.store offset=0
     local.get $__obj_alloc_ptr
-    i32.const 4493
+    i32.const 4665
     call $RuntimeException__init_1
     local.get $__obj_alloc_ptr
     throw $Exception
@@ -4183,7 +4200,7 @@
     i32.const 1
     i32.store offset=0
     local.get $__obj_alloc_ptr
-    i32.const 4504
+    i32.const 4676
     call $Exception__init_1
     local.get $__obj_alloc_ptr
     throw $Exception
@@ -4229,7 +4246,7 @@
     i32.const 2
     i32.store offset=0
     local.get $__obj_alloc_ptr
-    i32.const 4529
+    i32.const 4701
     i32.const 404
     call $CustomAppException__init
     local.get $__obj_alloc_ptr
@@ -4282,7 +4299,7 @@
     i32.const 2
     i32.store offset=0
     local.get $__obj_alloc_ptr
-    i32.const 4540
+    i32.const 4712
     i32.const 500
     call $CustomAppException__init
     local.get $__obj_alloc_ptr
@@ -4299,7 +4316,7 @@
     i32.const 20
     i32.store offset=0
     local.get $__obj_alloc_ptr
-    i32.const 4551
+    i32.const 4723
     call $IllegalArgumentException__init_1
     local.get $__obj_alloc_ptr
     throw $Exception
@@ -4311,7 +4328,7 @@
     i32.const 1
     i32.store offset=0
     local.get $__obj_alloc_ptr
-    i32.const 4559
+    i32.const 4731
     call $Exception__init_1
     local.get $__obj_alloc_ptr
     throw $Exception
@@ -4412,7 +4429,7 @@
     i32.const 19
     i32.store offset=0
     local.get $__obj_alloc_ptr
-    i32.const 4573
+    i32.const 4745
     call $RuntimeException__init_1
     local.get $__obj_alloc_ptr
     throw $Exception
@@ -5159,12 +5176,12 @@
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
     (local $__caught_exc i32)
-    i32.const 4585
-    i32.const 4596
+    i32.const 4757
+    i32.const 4768
     i32.const 0
     call $__wasi_write_file_str
     drop
-    i32.const 4585
+    i32.const 4757
     call $__wasi_read_file_str
     return
   )
@@ -5218,17 +5235,17 @@
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
     (local $__caught_exc i32)
-    i32.const 4611
-    i32.const 4623
+    i32.const 4783
+    i32.const 4795
     i32.const 0
     call $__wasi_write_file_str
     drop
-    i32.const 4611
-    i32.const 4629
+    i32.const 4783
+    i32.const 4801
     i32.const 1
     call $__wasi_write_file_str
     drop
-    i32.const 4611
+    i32.const 4783
     call $__wasi_read_file_str
     return
   )
@@ -5249,18 +5266,18 @@
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
     (local $__caught_exc i32)
-    i32.const 4635
-    i32.const 4650
+    i32.const 4807
+    i32.const 4822
     i32.const 0
     call $__wasi_write_file_str
     drop
-    i32.const 4635
+    i32.const 4807
     call $__wasi_file_exists
     local.set $existsBefore
-    i32.const 4635
+    i32.const 4807
     call $__wasi_file_delete
     local.set $deleted
-    i32.const 4635
+    i32.const 4807
     call $__wasi_file_exists
     local.set $existsAfter
     local.get $existsBefore
@@ -5315,19 +5332,19 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 4660
+    i32.const 4832
     call $WASIFile__init
     local.get $__obj_alloc_ptr
     local.set $file
     local.get $file
     i32.load offset=4
-    i32.const 4674
+    i32.const 4846
     i32.const 0
     call $__wasi_write_file_str
     drop
     local.get $file
     i32.load offset=4
-    i32.const 4684
+    i32.const 4856
     i32.const 1
     call $__wasi_write_file_str
     drop
@@ -5359,13 +5376,13 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 4697
+    i32.const 4869
     call $WASIFile__init
     local.get $__obj_alloc_ptr
     local.set $file
     local.get $file
     i32.load offset=4
-    i32.const 4711
+    i32.const 4883
     i32.const 0
     call $__wasi_write_file_str
     drop
@@ -5953,7 +5970,7 @@
     i32.const 42
     call $dom_js_number_of_int
     local.set $numVal
-    i32.const 4951
+    i32.const 5123
     i32.const 11
     call $dom_js_string_of
     local.set $strVal
@@ -6006,7 +6023,7 @@
     i32.add
     local.set $score
     end
-    i32.const 4963
+    i32.const 5135
     local.get $numVal
     call $dom_js_typeof
     call $__str_equals
@@ -6016,7 +6033,7 @@
     i32.add
     local.set $score
     end
-    i32.const 4970
+    i32.const 5142
     local.get $strVal
     call $dom_js_typeof
     call $__str_equals
@@ -6026,7 +6043,7 @@
     i32.add
     local.set $score
     end
-    i32.const 4977
+    i32.const 5149
     local.get $boolVal
     call $dom_js_typeof
     call $__str_equals
@@ -6124,11 +6141,11 @@
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
     (local $__caught_exc i32)
-    i32.const 4985
+    i32.const 5157
     i32.const 6
     call $dom_js_symbol_of
     local.set $sym
-    i32.const 4992
+    i32.const 5164
     i32.const 16
     call $dom_js_bigint_of_str
     local.set $big
@@ -6142,7 +6159,7 @@
     i32.add
     local.set $score
     end
-    i32.const 4985
+    i32.const 5157
     local.get $sym
     call $dom_js_symbolDescription
     call $__str_equals
@@ -6179,7 +6196,7 @@
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
     (local $__caught_exc i32)
-    i32.const 5009
+    i32.const 5181
     i32.const 21
     call $dom_js_type_error_of
     local.set $err
@@ -6193,7 +6210,7 @@
     i32.add
     local.set $score
     end
-    i32.const 5009
+    i32.const 5181
     local.get $err
     call $dom_js_errorMessage
     call $__str_equals
@@ -6203,7 +6220,7 @@
     i32.add
     local.set $score
     end
-    i32.const 5031
+    i32.const 5203
     local.get $err
     call $dom_js_errorName
     call $__str_equals
@@ -6214,11 +6231,11 @@
     local.set $score
     end
     local.get $err
-    i32.const 5041
+    i32.const 5213
     i32.const 5
     call $dom_js_instanceof
     local.get $err
-    i32.const 5031
+    i32.const 5203
     i32.const 9
     call $dom_js_instanceof
     i32.and
@@ -6255,7 +6272,7 @@
     i32.const 42
     call $dom_js_number_of_int
     local.set $v2
-    i32.const 5047
+    i32.const 5219
     i32.const 2
     call $dom_js_string_of
     local.set $v3
@@ -6350,18 +6367,158 @@
     call $dom_js_createObject
     local.set $obj
     local.get $obj
-    i32.const 5050
+    i32.const 5222
     i32.const 4
-    i32.const 4144
+    i32.const 4316
     i32.const 11
     call $dom_js_setString
     local.get $obj
-    i32.const 5055
+    i32.const 5227
     i32.const 7
     i32.const 2026
     call $dom_js_setInt
     local.get $obj
     call $dom_js_inline_JSJSON_stringify
+    return
+  )
+  (func $testJsResourceGetString (export "testJsResourceGetString") (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__caught_exc i32)
+    i32.const 4256
+    i32.const 11
+    call $dom_js_resource_get_string
+    return
+  )
+  (func $testJsResourceHas (export "testJsResourceHas") (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__caught_exc i32)
+    i32.const 4211
+    i32.const 9
+    call $dom_js_resource_has
+    i32.const 5235
+    i32.const 15
+    call $dom_js_resource_has
+    i32.eqz
+    i32.and
+    return
+  )
+  (func $testJsResourceLength (export "testJsResourceLength") (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__caught_exc i32)
+    i32.const 4211
+    i32.const 9
+    call $dom_js_resource_get_length
+    return
+  )
+  (func $testJsResourceInjectStyle (export "testJsResourceInjectStyle")
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__caught_exc i32)
+    i32.const 5251
+    i32.const 32
+    call $dom_js_resource_inject_style
+  )
+  (func $testJsResourceInjectStylesheet (export "testJsResourceInjectStylesheet")
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__caught_exc i32)
+    i32.const 4211
+    i32.const 9
+    call $dom_js_resource_inject_stylesheet
+  )
+  (func $testJsResourceInjectScript (export "testJsResourceInjectScript")
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__caught_exc i32)
+    i32.const 5284
+    i32.const 40
+    call $dom_js_resource_inject_script
+  )
+  (func $testBundledJsCode (export "testBundledJsCode") (result i32)
+    (local $val i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__caught_exc i32)
+    call $dom_js_global
+    i32.const 5325
+    i32.const 18
+    call $dom_js_get
+    local.set $val
+    local.get $val
+    call $dom_js_asInt
     return
   )
   ;; Record: Pair
@@ -6812,7 +6969,7 @@
     (local $__simd_tmp v128)
     (local $__caught_exc i32)
     local.get $label
-    i32.const 5075
+    i32.const 5356
     call $__str_concat
     local.get $this
     i32.load offset=4

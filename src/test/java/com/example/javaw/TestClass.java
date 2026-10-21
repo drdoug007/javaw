@@ -23,6 +23,9 @@ import com.example.javaw.memory.Memory;
 import com.example.javaw.js.JS;
 import java.util.Arrays;
 
+@JS.Code("globalThis.__bundled_test_var = 777; function bundledCalc(n) { return n * 3; }")
+@JS.Resource(value = "body { background-color: #f0f0f0; }", path = "theme.css")
+@JS.Resource(value = "{\"theme\":\"dark\",\"port\":8080}", path = "config.json")
 public class TestClass {
     public static int asyncCounter = 0;
     public static String asyncFetchedData = "";
@@ -854,6 +857,36 @@ public class TestClass {
         obj.set("name", "WebAssembly");
         obj.set("version", 2026);
         return com.example.javaw.js.JSJSON.stringify(obj);
+    }
+
+    public String testJsResourceGetString() {
+        return com.example.javaw.js.JSResource.getAsString("config.json");
+    }
+
+    public boolean testJsResourceHas() {
+        return com.example.javaw.js.JSResource.hasResource("theme.css") &&
+               !com.example.javaw.js.JSResource.hasResource("nonexistent.txt");
+    }
+
+    public int testJsResourceLength() {
+        return com.example.javaw.js.JSResource.getLength("theme.css");
+    }
+
+    public void testJsResourceInjectStyle() {
+        com.example.javaw.js.JSResource.injectStyle(".app-header { font-size: 24px; }");
+    }
+
+    public void testJsResourceInjectStylesheet() {
+        com.example.javaw.js.JSResource.injectStyleSheet("theme.css");
+    }
+
+    public void testJsResourceInjectScript() {
+        com.example.javaw.js.JSResource.injectScript("globalThis.__injected_script_run = true;");
+    }
+
+    public int testBundledJsCode() {
+        JSValue val = JSObject.global().get("__bundled_test_var");
+        return val.asInt();
     }
 }
 

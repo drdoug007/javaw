@@ -1587,7 +1587,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                         }
                     }
                     collector.append("    call $dom_").append(snippetKey).append("\n");
-                } else if (scopeStr.equals("DOM") || scopeStr.endsWith(".DOM") || scopeStr.equals("Window") || scopeStr.endsWith(".Window") || scopeStr.equals("JSObject") || scopeStr.endsWith(".JSObject") || DomHelper.isJsValueClass(scopeStr)) {
+                } else if (scopeStr.equals("DOM") || scopeStr.endsWith(".DOM") || scopeStr.equals("Window") || scopeStr.endsWith(".Window") || scopeStr.equals("JSObject") || scopeStr.endsWith(".JSObject") || scopeStr.equals("JSResource") || scopeStr.endsWith(".JSResource") || DomHelper.isJsValueClass(scopeStr)) {
                     translateDomOrWindowStaticCall(call, collector, localTypes, localElementTypes, localJavaTypes);
                 } else if (scopeStr.equals("Atomics") || scopeStr.endsWith(".Atomics")) {
                     translateAtomicsStaticCall(call, collector, localTypes, localElementTypes, localJavaTypes);
@@ -1912,7 +1912,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             } else {
                 if (currentRecord != null && currentRecord.getComponent(mName) != null) {
                     collector.append("    local.get $this$").append(mName).append("\n");
-                } else if (DomHelper.isDomStaticMethod(mName)) {
+                } else if (DomHelper.isDomStaticMethod(mName) || DomHelper.isJsStaticMethod(mName, call)) {
                     translateDomOrWindowStaticCall(call, collector, localTypes, localElementTypes, localJavaTypes);
                 } else if (DomHelper.isDomInstanceMethod(mName)) {
                     for (Expression arg : call.getArguments()) {
@@ -1985,8 +1985,11 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     mName.equals("getStyle") || mName.equals("getFillStyle") || mName.equals("getStrokeStyle") ||
                     mName.equals("getFont") || mName.equals("getTextAlign") ||
                     mName.equals("getString") || mName.equals("callString") || mName.equals("asString") ||
-                    mName.equals("readString") || mName.equals("getPath")) {
+                    mName.equals("readString") || mName.equals("getPath") || mName.equals("getAsString")) {
                 return "String";
+            }
+            if (mName.equals("listResources")) {
+                return "String[]";
             }
             if (mName.equals("create") || mName.equals("ofInstance")) {
                 if (call.getScope().isPresent()) {
@@ -2037,7 +2040,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     mName.equals("setTimeout") || mName.equals("setInterval") || mName.equals("requestAnimationFrame") ||
                     mName.equals("getInt") || mName.equals("callInt") || mName.equals("asInt") ||
                     mName.equals("fileLength") || mName.equals("fileSize") || mName.equals("open") || mName.equals("close") ||
-                    mName.equals("seek") || mName.equals("randomInt") || mName.equals("randomGet")) {
+                    mName.equals("seek") || mName.equals("randomInt") || mName.equals("randomGet") || mName.equals("getLength")) {
                 return "int";
             }
             if (mName.equals("getLineWidth") || mName.equals("getGlobalAlpha") ||
@@ -2052,7 +2055,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     mName.equals("getBoolean") || mName.equals("callBoolean") || mName.equals("asBoolean") || mName.equals("isArray") ||
                     mName.equals("writeString") || mName.equals("appendString") || mName.equals("fileExists") ||
                     mName.equals("exists") || mName.equals("deleteFile") || mName.equals("removeFile") ||
-                    mName.equals("delete") || mName.equals("createDirectory") || mName.equals("mkdir")) {
+                    mName.equals("delete") || mName.equals("createDirectory") || mName.equals("mkdir") || mName.equals("hasResource")) {
                 return "boolean";
             }
             if (mName.equals("of") || mName.equals("splat") || mName.equals("zero") ||
@@ -2821,6 +2824,31 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         } else if (mName.equals("alert") || mName.equals("confirm") || mName.equals("prompt")) {
             translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
             collector.append("    call $dom_").append(mName).append("\n");
+        } else if (mName.equals("getAsString")) {
+            translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
+            collector.append("    call $dom_js_resource_get_string\n");
+        } else if (mName.equals("hasResource")) {
+            translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
+            collector.append("    call $dom_js_resource_has\n");
+        } else if (mName.equals("getLength")) {
+            translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
+            collector.append("    call $dom_js_resource_get_length\n");
+        } else if (mName.equals("injectStyle")) {
+            translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
+            collector.append("    call $dom_js_resource_inject_style\n");
+        } else if (mName.equals("injectStyleSheet")) {
+            translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
+            collector.append("    call $dom_js_resource_inject_stylesheet\n");
+        } else if (mName.equals("injectScript")) {
+            translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
+            collector.append("    call $dom_js_resource_inject_script\n");
+        } else if (mName.equals("injectScriptTag")) {
+            translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
+            collector.append("    call $dom_js_resource_inject_script_tag\n");
+        } else if (mName.equals("listResources")) {
+            collector.append("    call $dom_js_resource_list\n");
+        } else if (mName.equals("mountAll")) {
+            collector.append("    call $dom_js_resource_mount_all\n");
         } else {
             for (Expression arg : call.getArguments()) {
                 translateDomStringArg(arg, collector, localTypes, localElementTypes, localJavaTypes);

@@ -1109,4 +1109,48 @@ public class JavacToWasmTest {
         org.junit.jupiter.api.Assertions.assertEquals(1, calcExport.getConstructors().size());
         org.junit.jupiter.api.Assertions.assertEquals(3, calcExport.getMethods().size());
     }
+
+    @Test
+    public void testJsCodeAndResourceBundling() {
+        String javaSource = "package com.example.javaw;\n" +
+                "import com.example.javaw.js.JS;\n" +
+                "import com.example.javaw.js.JSResource;\n" +
+                "@JS.Code(\"function bundledHelper(x) { return x * 100; }\")\n" +
+                "@JS.Resource(value = \"h1 { color: blue; }\", path = \"styles.css\")\n" +
+                "public class BundledApp {\n" +
+                "    @JS.Resource(value = \"{\\\"version\\\": 1}\", path = \"app.json\")\n" +
+                "    public static String CONFIG;\n" +
+                "    public static int testResources() {\n" +
+                "        String css = JSResource.getAsString(\"styles.css\");\n" +
+                "        boolean hasApp = JSResource.hasResource(\"app.json\");\n" +
+                "        JSResource.injectStyle(css);\n" +
+                "        JSResource.injectScript(\"console.log('Injected');\");\n" +
+                "        String[] list = JSResource.listResources();\n" +
+                "        JSResource.mountAll();\n" +
+                "        return hasApp ? 1 : 0;\n" +
+                "    }\n" +
+                "}\n";
+
+        CompilationUnit cu = StaticJavaParser.parse(javaSource);
+        String wat = JavacToWasm.generateWat(cu);
+
+        assertTrue(wat.contains("(@custom \"javaw_js_code\""));
+        assertTrue(wat.contains("(@custom \"javaw_js_resources\""));
+        assertTrue(wat.contains("(import \"dom\" \"js_resource_get_string\" (func $dom_js_resource_get_string (param i32 i32) (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_resource_has\" (func $dom_js_resource_has (param i32 i32) (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_resource_inject_style\" (func $dom_js_resource_inject_style (param i32 i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_resource_inject_script\" (func $dom_js_resource_inject_script (param i32 i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_resource_list\" (func $dom_js_resource_list (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_resource_mount_all\" (func $dom_js_resource_mount_all))"));
+
+        JavacToWasm.CompilationResult result = JavacToWasm.compile("BundledApp.java", javaSource, true);
+        org.junit.jupiter.api.Assertions.assertNotNull(result.getJsCodeBlocks());
+        org.junit.jupiter.api.Assertions.assertEquals(1, result.getJsCodeBlocks().size());
+        org.junit.jupiter.api.Assertions.assertEquals("function bundledHelper(x) { return x * 100; }", result.getJsCodeBlocks().get(0));
+
+        org.junit.jupiter.api.Assertions.assertNotNull(result.getJsResources());
+        org.junit.jupiter.api.Assertions.assertEquals(2, result.getJsResources().size());
+        org.junit.jupiter.api.Assertions.assertEquals("h1 { color: blue; }", result.getJsResources().get("styles.css"));
+        org.junit.jupiter.api.Assertions.assertEquals("{\\\"version\\\": 1}", result.getJsResources().get("app.json"));
+    }
 }

@@ -173,7 +173,11 @@ This roadmap organizes planned features by their utility and return on investmen
   - Implemented `JsExportModel` and metadata collection in `JsAnnotationHelper` serializing class layouts, constructor functions, and instance/static method signatures into custom section `javaw_js_exports`.
   - Added automatic JavaScript constructor function generation in `javaw-runtime.js` invoking `$__heap_alloc`, vtable initializations, and `$ClassName__init` constructors with transparent argument marshaling and return value unmarshaling.
   - Full support for prototype instance methods, static class methods, string parameters/returns, arrays, object handles, and field access across the WASM-JS runtime boundary.
-- [ ] **JavaScript Asset Bundling & Resource Embedding (`@JS.Code`, `@JS.Code.Include`, `@JSResource`)**
+- [x] **JavaScript Asset Bundling & Resource Embedding (`@JS.Code`, `@JS.Code.Include`, `@JS.Resource`, `JSResource`)**
   - Embed external JavaScript scripts and static web resources directly into the compiled WebAssembly bundle or runtime harness.
+  - Implemented `@JS.Code("...")` for inline script blocks and `@JS.Code.Include({"file1.js", "file2.js"})` for bundling external JavaScript files during compilation.
+  - Implemented `@JS.Resource(value = "...", path = "...")` for embedding static assets (CSS, JSON, HTML, text) into custom WebAssembly sections (`javaw_js_code` and `javaw_js_resources`).
+  - Added strongly-typed Java facade `com.example.javaw.js.JSResource` supporting asset extraction (`getAsString`, `hasResource`, `getLength`, `listResources`), dynamic style/script injection (`injectStyle`, `injectStyleSheet`, `injectScript`, `injectScriptTag`), and automatic mounting into the WASI virtual file system (`mountAll`).
+  - Extended `javaw-runtime.js` to automatically extract bundled scripts, execute them upon module instantiation, and register embedded assets in memory and VFS.
 - [ ] **Interactive In-Browser Terminal & REPL Integration (WASI & xterm.js)**
   - Provide an out-of-the-box browser terminal runner harness (powered by xterm.js or ANSI terminal emulation) connected to WASI standard I/O streams (`stdin`, `stdout`, `stderr`), enabling interactive Java CLI applications (such as shells, interpreters, and compilers) to run interactively in the browser.

@@ -10,6 +10,10 @@ import com.github.javaparser.ast.expr.MemberValuePair;
 import com.github.javaparser.ast.expr.NormalAnnotationExpr;
 import com.github.javaparser.ast.expr.SingleMemberAnnotationExpr;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -469,6 +473,245 @@ public class JsAnnotationHelper {
             count++;
         }
         sb.append("]");
+        return sb.toString();
+    }
+
+    public static List<String> extractAnnotationStringArray(AnnotationExpr anno) {
+        List<String> result = new ArrayList<>();
+        if (anno.isSingleMemberAnnotationExpr()) {
+            com.github.javaparser.ast.expr.Expression val = anno.asSingleMemberAnnotationExpr().getMemberValue();
+            if (val.isStringLiteralExpr()) {
+                result.add(val.asStringLiteralExpr().getValue());
+            } else if (val.isArrayInitializerExpr()) {
+                for (com.github.javaparser.ast.expr.Expression elem : val.asArrayInitializerExpr().getValues()) {
+                    if (elem.isStringLiteralExpr()) {
+                        result.add(elem.asStringLiteralExpr().getValue());
+                    }
+                }
+            }
+        } else if (anno.isNormalAnnotationExpr()) {
+            for (MemberValuePair pair : anno.asNormalAnnotationExpr().getPairs()) {
+                if (pair.getNameAsString().equals("value")) {
+                    com.github.javaparser.ast.expr.Expression val = pair.getValue();
+                    if (val.isStringLiteralExpr()) {
+                        result.add(val.asStringLiteralExpr().getValue());
+                    } else if (val.isArrayInitializerExpr()) {
+                        for (com.github.javaparser.ast.expr.Expression elem : val.asArrayInitializerExpr().getValues()) {
+                            if (elem.isStringLiteralExpr()) {
+                                result.add(elem.asStringLiteralExpr().getValue());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
+    public static String extractAnnotationMember(AnnotationExpr anno, String memberName) {
+        if (anno.isNormalAnnotationExpr()) {
+            for (MemberValuePair pair : anno.asNormalAnnotationExpr().getPairs()) {
+                if (pair.getNameAsString().equals(memberName)) {
+                    if (pair.getValue().isStringLiteralExpr()) {
+                        return pair.getValue().asStringLiteralExpr().getValue();
+                    }
+                    return pair.getValue().toString();
+                }
+            }
+        } else if (anno.isSingleMemberAnnotationExpr() && "value".equals(memberName)) {
+            return extractAnnotationValue(anno);
+        }
+        return "";
+    }
+
+    public static Optional<String> readFileContent(String relativePath, Path baseDir) {
+        if (relativePath == null || relativePath.trim().isEmpty()) return Optional.empty();
+        List<Path> searchDirs = new ArrayList<>();
+        if (baseDir != null) {
+            searchDirs.add(baseDir.resolve(relativePath));
+            searchDirs.add(baseDir);
+        }
+        searchDirs.add(Paths.get(relativePath));
+        searchDirs.add(Paths.get("src/main/resources").resolve(relativePath));
+        searchDirs.add(Paths.get("src/test/resources").resolve(relativePath));
+        searchDirs.add(Paths.get("src/test/java").resolve(relativePath));
+
+        for (Path p : searchDirs) {
+            try {
+                if (Files.isRegularFile(p)) {
+                    return Optional.of(Files.readString(p, StandardCharsets.UTF_8));
+                }
+            } catch (Exception ignored) {}
+        }
+        return Optional.empty();
+    }
+
+    public static List<String> collectJsCodeBlocks(CompilationUnit cu) {
+        return collectJsCodeBlocks(cu, null);
+    }
+
+    public static List<String> collectJsCodeBlocks(CompilationUnit cu, Path baseDir) {
+        List<String> codeBlocks = new ArrayList<>();
+        if (cu == null) return codeBlocks;
+        Path dir = baseDir;
+        if (dir == null && cu.getStorage().isPresent()) {
+            dir = cu.getStorage().get().getDirectory();
+        }
+
+        List<ClassOrInterfaceDeclaration> classes = cu.findAll(ClassOrInterfaceDeclaration.class);
+        for (ClassOrInterfaceDeclaration cid : classes) {
+            for (AnnotationExpr a : cid.getAnnotations()) {
+                String name = a.getNameAsString();
+                if (name.equals("Code") || name.equals("JS.Code") || name.endsWith(".JS.Code") || name.endsWith(".Code")) {
+                    String code = extractAnnotationValue(a);
+                    if (!code.isEmpty()) codeBlocks.add(code);
+                } else if (name.equals("Include") || name.equals("JS.Code.Include") || name.equals("Code.Include") || name.endsWith(".Include")) {
+                    List<String> paths = extractAnnotationStringArray(a);
+                    for (String path : paths) {
+                        Optional<String> content = readFileContent(path, dir);
+                        if (content.isPresent()) {
+                            codeBlocks.add(content.get());
+                        } else {
+                            codeBlocks.add(path);
+                        }
+                    }
+                }
+            }
+
+            for (MethodDeclaration md : cid.getMethods()) {
+                for (AnnotationExpr a : md.getAnnotations()) {
+                    String name = a.getNameAsString();
+                    if (name.equals("Code") || name.equals("JS.Code") || name.endsWith(".JS.Code") || name.endsWith(".Code")) {
+                        String code = extractAnnotationValue(a);
+                        if (!code.isEmpty()) codeBlocks.add(code);
+                    } else if (name.equals("Include") || name.equals("JS.Code.Include") || name.equals("Code.Include") || name.endsWith(".Include")) {
+                        List<String> paths = extractAnnotationStringArray(a);
+                        for (String path : paths) {
+                            Optional<String> content = readFileContent(path, dir);
+                            if (content.isPresent()) {
+                                codeBlocks.add(content.get());
+                            } else {
+                                codeBlocks.add(path);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return codeBlocks;
+    }
+
+    public static String codeBlocksToJson(List<String> codeBlocks) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("[");
+        for (int i = 0; i < codeBlocks.size(); i++) {
+            if (i > 0) sb.append(",");
+            sb.append("\"").append(escapeJson(codeBlocks.get(i))).append("\"");
+        }
+        sb.append("]");
+        return sb.toString();
+    }
+
+    public static Map<String, String> collectJsResources(CompilationUnit cu) {
+        return collectJsResources(cu, null);
+    }
+
+    public static Map<String, String> collectJsResources(CompilationUnit cu, Path baseDir) {
+        Map<String, String> resources = new LinkedHashMap<>();
+        if (cu == null) return resources;
+        Path dir = baseDir;
+        if (dir == null && cu.getStorage().isPresent()) {
+            dir = cu.getStorage().get().getDirectory();
+        }
+
+        List<ClassOrInterfaceDeclaration> classes = cu.findAll(ClassOrInterfaceDeclaration.class);
+        for (ClassOrInterfaceDeclaration cid : classes) {
+            processResourceAnnotations(cid.getAnnotations(), dir, resources);
+
+            for (com.github.javaparser.ast.body.FieldDeclaration fd : cid.getFields()) {
+                processResourceAnnotations(fd.getAnnotations(), dir, resources);
+            }
+
+            for (MethodDeclaration md : cid.getMethods()) {
+                processResourceAnnotations(md.getAnnotations(), dir, resources);
+            }
+        }
+
+        // Also check JSResource method calls in AST with string literals
+        List<com.github.javaparser.ast.expr.MethodCallExpr> calls = cu.findAll(com.github.javaparser.ast.expr.MethodCallExpr.class);
+        for (com.github.javaparser.ast.expr.MethodCallExpr call : calls) {
+            String scope = call.getScope().map(Object::toString).orElse("");
+            if (scope.equals("JSResource") || scope.endsWith(".JSResource")) {
+                if (call.getArguments().size() > 0 && call.getArgument(0).isStringLiteralExpr()) {
+                    String pathArg = call.getArgument(0).asStringLiteralExpr().getValue();
+                    if (!resources.containsKey(pathArg)) {
+                        Optional<String> content = readFileContent(pathArg, dir);
+                        if (content.isPresent()) {
+                            resources.put(pathArg, content.get());
+                        }
+                    }
+                }
+            }
+        }
+
+        return resources;
+    }
+
+    private static void processResourceAnnotations(List<AnnotationExpr> annotations, Path dir, Map<String, String> resources) {
+        for (AnnotationExpr a : annotations) {
+            String name = a.getNameAsString();
+            if (name.equals("Resource") || name.equals("JS.Resource") || name.equals("JSResource") ||
+                name.endsWith(".Resource") || name.endsWith(".JSResource")) {
+                String val = extractAnnotationValue(a);
+                String path = extractAnnotationMember(a, "path");
+                if (path.isEmpty()) path = val;
+
+                Optional<String> fileContent = readFileContent(val, dir);
+                if (fileContent.isPresent()) {
+                    resources.put(path, fileContent.get());
+                } else {
+                    resources.put(path, val);
+                }
+            }
+        }
+    }
+
+    public static String resourcesToJson(Map<String, String> resources) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("{");
+        int count = 0;
+        for (Map.Entry<String, String> entry : resources.entrySet()) {
+            if (count > 0) sb.append(",");
+            sb.append("\"").append(escapeJson(entry.getKey())).append("\":\"")
+              .append(escapeJson(entry.getValue())).append("\"");
+            count++;
+        }
+        sb.append("}");
+        return sb.toString();
+    }
+
+    private static String escapeJson(String s) {
+        if (s == null) return "";
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            switch (c) {
+                case '"': sb.append("\\\""); break;
+                case '\\': sb.append("\\\\"); break;
+                case '\b': sb.append("\\b"); break;
+                case '\f': sb.append("\\f"); break;
+                case '\n': sb.append("\\n"); break;
+                case '\r': sb.append("\\r"); break;
+                case '\t': sb.append("\\t"); break;
+                default:
+                    if (c < ' ') {
+                        sb.append(String.format("\\u%04x", (int) c));
+                    } else {
+                        sb.append(c);
+                    }
+            }
+        }
         return sb.toString();
     }
 }
