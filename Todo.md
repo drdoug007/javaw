@@ -46,11 +46,16 @@ This roadmap organizes planned features by their utility and return on investmen
 
 ## 4. Object-Oriented Programming (OOP) & Memory Allocation
 
-- [ ] **Dynamic Heap Allocation (`new MyClass(...)`)**
-  - Bump/free-list linear memory allocator starting at dynamic heap offset (`0x2000`).
-  - Struct byte layout calculation, object headers, and `$this` pointer passing to instance methods.
-- [ ] **Virtual Method Dispatch (Polymorphism)**
-  - Dynamic dispatch via WebAssembly function tables (`table`) and `call_indirect`.
+- [x] **Dynamic Heap Allocation (`new MyClass(...)`)**
+  - Dynamic linear memory bump allocation (`call $__heap_alloc`) with 8-byte alignment.
+  - Struct byte layout calculation, object headers storing vtable indices, and `$this` pointer passing to instance methods.
+  - Full constructor lowering, field loading and storing (`this.field`, `obj.field`, `obj.field = val`, compound assignments `obj.field += val`).
+- [x] **Virtual Method Dispatch (Polymorphism)**
+  - Dynamic dispatch via WebAssembly function tables (`(table (export "__vtable") ... funcref)`) and `call_indirect`.
+  - Type signatures `(type $sig_... (func ...))` and vtable base calculation supporting multi-level inheritance hierarchies.
+  - `super(...)` constructor chaining, `super.method(...)` calls, and runtime `instanceof` (`InstanceOfExpr`) type checking.
+- [x] **Object Arrays & References**
+  - Linear memory reference arrays (`MyClass[]`) with indexing and iteration support.
 - [ ] **WasmGC Target Proposal**
   - Emit native WebAssembly Garbage Collection types (`(type $Class (struct ...))`, `struct.new`, `struct.get`).
 

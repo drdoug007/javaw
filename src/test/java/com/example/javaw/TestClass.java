@@ -249,4 +249,140 @@ public class TestClass {
         sb.append('w');
         return sb.toString();
     }
+
+    public int testPointObject(int x, int y) {
+        Point p = new Point(x, y);
+        p.setLocation(x + 1, y + 2);
+        return p.distanceSq();
+    }
+
+    public int testDirectFieldAccess(int x, int y) {
+        Point p = new Point(x, y);
+        p.x += 5;
+        p.y += 10;
+        return p.x + p.y;
+    }
+
+    public int testPolymorphismArea(int type, int param1, int param2) {
+        Shape s;
+        if (type == 1) {
+            s = new Circle(100, param1);
+        } else {
+            s = new Rectangle(200, param1, param2);
+        }
+        return s.area();
+    }
+
+    public int testInheritedColor(int type, int color, int param1, int param2) {
+        Shape s;
+        if (type == 1) {
+            s = new Circle(color, param1);
+        } else {
+            s = new Rectangle(color, param1, param2);
+        }
+        return s.getColor();
+    }
+
+    public int testInstanceOf(int type) {
+        Shape s;
+        if (type == 1) {
+            s = new Circle(10, 5);
+        } else {
+            s = new Rectangle(20, 4, 6);
+        }
+        if (s instanceof Circle) {
+            return 1;
+        } else if (s instanceof Rectangle) {
+            return 2;
+        }
+        return 0;
+    }
+
+    public int testObjectArray() {
+        Point[] pts = new Point[3];
+        pts[0] = new Point(1, 2);
+        pts[1] = new Point(3, 4);
+        pts[2] = new Point(5, 6);
+
+        int totalDist = 0;
+        for (Point p : pts) {
+            totalDist += p.distanceSq();
+        }
+        return totalDist;
+    }
+}
+
+class Point {
+    public int x;
+    public int y;
+
+    public Point(int x, int y) {
+        this.x = x;
+        this.y = y;
+    }
+
+    public int getX() {
+        return x;
+    }
+
+    public int getY() {
+        return y;
+    }
+
+    public void setLocation(int newX, int newY) {
+        this.x = newX;
+        this.y = newY;
+    }
+
+    public int distanceSq() {
+        return x * x + y * y;
+    }
+}
+
+class Shape {
+    public int color;
+
+    public Shape(int color) {
+        this.color = color;
+    }
+
+    public int getColor() {
+        return color;
+    }
+
+    public int area() {
+        return 0;
+    }
+}
+
+class Circle extends Shape {
+    public int radius;
+
+    public Circle(int color, int radius) {
+        super(color);
+        this.radius = radius;
+    }
+
+    public int getRadius() {
+        return radius;
+    }
+
+    public int area() {
+        return 3 * radius * radius;
+    }
+}
+
+class Rectangle extends Shape {
+    public int width;
+    public int height;
+
+    public Rectangle(int color, int width, int height) {
+        super(color);
+        this.width = width;
+        this.height = height;
+    }
+
+    public int area() {
+        return width * height;
+    }
 }

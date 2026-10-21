@@ -18,4 +18,8 @@ public class LoopContext {
         this.breakLabel = breakLabel;
         this.continueLabel = continueLabel;
     }
+
+    public boolean hasLabel(String label) {
+        return javaLabels.contains(label);
+    }
 }

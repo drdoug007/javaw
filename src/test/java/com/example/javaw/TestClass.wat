@@ -12,6 +12,58 @@
   (data (i32.const 4154) "Java\00")
   (data (i32.const 4159) "Count: \00")
   (global $__heap_ptr (mut i32) (i32.const 65536))
+  ;; --- WebAssembly Function Type Signatures ---
+  (type $t_sig_1 (func (param i32)))
+  (type $t_sig_2 (func (param i32 i32 i32) (result i32)))
+  (type $t_sig_3 (func (param i32) (result f64)))
+  (type $t_sig_4 (func (param i32 i32) (result i32)))
+  (type $t_sig_5 (func (param i32 i32) (result f64)))
+  (type $t_sig_6 (func (param i32) (result i32)))
+  (type $t_sig_7 (func (param i32 i32 i32 i32) (result i32)))
+  (type $t_sig_8 (func (param i32 i32 i32 i32 i32) (result i32)))
+  (type $t_sig_9 (func (param i32 i32 i32)))
+  ;; --- WebAssembly Function Table (VTable) ---
+  (table (export "__vtable") 44 funcref)
+  (elem (i32.const 0) $sayHello $addNumbers $getPi $calculateFactorial $sumRangeWithSkips $sumArray $sumArrayWithSkips $sumDoubleArray $sumInlineArray $createAndSumArray $evaluateSwitch $switchFallthrough $switchInsideLoop $labeledBreakNestedLoops $labeledContinueNestedLoops $labeledBlockBreak $labeledWhileBreak $concatStrings $formatUser $getStringLength $getCharAtIndex $getSubString $compareStrings $findSubstringIndex $findMissingSubstringIndex $buildCustomString $manipulateStringBuilder $testPointObject $testDirectFieldAccess $testPolymorphismArea $testInheritedColor $testInstanceOf $testObjectArray $Point_getX $Point_getY $Point_setLocation $Point_distanceSq $Shape_getColor $Shape_area $Shape_getColor $Circle_area $Circle_getRadius $Shape_getColor $Rectangle_area)
+  ;; --- Heap Allocation Functions ---
+  (func $__heap_alloc (export "__heap_alloc") (param $size i32) (result i32)
+    (local $ptr i32)
+    (local $aligned_size i32)
+    (local $i i32)
+    global.get $__heap_ptr
+    local.set $ptr
+    local.get $size
+    i32.const 7
+    i32.add
+    i32.const -8
+    i32.and
+    local.set $aligned_size
+    global.get $__heap_ptr
+    local.get $aligned_size
+    i32.add
+    global.set $__heap_ptr
+    i32.const 0
+    local.set $i
+    (block $break_zero
+      (loop $loop_zero
+        local.get $i
+        local.get $aligned_size
+        i32.ge_s
+        br_if $break_zero
+        local.get $ptr
+        local.get $i
+        i32.add
+        i32.const 0
+        i32.store8
+        local.get $i
+        i32.const 1
+        i32.add
+        local.set $i
+        br $loop_zero
+      )
+    )
+    local.get $ptr
+  )
   ;; --- String Runtime Functions ---
   (func $__str_alloc (export "__str_alloc") (param $len i32) (result i32)
     (local $ptr i32)
@@ -690,6 +742,9 @@
     (local $__str_tmp i32)
     (local $__str_sub_start i32)
     (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
   )
   (func $addNumbers (export "addNumbers") (param $a i32) (param $b i32) (result i32)
     (local $__arr_alloc_ptr i32)
@@ -698,6 +753,9 @@
     (local $__str_tmp i32)
     (local $__str_sub_start i32)
     (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
     local.get $a
     local.get $b
     i32.add
@@ -710,6 +768,9 @@
     (local $__str_tmp i32)
     (local $__str_sub_start i32)
     (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
     f64.const 3.14159
     return
   )
@@ -722,6 +783,9 @@
     (local $__str_tmp i32)
     (local $__str_sub_start i32)
     (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
     i32.const 1
     local.set $result
     i32.const 1
@@ -758,6 +822,9 @@
     (local $__str_tmp i32)
     (local $__str_sub_start i32)
     (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
     i32.const 0
     local.set $sum
     i32.const 1
@@ -773,19 +840,15 @@
     local.get $i
     i32.const 3
     i32.eq
-    (if
-      (then
+    if
     br $continue_for_2
-      )
-    )
+    end
     local.get $i
     i32.const 8
     i32.gt_s
-    (if
-      (then
+    if
     br $break_for_2
-      )
-    )
+    end
     local.get $sum
     local.get $i
     i32.add
@@ -813,6 +876,9 @@
     (local $__str_tmp i32)
     (local $__str_sub_start i32)
     (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
     i32.const 0
     local.set $total
     local.get $numbers
@@ -863,6 +929,9 @@
     (local $__str_tmp i32)
     (local $__str_sub_start i32)
     (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
     i32.const 0
     local.set $total
     local.get $numbers
@@ -889,19 +958,15 @@
     local.get $n
     i32.const 3
     i32.eq
-    (if
-      (then
+    if
     br $continue_foreach_4
-      )
-    )
+    end
     local.get $n
     i32.const 8
     i32.gt_s
-    (if
-      (then
+    if
     br $break_foreach_4
-      )
-    )
+    end
     local.get $total
     local.get $n
     i32.add
@@ -929,6 +994,9 @@
     (local $__str_tmp i32)
     (local $__str_sub_start i32)
     (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
     f64.const 0.0
     local.set $total
     local.get $values
@@ -979,6 +1047,9 @@
     (local $__str_tmp i32)
     (local $__str_sub_start i32)
     (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
     i32.const 0
     local.set $total
     global.get $__heap_ptr
@@ -1051,6 +1122,9 @@
     (local $__str_tmp i32)
     (local $__str_sub_start i32)
     (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
     global.get $__heap_ptr
     local.set $__arr_alloc_ptr
     global.get $__heap_ptr
@@ -1118,6 +1192,9 @@
     (local $__str_tmp i32)
     (local $__str_sub_start i32)
     (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
     i32.const 0
     local.set $result
     local.get $code
@@ -1127,7 +1204,6 @@
       (block $case_8_2
       (block $case_8_1
       (block $case_8_0
-        ;; Dispatch logic for switch cases
         local.get $__switch_val_1
     i32.const 1
         i32.eq
@@ -1141,19 +1217,20 @@
         i32.eq
         br_if $case_8_2
         br $case_8_3
-      )
+        br $break_switch_8
+      ) ;; end block $case_8_0
     i32.const 100
     local.set $result
     br $break_switch_8
-      )
+      ) ;; end block $case_8_1
     i32.const 200
     local.set $result
     br $break_switch_8
-      )
+      ) ;; end block $case_8_2
     i32.const 300
     local.set $result
     br $break_switch_8
-      )
+      ) ;; end block $case_8_3
     i32.const 0
     i32.const 1
     i32.sub
@@ -1172,6 +1249,9 @@
     (local $__str_tmp i32)
     (local $__str_sub_start i32)
     (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
     i32.const 0
     local.set $result
     local.get $code
@@ -1181,7 +1261,6 @@
       (block $case_9_2
       (block $case_9_1
       (block $case_9_0
-        ;; Dispatch logic for switch cases
         local.get $__switch_val_1
     i32.const 1
         i32.eq
@@ -1195,24 +1274,25 @@
         i32.eq
         br_if $case_9_2
         br $case_9_3
-      )
+        br $break_switch_9
+      ) ;; end block $case_9_0
     local.get $result
     i32.const 10
     i32.add
     local.set $result
-      )
+      ) ;; end block $case_9_1
     local.get $result
     i32.const 20
     i32.add
     local.set $result
     br $break_switch_9
-      )
+      ) ;; end block $case_9_2
     local.get $result
     i32.const 30
     i32.add
     local.set $result
     br $break_switch_9
-      )
+      ) ;; end block $case_9_3
     local.get $result
     i32.const 5
     i32.add
@@ -1232,6 +1312,9 @@
     (local $__str_tmp i32)
     (local $__str_sub_start i32)
     (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
     i32.const 0
     local.set $total
     i32.const 1
@@ -1250,7 +1333,6 @@
       (block $case_11_2
       (block $case_11_1
       (block $case_11_0
-        ;; Dispatch logic for switch cases
         local.get $__switch_val_1
     i32.const 2
         i32.eq
@@ -1260,19 +1342,20 @@
         i32.eq
         br_if $case_11_1
         br $case_11_2
-      )
+        br $break_switch_11
+      ) ;; end block $case_11_0
     local.get $total
     i32.const 20
     i32.add
     local.set $total
     br $break_switch_11
-      )
+      ) ;; end block $case_11_1
     local.get $total
     i32.const 40
     i32.add
     local.set $total
     br $break_switch_11
-      )
+      ) ;; end block $case_11_2
     local.get $total
     i32.const 1
     i32.add
@@ -1300,6 +1383,9 @@
     (local $__str_tmp i32)
     (local $__str_sub_start i32)
     (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
     i32.const 0
     local.set $count
     i32.const 0
@@ -1329,11 +1415,9 @@
     i32.const 1
     i32.eq
     i32.and
-    (if
-      (then
+    if
     br $break_for_12
-      )
-    )
+    end
     local.get $count
     i32.const 1
     i32.add
@@ -1367,6 +1451,9 @@
     (local $__str_tmp i32)
     (local $__str_sub_start i32)
     (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
     i32.const 0
     local.set $count
     i32.const 0
@@ -1392,11 +1479,9 @@
     local.get $j
     i32.const 2
     i32.eq
-    (if
-      (then
+    if
     br $continue_for_14
-      )
-    )
+    end
     local.get $count
     i32.const 1
     i32.add
@@ -1428,21 +1513,22 @@
     (local $__str_tmp i32)
     (local $__str_sub_start i32)
     (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
     i32.const 10
     local.set $res
     (block $break_label_16
     local.get $flag
     i32.const 1
     i32.eq
-    (if
-      (then
+    if
     local.get $res
     i32.const 5
     i32.add
     local.set $res
     br $break_label_16
-      )
-    )
+    end
     local.get $res
     i32.const 20
     i32.add
@@ -1461,6 +1547,9 @@
     (local $__str_tmp i32)
     (local $__str_sub_start i32)
     (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
     i32.const 0
     local.set $sum
     i32.const 0
@@ -1488,11 +1577,9 @@
     i32.const 1
     i32.eq
     i32.and
-    (if
-      (then
+    if
     br $break_while_17
-      )
-    )
+    end
     local.get $sum
     i32.const 1
     i32.add
@@ -1523,6 +1610,9 @@
     (local $__str_tmp i32)
     (local $__str_sub_start i32)
     (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
     i32.const 4096
     local.set $greeting
     i32.const 4102
@@ -1543,6 +1633,9 @@
     (local $__str_tmp i32)
     (local $__str_sub_start i32)
     (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
     i32.const 4119
     local.get $name
     call $__str_concat
@@ -1563,6 +1656,9 @@
     (local $__str_tmp i32)
     (local $__str_sub_start i32)
     (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
     i32.const 4102
     local.set $s
     local.get $s
@@ -1577,6 +1673,9 @@
     (local $__str_tmp i32)
     (local $__str_sub_start i32)
     (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
     i32.const 4102
     local.set $s
     local.get $s
@@ -1592,6 +1691,9 @@
     (local $__str_tmp i32)
     (local $__str_sub_start i32)
     (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
     i32.const 4136
     local.set $s
     local.get $s
@@ -1607,15 +1709,16 @@
     (local $__str_tmp i32)
     (local $__str_sub_start i32)
     (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
     local.get $a
     local.get $b
     call $__str_equals
-    (if
-      (then
+    if
     i32.const 1
     return
-      )
-    )
+    end
     i32.const 0
     return
   )
@@ -1627,6 +1730,9 @@
     (local $__str_tmp i32)
     (local $__str_sub_start i32)
     (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
     i32.const 4136
     local.set $s
     local.get $s
@@ -1642,6 +1748,9 @@
     (local $__str_tmp i32)
     (local $__str_sub_start i32)
     (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
     i32.const 4136
     local.set $s
     local.get $s
@@ -1658,6 +1767,9 @@
     (local $__str_tmp i32)
     (local $__str_sub_start i32)
     (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
     i32.const 16
     call $__sb_new
     local.set $__sb_tmp
@@ -1705,6 +1817,9 @@
     (local $__str_tmp i32)
     (local $__str_sub_start i32)
     (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
     i32.const 16
     call $__sb_new
     local.set $__sb_tmp
@@ -1724,6 +1839,637 @@
     drop
     local.get $sb
     call $__sb_toString
+    return
+  )
+  (func $testPointObject (export "testPointObject") (param $x i32) (param $y i32) (result i32)
+    (local $p i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    i32.const 16
+    call $__heap_alloc
+    local.set $__obj_alloc_ptr
+    local.get $__obj_alloc_ptr
+    i32.const 33
+    i32.store offset=0
+    local.get $__obj_alloc_ptr
+    local.get $x
+    local.get $y
+    call $Point__init
+    local.get $__obj_alloc_ptr
+    local.set $p
+    local.get $p
+    local.set $__obj_tmp
+    local.get $__obj_tmp
+    local.get $x
+    i32.const 1
+    i32.add
+    local.get $y
+    i32.const 2
+    i32.add
+    local.get $__obj_tmp
+    i32.load offset=0
+    i32.const 2
+    i32.add
+    call_indirect (type $t_sig_9)
+    local.get $p
+    local.set $__obj_tmp
+    local.get $__obj_tmp
+    local.get $__obj_tmp
+    i32.load offset=0
+    i32.const 3
+    i32.add
+    call_indirect (type $t_sig_6)
+    return
+  )
+  (func $testDirectFieldAccess (export "testDirectFieldAccess") (param $x i32) (param $y i32) (result i32)
+    (local $p i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    i32.const 16
+    call $__heap_alloc
+    local.set $__obj_alloc_ptr
+    local.get $__obj_alloc_ptr
+    i32.const 33
+    i32.store offset=0
+    local.get $__obj_alloc_ptr
+    local.get $x
+    local.get $y
+    call $Point__init
+    local.get $__obj_alloc_ptr
+    local.set $p
+    local.get $p
+    local.set $__obj_tmp
+    local.get $__obj_tmp
+    local.get $__obj_tmp
+    i32.load offset=4
+    i32.const 5
+    i32.add
+    i32.store offset=4
+    local.get $p
+    local.set $__obj_tmp
+    local.get $__obj_tmp
+    local.get $__obj_tmp
+    i32.load offset=8
+    i32.const 10
+    i32.add
+    i32.store offset=8
+    local.get $p
+    i32.load offset=4
+    local.get $p
+    i32.load offset=8
+    i32.add
+    return
+  )
+  (func $testPolymorphismArea (export "testPolymorphismArea") (param $type i32) (param $param1 i32) (param $param2 i32) (result i32)
+    (local $s i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    local.get $type
+    i32.const 1
+    i32.eq
+    if
+    i32.const 16
+    call $__heap_alloc
+    local.set $__obj_alloc_ptr
+    local.get $__obj_alloc_ptr
+    i32.const 39
+    i32.store offset=0
+    local.get $__obj_alloc_ptr
+    i32.const 100
+    local.get $param1
+    call $Circle__init
+    local.get $__obj_alloc_ptr
+    local.set $s
+    else
+    i32.const 16
+    call $__heap_alloc
+    local.set $__obj_alloc_ptr
+    local.get $__obj_alloc_ptr
+    i32.const 42
+    i32.store offset=0
+    local.get $__obj_alloc_ptr
+    i32.const 200
+    local.get $param1
+    local.get $param2
+    call $Rectangle__init
+    local.get $__obj_alloc_ptr
+    local.set $s
+    end
+    local.get $s
+    local.set $__obj_tmp
+    local.get $__obj_tmp
+    local.get $__obj_tmp
+    i32.load offset=0
+    i32.const 1
+    i32.add
+    call_indirect (type $t_sig_6)
+    return
+  )
+  (func $testInheritedColor (export "testInheritedColor") (param $type i32) (param $color i32) (param $param1 i32) (param $param2 i32) (result i32)
+    (local $s i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    local.get $type
+    i32.const 1
+    i32.eq
+    if
+    i32.const 16
+    call $__heap_alloc
+    local.set $__obj_alloc_ptr
+    local.get $__obj_alloc_ptr
+    i32.const 39
+    i32.store offset=0
+    local.get $__obj_alloc_ptr
+    local.get $color
+    local.get $param1
+    call $Circle__init
+    local.get $__obj_alloc_ptr
+    local.set $s
+    else
+    i32.const 16
+    call $__heap_alloc
+    local.set $__obj_alloc_ptr
+    local.get $__obj_alloc_ptr
+    i32.const 42
+    i32.store offset=0
+    local.get $__obj_alloc_ptr
+    local.get $color
+    local.get $param1
+    local.get $param2
+    call $Rectangle__init
+    local.get $__obj_alloc_ptr
+    local.set $s
+    end
+    local.get $s
+    local.set $__obj_tmp
+    local.get $__obj_tmp
+    local.get $__obj_tmp
+    i32.load offset=0
+    i32.const 0
+    i32.add
+    call_indirect (type $t_sig_6)
+    return
+  )
+  (func $testInstanceOf (export "testInstanceOf") (param $type i32) (result i32)
+    (local $s i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    local.get $type
+    i32.const 1
+    i32.eq
+    if
+    i32.const 16
+    call $__heap_alloc
+    local.set $__obj_alloc_ptr
+    local.get $__obj_alloc_ptr
+    i32.const 39
+    i32.store offset=0
+    local.get $__obj_alloc_ptr
+    i32.const 10
+    i32.const 5
+    call $Circle__init
+    local.get $__obj_alloc_ptr
+    local.set $s
+    else
+    i32.const 16
+    call $__heap_alloc
+    local.set $__obj_alloc_ptr
+    local.get $__obj_alloc_ptr
+    i32.const 42
+    i32.store offset=0
+    local.get $__obj_alloc_ptr
+    i32.const 20
+    i32.const 4
+    i32.const 6
+    call $Rectangle__init
+    local.get $__obj_alloc_ptr
+    local.set $s
+    end
+    local.get $s
+    local.set $__obj_tmp
+    local.get $__obj_tmp
+    i32.eqz
+    if (result i32)
+      i32.const 0
+    else
+      local.get $__obj_tmp
+      i32.load offset=0
+      local.set $__vtable_tmp
+      i32.const 0
+      local.get $__vtable_tmp
+      i32.const 39
+      i32.eq
+      i32.or
+    end
+    if
+    i32.const 1
+    return
+    else
+    local.get $s
+    local.set $__obj_tmp
+    local.get $__obj_tmp
+    i32.eqz
+    if (result i32)
+      i32.const 0
+    else
+      local.get $__obj_tmp
+      i32.load offset=0
+      local.set $__vtable_tmp
+      i32.const 0
+      local.get $__vtable_tmp
+      i32.const 42
+      i32.eq
+      i32.or
+    end
+    if
+    i32.const 2
+    return
+    end
+    end
+    i32.const 0
+    return
+  )
+  (func $testObjectArray (export "testObjectArray") (result i32)
+    (local $pts i32)
+    (local $totalDist i32)
+    (local $p i32)
+    (local $__arr_ptr_1 i32)
+    (local $__arr_len_1 i32)
+    (local $__arr_idx_1 i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    i32.const 3
+    local.set $__arr_alloc_len
+    global.get $__heap_ptr
+    local.set $__arr_alloc_ptr
+    local.get $__arr_alloc_ptr
+    local.get $__arr_alloc_len
+    i32.store
+    global.get $__heap_ptr
+    i32.const 11
+    local.get $__arr_alloc_len
+    i32.const 4
+    i32.mul
+    i32.add
+    i32.const -8
+    i32.and
+    i32.add
+    global.set $__heap_ptr
+    local.get $__arr_alloc_ptr
+    local.set $pts
+    local.get $pts
+    i32.const 0
+    i32.const 4
+    i32.mul
+    i32.add
+    i32.const 16
+    call $__heap_alloc
+    local.set $__obj_alloc_ptr
+    local.get $__obj_alloc_ptr
+    i32.const 33
+    i32.store offset=0
+    local.get $__obj_alloc_ptr
+    i32.const 1
+    i32.const 2
+    call $Point__init
+    local.get $__obj_alloc_ptr
+    i32.store offset=4
+    local.get $pts
+    i32.const 1
+    i32.const 4
+    i32.mul
+    i32.add
+    i32.const 16
+    call $__heap_alloc
+    local.set $__obj_alloc_ptr
+    local.get $__obj_alloc_ptr
+    i32.const 33
+    i32.store offset=0
+    local.get $__obj_alloc_ptr
+    i32.const 3
+    i32.const 4
+    call $Point__init
+    local.get $__obj_alloc_ptr
+    i32.store offset=4
+    local.get $pts
+    i32.const 2
+    i32.const 4
+    i32.mul
+    i32.add
+    i32.const 16
+    call $__heap_alloc
+    local.set $__obj_alloc_ptr
+    local.get $__obj_alloc_ptr
+    i32.const 33
+    i32.store offset=0
+    local.get $__obj_alloc_ptr
+    i32.const 5
+    i32.const 6
+    call $Point__init
+    local.get $__obj_alloc_ptr
+    i32.store offset=4
+    i32.const 0
+    local.set $totalDist
+    local.get $pts
+    local.set $__arr_ptr_1
+    local.get $__arr_ptr_1
+    i32.load
+    local.set $__arr_len_1
+    i32.const 0
+    local.set $__arr_idx_1
+    (block $break_foreach_20
+      (loop $loop_foreach_20
+        local.get $__arr_idx_1
+        local.get $__arr_len_1
+        i32.ge_s
+        br_if $break_foreach_20
+        local.get $__arr_ptr_1
+        local.get $__arr_idx_1
+        i32.const 4
+        i32.mul
+        i32.add
+        i32.load offset=4
+        local.set $p
+        (block $continue_foreach_20
+    local.get $totalDist
+    local.get $p
+    local.set $__obj_tmp
+    local.get $__obj_tmp
+    local.get $__obj_tmp
+    i32.load offset=0
+    i32.const 3
+    i32.add
+    call_indirect (type $t_sig_6)
+    i32.add
+    local.set $totalDist
+        )
+        local.get $__arr_idx_1
+        i32.const 1
+        i32.add
+        local.set $__arr_idx_1
+        br $loop_foreach_20
+      )
+    )
+    local.get $totalDist
+    return
+  )
+  ;; Class/Interface: Point
+  (func $Point__init (export "Point__init") (param $this i32) (param $x i32) (param $y i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    local.get $this
+    local.get $x
+    i32.store offset=4
+    local.get $this
+    local.get $y
+    i32.store offset=8
+  )
+  (func $Point_getX (export "Point_getX") (param $this i32) (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    local.get $this
+    i32.load offset=4
+    return
+  )
+  (func $Point_getY (export "Point_getY") (param $this i32) (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    local.get $this
+    i32.load offset=8
+    return
+  )
+  (func $Point_setLocation (export "Point_setLocation") (param $this i32) (param $newX i32) (param $newY i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    local.get $this
+    local.get $newX
+    i32.store offset=4
+    local.get $this
+    local.get $newY
+    i32.store offset=8
+  )
+  (func $Point_distanceSq (export "Point_distanceSq") (param $this i32) (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    local.get $this
+    i32.load offset=4
+    local.get $this
+    i32.load offset=4
+    i32.mul
+    local.get $this
+    i32.load offset=8
+    local.get $this
+    i32.load offset=8
+    i32.mul
+    i32.add
+    return
+  )
+  ;; Class/Interface: Shape
+  (func $Shape__init (export "Shape__init") (param $this i32) (param $color i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    local.get $this
+    local.get $color
+    i32.store offset=4
+  )
+  (func $Shape_getColor (export "Shape_getColor") (param $this i32) (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    local.get $this
+    i32.load offset=4
+    return
+  )
+  (func $Shape_area (export "Shape_area") (param $this i32) (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    i32.const 0
+    return
+  )
+  ;; Class/Interface: Circle
+  (func $Circle__init (export "Circle__init") (param $this i32) (param $color i32) (param $radius i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    local.get $this
+    local.get $color
+    call $Shape__init
+    local.get $this
+    local.get $radius
+    i32.store offset=8
+  )
+  (func $Circle_getRadius (export "Circle_getRadius") (param $this i32) (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    local.get $this
+    i32.load offset=8
+    return
+  )
+  (func $Circle_area (export "Circle_area") (param $this i32) (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    i32.const 3
+    local.get $this
+    i32.load offset=8
+    i32.mul
+    local.get $this
+    i32.load offset=8
+    i32.mul
+    return
+  )
+  ;; Class/Interface: Rectangle
+  (func $Rectangle__init (export "Rectangle__init") (param $this i32) (param $color i32) (param $width i32) (param $height i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    local.get $this
+    local.get $color
+    call $Shape__init
+    local.get $this
+    local.get $width
+    i32.store offset=8
+    local.get $this
+    local.get $height
+    i32.store offset=12
+  )
+  (func $Rectangle_area (export "Rectangle_area") (param $this i32) (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    local.get $this
+    i32.load offset=8
+    local.get $this
+    i32.load offset=12
+    i32.mul
     return
   )
 )

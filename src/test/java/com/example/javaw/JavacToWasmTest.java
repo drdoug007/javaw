@@ -255,4 +255,46 @@ public class JavacToWasmTest {
         assertTrue(wat.contains("$__sb_append_i32"));
         assertTrue(wat.contains("$__sb_toString"));
     }
+
+    @Test
+    public void testGenerateWatWithObjectOrientedAndPolymorphism() {
+        String javaSource = "package com.example.javaw;\n" +
+                "public class OopApp {\n" +
+                "    public int testOop() {\n" +
+                "        Shape s = new Circle(10, 5);\n" +
+                "        return s.area();\n" +
+                "    }\n" +
+                "}\n" +
+                "class Shape {\n" +
+                "    public int color;\n" +
+                "    public Shape(int color) {\n" +
+                "        this.color = color;\n" +
+                "    }\n" +
+                "    public int area() {\n" +
+                "        return 0;\n" +
+                "    }\n" +
+                "}\n" +
+                "class Circle extends Shape {\n" +
+                "    public int radius;\n" +
+                "    public Circle(int color, int radius) {\n" +
+                "        super(color);\n" +
+                "        this.radius = radius;\n" +
+                "    }\n" +
+                "    public int area() {\n" +
+                "        return 3 * radius * radius;\n" +
+                "    }\n" +
+                "}\n";
+
+        CompilationUnit cu = StaticJavaParser.parse(javaSource);
+        String wat = JavacToWasm.generateWat(cu);
+
+        assertTrue(wat.contains("(table (export \"__vtable\")"));
+        assertTrue(wat.contains("call_indirect"));
+        assertTrue(wat.contains("$__heap_alloc"));
+        assertTrue(wat.contains("(func $Circle__init"));
+        assertTrue(wat.contains("(func $Shape__init"));
+        assertTrue(wat.contains("(func $Circle_area"));
+        assertTrue(wat.contains("(func $Shape_area"));
+        assertTrue(wat.contains("(func $testOop (export \"testOop\") (result i32)"));
+    }
 }

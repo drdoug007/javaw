@@ -223,7 +223,19 @@ async function runTest() {
             assert.strictEqual(instance.exports.labeledBlockBreak(0), 30);
             assert.strictEqual(instance.exports.labeledWhileBreak(3), 4);
 
-            console.log('✓ TestClass execution assertions passed (including for loops, for-each loops, arrays, switches, labeled break/continue, and compound assignments).');
+            // Test Object-Oriented Programming (OOP), Polymorphism & Memory Allocation
+            assert.strictEqual(instance.exports.testPointObject(3, 4), 52);
+            assert.strictEqual(instance.exports.testDirectFieldAccess(10, 20), 45);
+            assert.strictEqual(instance.exports.testPolymorphismArea(1, 5, 0), 75);
+            assert.strictEqual(instance.exports.testPolymorphismArea(2, 4, 6), 24);
+            assert.strictEqual(instance.exports.testInheritedColor(1, 100, 5, 0), 100);
+            assert.strictEqual(instance.exports.testInheritedColor(2, 200, 4, 6), 200);
+            assert.strictEqual(instance.exports.testInstanceOf(1), 1);
+            assert.strictEqual(instance.exports.testInstanceOf(2), 2);
+            assert.strictEqual(instance.exports.testObjectArray(), 91);
+
+            console.log('✓ OOP & Polymorphism assertions passed (objects, constructors, fields, vtable dispatch, instanceof, object arrays).');
+            console.log('✓ TestClass execution assertions passed (including for loops, for-each loops, arrays, switches, labeled break/continue, compound assignments, dynamic strings, and OOP).');
         }
 
         // ==========================================

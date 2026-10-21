@@ -14,7 +14,14 @@ With built-in linear memory allocation, static string constant pooling, and a ze
 
 ## Features
 
-- **AST-Based Lowering & Modular Compiler Architecture**: Directly parses Java source files using JavaParser and translates statements and expressions to WebAssembly instructions, separated into dedicated functional modules (`JavacToWasm`, `WasmGeneratorVisitor`, `WasmRuntime`, `DomHelper`, `TypeMapper`).
+- **AST-Based Lowering & Modular Compiler Architecture**: Directly parses Java source files using JavaParser and translates statements and expressions to WebAssembly instructions, separated into dedicated functional modules (`JavacToWasm`, `WasmGeneratorVisitor`, `WasmRuntime`, `DomHelper`, `TypeMapper`, `ClassRegistry`).
+- **Object-Oriented Programming (OOP) & Dynamic Memory**:
+  - Dynamic linear memory bump allocation (`$__heap_alloc`) with 8-byte alignment and zero-initialization for objects and data structures.
+  - Struct byte layout modeling, instance fields (`this.field`, `obj.field = val`, compound updates), and automatic `$this` parameter passing.
+  - Full constructor lowering (`$ClassName__init`), constructor overloading, and `super(...)` constructor chaining.
+  - Polymorphism and dynamic method dispatch via WebAssembly function tables (`(table (export "__vtable") ... funcref)`) and `call_indirect`.
+  - Multi-level class inheritance, `super.method(...)` calls, and runtime `instanceof` type checking.
+  - Object reference arrays (`MyClass[]`) with dynamic indexing and iteration support.
 - **WebAssembly Linear Memory & Dynamic Heap**:
   - Automatically exports linear memory `(memory (export "memory") 2)`.
   - Pools UTF-8 encoded String literals at compile-time into static WebAssembly data segments `(data (i32.const offset) "bytes\00")`.
@@ -66,9 +73,13 @@ With built-in linear memory allocation, static string constant pooling, and a ze
 │   │   ├── java/com/example/javaw
 │   │   │   ├── JavacToWasm.java       # Compiler CLI coordinator and entry point
 │   │   │   ├── WasmGeneratorVisitor.java # AST visitor lowering Java statements & expressions
-│   │   │   ├── WasmRuntime.java       # WebAssembly linear memory helper routines (strings, arrays)
+│   │   │   ├── WasmRuntime.java       # WebAssembly linear memory helper routines (heap, strings, arrays)
 │   │   │   ├── DomHelper.java         # DOM API import collector and emitter
 │   │   │   ├── TypeMapper.java        # Java to WebAssembly type mapping
+│   │   │   ├── ClassRegistry.java     # Class layout, vtable calculation & dispatch manager
+│   │   │   ├── ClassModel.java        # Class metadata model
+│   │   │   ├── FieldModel.java        # Field layout & byte offset model
+│   │   │   ├── MethodModel.java       # Method signature & vtable slot model
 │   │   │   ├── StringConstant.java    # String literal pool model
 │   │   │   ├── GlobalVar.java         # Global field variable model
 │   │   │   ├── LoopContext.java       # Loop label and jump context tracker
@@ -247,6 +258,76 @@ public class DataProcessor {
         }
         sb.append(total);
         return sb.toString();
+    }
+}
+```
+
+---
+
+#### Example D: Object-Oriented Programming & Polymorphism
+
+```java
+package com.example.javaw;
+
+public class Geometry {
+
+    public static class Shape {
+        protected int color;
+
+        public Shape(int color) {
+            this.color = color;
+        }
+
+        public double getArea() {
+            return 0.0;
+        }
+
+        public int getColor() {
+            return this.color;
+        }
+    }
+
+    public static class Rectangle extends Shape {
+        private double width;
+        private double height;
+
+        public Rectangle(int color, double width, double height) {
+            super(color);
+            this.width = width;
+            this.height = height;
+        }
+
+        @Override
+        public double getArea() {
+            return this.width * this.height;
+        }
+    }
+
+    public static class Circle extends Shape {
+        private double radius;
+
+        public Circle(int color, double radius) {
+            super(color);
+            this.radius = radius;
+        }
+
+        @Override
+        public double getArea() {
+            return 3.1415926535 * this.radius * this.radius;
+        }
+    }
+
+    public double computeTotalArea(Shape[] shapes) {
+        double total = 0.0;
+        for (Shape s : shapes) {
+            // Polymorphic dispatch via WebAssembly function table (call_indirect)
+            total += s.getArea();
+        }
+        return total;
+    }
+
+    public boolean isCircle(Shape shape) {
+        return shape instanceof Circle;
     }
 }
 ```

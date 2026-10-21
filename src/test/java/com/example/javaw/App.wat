@@ -25,6 +25,50 @@
   (data (i32.const 4243) "Count: 2 clicks\00")
   (data (i32.const 4259) "Count: multiple clicks\00")
   (global $__heap_ptr (mut i32) (i32.const 65536))
+  ;; --- WebAssembly Function Type Signatures ---
+  (type $t_sig_1 (func (param i32)))
+  ;; --- WebAssembly Function Table (VTable) ---
+  (table (export "__vtable") 2 funcref)
+  (elem (i32.const 0) $start $increment)
+  ;; --- Heap Allocation Functions ---
+  (func $__heap_alloc (export "__heap_alloc") (param $size i32) (result i32)
+    (local $ptr i32)
+    (local $aligned_size i32)
+    (local $i i32)
+    global.get $__heap_ptr
+    local.set $ptr
+    local.get $size
+    i32.const 7
+    i32.add
+    i32.const -8
+    i32.and
+    local.set $aligned_size
+    global.get $__heap_ptr
+    local.get $aligned_size
+    i32.add
+    global.set $__heap_ptr
+    i32.const 0
+    local.set $i
+    (block $break_zero
+      (loop $loop_zero
+        local.get $i
+        local.get $aligned_size
+        i32.ge_s
+        br_if $break_zero
+        local.get $ptr
+        local.get $i
+        i32.add
+        i32.const 0
+        i32.store8
+        local.get $i
+        i32.const 1
+        i32.add
+        local.set $i
+        br $loop_zero
+      )
+    )
+    local.get $ptr
+  )
   ;; --- String Runtime Functions ---
   (func $__str_alloc (export "__str_alloc") (param $len i32) (result i32)
     (local $ptr i32)
@@ -707,6 +751,9 @@
     (local $__str_tmp i32)
     (local $__str_sub_start i32)
     (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
     i32.const 4096
     i32.const 3
     call $dom_getElementById
@@ -777,6 +824,9 @@
     (local $__str_tmp i32)
     (local $__str_sub_start i32)
     (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
     global.get $counter
     i32.const 1
     i32.add
@@ -788,32 +838,26 @@
     global.get $counter
     i32.const 1
     i32.eq
-    (if
-      (then
+    if
     local.get $status
     i32.const 4228
     i32.const 14
     call $dom_setInnerText
-      )
-      (else
+    else
     global.get $counter
     i32.const 2
     i32.eq
-    (if
-      (then
+    if
     local.get $status
     i32.const 4243
     i32.const 15
     call $dom_setInnerText
-      )
-      (else
+    else
     local.get $status
     i32.const 4259
     i32.const 22
     call $dom_setInnerText
-      )
-    )
-      )
-    )
+    end
+    end
   )
 )

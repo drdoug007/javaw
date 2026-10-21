@@ -77,6 +77,7 @@ public class JavacToWasm {
         Map<String, GlobalVar> globals = new LinkedHashMap<>();
         List<FieldDeclaration> fields = cu.findAll(FieldDeclaration.class);
         for (FieldDeclaration fd : fields) {
+            if (!fd.isStatic()) continue;
             for (VariableDeclarator vd : fd.getVariables()) {
                 String vName = vd.getNameAsString();
                 String vType = mapType(vd.getType());
@@ -168,12 +169,15 @@ public class JavacToWasm {
         }
         watOutput.append("  (global $__heap_ptr (mut i32) (i32.const ").append(heapStart).append("))\n");
 
+        ClassRegistry classRegistry = ClassRegistry.build(cu);
+        classRegistry.emitTypeSignaturesAndTable(watOutput);
+
         int trueOffset = stringPool.containsKey("true") ? stringPool.get("true").offset : 0;
         int falseOffset = stringPool.containsKey("false") ? stringPool.get("false").offset : 0;
 
         WasmRuntime.emitRuntimeFunctions(watOutput, trueOffset, falseOffset);
 
-        cu.accept(new WasmGeneratorVisitor(stringPool, globalVars), watOutput);
+        cu.accept(new WasmGeneratorVisitor(stringPool, globalVars, classRegistry), watOutput);
         watOutput.append(")\n");
         return watOutput.toString();
     }
