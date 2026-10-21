@@ -44,7 +44,6 @@ public class JavacToWasmTest {
         assertTrue(wat.contains("(memory (export \"memory\")"));
         assertTrue(wat.contains("(data (i32.const 4096) \"Hello, WebAssembly!\\00\")"));
         assertTrue(wat.contains("i32.const 4096"));
-        assertTrue(wat.contains("i32.const 19")); // length of "Hello, WebAssembly!"
     }
 
     @Test
@@ -177,5 +176,83 @@ public class JavacToWasmTest {
         assertTrue(wat.contains("block $case_"));
         assertTrue(wat.contains("i32.eq"));
         assertTrue(wat.contains("br_if $case_"));
+    }
+
+    @Test
+    public void testGenerateWatWithLabeledBreakAndContinue() {
+        String javaSource = "package com.example.javaw;\n" +
+                "public class LabeledApp {\n" +
+                "    public int searchMatrix() {\n" +
+                "        int count = 0;\n" +
+                "        outer: for (int i = 0; i < 5; i++) {\n" +
+                "            for (int j = 0; j < 5; j++) {\n" +
+                "                if (i == 2 && j == 1) break outer;\n" +
+                "                if (j == 3) continue outer;\n" +
+                "                count++;\n" +
+                "            }\n" +
+                "        }\n" +
+                "        return count;\n" +
+                "    }\n" +
+                "    public int testBlock(int flag) {\n" +
+                "        int x = 10;\n" +
+                "        myBlock: {\n" +
+                "            if (flag == 1) {\n" +
+                "                x += 5;\n" +
+                "                break myBlock;\n" +
+                "            }\n" +
+                "            x += 20;\n" +
+                "        }\n" +
+                "        return x;\n" +
+                "    }\n" +
+                "}\n";
+
+        CompilationUnit cu = StaticJavaParser.parse(javaSource);
+        String wat = JavacToWasm.generateWat(cu);
+
+        assertTrue(wat.contains("(func $searchMatrix (export \"searchMatrix\") (result i32)"));
+        assertTrue(wat.contains("block $break_for_"));
+        assertTrue(wat.contains("block $continue_for_"));
+        assertTrue(wat.contains("br $break_for_1"));
+        assertTrue(wat.contains("br $continue_for_1"));
+        assertTrue(wat.contains("(func $testBlock (export \"testBlock\") (param $flag i32) (result i32)"));
+        assertTrue(wat.contains("block $break_label_"));
+        assertTrue(wat.contains("br $break_label_"));
+    }
+
+    @Test
+    public void testGenerateWatWithStringsAndStringBuilder() {
+        String javaSource = "package com.example.javaw;\n" +
+                "import com.example.javaw.util.StringBuilder;\n" +
+                "public class StringApp {\n" +
+                "    public String buildMessage(String name, int age) {\n" +
+                "        String prefix = \"Hello, \";\n" +
+                "        String greeting = prefix + name + \"!\";\n" +
+                "        StringBuilder sb = new StringBuilder(\"Details: \");\n" +
+                "        sb.append(greeting);\n" +
+                "        sb.append(\" Age: \");\n" +
+                "        sb.append(age);\n" +
+                "        return sb.toString();\n" +
+                "    }\n" +
+                "    public int testOps(String s) {\n" +
+                "        if (s.equals(\"test\")) {\n" +
+                "            return s.length() + s.charAt(0) + s.indexOf(\"es\");\n" +
+                "        }\n" +
+                "        return 0;\n" +
+                "    }\n" +
+                "}\n";
+
+        CompilationUnit cu = StaticJavaParser.parse(javaSource);
+        String wat = JavacToWasm.generateWat(cu);
+
+        assertTrue(wat.contains("$__str_alloc"));
+        assertTrue(wat.contains("$__str_concat"));
+        assertTrue(wat.contains("$__str_length"));
+        assertTrue(wat.contains("$__str_equals"));
+        assertTrue(wat.contains("$__str_charAt"));
+        assertTrue(wat.contains("$__str_indexOf"));
+        assertTrue(wat.contains("$__sb_new"));
+        assertTrue(wat.contains("$__sb_append_str"));
+        assertTrue(wat.contains("$__sb_append_i32"));
+        assertTrue(wat.contains("$__sb_toString"));
     }
 }

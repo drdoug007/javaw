@@ -4,6 +4,25 @@ const path = require('path');
 const assert = require('assert');
 const { instantiateJavaw } = require('../../main/resources/javaw-runtime.js');
 
+function readWasmString(buffer, ptr) {
+    if (!ptr) return '';
+    const u8 = new Uint8Array(buffer, ptr);
+    let len = 0;
+    while (u8[len] !== 0) len++;
+    return new TextDecoder('utf-8').decode(u8.subarray(0, len));
+}
+
+function writeWasmString(instance, str) {
+    const bytes = Buffer.from(str, 'utf8');
+    const ptr = instance.exports.__str_alloc(bytes.length);
+    const view = new Uint8Array(instance.exports.memory.buffer);
+    for (let i = 0; i < bytes.length; i++) {
+        view[ptr + i] = bytes[i];
+    }
+    view[ptr + bytes.length] = 0;
+    return ptr;
+}
+
 // Configuration
 const JAR_PATH = path.resolve(__dirname, '../../../target/javaw-1.0-SNAPSHOT.jar');
 const TESTCLASS_JAVA = path.resolve(__dirname, '../java/com/example/javaw/TestClass.java');
@@ -161,7 +180,50 @@ async function runTest() {
             // Test Switch inside loop
             assert.strictEqual(instance.exports.switchInsideLoop(5), 63); // i=1(1) + i=2(20) + i=3(1) + i=4(40) + i=5(1) = 63
 
-            console.log('✓ TestClass execution assertions passed (including for loops, for-each loops, arrays, switches, break/continue, and compound assignments).');
+            // Test Dynamic String Concatenation & Core String Methods
+            const helloStrPtr = instance.exports.concatStrings();
+            const helloStr = readWasmString(instance.exports.memory.buffer, helloStrPtr);
+            assert.strictEqual(helloStr, 'Hello, WebAssembly!');
+
+            const alicePtr = writeWasmString(instance, 'Alice');
+            const formattedPtr = instance.exports.formatUser(alicePtr, 28);
+            const formatted = readWasmString(instance.exports.memory.buffer, formattedPtr);
+            assert.strictEqual(formatted, 'User: Alice (age: 28)');
+
+            assert.strictEqual(instance.exports.getStringLength(), 11);
+            assert.strictEqual(instance.exports.getCharAtIndex(3), 'A'.charCodeAt(0));
+
+            const subStrPtr = instance.exports.getSubString(6, 11);
+            const subStr = readWasmString(instance.exports.memory.buffer, subStrPtr);
+            assert.strictEqual(subStr, 'World');
+
+            const applePtr1 = writeWasmString(instance, 'Apple');
+            const applePtr2 = writeWasmString(instance, 'Apple');
+            const orangePtr = writeWasmString(instance, 'Orange');
+            assert.strictEqual(instance.exports.compareStrings(applePtr1, applePtr2), 1);
+            assert.strictEqual(instance.exports.compareStrings(applePtr1, orangePtr), 0);
+            assert.strictEqual(instance.exports.findSubstringIndex(), 6);
+            assert.strictEqual(instance.exports.findMissingSubstringIndex(), -1);
+
+            // Test StringBuilder operations
+            const builtStrPtr = instance.exports.buildCustomString(5);
+            const builtStr = readWasmString(instance.exports.memory.buffer, builtStrPtr);
+            assert.strictEqual(builtStr, 'Count: 0 1 2 3 4 ');
+
+            const sbManipPtr = instance.exports.manipulateStringBuilder();
+            const sbManip = readWasmString(instance.exports.memory.buffer, sbManipPtr);
+            assert.strictEqual(sbManip, 'javaw');
+
+            console.log('✓ Dynamic String & StringBuilder assertions passed.');
+
+            // Test Labeled Break and Continue
+            assert.strictEqual(instance.exports.labeledBreakNestedLoops(5, 5), 11);
+            assert.strictEqual(instance.exports.labeledContinueNestedLoops(4, 4), 8);
+            assert.strictEqual(instance.exports.labeledBlockBreak(1), 15);
+            assert.strictEqual(instance.exports.labeledBlockBreak(0), 30);
+            assert.strictEqual(instance.exports.labeledWhileBreak(3), 4);
+
+            console.log('✓ TestClass execution assertions passed (including for loops, for-each loops, arrays, switches, labeled break/continue, and compound assignments).');
         }
 
         // ==========================================

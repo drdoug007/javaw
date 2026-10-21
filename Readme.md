@@ -14,11 +14,25 @@ With built-in linear memory allocation, static string constant pooling, and a ze
 
 ## Features
 
-- **AST-Based Lowering**: Directly parses Java source files using JavaParser and translates statements and expressions to WebAssembly instructions.
-- **WebAssembly Linear Memory & String Pooling**:
-  - Automatically exports linear memory `(memory (export "memory") 1)`.
+- **AST-Based Lowering & Modular Compiler Architecture**: Directly parses Java source files using JavaParser and translates statements and expressions to WebAssembly instructions, separated into dedicated functional modules (`JavacToWasm`, `WasmGeneratorVisitor`, `WasmRuntime`, `DomHelper`, `TypeMapper`).
+- **WebAssembly Linear Memory & Dynamic Heap**:
+  - Automatically exports linear memory `(memory (export "memory") 2)`.
   - Pools UTF-8 encoded String literals at compile-time into static WebAssembly data segments `(data (i32.const offset) "bytes\00")`.
+  - Dynamic linear memory bump allocation (`global $__heap_ptr`) for runtime arrays and string manipulation.
   - Passes strings across the host boundary via efficient pointer and length pairs (`(ptr: i32, len: i32)`).
+- **Primitive Array Support**:
+  - Dynamic memory layout: `[length: i32, element_0, element_1, ...]`.
+  - Dynamic array instantiation (`new int[n]`, `new int[]{...}`).
+  - Element indexing and access (`arr[i]`), element updates (`arr[i] = val`, `arr[i] += val`), and array length property (`arr.length`).
+- **Dynamic Strings & StringBuilder**:
+  - Runtime string concatenation via `+` and `+=` operators (supporting strings, integers, characters, and booleans).
+  - Built-in string methods: `length()`, `charAt(index)`, `substring(start, end)`, `equals(other)`, `indexOf(str)`, `concat(str)`, and `isEmpty()`.
+  - Dynamic `StringBuilder` (`com.example.javaw.util.StringBuilder`) with chained `append(...)`, `setCharAt(...)`, and `toString()`.
+- **Comprehensive Control Flow**:
+  - `if-then-else` conditional branching.
+  - `while` loops, standard `for` loops, and enhanced `for-each` loops over arrays.
+  - `switch` statements and `switch` expressions (with `yield`, case matching, and fallthrough).
+  - Labeled `break` and `continue` statements for targeted outer loop/block exits.
 - **Strongly-Typed Java DOM Facade**:
   - `com.example.javaw.dom.DOM`: Static methods such as `getElementById`, `createElement`, and `getBody`.
   - `com.example.javaw.dom.Element`: Instance methods including `setInnerText`, `setAttribute`, `appendChild`, and `addEventListener`.
@@ -28,11 +42,10 @@ With built-in linear memory allocation, static string constant pooling, and a ze
   - 32-bit integer handle lookup table (`Map<number, HTMLElement>`) for safe referencing of DOM elements from WebAssembly.
   - Zero-copy UTF-8 text decoding from WebAssembly linear memory (`instance.exports.memory.buffer`).
   - Bi-directional event dispatching mapping browser DOM events to exported WebAssembly handler functions.
-- **Arithmetic & Control Flow Support**:
+- **Arithmetic & Primitive Types**:
   - Primitive and return type mapping (`void`, `int`, `boolean`, `char`, `long`, `float`, `double`).
   - Arithmetic and bitwise binary operators (`+`, `-`, `*`, `/`, `%`, `&`, `|`, `^`, `<<`, `>>`, `>>>`).
   - Unary operators (negation, logical/bitwise complement, prefix/postfix increments and decrements).
-  - Control flow structures (`if-then-else`, `while` loops with break/continue lowering).
   - Local variables and static global field variables.
 - **Binary WASM Assembly**: Automatically invokes `wat2wasm` (when present on `PATH`) to produce deployable `.wasm` binaries.
 - **Standalone Fat JAR**: Packaged via Maven Shade plugin for frictionless CLI use.
@@ -44,27 +57,37 @@ With built-in linear memory allocation, static string constant pooling, and a ze
 ```
 .
 ├── demo
-│   └── index.html                # Browser demo harness running compiled Java WASM
-├── pom.xml                       # Maven project configuration and shade packaging
-├── Readme.md                     # Project documentation
+│   └── index.html                     # Browser demo harness running compiled Java WASM
+├── pom.xml                            # Maven project configuration and shade packaging
+├── Readme.md                          # Project documentation
+├── Todo.md                            # Feature roadmap and implementation progress
 ├── src
 │   ├── main
 │   │   ├── java/com/example/javaw
-│   │   │   ├── JavacToWasm.java  # Core compiler and AST visitor implementation
-│   │   │   └── dom
-│   │   │       ├── DOM.java      # Java DOM API facade
-│   │   │       └── Element.java  # Java DOM Element facade
+│   │   │   ├── JavacToWasm.java       # Compiler CLI coordinator and entry point
+│   │   │   ├── WasmGeneratorVisitor.java # AST visitor lowering Java statements & expressions
+│   │   │   ├── WasmRuntime.java       # WebAssembly linear memory helper routines (strings, arrays)
+│   │   │   ├── DomHelper.java         # DOM API import collector and emitter
+│   │   │   ├── TypeMapper.java        # Java to WebAssembly type mapping
+│   │   │   ├── StringConstant.java    # String literal pool model
+│   │   │   ├── GlobalVar.java         # Global field variable model
+│   │   │   ├── LoopContext.java       # Loop label and jump context tracker
+│   │   │   ├── dom
+│   │   │   │   ├── DOM.java           # Java DOM API facade
+│   │   │   │   └── Element.java       # Java DOM Element facade
+│   │   │   └── util
+│   │   │       └── StringBuilder.java # Dynamic string builder facade
 │   │   └── resources
-│   │       └── javaw-runtime.js  # JavaScript WebAssembly host runtime bridge
+│   │       └── javaw-runtime.js       # JavaScript WebAssembly host runtime bridge
 │   └── test
 │       ├── java/com/example/javaw
-│       │   ├── App.java          # Java DOM & interactive event demo application
-│       │   ├── AppBrowserTest.java # Playwright browser integration test suite
-│       │   ├── JavacToWasmTest.java # JUnit 5 compiler unit test suite
-│       │   └── TestClass.java    # Sample Java class for calculation testing
+│       │   ├── App.java               # Java DOM & interactive event demo application
+│       │   ├── AppBrowserTest.java    # Playwright headless browser integration test suite
+│       │   ├── JavacToWasmTest.java   # JUnit 5 compiler unit test suite
+│       │   └── TestClass.java         # Comprehensive Java test suite (loops, arrays, strings)
 │       └── node-tests
-│           ├── package.json      # Node.js test configuration
-│           └── test.js           # End-to-end WebAssembly & DOM test suite
+│           ├── package.json           # Node.js test configuration
+│           └── test.js                # End-to-end WebAssembly execution & DOM test suite
 ```
 
 ---
@@ -191,6 +214,39 @@ public class App {
         } else {
             status.setInnerText("Count: multiple clicks");
         }
+    }
+}
+```
+
+---
+
+#### Example C: Arrays, Control Flow & Dynamic Strings
+
+```java
+package com.example.javaw;
+
+import com.example.javaw.util.StringBuilder;
+
+public class DataProcessor {
+    public int sumArray(int[] numbers) {
+        int sum = 0;
+        for (int n : numbers) {
+            sum += n;
+        }
+        return sum;
+    }
+
+    public String buildReport(String category, int[] scores) {
+        StringBuilder sb = new StringBuilder("Category: ");
+        sb.append(category);
+        sb.append(", Total: ");
+        
+        int total = 0;
+        for (int score : scores) {
+            total += score;
+        }
+        sb.append(total);
+        return sb.toString();
     }
 }
 ```

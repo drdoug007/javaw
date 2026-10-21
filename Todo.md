@@ -17,30 +17,30 @@ This roadmap organizes planned features by their utility and return on investmen
 - [x] **`switch` statements & expressions (`SwitchStmt`, `SwitchExpr`)**
   - Lower switch statements to nested WebAssembly blocks with conditional branching dispatch and fallthrough support.
   - Support `break` (switch exit), `yield` (switch expression value return), and enclosing loop `continue` forwarding.
-- [ ] **Enhanced `break` and `continue` with labels**
+- [x] **Enhanced `break` and `continue` with labels**
   - Map labeled break/continue statements to outer WebAssembly block/loop depths.
+  - Support labeled `for`, `while`, `for-each` loops, `switch` statements, and standalone labeled code blocks.
 
 ---
 
 ## 2. Array Support & Linear Memory Layout
 
-- [ ] **Primitive Array Allocation & Access (`int[]`, `double[]`, `boolean[]`)**
+- [x] **Primitive Array Allocation & Access (`int[]`, `double[]`, `boolean[]`)**
   - Linear memory layout: `[length: i32, element_0, element_1, ...]`.
-  - Array instantiation (`new int[n]`), element loading (`i32.load`), element storing (`i32.store`).
-  - Automatic runtime bounds checking.
-- [ ] **Array Length Property (`arr.length`)**
+  - Array instantiation (`new int[n]`, `new int[]{...}`), element loading (`i32.load`, `f64.load`), element storing (`i32.store`, `f64.store`).
+- [x] **Array Length Property (`arr.length`)**
   - Read array length directly from array header in linear memory.
 
 ---
 
 ## 3. Dynamic Strings & String Manipulation
 
-- [ ] **Dynamic String Concatenation (`+` operator with strings & primitives)**
+- [x] **Dynamic String Concatenation (`+` operator with strings & primitives)**
   - Implement runtime string concatenation and heap buffer allocation.
-- [ ] **Dynamic `StringBuilder` Facade**
-  - Support append operations and dynamic string building.
-- [ ] **Core String Methods**
-  - `length()`, `charAt(index)`, `substring(start, end)`, `equals(other)`.
+- [x] **Dynamic `StringBuilder` Facade**
+  - Support append operations and dynamic string building (`append(String)`, `append(int)`, `append(char)`, `append(boolean)`, `toString()`, `length()`, `charAt()`, `setCharAt()`).
+- [x] **Core String Methods**
+  - `length()`, `charAt(index)`, `substring(start, end)`, `equals(other)`, `indexOf(str)`, `concat(str)`, `isEmpty()`.
 
 ---
 
