@@ -15,7 +15,10 @@ import com.github.javaparser.ast.expr.StringLiteralExpr;
 import com.github.javaparser.ast.expr.UnaryExpr;
 import com.github.javaparser.ast.expr.VariableDeclarationExpr;
 import com.github.javaparser.ast.stmt.BlockStmt;
+import com.github.javaparser.ast.stmt.BreakStmt;
+import com.github.javaparser.ast.stmt.ContinueStmt;
 import com.github.javaparser.ast.stmt.ExpressionStmt;
+import com.github.javaparser.ast.stmt.ForStmt;
 import com.github.javaparser.ast.stmt.IfStmt;
 import com.github.javaparser.ast.stmt.ReturnStmt;
 import com.github.javaparser.ast.stmt.Statement;
@@ -28,7 +31,10 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -257,12 +263,24 @@ public class JavacToWasm {
         return mapType(type.asString());
     }
 
+    private static class LoopContext {
+        final String breakLabel;
+        final String continueLabel;
+
+        LoopContext(String breakLabel, String continueLabel) {
+            this.breakLabel = breakLabel;
+            this.continueLabel = continueLabel;
+        }
+    }
+
     /**
      * A visitor that translates Java AST elements into valid WebAssembly Text format (WAT).
      */
     private static class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         private final Map<String, StringConstant> stringPool;
         private final Map<String, GlobalVar> globalVars;
+        private final Deque<LoopContext> loopStack = new ArrayDeque<>();
+        private int loopCounter = 0;
 
         public WasmGeneratorVisitor(Map<String, StringConstant> stringPool, Map<String, GlobalVar> globalVars) {
             this.stringPool = stringPool;
@@ -302,13 +320,17 @@ public class JavacToWasm {
             if (n.getBody().isPresent()) {
                 BlockStmt body = n.getBody().get();
 
-                // Declare local variables at function start
+                // Declare local variables at function start (avoiding duplicates)
+                Set<String> declaredLocals = new HashSet<>(localTypes.keySet());
                 List<VariableDeclarator> varDecls = body.findAll(VariableDeclarator.class);
                 for (VariableDeclarator vd : varDecls) {
                     String vName = vd.getNameAsString();
                     String vType = mapType(vd.getType());
                     localTypes.put(vName, vType);
-                    collector.append("    (local $").append(vName).append(" ").append(vType).append(")\n");
+                    if (!declaredLocals.contains(vName)) {
+                        declaredLocals.add(vName);
+                        collector.append("    (local $").append(vName).append(" ").append(vType).append(")\n");
+                    }
                 }
 
                 // Translate statements
@@ -344,15 +366,70 @@ public class JavacToWasm {
                 collector.append("    )\n");
             } else if (stmt.isWhileStmt()) {
                 WhileStmt whileStmt = stmt.asWhileStmt();
-                collector.append("    (block $break_while\n");
-                collector.append("      (loop $loop_while\n");
+                int loopId = ++loopCounter;
+                String breakLabel = "break_while_" + loopId;
+                String loopLabel = "loop_while_" + loopId;
+
+                loopStack.push(new LoopContext(breakLabel, loopLabel));
+
+                collector.append("    (block $").append(breakLabel).append("\n");
+                collector.append("      (loop $").append(loopLabel).append("\n");
                 translateExpression(whileStmt.getCondition(), collector, localTypes, "i32");
                 collector.append("        i32.eqz\n");
-                collector.append("        br_if $break_while\n");
+                collector.append("        br_if $").append(breakLabel).append("\n");
                 translateStatement(whileStmt.getBody(), collector, localTypes, returnWasmType);
-                collector.append("        br $loop_while\n");
+                collector.append("        br $").append(loopLabel).append("\n");
                 collector.append("      )\n");
                 collector.append("    )\n");
+
+                loopStack.pop();
+            } else if (stmt.isForStmt()) {
+                ForStmt forStmt = stmt.asForStmt();
+                int loopId = ++loopCounter;
+                String breakLabel = "break_for_" + loopId;
+                String loopLabel = "loop_for_" + loopId;
+                String continueLabel = "continue_for_" + loopId;
+
+                // 1. Initialization expressions
+                for (Expression initExpr : forStmt.getInitialization()) {
+                    translateExpression(initExpr, collector, localTypes, null);
+                }
+
+                loopStack.push(new LoopContext(breakLabel, continueLabel));
+
+                collector.append("    (block $").append(breakLabel).append("\n");
+                collector.append("      (loop $").append(loopLabel).append("\n");
+
+                // 2. Condition check
+                if (forStmt.getCompare().isPresent()) {
+                    translateExpression(forStmt.getCompare().get(), collector, localTypes, "i32");
+                    collector.append("        i32.eqz\n");
+                    collector.append("        br_if $").append(breakLabel).append("\n");
+                }
+
+                // 3. Body with continue target
+                collector.append("        (block $").append(continueLabel).append("\n");
+                translateStatement(forStmt.getBody(), collector, localTypes, returnWasmType);
+                collector.append("        )\n");
+
+                // 4. Update expressions
+                for (Expression updateExpr : forStmt.getUpdate()) {
+                    translateExpression(updateExpr, collector, localTypes, null);
+                }
+
+                collector.append("        br $").append(loopLabel).append("\n");
+                collector.append("      )\n");
+                collector.append("    )\n");
+
+                loopStack.pop();
+            } else if (stmt.isBreakStmt()) {
+                if (!loopStack.isEmpty()) {
+                    collector.append("    br $").append(loopStack.peek().breakLabel).append("\n");
+                }
+            } else if (stmt.isContinueStmt()) {
+                if (!loopStack.isEmpty()) {
+                    collector.append("    br $").append(loopStack.peek().continueLabel).append("\n");
+                }
             } else if (stmt.isBlockStmt()) {
                 for (Statement s : stmt.asBlockStmt().getStatements()) {
                     translateStatement(s, collector, localTypes, returnWasmType);
@@ -445,11 +522,27 @@ public class JavacToWasm {
                 translateExpression(expr.asEnclosedExpr().getInner(), collector, localTypes, expectedType);
             } else if (expr.isAssignExpr()) {
                 AssignExpr assign = expr.asAssignExpr();
-                translateExpression(assign.getValue(), collector, localTypes, expectedType);
+                AssignExpr.Operator op = assign.getOperator();
                 if (assign.getTarget().isNameExpr()) {
                     String target = assign.getTarget().asNameExpr().getNameAsString();
                     boolean isGlobal = globalVars != null && globalVars.containsKey(target) && !localTypes.containsKey(target);
-                    collector.append(isGlobal ? "    global.set $" : "    local.set $").append(target).append("\n");
+                    String targetType = isGlobal ? globalVars.get(target).type : localTypes.getOrDefault(target, "i32");
+
+                    if (op == AssignExpr.Operator.ASSIGN) {
+                        translateExpression(assign.getValue(), collector, localTypes, targetType);
+                        collector.append(isGlobal ? "    global.set $" : "    local.set $").append(target).append("\n");
+                    } else {
+                        // Compound assignment (e.g. +=, -=, *=, /=)
+                        collector.append(isGlobal ? "    global.get $" : "    local.get $").append(target).append("\n");
+                        translateExpression(assign.getValue(), collector, localTypes, targetType);
+                        BinaryExpr.Operator binOp = mapAssignOpToBinaryOp(op);
+                        if (binOp != null) {
+                            collector.append("    ").append(getWasmBinaryOp(binOp, targetType)).append("\n");
+                        }
+                        collector.append(isGlobal ? "    global.set $" : "    local.set $").append(target).append("\n");
+                    }
+                } else {
+                    translateExpression(assign.getValue(), collector, localTypes, expectedType);
                 }
             } else if (expr.isVariableDeclarationExpr()) {
                 VariableDeclarationExpr vde = expr.asVariableDeclarationExpr();
@@ -558,6 +651,23 @@ public class JavacToWasm {
                 case SIGNED_RIGHT_SHIFT -> prefix + ".shr_s";
                 case UNSIGNED_RIGHT_SHIFT -> prefix + ".shr_u";
                 default -> prefix + ".add";
+            };
+        }
+
+        private BinaryExpr.Operator mapAssignOpToBinaryOp(AssignExpr.Operator op) {
+            return switch (op) {
+                case PLUS -> BinaryExpr.Operator.PLUS;
+                case MINUS -> BinaryExpr.Operator.MINUS;
+                case MULTIPLY -> BinaryExpr.Operator.MULTIPLY;
+                case DIVIDE -> BinaryExpr.Operator.DIVIDE;
+                case REMAINDER -> BinaryExpr.Operator.REMAINDER;
+                case BINARY_AND -> BinaryExpr.Operator.BINARY_AND;
+                case BINARY_OR -> BinaryExpr.Operator.BINARY_OR;
+                case XOR -> BinaryExpr.Operator.XOR;
+                case LEFT_SHIFT -> BinaryExpr.Operator.LEFT_SHIFT;
+                case SIGNED_RIGHT_SHIFT -> BinaryExpr.Operator.SIGNED_RIGHT_SHIFT;
+                case UNSIGNED_RIGHT_SHIFT -> BinaryExpr.Operator.UNSIGNED_RIGHT_SHIFT;
+                default -> null;
             };
         }
     }

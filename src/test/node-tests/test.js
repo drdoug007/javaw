@@ -91,13 +91,17 @@ async function runTest() {
         const testContent = fs.readFileSync(TESTCLASS_WAT, 'utf8');
         assert.ok(testContent.includes('(func $addNumbers'), 'Must contain addNumbers');
         assert.ok(testContent.includes('(func $getPi'), 'Must contain getPi');
+        assert.ok(testContent.includes('(func $calculateFactorial'), 'Must contain calculateFactorial');
+        assert.ok(testContent.includes('(func $sumRangeWithSkips'), 'Must contain sumRangeWithSkips');
 
         if (fs.existsSync(TESTCLASS_WASM)) {
             const wasmBytes = fs.readFileSync(TESTCLASS_WASM);
             const { instance } = await WebAssembly.instantiate(wasmBytes);
             assert.strictEqual(instance.exports.addNumbers(15, 27), 42);
             assert.ok(Math.abs(instance.exports.getPi() - 3.14159) < 0.0001);
-            console.log('✓ TestClass execution assertions passed.');
+            assert.strictEqual(instance.exports.calculateFactorial(5), 120);
+            assert.strictEqual(instance.exports.sumRangeWithSkips(10), 33);
+            console.log('✓ TestClass execution assertions passed (including for loops, break/continue, and compound assignments).');
         }
 
         // ==========================================

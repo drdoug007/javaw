@@ -12,4 +12,26 @@ public class TestClass {
     public double getPi() {
         return 3.14159;
     }
+
+    public int calculateFactorial(int n) {
+        int result = 1;
+        for (int i = 1; i <= n; i++) {
+            result *= i;
+        }
+        return result;
+    }
+
+    public int sumRangeWithSkips(int n) {
+        int sum = 0;
+        for (int i = 1; i <= n; i++) {
+            if (i == 3) {
+                continue;
+            }
+            if (i > 8) {
+                break;
+            }
+            sum += i;
+        }
+        return sum;
+    }
 }

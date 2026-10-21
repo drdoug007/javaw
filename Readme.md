@@ -59,6 +59,7 @@ With built-in linear memory allocation, static string constant pooling, and a ze
 │   └── test
 │       ├── java/com/example/javaw
 │       │   ├── App.java          # Java DOM & interactive event demo application
+│       │   ├── AppBrowserTest.java # Playwright browser integration test suite
 │       │   ├── JavacToWasmTest.java # JUnit 5 compiler unit test suite
 │       │   └── TestClass.java    # Sample Java class for calculation testing
 │       └── node-tests
@@ -232,13 +233,15 @@ Include `javaw-runtime.js` and instantiate the WebAssembly module:
 
 ## Testing
 
-### Java Unit Tests (JUnit 5)
+### Java Unit & Playwright Browser Tests (JUnit 5 + Playwright)
 
-Run compiler unit tests verifying memory allocation, string pooling, and DOM import emission:
+Run the full Java test suite, including compiler AST unit tests and headless Chromium browser tests:
 
 ```bash
 mvn test
 ```
+
+The browser test suite (`AppBrowserTest.java`) launches a headless browser using Microsoft Playwright, loads the compiled Java WebAssembly application, and verifies live DOM rendering, styling, and event dispatching.
 
 ### End-to-End Node.js & DOM Integration Tests
 

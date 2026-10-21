@@ -80,4 +80,33 @@ public class JavacToWasmTest {
         assertTrue(wat.contains("call $dom_appendChild"));
         assertTrue(wat.contains("call $dom_addEventListener"));
     }
+
+    @Test
+    public void testGenerateWatWithForLoopAndBreakContinue() {
+        String javaSource = "package com.example.javaw;\n" +
+                "public class LoopApp {\n" +
+                "    public int sumTo(int n) {\n" +
+                "        int sum = 0;\n" +
+                "        for (int i = 1; i <= n; i++) {\n" +
+                "            if (i == 5) continue;\n" +
+                "            if (i > 10) break;\n" +
+                "            sum += i;\n" +
+                "        }\n" +
+                "        return sum;\n" +
+                "    }\n" +
+                "}\n";
+
+        CompilationUnit cu = StaticJavaParser.parse(javaSource);
+        String wat = JavacToWasm.generateWat(cu);
+
+        assertTrue(wat.contains("(func $sumTo (export \"sumTo\") (param $n i32) (result i32)"));
+        assertTrue(wat.contains("(local $sum i32)"));
+        assertTrue(wat.contains("(local $i i32)"));
+        assertTrue(wat.contains("block $break_for_"));
+        assertTrue(wat.contains("loop $loop_for_"));
+        assertTrue(wat.contains("block $continue_for_"));
+        assertTrue(wat.contains("br $continue_for_"));
+        assertTrue(wat.contains("br $break_for_"));
+        assertTrue(wat.contains("i32.add"));
+    }
 }
