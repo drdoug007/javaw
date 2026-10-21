@@ -19,7 +19,9 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     private final Map<String, GlobalVar> globalVars;
     private final ClassRegistry classRegistry;
     private final SourceMapTracker sourceMapTracker;
+    private final Map<String, com.example.javaw.js.JsSnippetModel> jsSnippets;
     private final Deque<LoopContext> loopStack = new ArrayDeque<>();
+    private final Map<String, Integer> methodCounts = new HashMap<>();
     private ClassModel currentClass;
     private RecordModel currentRecord;
     private int loopCounter = 0;
@@ -27,25 +29,31 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     private int switchCounter = 0;
     private int switchExprCounter = 0;
 
-    public WasmGeneratorVisitor(Map<String, StringConstant> stringPool, Map<String, GlobalVar> globalVars, ClassRegistry classRegistry, SourceMapTracker sourceMapTracker) {
+    public WasmGeneratorVisitor(Map<String, StringConstant> stringPool, Map<String, GlobalVar> globalVars, ClassRegistry classRegistry, SourceMapTracker sourceMapTracker, Map<String, com.example.javaw.js.JsSnippetModel> jsSnippets) {
         this.stringPool = stringPool;
         this.globalVars = globalVars;
         this.classRegistry = classRegistry;
         this.sourceMapTracker = sourceMapTracker;
+        this.jsSnippets = jsSnippets != null ? jsSnippets : Collections.emptyMap();
+    }
+
+    public WasmGeneratorVisitor(Map<String, StringConstant> stringPool, Map<String, GlobalVar> globalVars, ClassRegistry classRegistry, SourceMapTracker sourceMapTracker) {
+        this(stringPool, globalVars, classRegistry, sourceMapTracker, Collections.emptyMap());
     }
 
     public WasmGeneratorVisitor(Map<String, StringConstant> stringPool, Map<String, GlobalVar> globalVars, ClassRegistry classRegistry) {
-        this(stringPool, globalVars, classRegistry, null);
+        this(stringPool, globalVars, classRegistry, null, Collections.emptyMap());
     }
 
     public WasmGeneratorVisitor(Map<String, StringConstant> stringPool, Map<String, GlobalVar> globalVars) {
-        this(stringPool, globalVars, null, null);
+        this(stringPool, globalVars, null, null, Collections.emptyMap());
     }
 
     @Override
     public void visit(ClassOrInterfaceDeclaration n, StringBuilder collector) {
         String className = n.getNameAsString();
         currentClass = classRegistry != null ? classRegistry.getClass(className) : null;
+        methodCounts.clear();
 
         if (sourceMapTracker != null) {
             sourceMapTracker.track(collector, n, className);
@@ -241,11 +249,11 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         switchExprCounter = 0;
 
         boolean isStatic = n.isStatic();
-        boolean isOopInstanceMethod = currentClass != null && currentClass.isOopClass() && !isStatic;
+        boolean isInstanceMethod = currentClass != null && !isStatic;
         String funcName;
         String exportName;
 
-        if (isOopInstanceMethod) {
+        if (isInstanceMethod && (currentClass.isOopClass() || n.isNative() || currentClass.isInterface() || n.getAnnotations().stream().anyMatch(a -> a.getNameAsString().contains("Import") || a.getNameAsString().contains("JS")))) {
             funcName = "$" + currentClass.getName() + "_" + methodName;
             exportName = currentClass.getName() + "_" + methodName;
         } else {
@@ -260,7 +268,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         collector.append("  (func ").append(funcName)
                 .append(" (export \"").append(exportName).append("\")");
 
-        if (isOopInstanceMethod) {
+        if (isInstanceMethod && (currentClass.isOopClass() || n.isNative() || currentClass.isInterface() || n.getAnnotations().stream().anyMatch(a -> a.getNameAsString().contains("Import") || a.getNameAsString().contains("JS")))) {
             collector.append(" (param $this i32)");
             localTypes.put("this", "i32");
             localJavaTypes.put("this", currentClass.getName());
@@ -299,12 +307,19 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         collector.append("\n");
 
         // Body
+        String className = currentClass != null ? currentClass.getName() : "Global";
+        String baseKey = className + "_" + methodName;
+        int count = methodCounts.getOrDefault(baseKey, 0);
+        methodCounts.put(baseKey, count + 1);
+        String importName = count == 0 ? "js_inline_" + baseKey : "js_inline_" + baseKey + "_" + count;
+
         Optional<AnnotationExpr> jsAnnoOpt = JsAnnotationHelper.getJsAnnotation(n);
-        boolean isJsInline = jsAnnoOpt.isPresent();
+        boolean isJsInline = jsAnnoOpt.isPresent() || (jsSnippets != null && jsSnippets.containsKey(importName));
 
         if (isJsInline) {
-            String className = currentClass != null ? currentClass.getName() : "Global";
-            String importName = "js_inline_" + className + "_" + methodName;
+            if (!isStatic && currentClass != null) {
+                collector.append("    local.get $this\n");
+            }
             for (Parameter p : n.getParameters()) {
                 String pName = p.getNameAsString();
                 String pType = p.getType().asString();
@@ -1488,7 +1503,31 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 Expression scope = call.getScope().get();
                 String scopeStr = scope.toString();
                 String scopeJavaType = getExpressionJavaType(scope, localJavaTypes);
-                if (scopeStr.equals("DOM") || scopeStr.endsWith(".DOM") || scopeStr.equals("Window") || scopeStr.endsWith(".Window") || scopeStr.equals("JSObject") || scopeStr.endsWith(".JSObject") || DomHelper.isJsValueClass(scopeStr)) {
+                String shortScope = scopeStr.contains(".") ? scopeStr.substring(scopeStr.lastIndexOf('.') + 1) : scopeStr;
+                String shortType = (scopeJavaType != null && scopeJavaType.contains(".")) ? scopeJavaType.substring(scopeJavaType.lastIndexOf('.') + 1) : scopeJavaType;
+                String snippetKey = (jsSnippets != null && jsSnippets.containsKey("js_inline_" + shortScope + "_" + mName)) ?
+                        "js_inline_" + shortScope + "_" + mName :
+                        (shortType != null && jsSnippets != null && jsSnippets.containsKey("js_inline_" + shortType + "_" + mName)) ?
+                                "js_inline_" + shortType + "_" + mName : null;
+
+                if (snippetKey != null) {
+                    var snippetModel = jsSnippets.get(snippetKey);
+                    if (!snippetModel.isStatic()) {
+                        translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                    }
+                    for (int i = 0; i < call.getArguments().size(); i++) {
+                        int pIdx = snippetModel.isStatic() ? i : i + 1;
+                        String pWasm = pIdx < snippetModel.getParameters().size() ? snippetModel.getParameters().get(pIdx).getWasmType() : "i32";
+                        String pJava = pIdx < snippetModel.getParameters().size() ? snippetModel.getParameters().get(pIdx).getJavaType() : "";
+                        Expression arg = call.getArgument(i);
+                        if ("String".equals(pJava) || "java.lang.String".equals(pJava)) {
+                            translateDomStringArg(arg, collector, localTypes, localElementTypes, localJavaTypes);
+                        } else {
+                            translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, pWasm);
+                        }
+                    }
+                    collector.append("    call $dom_").append(snippetKey).append("\n");
+                } else if (scopeStr.equals("DOM") || scopeStr.endsWith(".DOM") || scopeStr.equals("Window") || scopeStr.endsWith(".Window") || scopeStr.equals("JSObject") || scopeStr.endsWith(".JSObject") || DomHelper.isJsValueClass(scopeStr)) {
                     translateDomOrWindowStaticCall(call, collector, localTypes, localElementTypes, localJavaTypes);
                 } else if (scopeStr.equals("Atomics") || scopeStr.endsWith(".Atomics")) {
                     translateAtomicsStaticCall(call, collector, localTypes, localElementTypes, localJavaTypes);
@@ -1767,7 +1806,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                         collector.append("    i32.add\n");
                         collector.append("    call_indirect (type ").append(targetMm.getTypeSignatureName()).append(")\n");
                     } else if (targetMm != null) {
-                        if (!targetMm.isStatic() && targetCm != null && targetCm.isOopClass()) {
+                        if (!targetMm.isStatic() && (targetCm != null && targetCm.isOopClass())) {
                             translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
                         }
                         for (int i = 0; i < call.getArguments().size(); i++) {
@@ -1776,11 +1815,38 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                         }
                         collector.append("    call ").append(targetMm.getFunctionName()).append("\n");
                     } else {
-                        translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, null);
-                        for (Expression arg : call.getArguments()) {
-                            translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, null);
+                        String snippetImport = null;
+                        if (targetType != null && jsSnippets != null) {
+                            String shortTarget = targetType.contains(".") ? targetType.substring(targetType.lastIndexOf('.') + 1) : targetType;
+                            String key = "js_inline_" + shortTarget + "_" + mName;
+                            if (jsSnippets.containsKey(key)) {
+                                snippetImport = key;
+                            }
                         }
-                        collector.append("    call $").append(mName).append("\n");
+                        if (snippetImport != null) {
+                            var snippetModel = jsSnippets.get(snippetImport);
+                            if (!snippetModel.isStatic()) {
+                                translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                            }
+                            for (int i = 0; i < call.getArguments().size(); i++) {
+                                int pIdx = snippetModel.isStatic() ? i : i + 1;
+                                String pWasm = pIdx < snippetModel.getParameters().size() ? snippetModel.getParameters().get(pIdx).getWasmType() : "i32";
+                                String pJava = pIdx < snippetModel.getParameters().size() ? snippetModel.getParameters().get(pIdx).getJavaType() : "";
+                                Expression arg = call.getArgument(i);
+                                if ("String".equals(pJava) || "java.lang.String".equals(pJava)) {
+                                    translateDomStringArg(arg, collector, localTypes, localElementTypes, localJavaTypes);
+                                } else {
+                                    translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, pWasm);
+                                }
+                            }
+                            collector.append("    call $dom_").append(snippetImport).append("\n");
+                        } else {
+                            translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, null);
+                            for (Expression arg : call.getArguments()) {
+                                translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, null);
+                            }
+                            collector.append("    call $").append(mName).append("\n");
+                        }
                     }
                 }
             } else {
@@ -1807,7 +1873,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                         collector.append("    i32.add\n");
                         collector.append("    call_indirect (type ").append(mm.getTypeSignatureName()).append(")\n");
                     } else {
-                        if (!mm.isStatic() && currentClass.isOopClass()) {
+                        if (!mm.isStatic() && (currentClass != null && currentClass.isOopClass())) {
                             collector.append("    local.get $this\n");
                         }
                         for (int i = 0; i < call.getArguments().size(); i++) {
@@ -1861,6 +1927,46 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     mName.equals("getString") || mName.equals("callString") || mName.equals("asString") ||
                     mName.equals("readString") || mName.equals("getPath")) {
                 return "String";
+            }
+            if (mName.equals("create") || mName.equals("ofInstance")) {
+                if (call.getScope().isPresent()) {
+                    String scopeStr = call.getScope().get().toString();
+                    if (scopeStr.equals("JSDate") || scopeStr.endsWith(".JSDate")) return "JSDate";
+                }
+            }
+            if (mName.equals("getTime") || mName.equals("now") || mName.equals("parse") || mName.equals("UTC")) {
+                if (call.getScope().isPresent()) {
+                    String scopeType = getExpressionJavaType(call.getScope().get(), localJavaTypes);
+                    String scopeStr = call.getScope().get().toString();
+                    if ("JSDate".equals(scopeStr) || "JSDate".equals(scopeType) || (scopeType != null && scopeType.endsWith(".JSDate"))) {
+                        return "double";
+                    }
+                }
+            }
+            if (mName.equals("hypot") || mName.equals("sin") || mName.equals("cos") || mName.equals("tan") ||
+                    mName.equals("asin") || mName.equals("acos") || mName.equals("atan") || mName.equals("atan2") ||
+                    mName.equals("sinh") || mName.equals("cosh") || mName.equals("tanh") || mName.equals("sqrt") ||
+                    mName.equals("cbrt") || mName.equals("exp") || mName.equals("expm1") || mName.equals("log") ||
+                    mName.equals("log10") || mName.equals("log2") || mName.equals("log1p") || mName.equals("pow") ||
+                    mName.equals("floor") || mName.equals("ceil") || mName.equals("round") || mName.equals("trunc") ||
+                    mName.equals("abs") || mName.equals("sign") || mName.equals("min") || mName.equals("max") ||
+                    mName.equals("random") || mName.equals("PI") || mName.equals("E")) {
+                if (call.getScope().isPresent()) {
+                    String scopeStr = call.getScope().get().toString();
+                    if (scopeStr.equals("JSMath") || scopeStr.endsWith(".JSMath")) return "double";
+                }
+            }
+            if (mName.equals("stringify")) {
+                if (call.getScope().isPresent()) {
+                    String scopeStr = call.getScope().get().toString();
+                    if (scopeStr.equals("JSJSON") || scopeStr.endsWith(".JSJSON")) return "String";
+                }
+            }
+            if (mName.equals("parse")) {
+                if (call.getScope().isPresent()) {
+                    String scopeStr = call.getScope().get().toString();
+                    if (scopeStr.equals("JSJSON") || scopeStr.endsWith(".JSJSON")) return "JSValue";
+                }
             }
             if (mName.equals("global") || mName.equals("getWindow") || mName.equals("eval") ||
                     mName.equals("createObject") || mName.equals("createArray") || mName.equals("get") ||

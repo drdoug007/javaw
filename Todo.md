@@ -163,8 +163,11 @@ This roadmap organizes planned features by their utility and return on investmen
   - Introduce explicit typed wrappers for JavaScript runtime types allowing fine-grained control over JS value manipulation, prototype access, and type checks (`typeof`, `instanceof`).
   - Implemented typed facades `JSValue`, `JSNumber`, `JSBoolean`, `JSString`, `JSBigInt`, `JSSymbol`, `JSUndefined`, `JSError`, `JSNull`, and updated `JSObject` to inherit from `JSValue`.
   - Added AST lowering and host runtime bridge handlers for type queries (`isNumber`, `isString`, `isBoolean`, `isBigInt`, `isSymbol`, `isUndefined`, `isNull`, `isObject`, `isFunction`, `isError`), `getTypeof()`, `instanceOf(className)`, `strictEquals(other)`, and typed extraction methods (`doubleValue`, `intValue`, `isNaN`, `isFinite`, `isInteger`, `getDescription`, `getMessage`, `getName`, `getStack`).
-- [ ] **Global JavaScript Class & Object Binding (`@JS.Import`)**
-  - Annotate Java classes/interfaces with `@JS.Import("Date")`, `@JS.Import("Math")`, or `@JS.Import("WebSocket")` to map standard browser APIs directly to typed Java facades.
+- [x] **Global JavaScript Class & Object Binding (`@JS.Import`)**
+  - Annotate Java classes/interfaces with `@JS.Import("Date")`, `@JS.Import("Math")`, `@JS.Import("JSON")`, `@JS.Import("console")`, `@JS.Import("localStorage")` to map standard browser and JavaScript APIs directly to typed Java facades.
+  - Implemented automatic snippet synthesizer for static and instance methods in `@JS.Import` classes with constructor instantiations (`new Date(...)`), direct method calls (`Math.hypot(...)`), and instance invocations (`this.getTime()`).
+  - Added built-in standard facades `com.example.javaw.js.JSDate`, `JSMath`, `JSJSON`, `JSConsole`, `JSStorage`.
+  - Full AST lowering and host runtime code synthesis in `javaw-runtime.js` supporting argument conversions, string decoding, handle registration, and native return marshalling.
 - [ ] **Exporting Java Classes to JavaScript Scope (`@JS.Export`)**
   - Annotate Java classes with `@JS.Export` to register constructor functions and prototypes in JavaScript (`globalThis.MyJavaClass = ...`), allowing JavaScript to instantiate Java classes and call methods directly.
 - [ ] **JavaScript Asset Bundling & Resource Embedding (`@JS.Code`, `@JS.Code.Include`, `@JSResource`)**

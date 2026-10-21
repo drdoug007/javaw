@@ -655,6 +655,22 @@ async function runTest() {
 
                     console.log('✓ JSValue Typed Value Hierarchy (JSValue, JSNumber, JSBoolean, JSString, JSBigInt, JSSymbol, JSUndefined, JSError, JSNull) assertions passed.');
                 }
+
+                if (typeof instance.exports.testJsMathImport === 'function') {
+                    const mathVal = instance.exports.testJsMathImport();
+                    const expectedMath = 5.0 + Math.PI;
+                    assert.ok(Math.abs(mathVal - expectedMath) < 0.0001, `testJsMathImport expected ${expectedMath}, got ${mathVal}`);
+
+                    const dateMs = instance.exports.testJsDateImport();
+                    assert.strictEqual(dateMs, 1700000000000.0, `testJsDateImport expected 1700000000000.0, got ${dateMs}`);
+
+                    const jsonPtr = instance.exports.testJsJsonImport();
+                    const jsonStr = readWasmString(instance.exports.memory.buffer, jsonPtr);
+                    assert.ok(jsonStr.includes('WebAssembly'), `testJsJsonImport expected 'WebAssembly', got ${jsonStr}`);
+                    assert.ok(jsonStr.includes('2026'), `testJsJsonImport expected '2026', got ${jsonStr}`);
+
+                    console.log('✓ @JS.Import Global JavaScript Class & Object Binding (JSDate, JSMath, JSJSON) assertions passed.');
+                }
             }
 
             console.log('✓ TestClass execution assertions passed (including for loops, for-each loops, arrays, switches, labeled break/continue, compound assignments, dynamic strings, OOP, Canvas 2D, WebGL, JSObject, WASI VFS, Threads/Atomics, Exceptions, Multi-Value Returns, Bulk Memory, Fixed-Width SIMD, and Multi-Memory Segregation).');

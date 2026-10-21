@@ -1026,4 +1026,47 @@ public class JavacToWasmTest {
         assertTrue(wat.contains("(import \"dom\" \"js_typeof\" (func $dom_js_typeof (param i32) (result i32)))"));
         assertTrue(wat.contains("(import \"dom\" \"js_instanceof\" (func $dom_js_instanceof (param i32 i32 i32) (result i32)))"));
     }
+
+    @Test
+    public void testJsImportAnnotationAndFacadeGeneration() {
+        String javaSource = "package com.example.javaw;\n" +
+                "import com.example.javaw.js.JS;\n" +
+                "@JS.Import(\"Math\")\n" +
+                "class CustomMath {\n" +
+                "    public static native double hypot(double a, double b);\n" +
+                "    public static native double PI();\n" +
+                "}\n" +
+                "@JS.Import(\"Date\")\n" +
+                "class CustomDate {\n" +
+                "    public static native CustomDate create(double ms);\n" +
+                "    public native double getTime();\n" +
+                "}\n" +
+                "public class JsImportApp {\n" +
+                "    public static double testMath() {\n" +
+                "        return CustomMath.hypot(3.0, 4.0);\n" +
+                "    }\n" +
+                "    public static double testDate() {\n" +
+                "        CustomDate d = CustomDate.create(1000.0);\n" +
+                "        return d.getTime();\n" +
+                "    }\n" +
+                "}\n";
+
+        CompilationUnit cu = StaticJavaParser.parse(javaSource);
+        String wat = JavacToWasm.generateWat(cu);
+
+        assertTrue(wat.contains("(import \"dom\" \"js_inline_CustomMath_hypot\" (func $dom_js_inline_CustomMath_hypot (param f64 f64) (result f64)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_inline_CustomMath_PI\" (func $dom_js_inline_CustomMath_PI (result f64)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_inline_CustomDate_create\" (func $dom_js_inline_CustomDate_create (param f64) (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_inline_CustomDate_getTime\" (func $dom_js_inline_CustomDate_getTime (param i32) (result f64)))"));
+        assertTrue(wat.contains("(func $CustomDate_getTime (export \"CustomDate_getTime\") (param $this i32) (result f64)"));
+
+        JavacToWasm.CompilationResult result = JavacToWasm.compile("JsImportApp.java", javaSource, true);
+        org.junit.jupiter.api.Assertions.assertNotNull(result.getJsSnippets());
+        var snippets = result.getJsSnippets();
+        org.junit.jupiter.api.Assertions.assertTrue(snippets.containsKey("js_inline_CustomMath_hypot"));
+        org.junit.jupiter.api.Assertions.assertEquals("return Math.hypot(a, b);", snippets.get("js_inline_CustomMath_hypot").getJsCode());
+        org.junit.jupiter.api.Assertions.assertEquals("return Math.PI;", snippets.get("js_inline_CustomMath_PI").getJsCode());
+        org.junit.jupiter.api.Assertions.assertEquals("return new Date(ms);", snippets.get("js_inline_CustomDate_create").getJsCode());
+        org.junit.jupiter.api.Assertions.assertEquals("return this.getTime();", snippets.get("js_inline_CustomDate_getTime").getJsCode());
+    }
 }

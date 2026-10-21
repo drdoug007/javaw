@@ -79,7 +79,12 @@
   (import "dom" "thread_sleep" (func $dom_thread_sleep (param i32)))
   (import "dom" "thread_current_id" (func $dom_thread_current_id (result i32)))
   (import "dom" "thread_hardware_concurrency" (func $dom_thread_hardware_concurrency (result i32)))
-  (@custom "javaw_js_snippets" "[{\22className\22:\22TestClass\22,\22methodName\22:\22jsHypot\22,\22importName\22:\22js_inline_TestClass_jsHypot\22,\22jsCode\22:\22return Math.hypot(a, b);\22,\22returnType\22:\22double\22,\22returnWasmType\22:\22f64\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22a\22,\22javaType\22:\22double\22,\22wasmType\22:\22f64\22,\22coerced\22:false},{\22name\22:\22b\22,\22javaType\22:\22double\22,\22wasmType\22:\22f64\22,\22coerced\22:false}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsGreet\22,\22importName\22:\22js_inline_TestClass_jsGreet\22,\22jsCode\22:\22return 'Hello ' + name + '!';\22,\22returnType\22:\22String\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22name\22,\22javaType\22:\22String\22,\22wasmType\22:\22i32\22,\22coerced\22:false}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsMultiplyAndAdd\22,\22importName\22:\22js_inline_TestClass_jsMultiplyAndAdd\22,\22jsCode\22:\22return a * b + 10;\22,\22returnType\22:\22int\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22a\22,\22javaType\22:\22int\22,\22wasmType\22:\22i32\22,\22coerced\22:false},{\22name\22:\22b\22,\22javaType\22:\22int\22,\22wasmType\22:\22i32\22,\22coerced\22:false}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsIsGreaterThan100\22,\22importName\22:\22js_inline_TestClass_jsIsGreaterThan100\22,\22jsCode\22:\22return x > 100;\22,\22returnType\22:\22boolean\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22x\22,\22javaType\22:\22int\22,\22wasmType\22:\22i32\22,\22coerced\22:false}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsSumArray\22,\22importName\22:\22js_inline_TestClass_jsSumArray\22,\22jsCode\22:\22return arr.reduce((acc, x) => acc + x, 0);\22,\22returnType\22:\22int\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22arr\22,\22javaType\22:\22int[]\22,\22wasmType\22:\22i32\22,\22coerced\22:true}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsDoubleArray\22,\22importName\22:\22js_inline_TestClass_jsDoubleArray\22,\22jsCode\22:\22return arr.map(x => x * 2);\22,\22returnType\22:\22int[]\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:true,\22parameters\22:[{\22name\22:\22arr\22,\22javaType\22:\22int[]\22,\22wasmType\22:\22i32\22,\22coerced\22:true}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsJoinStrings\22,\22importName\22:\22js_inline_TestClass_jsJoinStrings\22,\22jsCode\22:\22return items.join(', ');\22,\22returnType\22:\22String\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22items\22,\22javaType\22:\22String[]\22,\22wasmType\22:\22i32\22,\22coerced\22:true}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsGetBookJson\22,\22importName\22:\22js_inline_TestClass_jsGetBookJson\22,\22jsCode\22:\22return { title: 'WASM in Action', year: 2026 };\22,\22returnType\22:\22String\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:true,\22parameters\22:[]}]")
+  (@custom "javaw_js_snippets" "[{\22className\22:\22JSMath\22,\22methodName\22:\22hypot\22,\22importName\22:\22js_inline_JSMath_hypot\22,\22jsCode\22:\22return Math.hypot(a, b);\22,\22returnType\22:\22double\22,\22returnWasmType\22:\22f64\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22a\22,\22javaType\22:\22double\22,\22wasmType\22:\22f64\22,\22coerced\22:false},{\22name\22:\22b\22,\22javaType\22:\22double\22,\22wasmType\22:\22f64\22,\22coerced\22:false}]},{\22className\22:\22JSMath\22,\22methodName\22:\22PI\22,\22importName\22:\22js_inline_JSMath_PI\22,\22jsCode\22:\22return Math.PI;\22,\22returnType\22:\22double\22,\22returnWasmType\22:\22f64\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[]},{\22className\22:\22JSDate\22,\22methodName\22:\22create\22,\22importName\22:\22js_inline_JSDate_create\22,\22jsCode\22:\22return new Date(ms);\22,\22returnType\22:\22JSDate\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22ms\22,\22javaType\22:\22double\22,\22wasmType\22:\22f64\22,\22coerced\22:false}]},{\22className\22:\22JSDate\22,\22methodName\22:\22getTime\22,\22importName\22:\22js_inline_JSDate_getTime\22,\22jsCode\22:\22return this.getTime();\22,\22returnType\22:\22double\22,\22returnWasmType\22:\22f64\22,\22isStatic\22:false,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22this\22,\22javaType\22:\22JSDate\22,\22wasmType\22:\22i32\22,\22coerced\22:false}]},{\22className\22:\22JSJSON\22,\22methodName\22:\22stringify\22,\22importName\22:\22js_inline_JSJSON_stringify\22,\22jsCode\22:\22return JSON.stringify(val);\22,\22returnType\22:\22String\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22val\22,\22javaType\22:\22JSValue\22,\22wasmType\22:\22i32\22,\22coerced\22:false}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsHypot\22,\22importName\22:\22js_inline_TestClass_jsHypot\22,\22jsCode\22:\22return Math.hypot(a, b);\22,\22returnType\22:\22double\22,\22returnWasmType\22:\22f64\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22a\22,\22javaType\22:\22double\22,\22wasmType\22:\22f64\22,\22coerced\22:false},{\22name\22:\22b\22,\22javaType\22:\22double\22,\22wasmType\22:\22f64\22,\22coerced\22:false}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsGreet\22,\22importName\22:\22js_inline_TestClass_jsGreet\22,\22jsCode\22:\22return 'Hello ' + name + '!';\22,\22returnType\22:\22String\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22name\22,\22javaType\22:\22String\22,\22wasmType\22:\22i32\22,\22coerced\22:false}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsMultiplyAndAdd\22,\22importName\22:\22js_inline_TestClass_jsMultiplyAndAdd\22,\22jsCode\22:\22return a * b + 10;\22,\22returnType\22:\22int\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22a\22,\22javaType\22:\22int\22,\22wasmType\22:\22i32\22,\22coerced\22:false},{\22name\22:\22b\22,\22javaType\22:\22int\22,\22wasmType\22:\22i32\22,\22coerced\22:false}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsIsGreaterThan100\22,\22importName\22:\22js_inline_TestClass_jsIsGreaterThan100\22,\22jsCode\22:\22return x > 100;\22,\22returnType\22:\22boolean\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22x\22,\22javaType\22:\22int\22,\22wasmType\22:\22i32\22,\22coerced\22:false}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsSumArray\22,\22importName\22:\22js_inline_TestClass_jsSumArray\22,\22jsCode\22:\22return arr.reduce((acc, x) => acc + x, 0);\22,\22returnType\22:\22int\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22arr\22,\22javaType\22:\22int[]\22,\22wasmType\22:\22i32\22,\22coerced\22:true}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsDoubleArray\22,\22importName\22:\22js_inline_TestClass_jsDoubleArray\22,\22jsCode\22:\22return arr.map(x => x * 2);\22,\22returnType\22:\22int[]\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:true,\22parameters\22:[{\22name\22:\22arr\22,\22javaType\22:\22int[]\22,\22wasmType\22:\22i32\22,\22coerced\22:true}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsJoinStrings\22,\22importName\22:\22js_inline_TestClass_jsJoinStrings\22,\22jsCode\22:\22return items.join(', ');\22,\22returnType\22:\22String\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22items\22,\22javaType\22:\22String[]\22,\22wasmType\22:\22i32\22,\22coerced\22:true}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsGetBookJson\22,\22importName\22:\22js_inline_TestClass_jsGetBookJson\22,\22jsCode\22:\22return { title: 'WASM in Action', year: 2026 };\22,\22returnType\22:\22String\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:true,\22parameters\22:[]}]")
+  (import "dom" "js_inline_JSMath_hypot" (func $dom_js_inline_JSMath_hypot (param f64 f64) (result f64)))
+  (import "dom" "js_inline_JSMath_PI" (func $dom_js_inline_JSMath_PI (result f64)))
+  (import "dom" "js_inline_JSDate_create" (func $dom_js_inline_JSDate_create (param f64) (result i32)))
+  (import "dom" "js_inline_JSDate_getTime" (func $dom_js_inline_JSDate_getTime (param i32) (result f64)))
+  (import "dom" "js_inline_JSJSON_stringify" (func $dom_js_inline_JSJSON_stringify (param i32) (result i32)))
   (import "dom" "js_inline_TestClass_jsHypot" (func $dom_js_inline_TestClass_jsHypot (param f64 f64) (result f64)))
   (import "dom" "js_inline_TestClass_jsGreet" (func $dom_js_inline_TestClass_jsGreet (param i32 i32) (result i32)))
   (import "dom" "js_inline_TestClass_jsMultiplyAndAdd" (func $dom_js_inline_TestClass_jsMultiplyAndAdd (param i32 i32) (result i32)))
@@ -190,6 +195,8 @@
   (data (memory $strings) (i32.const 5031) "TypeError\00")
   (data (memory $strings) (i32.const 5041) "Error\00")
   (data (memory $strings) (i32.const 5047) "42\00")
+  (data (memory $strings) (i32.const 5050) "name\00")
+  (data (memory $strings) (i32.const 5055) "version\00")
   (global $__heap_ptr (mut i32) (i32.const 0))
   ;; --- WebAssembly Function Type Signatures ---
   (type $t_sig_1 (func (param i32) (result i32)))
@@ -6268,6 +6275,87 @@
     local.set $score
     end
     local.get $score
+    return
+  )
+  (func $testJsMathImport (export "testJsMathImport") (result f64)
+    (local $hyp f64)
+    (local $pi f64)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__caught_exc i32)
+    f64.const 3.0
+    f64.const 4.0
+    call $dom_js_inline_JSMath_hypot
+    local.set $hyp
+    call $dom_js_inline_JSMath_PI
+    local.set $pi
+    local.get $hyp
+    local.get $pi
+    f64.add
+    return
+  )
+  (func $testJsDateImport (export "testJsDateImport") (result f64)
+    (local $d i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__caught_exc i32)
+    f64.const 1700000000000.0
+    call $dom_js_inline_JSDate_create
+    local.set $d
+    local.get $d
+    call $dom_js_inline_JSDate_getTime
+    return
+  )
+  (func $testJsJsonImport (export "testJsJsonImport") (result i32)
+    (local $obj i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__caught_exc i32)
+    call $dom_js_createObject
+    local.set $obj
+    local.get $obj
+    i32.const 5050
+    i32.const 4
+    i32.const 4144
+    i32.const 11
+    call $dom_js_setString
+    local.get $obj
+    i32.const 5055
+    i32.const 7
+    i32.const 2026
+    call $dom_js_setInt
+    local.get $obj
+    call $dom_js_inline_JSJSON_stringify
     return
   )
   ;; Record: Pair

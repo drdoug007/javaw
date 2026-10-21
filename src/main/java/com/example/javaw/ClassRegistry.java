@@ -90,7 +90,7 @@ public class ClassRegistry {
                 String funcName;
                 if (isStatic) {
                     funcName = "$" + mName;
-                } else if (!cm.isOopClass()) {
+                } else if (!cm.isOopClass() && !com.example.javaw.js.JsAnnotationHelper.getClassImportAnnotation(cd).isPresent()) {
                     funcName = "$" + mName;
                 } else {
                     funcName = "$" + className + "_" + mName;

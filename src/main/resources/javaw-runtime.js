@@ -48,8 +48,10 @@
             const jsCode = def.jsCode || '';
             const returnType = def.returnType || 'void';
             const isMethodCoerced = Boolean(def.isCoerced);
+            const isStatic = Boolean(def.isStatic);
 
-            const userParamNames = params.map(p => p.name);
+            const userParams = isStatic ? params : params.filter((p, idx) => idx > 0 || p.name !== 'this');
+            const userParamNames = userParams.map(p => p.name);
             let userFn;
             try {
                 let body = jsCode.trim();
@@ -63,9 +65,16 @@
             }
 
             return function (...args) {
+                let thisObj = null;
                 const userArgs = [];
                 let argIdx = 0;
-                for (const p of params) {
+
+                if (!isStatic) {
+                    const handle = args[argIdx++];
+                    thisObj = runtime.getElement(handle);
+                }
+
+                for (const p of userParams) {
                     const pType = p.javaType;
                     const isParamCoerced = isMethodCoerced || Boolean(p.coerced);
 
@@ -97,7 +106,7 @@
                         } else {
                             userArgs.push(ptr);
                         }
-                    } else if (pType === 'JSObject' || pType === 'Element' || (pType && (pType.endsWith('.JSObject') || pType.endsWith('.Element')))) {
+                    } else if (pType === 'JSObject' || pType === 'Element' || pType === 'JSValue' || (pType && (pType.endsWith('.JSObject') || pType.endsWith('.Element') || pType.endsWith('.JSValue') || pType.startsWith('JS')))) {
                         const handle = args[argIdx++];
                         userArgs.push(runtime.getElement(handle));
                     } else if (pType && pType.endsWith('[]')) {
@@ -111,7 +120,7 @@
 
                 let result;
                 try {
-                    result = userFn.apply(null, [...userArgs, runtime]);
+                    result = userFn.apply(thisObj, [...userArgs, runtime]);
                 } catch (err) {
                     console.error('Error executing inline JS snippet ' + def.importName + ':', err);
                     throw err;
@@ -150,7 +159,7 @@
                         return runtime.writeStringArray(Array.from(result));
                     }
                     return typeof result === 'number' ? result : 0;
-                } else if (returnType === 'JSObject' || returnType === 'Element' || (returnType && (returnType.endsWith('.JSObject') || returnType.endsWith('.Element')))) {
+                } else if (returnType === 'JSObject' || returnType === 'Element' || returnType === 'JSValue' || (returnType && (returnType.endsWith('.JSObject') || returnType.endsWith('.Element') || returnType.endsWith('.JSValue') || returnType.startsWith('JS')))) {
                     return runtime.getOrCreateHandle(result);
                 } else {
                     return typeof result === 'number' ? result : runtime.getOrCreateHandle(result);

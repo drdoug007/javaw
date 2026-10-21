@@ -355,7 +355,7 @@ public class JavacToWasm {
         WasmRuntime.emitRuntimeFunctions(watOutput, trueOffset, falseOffset, !wasiImports.isEmpty());
 
         SourceMapTracker tracker = sourceMapGen != null ? new SourceMapTracker(sourceMapGen, sourceName) : null;
-        cu.accept(new WasmGeneratorVisitor(stringPool, globalVars, classRegistry, tracker), watOutput);
+        cu.accept(new WasmGeneratorVisitor(stringPool, globalVars, classRegistry, tracker, jsSnippets), watOutput);
         watOutput.append(")\n");
         return watOutput.toString();
     }

@@ -837,6 +837,24 @@ public class TestClass {
         if (!v1.strictEquals(v3)) score += 2;
         return score;
     }
+
+    public double testJsMathImport() {
+        double hyp = com.example.javaw.js.JSMath.hypot(3.0, 4.0);
+        double pi = com.example.javaw.js.JSMath.PI();
+        return hyp + pi;
+    }
+
+    public double testJsDateImport() {
+        com.example.javaw.js.JSDate d = com.example.javaw.js.JSDate.create(1700000000000.0);
+        return d.getTime();
+    }
+
+    public String testJsJsonImport() {
+        JSObject obj = JSObject.createObject();
+        obj.set("name", "WebAssembly");
+        obj.set("version", 2026);
+        return com.example.javaw.js.JSJSON.stringify(obj);
+    }
 }
 
 record Pair(int first, int second) {}

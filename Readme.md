@@ -19,6 +19,10 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
   - Automatic type marshalling and coercion via `@JS.Coerce` for Java primitives, strings, and arrays (`int[]`, `double[]`, `String[]` &harr; JavaScript `Array`) and automatic JSON serialization for JavaScript objects.
   - Automatically extracts snippet code during AST analysis, emits corresponding host import signatures (`(import "dom" "js_inline_..." ...)`), and serializes metadata into WebAssembly custom sections (`(@custom "javaw_js_snippets" ...)` and binary `.wasm` sections).
   - The runtime bridge (`javaw-runtime.js`) automatically deserializes inline snippets and synthesizes callable host functions with zero-copy string decoding and argument conversions.
+- **Global JavaScript Class & Object Binding (`@JS.Import`)**:
+  - Annotate Java classes or interfaces with `@JS.Import("Date")`, `@JS.Import("Math")`, `@JS.Import("JSON")`, `@JS.Import("console")`, `@JS.Import("localStorage")` to bind standard browser APIs directly to typed Java facades.
+  - Automatically synthesizes host bridge snippets for constructor instantiations (`new GlobalName(...)`), direct static method invocations (`GlobalName.method(...)`), constants (`Math.PI`), and instance methods (`this.method(...)`).
+  - Includes pre-built standard facades in `com.example.javaw.js`: `JSDate`, `JSMath`, `JSJSON`, `JSConsole`, and `JSStorage`.
 - **JavaScript Value Hierarchy Facades (`JSValue`, `JSNumber`, `JSBoolean`, `JSString`, `JSBigInt`, `JSSymbol`, `JSUndefined`, `JSError`, `JSNull`)**:
   - Provides a complete, strongly-typed object-oriented hierarchy representing JavaScript runtime values with zero overhead.
   - Base class `JSValue` exposes type reflection methods (`getTypeof()`, `isNumber()`, `isString()`, `isBoolean()`, `isBigInt()`, `isSymbol()`, `isUndefined()`, `isNull()`, `isObject()`, `isFunction()`, `isError()`), prototype testing (`instanceOf(className)`), and strict identity checks (`strictEquals(other)`).
@@ -189,6 +193,11 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
 │   │   │   │   └── JSNull.java        # JavaScript Null wrapper
 │   │   │   ├── js
 │   │   │   │   ├── JS.java                # @JS annotation and sub-annotation definitions
+│   │   │   │   ├── JSDate.java            # Standard JavaScript Date facade (@JS.Import)
+│   │   │   │   ├── JSMath.java            # Standard JavaScript Math facade (@JS.Import)
+│   │   │   │   ├── JSJSON.java            # Standard JavaScript JSON facade (@JS.Import)
+│   │   │   │   ├── JSConsole.java         # Standard JavaScript console facade (@JS.Import)
+│   │   │   │   ├── JSStorage.java         # Standard JavaScript Web Storage facade (@JS.Import)
 │   │   │   │   ├── JsSnippetModel.java    # Model for extracted @JS inline JavaScript snippets
 │   │   │   │   └── JsAnnotationHelper.java # AST visitor and annotation discovery helper
 │   │   │   ├── memory
@@ -948,6 +957,61 @@ public class JsValueHierarchyDemo {
             String errorName = err.getName();       // "TypeError"
             String message = err.getMessage();       // "Invalid configuration detected"
         }
+    }
+}
+```
+
+---
+
+#### Example S: Global JavaScript Class & Object Binding (`@JS.Import`)
+
+Bind standard browser and JavaScript global objects (`Date`, `Math`, `JSON`, `console`, `localStorage`) directly into strongly-typed Java facades:
+
+```java
+package com.example.javaw;
+
+import com.example.javaw.dom.JSObject;
+import com.example.javaw.dom.JSValue;
+import com.example.javaw.js.JS;
+import com.example.javaw.js.JSConsole;
+import com.example.javaw.js.JSDate;
+import com.example.javaw.js.JSJSON;
+import com.example.javaw.js.JSMath;
+import com.example.javaw.js.JSStorage;
+
+// Custom browser API binding
+@JS.Import("WebSocket")
+class JSWebSocket {
+    public static native JSWebSocket create(String url);
+    public native void send(String data);
+    public native void close();
+}
+
+public class JsImportDemo {
+    public static void run() {
+        // Standard Math operations
+        double dist = JSMath.hypot(3.0, 4.0); // 5.0
+        double pi = JSMath.PI();              // 3.141592653589793
+
+        // Standard Date operations
+        JSDate now = JSDate.create();
+        int year = now.getFullYear();
+        double time = now.getTime();
+        String iso = now.toISOString();
+
+        // JSON serialization & parsing
+        JSObject config = JSObject.createObject();
+        config.set("app", "javaw");
+        config.set("version", 2026);
+        String jsonStr = JSJSON.stringify(config); // '{"app":"javaw","version":2026}'
+        JSValue parsed = JSJSON.parse(jsonStr);
+
+        // Web Storage (localStorage)
+        JSStorage.setItem("user-token", "abc-123-xyz");
+        String token = JSStorage.getItem("user-token");
+
+        // Console logging
+        JSConsole.log("Application started successfully in year " + year);
     }
 }
 ```
