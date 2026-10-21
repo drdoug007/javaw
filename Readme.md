@@ -1,40 +1,69 @@
 # javaw (Java to WebAssembly Compiler)
 
-A lightweight Java-to-WebAssembly translator that parses Java source files (`.java`) and compiles them into WebAssembly Text format (`.wat`).
+A lightweight, high-performance Java-to-WebAssembly compiler that parses Java source files (`.java`) and compiles them into standard WebAssembly Text format (`.wat`) and binary modules (`.wasm`). `javaw` includes full support for browser Document Object Model (DOM) manipulation, static string pooling, and bi-directional event handling.
 
 ---
 
 ## Overview
 
-`javaw` provides an efficient utility to convert Java source code structures into WebAssembly. Utilizing [JavaParser](https://javaparser.org/) for AST (Abstract Syntax Tree) parsing, the tool extracts class declarations and method signatures, translating them into standard WebAssembly Text (`.wat`) modules.
+`javaw` provides an efficient pipeline to compile Java code into WebAssembly for native browser execution. Using [JavaParser](https://javaparser.org/) for AST traversal, the compiler analyzes Java classes, methods, expressions, and statements, lowering them into WebAssembly stack instructions without requiring intermediate JVM bytecode compilation.
+
+With built-in linear memory allocation, static string constant pooling, and a zero-dependency host runtime bridge (`javaw-runtime.js`), developers can author interactive web applications directly in Java.
+
+---
 
 ## Features
 
-- **AST-Based Parsing**: Parses Java source code using JavaParser without requiring bytecode compilation first.
-- **Type Mapping**: Automatically maps Java primitive and return types to WebAssembly types:
-  - `void` &rarr; No return value
-  - `int` &rarr; `i32`
-  - `double` &rarr; `f64`
-  - Default fallback &rarr; `i32`
-- **Automatic Output Generation**: Generates a `.wat` file in the same directory as the source Java file with matching base filename.
-- **Standalone Fat JAR**: Packaged via Maven Shade plugin for standalone command-line execution.
+- **AST-Based Lowering**: Directly parses Java source files using JavaParser and translates statements and expressions to WebAssembly instructions.
+- **WebAssembly Linear Memory & String Pooling**:
+  - Automatically exports linear memory `(memory (export "memory") 1)`.
+  - Pools UTF-8 encoded String literals at compile-time into static WebAssembly data segments `(data (i32.const offset) "bytes\00")`.
+  - Passes strings across the host boundary via efficient pointer and length pairs (`(ptr: i32, len: i32)`).
+- **Strongly-Typed Java DOM Facade**:
+  - `com.example.javaw.dom.DOM`: Static methods such as `getElementById`, `createElement`, and `getBody`.
+  - `com.example.javaw.dom.Element`: Instance methods including `setInnerText`, `setAttribute`, `appendChild`, and `addEventListener`.
+- **Automatic Host Import Generation**: Automatically detects DOM method invocations and emits corresponding `(import "dom" ...)` declarations.
+- **Lightweight Browser Runtime Bridge (`javaw-runtime.js`)**:
+  - Minimal footprint (< 15KB) with zero external dependencies.
+  - 32-bit integer handle lookup table (`Map<number, HTMLElement>`) for safe referencing of DOM elements from WebAssembly.
+  - Zero-copy UTF-8 text decoding from WebAssembly linear memory (`instance.exports.memory.buffer`).
+  - Bi-directional event dispatching mapping browser DOM events to exported WebAssembly handler functions.
+- **Arithmetic & Control Flow Support**:
+  - Primitive and return type mapping (`void`, `int`, `boolean`, `char`, `long`, `float`, `double`).
+  - Arithmetic and bitwise binary operators (`+`, `-`, `*`, `/`, `%`, `&`, `|`, `^`, `<<`, `>>`, `>>>`).
+  - Unary operators (negation, logical/bitwise complement, prefix/postfix increments and decrements).
+  - Control flow structures (`if-then-else`, `while` loops with break/continue lowering).
+  - Local variables and static global field variables.
+- **Binary WASM Assembly**: Automatically invokes `wat2wasm` (when present on `PATH`) to produce deployable `.wasm` binaries.
+- **Standalone Fat JAR**: Packaged via Maven Shade plugin for frictionless CLI use.
 
 ---
 
 ## Project Structure
 
 ```
-├── pom.xml                               # Maven project configuration and shade packaging
+.
+├── demo
+│   └── index.html                # Browser demo harness running compiled Java WASM
+├── pom.xml                       # Maven project configuration and shade packaging
+├── Readme.md                     # Project documentation
 ├── src
 │   ├── main
-│   │   └── java/com/example/javaw
-│   │       └── JavacToWasm.java          # Core CLI application and AST visitor implementation
+│   │   ├── java/com/example/javaw
+│   │   │   ├── JavacToWasm.java  # Core compiler and AST visitor implementation
+│   │   │   └── dom
+│   │   │       ├── DOM.java      # Java DOM API facade
+│   │   │       └── Element.java  # Java DOM Element facade
+│   │   └── resources
+│   │       └── javaw-runtime.js  # JavaScript WebAssembly host runtime bridge
 │   └── test
 │       ├── java/com/example/javaw
-│       │   └── TestClass.java            # Sample Java input for testing translation
+│       │   ├── App.java          # Java DOM & interactive event demo application
+│       │   ├── JavacToWasmTest.java # JUnit 5 compiler unit test suite
+│       │   └── TestClass.java    # Sample Java class for calculation testing
 │       └── node-tests
-│           ├── package.json              # Node.js test configuration
-│           └── test.js                   # End-to-end integration test runner
+│           ├── package.json      # Node.js test configuration
+│           └── test.js           # End-to-end WebAssembly & DOM test suite
 ```
 
 ---
@@ -43,11 +72,12 @@ A lightweight Java-to-WebAssembly translator that parses Java source files (`.ja
 
 - **Java Development Kit (JDK)**: Version 17 or higher
 - **Apache Maven**: Version 3.6 or higher
-- **Node.js** (optional): For running integration test suite
+- **WABT (`wat2wasm`)** (optional): For compiling `.wat` text to `.wasm` binary files directly from the CLI
+- **Node.js** (optional): For executing the automated end-to-end test suite
 
 ---
 
-## Building the Application
+## Building the Compiler
 
 Build the standalone executable JAR using Maven:
 
@@ -55,7 +85,7 @@ Build the standalone executable JAR using Maven:
 mvn clean package
 ```
 
-The resulting executable JAR will be located at:
+The resulting shaded executable JAR is located at:
 ```
 target/javaw-1.0-SNAPSHOT.jar
 ```
@@ -64,23 +94,28 @@ target/javaw-1.0-SNAPSHOT.jar
 
 ## Usage
 
-Run the compiled JAR and provide the path to a `.java` source file:
+### 1. Compiling Java to WebAssembly
+
+Run the compiler against any Java source file:
 
 ```bash
 java -jar target/javaw-1.0-SNAPSHOT.jar <path-to-java-file.java>
 ```
 
-### Example
+This generates:
+- `<filename>.wat`: WebAssembly Text representation.
+- `<filename>.wasm`: Compiled binary WebAssembly (if `wat2wasm` is available on `PATH`).
 
-Given a Java file `TestClass.java`:
+---
+
+### 2. Examples
+
+#### Example A: Pure Computation (`TestClass.java`)
 
 ```java
 package com.example.javaw;
 
 public class TestClass {
-    public void sayHello() {
-    }
-
     public int addNumbers(int a, int b) {
         return a + b;
     }
@@ -91,41 +126,124 @@ public class TestClass {
 }
 ```
 
-Run the compiler:
-
+Compile the file:
 ```bash
 java -jar target/javaw-1.0-SNAPSHOT.jar src/test/java/com/example/javaw/TestClass.java
 ```
 
-This generates `src/test/java/com/example/javaw/TestClass.wat`:
-
+Emitted WAT output:
 ```wat
 (module
-  (func $sayHello )
-    ;; Method Body for sayHello
-    end
-  )
-  (func $addNumbers -> i32 
-    ;; Method Body for addNumbers
-    end
-  )
-  (func $getPi -> f64 
-    ;; Method Body for getPi
-    end
-  )
+  (memory (export "memory") 1)
   ;; Class/Interface: TestClass
+  (func $addNumbers (export "addNumbers") (param $a i32) (param $b i32) (result i32)
+    local.get $a
+    local.get $b
+    i32.add
+  )
+  (func $getPi (export "getPi") (result f64)
+    f64.const 3.14159
+  )
 )
+```
+
+---
+
+#### Example B: Interactive Browser DOM Application (`App.java`)
+
+```java
+package com.example.javaw;
+
+import com.example.javaw.dom.DOM;
+import com.example.javaw.dom.Element;
+
+public class App {
+    public static int counter = 0;
+
+    public void start() {
+        Element app = DOM.getElementById("app");
+
+        Element heading = DOM.createElement("h1");
+        heading.setAttribute("class", "app-title");
+        heading.setInnerText("Java to WebAssembly DOM App");
+        app.appendChild(heading);
+
+        Element status = DOM.createElement("p");
+        status.setAttribute("id", "status-text");
+        status.setInnerText("Count: 0");
+        app.appendChild(status);
+
+        Element btn = DOM.createElement("button");
+        btn.setAttribute("id", "btn-increment");
+        btn.setInnerText("Increment Counter");
+        btn.addEventListener("click", "increment");
+        app.appendChild(btn);
+    }
+
+    public void increment() {
+        counter = counter + 1;
+        Element status = DOM.getElementById("status-text");
+        if (counter == 1) {
+            status.setInnerText("Count: 1 click");
+        } else if (counter == 2) {
+            status.setInnerText("Count: 2 clicks");
+        } else {
+            status.setInnerText("Count: multiple clicks");
+        }
+    }
+}
+```
+
+---
+
+### 3. Running in the Browser
+
+Include `javaw-runtime.js` and instantiate the WebAssembly module:
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Java WASM DOM App</title>
+</head>
+<body>
+    <div id="app"></div>
+
+    <script src="src/main/resources/javaw-runtime.js"></script>
+    <script>
+        async function run() {
+            const response = await fetch('src/test/java/com/example/javaw/App.wasm');
+            const wasmBytes = await response.arrayBuffer();
+            const { exports } = await Javaw.instantiateJavaw(wasmBytes);
+            
+            // Execute the Java entry point
+            if (exports.start) {
+                exports.start();
+            }
+        }
+        window.addEventListener('DOMContentLoaded', run);
+    </script>
+</body>
+</html>
 ```
 
 ---
 
 ## Testing
 
-### Integration Tests (Node.js)
+### Java Unit Tests (JUnit 5)
 
-Run the automated Node.js test script to verify compilation and generated WAT structures:
+Run compiler unit tests verifying memory allocation, string pooling, and DOM import emission:
 
 ```bash
-cd src/test/node-tests
-npm test
+mvn test
+```
+
+### End-to-End Node.js & DOM Integration Tests
+
+Run the Node.js test suite to verify binary execution, string decoding, and interactive DOM mutations:
+
+```bash
+npm test --prefix src/test/node-tests
 ```
