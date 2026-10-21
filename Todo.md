@@ -20,6 +20,11 @@ This roadmap organizes planned features by their utility and return on investmen
 - [x] **Enhanced `break` and `continue` with labels**
   - Map labeled break/continue statements to outer WebAssembly block/loop depths.
   - Support labeled `for`, `while`, `for-each` loops, `switch` statements, and standalone labeled code blocks.
+- [ ] **WebAssembly Exception Handling (`try-catch-finally`, `throw`)**
+  - Lower Java `try-catch-finally` blocks and `throw` statements directly to standard WebAssembly exception handling (`(tag $Exception ...)`, `try_table`, `throw`, `catch`).
+  - Enable zero-cost exception propagation without JavaScript bridge overhead.
+- [ ] **Multi-Value Returns (`(result ...)`)**
+  - Support multi-value returns on the WebAssembly evaluation stack for tuples, records, and internal helper routines without heap allocation overhead.
 
 ---
 
@@ -30,6 +35,11 @@ This roadmap organizes planned features by their utility and return on investmen
   - Array instantiation (`new int[n]`, `new int[]{...}`), element loading (`i32.load`, `f64.load`), element storing (`i32.store`, `f64.store`).
 - [x] **Array Length Property (`arr.length`)**
   - Read array length directly from array header in linear memory.
+- [ ] **Bulk Memory Operations (`memory.copy`, `memory.fill`)**
+  - Lower `System.arraycopy(...)` and `Arrays.fill(...)` directly to WebAssembly `memory.copy` and `memory.fill` instructions for high-throughput block data transfers.
+  - Accelerate dynamic string concatenation and `StringBuilder` buffer expansions with block memory copies.
+- [ ] **Multi-Memory Segregation & Isolation**
+  - Leverage WebAssembly Multi-Memory proposal to segregate memory into discrete spaces: read-only static string pool (`$strings`), dynamic heap (`$heap`), and thread stack (`$stack`).
 
 ---
 
@@ -88,19 +98,24 @@ This roadmap organizes planned features by their utility and return on investmen
 
 ---
 
-## 6. Non-Browser Standards (WASI & Concurrency)
+## 6. Non-Browser Standards (WASI & Concurrency) & High Performance
 
 - [x] **WASI Target (`wasi_snapshot_preview1`)**
   - Standard I/O output: `System.out.println`, `System.out.print`, `System.err.println`, `System.err.print`, and `System.exit(code)` lowered to WASI `fd_write` and `proc_exit`.
   - Typed output support for strings, integers, floating point (`f64`), booleans, and characters with automated memory buffering.
   - Strongly-typed `WASI` facade (`com.example.javaw.wasi.WASI`) with `print`, `println`, `eprint`, `eprintln`, `exit`, `fdWrite`, and `procExit`.
   - Built-in WASI runtime layer in `javaw-runtime.js` supporting `fd_write`, `fd_read`, `proc_exit`, `args_sizes_get`, `args_get`, `environ_sizes_get`, `environ_get`, `clock_time_get`, and `random_get`.
+- [ ] **Extended WASI & Virtual File System (VFS)**
+  - Expand `WASI` facade with file descriptor routines (`path_open`, `fd_read`, `fd_close`, `fd_seek`) and clock/random sources.
+  - Provide an in-memory and IndexedDB-backed virtual file system within `javaw-runtime.js` for sandboxed file operations in the browser.
 - [x] **WebAssembly Threads & Shared Memory**
   - WebAssembly shared memory declaration `(memory (export "memory") 2 20 shared)` for multithreaded runtime support.
   - Strongly-typed `AtomicInteger` facade (`com.example.javaw.concurrent.AtomicInteger`) supporting `get`, `set`, `getAndSet`, `compareAndSet`, `getAndAdd`, `addAndGet`, `incrementAndGet`, `decrementAndGet`, and bitwise atomic operations (`i32.atomic.load`, `i32.atomic.store`, `i32.atomic.rmw.*`).
   - Low-level array atomic primitives (`com.example.javaw.concurrent.Atomics`) supporting `load`, `store`, `add`, `sub`, `and`, `or`, `xor`, `exchange`, `compareExchange`, `wait` (`memory.atomic.wait32`), and `notify` (`memory.atomic.notify`).
   - Web Worker and thread management facade (`com.example.javaw.concurrent.WasmThread`) supporting `spawn(entryPoint, arg)`, `sleep(ms)`, `currentThreadId()`, and `hardwareConcurrency()`.
   - Host runtime bridge in `javaw-runtime.js` for thread spawning, sleep via atomics, and concurrency detection.
+- [ ] **Fixed-Width SIMD (`v128`) Vectorization Facades**
+  - Implement strongly typed SIMD vector facades (`Float32x4`, `Int32x4`, `Vector128`) mapping to WebAssembly 128-bit vector instructions for hardware-accelerated math, physics, and graphics.
 
 ---
 
@@ -112,3 +127,5 @@ This roadmap organizes planned features by their utility and return on investmen
   - Generate source maps mapping WebAssembly bytecode to Java source lines.
 - [x] **Multi-File Compilation & Project Linking**
   - Compile multiple Java source files or entire directories into a unified WebAssembly module.
+- [ ] **In-Memory Java Compiler API & Embedded REPL**
+  - Expose programmatic in-memory compilation (`JavacToWasm.compile(String javaSource)`) returning compiled WAT strings and byte arrays for embedded browser editors, dynamic code generation, and direct unit testing.
