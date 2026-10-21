@@ -223,6 +223,8 @@ public class AppBrowserTest {
         String base64Wasm = java.util.Base64.getEncoder().encodeToString(wasmBytes);
 
         Page page = browser.newPage();
+        page.onConsoleMessage(msg -> System.out.println("PAGE LOG: " + msg.text()));
+        page.onPageError(err -> System.out.println("PAGE ERR: " + err));
         String htmlContent = "<!DOCTYPE html><html><body>" +
                 "<canvas id=\"browser-canvas\"></canvas>" +
                 "<script src=\"http://127.0.0.1:" + port + "/src/main/resources/javaw-runtime.js\"></script>" +
@@ -258,6 +260,142 @@ public class AppBrowserTest {
         tempWasm.delete();
     }
 
+    @Test
+    public void testBrowserAsyncTimersAndFetch() throws Exception {
+        String asyncJavaSource = "package com.example.javaw;\n" +
+                "import com.example.javaw.dom.DOM;\n" +
+                "import com.example.javaw.dom.Element;\n" +
+                "import com.example.javaw.dom.Window;\n" +
+                "public class AsyncBrowserApp {\n" +
+                "    public static void start() {\n" +
+                "        Window.setTimeout(\"onTimerTriggered\", 50);\n" +
+                "        Window.fetch(\"http://127.0.0.1:" + port + "/src/test/resources/data.json\", \"onFetchSuccess\");\n" +
+                "    }\n" +
+                "    public static void onTimerTriggered() {\n" +
+                "        Element status = DOM.getElementById(\"async-status\");\n" +
+                "        status.setInnerText(\"Timer Activated!\");\n" +
+                "    }\n" +
+                "    public static void onFetchSuccess(String data) {\n" +
+                "        Element dataEl = DOM.getElementById(\"async-data\");\n" +
+                "        dataEl.setInnerText(data);\n" +
+                "    }\n" +
+                "}\n";
+
+        // Ensure test data file exists
+        Path testDataDir = Paths.get("src/test/resources");
+        Files.createDirectories(testDataDir);
+        Files.writeString(testDataDir.resolve("data.json"), "{\"message\":\"Async WASM Works!\"}");
+
+        CompilationUnit cu = StaticJavaParser.parse(asyncJavaSource);
+        String watContent = JavacToWasm.generateWat(cu);
+        File tempWat = File.createTempFile("async_app", ".wat");
+        File tempWasm = File.createTempFile("async_app", ".wasm");
+
+        try (FileWriter writer = new FileWriter(tempWat)) {
+            writer.write(watContent);
+        }
+
+        Process process = new ProcessBuilder("wat2wasm", tempWat.getAbsolutePath(), "-o", tempWasm.getAbsolutePath())
+                .redirectErrorStream(true)
+                .start();
+        process.waitFor();
+
+        byte[] wasmBytes = Files.readAllBytes(tempWasm.toPath());
+        String base64Wasm = java.util.Base64.getEncoder().encodeToString(wasmBytes);
+
+        Page page = browser.newPage();
+        String htmlContent = "<!DOCTYPE html><html><body>" +
+                "<div id=\"async-status\">Initial</div>" +
+                "<div id=\"async-data\">No Data</div>" +
+                "<script src=\"http://127.0.0.1:" + port + "/src/main/resources/javaw-runtime.js\"></script>" +
+                "<script>" +
+                "  async function execute() {" +
+                "    const binary = Uint8Array.from(atob('" + base64Wasm + "'), c => c.charCodeAt(0));" +
+                "    const { exports } = await Javaw.instantiateJavaw(binary);" +
+                "    exports.start();" +
+                "  }" +
+                "  window.onload = execute;" +
+                "</script>" +
+                "</body></html>";
+
+        page.setContent(htmlContent);
+
+        // Wait for timer update
+        page.waitForFunction("() => document.getElementById('async-status').innerText === 'Timer Activated!'");
+        // Wait for fetch update
+        page.waitForFunction("() => document.getElementById('async-data').innerText.includes('Async WASM Works!')");
+
+        page.close();
+        tempWat.delete();
+        tempWasm.delete();
+    }
+
+    @Test
+    public void testBrowserJSObjectDynamicInterop() throws Exception {
+        String jsInteropJavaSource = "package com.example.javaw;\n" +
+                "import com.example.javaw.dom.DOM;\n" +
+                "import com.example.javaw.dom.Element;\n" +
+                "import com.example.javaw.dom.JSObject;\n" +
+                "public class JsInteropBrowserApp {\n" +
+                "    public static void start() {\n" +
+                "        JSObject custom = JSObject.eval(\"({ name: 'JavaWasm', version: '2.0', active: true })\");\n" +
+                "        JSObject arr = JSObject.createArray();\n" +
+                "        arr.push(\"Alpha\");\n" +
+                "        arr.push(\"Beta\");\n" +
+                "        Element statusEl = DOM.getElementById(\"js-status\");\n" +
+                "        statusEl.setInnerText(custom.getString(\"name\") + \" \" + custom.getString(\"version\"));\n" +
+                "        Element arrayEl = DOM.getElementById(\"js-array\");\n" +
+                "        arrayEl.setInnerText(arr.getIndex(0).asString() + \" and \" + arr.getIndex(1).asString());\n" +
+                "        JSObject math = JSObject.global().get(\"Math\");\n" +
+                "        Element calcEl = DOM.getElementById(\"js-calc\");\n" +
+                "        calcEl.setInnerText(\"Calculated: \" + math.callInt(\"max\", 500));\n" +
+                "    }\n" +
+                "}\n";
+
+        CompilationUnit cu = StaticJavaParser.parse(jsInteropJavaSource);
+        String watContent = JavacToWasm.generateWat(cu);
+        File tempWat = File.createTempFile("js_interop_app", ".wat");
+        File tempWasm = File.createTempFile("js_interop_app", ".wasm");
+
+        try (FileWriter writer = new FileWriter(tempWat)) {
+            writer.write(watContent);
+        }
+
+        Process process = new ProcessBuilder("wat2wasm", tempWat.getAbsolutePath(), "-o", tempWasm.getAbsolutePath())
+                .redirectErrorStream(true)
+                .start();
+        process.waitFor();
+
+        byte[] wasmBytes = Files.readAllBytes(tempWasm.toPath());
+        String base64Wasm = java.util.Base64.getEncoder().encodeToString(wasmBytes);
+
+        Page page = browser.newPage();
+        String htmlContent = "<!DOCTYPE html><html><body>" +
+                "<div id=\"js-status\">Initial</div>" +
+                "<div id=\"js-array\">Empty</div>" +
+                "<div id=\"js-calc\">Zero</div>" +
+                "<script src=\"http://127.0.0.1:" + port + "/src/main/resources/javaw-runtime.js\"></script>" +
+                "<script>" +
+                "  async function execute() {" +
+                "    const binary = Uint8Array.from(atob('" + base64Wasm + "'), c => c.charCodeAt(0));" +
+                "    const { exports } = await Javaw.instantiateJavaw(binary);" +
+                "    exports.start();" +
+                "  }" +
+                "  window.onload = execute;" +
+                "</script>" +
+                "</body></html>";
+
+        page.setContent(htmlContent);
+
+        page.waitForFunction("() => document.getElementById('js-status').innerText === 'JavaWasm 2.0'");
+        page.waitForFunction("() => document.getElementById('js-array').innerText === 'Alpha and Beta'");
+        page.waitForFunction("() => document.getElementById('js-calc').innerText === 'Calculated: 500'");
+
+        page.close();
+        tempWat.delete();
+        tempWasm.delete();
+    }
+
     private static class FileHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
@@ -282,9 +420,12 @@ public class AppBrowserTest {
                 contentType = "application/wasm";
             } else if (path.endsWith(".css")) {
                 contentType = "text/css; charset=UTF-8";
+            } else if (path.endsWith(".json")) {
+                contentType = "application/json; charset=UTF-8";
             }
 
             exchange.getResponseHeaders().set("Content-Type", contentType);
+            exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
             exchange.sendResponseHeaders(200, bytes.length);
             try (OutputStream os = exchange.getResponseBody()) {
                 os.write(bytes);

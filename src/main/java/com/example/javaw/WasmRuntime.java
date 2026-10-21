@@ -3,6 +3,10 @@ package com.example.javaw;
 public class WasmRuntime {
 
     public static void emitRuntimeFunctions(StringBuilder watOutput, int trueOffset, int falseOffset) {
+        emitRuntimeFunctions(watOutput, trueOffset, falseOffset, false);
+    }
+
+    public static void emitRuntimeFunctions(StringBuilder watOutput, int trueOffset, int falseOffset, boolean hasWasi) {
         watOutput.append("  ;; --- Heap Allocation Functions ---\n");
         watOutput.append("  (func $__heap_alloc (export \"__heap_alloc\") (param $size i32) (result i32)\n");
         watOutput.append("    (local $ptr i32)\n");
@@ -314,6 +318,69 @@ public class WasmRuntime {
         watOutput.append("      i32.const ").append(trueOffset).append("\n");
         watOutput.append("    else\n");
         watOutput.append("      i32.const ").append(falseOffset).append("\n");
+        watOutput.append("    end\n");
+        watOutput.append("  )\n");
+
+        watOutput.append("  (func $__str_from_f64 (export \"__str_from_f64\") (param $val f64) (result i32)\n");
+        watOutput.append("    (local $int_part i32)\n");
+        watOutput.append("    (local $frac_part i32)\n");
+        watOutput.append("    (local $s_int i32)\n");
+        watOutput.append("    (local $s_frac i32)\n");
+        watOutput.append("    (local $s_dot i32)\n");
+        watOutput.append("    (local $s_res i32)\n");
+        watOutput.append("    (local $is_neg i32)\n");
+        watOutput.append("    local.get $val\n");
+        watOutput.append("    f64.const 0.0\n");
+        watOutput.append("    f64.lt\n");
+        watOutput.append("    local.set $is_neg\n");
+        watOutput.append("    local.get $is_neg\n");
+        watOutput.append("    if\n");
+        watOutput.append("      f64.const 0.0\n");
+        watOutput.append("      local.get $val\n");
+        watOutput.append("      f64.sub\n");
+        watOutput.append("      local.set $val\n");
+        watOutput.append("    end\n");
+        watOutput.append("    local.get $val\n");
+        watOutput.append("    i32.trunc_f64_s\n");
+        watOutput.append("    local.set $int_part\n");
+        watOutput.append("    local.get $val\n");
+        watOutput.append("    local.get $int_part\n");
+        watOutput.append("    f64.convert_i32_s\n");
+        watOutput.append("    f64.sub\n");
+        watOutput.append("    f64.const 100.0\n");
+        watOutput.append("    f64.mul\n");
+        watOutput.append("    i32.trunc_f64_s\n");
+        watOutput.append("    local.set $frac_part\n");
+        watOutput.append("    local.get $int_part\n");
+        watOutput.append("    call $__str_from_i32\n");
+        watOutput.append("    local.set $s_int\n");
+        watOutput.append("    i32.const 1\n");
+        watOutput.append("    call $__str_alloc\n");
+        watOutput.append("    local.set $s_dot\n");
+        watOutput.append("    local.get $s_dot\n");
+        watOutput.append("    i32.const 46\n");
+        watOutput.append("    i32.store8\n");
+        watOutput.append("    local.get $frac_part\n");
+        watOutput.append("    call $__str_from_i32\n");
+        watOutput.append("    local.set $s_frac\n");
+        watOutput.append("    local.get $s_int\n");
+        watOutput.append("    local.get $s_dot\n");
+        watOutput.append("    call $__str_concat\n");
+        watOutput.append("    local.get $s_frac\n");
+        watOutput.append("    call $__str_concat\n");
+        watOutput.append("    local.set $s_res\n");
+        watOutput.append("    local.get $is_neg\n");
+        watOutput.append("    if (result i32)\n");
+        watOutput.append("      i32.const 1\n");
+        watOutput.append("      call $__str_alloc\n");
+        watOutput.append("      local.tee $s_dot\n");
+        watOutput.append("      i32.const 45\n");
+        watOutput.append("      i32.store8\n");
+        watOutput.append("      local.get $s_dot\n");
+        watOutput.append("      local.get $s_res\n");
+        watOutput.append("      call $__str_concat\n");
+        watOutput.append("    else\n");
+        watOutput.append("      local.get $s_res\n");
         watOutput.append("    end\n");
         watOutput.append("  )\n");
 
@@ -730,5 +797,99 @@ public class WasmRuntime {
         watOutput.append("    local.get $c\n");
         watOutput.append("    i32.store8\n");
         watOutput.append("  )\n");
+
+        if (hasWasi) {
+            watOutput.append("  ;; --- WASI Runtime Helpers ---\n");
+            watOutput.append("  (func $__wasi_print_str (export \"__wasi_print_str\") (param $fd i32) (param $str_ptr i32) (param $str_len i32) (param $newline i32)\n");
+            watOutput.append("    (local $num_iovs i32)\n");
+            watOutput.append("    i32.const 4\n");
+            watOutput.append("    i32.const 10\n");
+            watOutput.append("    i32.store8\n");
+            watOutput.append("    i32.const 8\n");
+            watOutput.append("    local.get $str_ptr\n");
+            watOutput.append("    i32.store\n");
+            watOutput.append("    i32.const 12\n");
+            watOutput.append("    local.get $str_len\n");
+            watOutput.append("    i32.store\n");
+            watOutput.append("    i32.const 16\n");
+            watOutput.append("    i32.const 4\n");
+            watOutput.append("    i32.store\n");
+            watOutput.append("    i32.const 20\n");
+            watOutput.append("    i32.const 1\n");
+            watOutput.append("    i32.store\n");
+            watOutput.append("    local.get $newline\n");
+            watOutput.append("    if\n");
+            watOutput.append("      i32.const 2\n");
+            watOutput.append("      local.set $num_iovs\n");
+            watOutput.append("    else\n");
+            watOutput.append("      i32.const 1\n");
+            watOutput.append("      local.set $num_iovs\n");
+            watOutput.append("    end\n");
+            watOutput.append("    local.get $fd\n");
+            watOutput.append("    i32.const 8\n");
+            watOutput.append("    local.get $num_iovs\n");
+            watOutput.append("    i32.const 24\n");
+            watOutput.append("    call $__wasi_fd_write\n");
+            watOutput.append("    drop\n");
+            watOutput.append("  )\n");
+
+            watOutput.append("  (func $__wasi_print_int (export \"__wasi_print_int\") (param $fd i32) (param $val i32) (param $newline i32)\n");
+            watOutput.append("    (local $s i32)\n");
+            watOutput.append("    local.get $val\n");
+            watOutput.append("    call $__str_from_i32\n");
+            watOutput.append("    local.set $s\n");
+            watOutput.append("    local.get $fd\n");
+            watOutput.append("    local.get $s\n");
+            watOutput.append("    local.get $s\n");
+            watOutput.append("    call $__str_length\n");
+            watOutput.append("    local.get $newline\n");
+            watOutput.append("    call $__wasi_print_str\n");
+            watOutput.append("  )\n");
+
+            watOutput.append("  (func $__wasi_print_double (export \"__wasi_print_double\") (param $fd i32) (param $val f64) (param $newline i32)\n");
+            watOutput.append("    (local $s i32)\n");
+            watOutput.append("    local.get $val\n");
+            watOutput.append("    call $__str_from_f64\n");
+            watOutput.append("    local.set $s\n");
+            watOutput.append("    local.get $fd\n");
+            watOutput.append("    local.get $s\n");
+            watOutput.append("    local.get $s\n");
+            watOutput.append("    call $__str_length\n");
+            watOutput.append("    local.get $newline\n");
+            watOutput.append("    call $__wasi_print_str\n");
+            watOutput.append("  )\n");
+
+            watOutput.append("  (func $__wasi_print_bool (export \"__wasi_print_bool\") (param $fd i32) (param $val i32) (param $newline i32)\n");
+            watOutput.append("    (local $s i32)\n");
+            watOutput.append("    local.get $val\n");
+            watOutput.append("    call $__str_from_bool\n");
+            watOutput.append("    local.set $s\n");
+            watOutput.append("    local.get $fd\n");
+            watOutput.append("    local.get $s\n");
+            watOutput.append("    local.get $s\n");
+            watOutput.append("    call $__str_length\n");
+            watOutput.append("    local.get $newline\n");
+            watOutput.append("    call $__wasi_print_str\n");
+            watOutput.append("  )\n");
+
+            watOutput.append("  (func $__wasi_print_char (export \"__wasi_print_char\") (param $fd i32) (param $c i32) (param $newline i32)\n");
+            watOutput.append("    i32.const 0\n");
+            watOutput.append("    local.get $c\n");
+            watOutput.append("    i32.store8\n");
+            watOutput.append("    local.get $fd\n");
+            watOutput.append("    i32.const 0\n");
+            watOutput.append("    i32.const 1\n");
+            watOutput.append("    local.get $newline\n");
+            watOutput.append("    call $__wasi_print_str\n");
+            watOutput.append("  )\n");
+
+            watOutput.append("  (func $__wasi_println_empty (export \"__wasi_println_empty\") (param $fd i32)\n");
+            watOutput.append("    local.get $fd\n");
+            watOutput.append("    i32.const 4\n");
+            watOutput.append("    i32.const 0\n");
+            watOutput.append("    i32.const 1\n");
+            watOutput.append("    call $__wasi_print_str\n");
+            watOutput.append("  )\n");
+        }
     }
 }

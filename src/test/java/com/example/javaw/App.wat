@@ -368,6 +368,68 @@
       i32.const 0
     end
   )
+  (func $__str_from_f64 (export "__str_from_f64") (param $val f64) (result i32)
+    (local $int_part i32)
+    (local $frac_part i32)
+    (local $s_int i32)
+    (local $s_frac i32)
+    (local $s_dot i32)
+    (local $s_res i32)
+    (local $is_neg i32)
+    local.get $val
+    f64.const 0.0
+    f64.lt
+    local.set $is_neg
+    local.get $is_neg
+    if
+      f64.const 0.0
+      local.get $val
+      f64.sub
+      local.set $val
+    end
+    local.get $val
+    i32.trunc_f64_s
+    local.set $int_part
+    local.get $val
+    local.get $int_part
+    f64.convert_i32_s
+    f64.sub
+    f64.const 100.0
+    f64.mul
+    i32.trunc_f64_s
+    local.set $frac_part
+    local.get $int_part
+    call $__str_from_i32
+    local.set $s_int
+    i32.const 1
+    call $__str_alloc
+    local.set $s_dot
+    local.get $s_dot
+    i32.const 46
+    i32.store8
+    local.get $frac_part
+    call $__str_from_i32
+    local.set $s_frac
+    local.get $s_int
+    local.get $s_dot
+    call $__str_concat
+    local.get $s_frac
+    call $__str_concat
+    local.set $s_res
+    local.get $is_neg
+    if (result i32)
+      i32.const 1
+      call $__str_alloc
+      local.tee $s_dot
+      i32.const 45
+      i32.store8
+      local.get $s_dot
+      local.get $s_res
+      call $__str_concat
+    else
+      local.get $s_res
+    end
+  )
   (func $__str_charAt (export "__str_charAt") (param $s i32) (param $idx i32) (result i32)
     local.get $s
     i32.eqz
@@ -789,6 +851,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     i32.const 4096
     i32.const 3
     call $dom_getElementById
@@ -969,6 +1033,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     global.get $counter
     i32.const 1
     i32.add
@@ -1017,6 +1083,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     i32.const 4412
     i32.const 12
     call $dom_querySelector
@@ -1036,6 +1104,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     i32.const 4258
     i32.const 10
     call $dom_getElementById
@@ -1055,6 +1125,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     i32.const 4292
     i32.const 10
     call $dom_getElementById
@@ -1074,6 +1146,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     i32.const 4425
     i32.const 9
     call $dom_querySelectorAll
@@ -1094,6 +1168,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     i32.const 4316
     i32.const 14
     call $dom_getElementById

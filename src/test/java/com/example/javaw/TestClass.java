@@ -4,8 +4,45 @@ import com.example.javaw.dom.DOM;
 import com.example.javaw.dom.Element;
 import com.example.javaw.dom.CanvasRenderingContext2D;
 import com.example.javaw.dom.WebGLRenderingContext;
+import com.example.javaw.dom.Window;
+import com.example.javaw.dom.JSObject;
 
 public class TestClass {
+    public static int asyncCounter = 0;
+    public static String asyncFetchedData = "";
+
+    public void onTimerTick() {
+        asyncCounter += 10;
+    }
+
+    public void onFrameUpdate(double timestamp) {
+        asyncCounter += 5;
+    }
+
+    public void onFetchSuccess(String data) {
+        asyncFetchedData = data;
+    }
+
+    public int testScheduleTimer(int delay) {
+        return Window.setTimeout("onTimerTick", delay);
+    }
+
+    public int testScheduleInterval(int delay) {
+        return Window.setInterval("onTimerTick", delay);
+    }
+
+    public int testRequestAnimationFrame() {
+        return Window.requestAnimationFrame("onFrameUpdate");
+    }
+
+    public void testFetchData(String url) {
+        Window.fetch(url, "onFetchSuccess");
+    }
+
+    public boolean testConfirm(String message) {
+        return Window.confirm(message);
+    }
+
     public void sayHello() {
         // This is a comment
     }
@@ -335,6 +372,103 @@ public class TestClass {
         gl.clearColor(0.2, 0.4, 0.6, 1.0);
         gl.clear(WebGLRenderingContext.COLOR_BUFFER_BIT);
         return 1;
+    }
+
+    public int testJsEvalAndGet() {
+        JSObject obj = JSObject.eval("({ title: 'Dynamic JS', count: 42, active: true })");
+        String title = obj.getString("title");
+        int count = obj.getInt("count");
+        boolean active = obj.getBoolean("active");
+        if (active && count == 42 && title.length() == 10) {
+            return count;
+        }
+        return 0;
+    }
+
+    public int testJsCreateAndSet() {
+        JSObject obj = JSObject.createObject();
+        obj.set("user", "Alice");
+        obj.set("score", 95);
+        obj.set("rating", 4.8);
+        obj.set("premium", true);
+        String user = obj.getString("user");
+        int score = obj.getInt("score");
+        boolean premium = obj.getBoolean("premium");
+        if (premium && user.length() == 5) {
+            return score;
+        }
+        return 0;
+    }
+
+    public int testJsArrayOperations() {
+        JSObject arr = JSObject.createArray();
+        arr.push("item1");
+        arr.push("item2");
+        arr.push(123);
+        int len = arr.length();
+        arr.setIndex(1, "updated");
+        String item1 = arr.getIndex(1).asString();
+        if (len == 3 && item1.length() == 7) {
+            return len;
+        }
+        return 0;
+    }
+
+    public int testJsGlobalMathCall() {
+        JSObject math = JSObject.global().get("Math");
+        int max = math.callInt("max", 100);
+        return max;
+    }
+
+    public int testWasiOutput() {
+        System.out.println("Testing WASI standard output from Java!");
+        System.out.print("Progress: ");
+        System.out.println(100);
+        System.err.println("WASI stderr stream message");
+        return 1;
+    }
+
+    public int testWasiFacade() {
+        com.example.javaw.wasi.WASI.print("WASI Facade message: ");
+        com.example.javaw.wasi.WASI.println("Active");
+        com.example.javaw.wasi.WASI.println(42);
+        com.example.javaw.wasi.WASI.eprintln("WASI Facade Error");
+        return 42;
+    }
+
+    public int testAtomicIntegerOperations() {
+        com.example.javaw.concurrent.AtomicInteger counter = new com.example.javaw.concurrent.AtomicInteger(10);
+        int val1 = counter.incrementAndGet(); // 11
+        int val2 = counter.addAndGet(5); // 16
+        boolean cas = counter.compareAndSet(16, 50); // true, now 50
+        int val3 = counter.getAndAdd(10); // 50, now 60
+        int finalVal = counter.get(); // 60
+        if (cas && val1 == 11 && val2 == 16 && val3 == 50 && finalVal == 60) {
+            return 1;
+        }
+        return 0;
+    }
+
+    public int testAtomicsArrayOperations() {
+        int[] arr = new int[]{100, 200, 300};
+        int prev1 = com.example.javaw.concurrent.Atomics.add(arr, 0, 25); // returns 100, arr[0] is 125
+        int prev2 = com.example.javaw.concurrent.Atomics.compareExchange(arr, 1, 200, 777); // returns 200, arr[1] is 777
+        int loaded0 = com.example.javaw.concurrent.Atomics.load(arr, 0); // 125
+        int loaded1 = com.example.javaw.concurrent.Atomics.load(arr, 1); // 777
+        if (prev1 == 100 && prev2 == 200 && loaded0 == 125 && loaded1 == 777) {
+            return 1;
+        }
+        return 0;
+    }
+
+    public int testWasmThread() {
+        int hc = com.example.javaw.concurrent.WasmThread.hardwareConcurrency();
+        int tid = com.example.javaw.concurrent.WasmThread.currentThreadId();
+        com.example.javaw.concurrent.WasmThread.sleep(1);
+        if (hc >= 1 && tid == 0) {
+            return 1;
+        }
+        return 0;
     }
 }
 

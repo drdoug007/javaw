@@ -214,6 +214,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         collector.append("    (local $__obj_alloc_ptr i32)\n");
         collector.append("    (local $__obj_tmp i32)\n");
         collector.append("    (local $__vtable_tmp i32)\n");
+        collector.append("    (local $__atomic_tmp i32)\n");
+        collector.append("    (local $__atomic_val i32)\n");
     }
 
     private void translateStatement(Statement stmt, StringBuilder collector, Map<String, String> localTypes, Map<String, String> localElementTypes, Map<String, String> localJavaTypes, String returnWasmType) {
@@ -648,6 +650,16 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                         collector.append("    call $__sb_new\n");
                     }
                 }
+            } else if (typeName.equals("AtomicInteger") || typeName.endsWith(".AtomicInteger")) {
+                collector.append("    i32.const 8\n");
+                collector.append("    call $__heap_alloc\n");
+                if (oce.getArguments().size() > 0) {
+                    collector.append("    local.set $__atomic_tmp\n");
+                    collector.append("    local.get $__atomic_tmp\n");
+                    translateExpression(oce.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                    collector.append("    i32.atomic.store offset=4\n");
+                    collector.append("    local.get $__atomic_tmp\n");
+                }
             } else if (classRegistry != null && classRegistry.hasClass(typeName)) {
                 ClassModel cm = classRegistry.getClass(typeName);
                 collector.append("    i32.const ").append(cm.getStructSize()).append("\n");
@@ -960,13 +972,22 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         } else if (expr.isMethodCallExpr()) {
             MethodCallExpr call = expr.asMethodCallExpr();
             String mName = call.getNameAsString();
-            if (call.getScope().isPresent()) {
+            if (isSystemOrWasiCall(call)) {
+                translateSystemOrWasiCall(call, collector, localTypes, localElementTypes, localJavaTypes);
+            } else if (call.getScope().isPresent()) {
                 Expression scope = call.getScope().get();
-                if (scope.isNameExpr() && scope.asNameExpr().getNameAsString().equals("DOM")) {
-                    for (Expression arg : call.getArguments()) {
-                        translateDomStringArg(arg, collector, localTypes, localElementTypes, localJavaTypes);
-                    }
-                    collector.append("    call $dom_").append(mName).append("\n");
+                String scopeStr = scope.toString();
+                String scopeJavaType = getExpressionJavaType(scope, localJavaTypes);
+                if (scopeStr.equals("DOM") || scopeStr.endsWith(".DOM") || scopeStr.equals("Window") || scopeStr.endsWith(".Window") || scopeStr.equals("JSObject") || scopeStr.endsWith(".JSObject")) {
+                    translateDomOrWindowStaticCall(call, collector, localTypes, localElementTypes, localJavaTypes);
+                } else if (scopeStr.equals("Atomics") || scopeStr.endsWith(".Atomics")) {
+                    translateAtomicsStaticCall(call, collector, localTypes, localElementTypes, localJavaTypes);
+                } else if (scopeStr.equals("WasmThread") || scopeStr.endsWith(".WasmThread")) {
+                    translateWasmThreadStaticCall(call, collector, localTypes, localElementTypes, localJavaTypes);
+                } else if ("AtomicInteger".equals(scopeJavaType) || "AtomicInteger".equals(scopeStr) || (scopeJavaType != null && scopeJavaType.endsWith(".AtomicInteger"))) {
+                    translateAtomicIntegerInstanceCall(call, collector, localTypes, localElementTypes, localJavaTypes);
+                } else if ("JSObject".equals(getExpressionJavaType(scope, localJavaTypes))) {
+                    translateJsInstanceCall(call, collector, localTypes, localElementTypes, localJavaTypes);
                 } else if (DomHelper.isDomInstanceMethod(mName)) {
                     translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
                     if (mName.equals("getClassList")) {
@@ -1080,7 +1101,10 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     else if (mName.equals("contains")) collector.append("    call $dom_hasClass\n");
                     else if (mName.equals("toggle")) collector.append("    call $dom_toggleClass\n");
                 } else if (mName.equals("length")) {
-                    if (scope.isNameExpr() && localJavaTypes.containsKey(scope.asNameExpr().getNameAsString()) && (localJavaTypes.get(scope.asNameExpr().getNameAsString()).equals("StringBuilder") || localJavaTypes.get(scope.asNameExpr().getNameAsString()).endsWith(".StringBuilder"))) {
+                    if ("JSObject".equals(getExpressionJavaType(scope, localJavaTypes))) {
+                        translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                        collector.append("    call $dom_js_length\n");
+                    } else if (scope.isNameExpr() && localJavaTypes.containsKey(scope.asNameExpr().getNameAsString()) && (localJavaTypes.get(scope.asNameExpr().getNameAsString()).equals("StringBuilder") || localJavaTypes.get(scope.asNameExpr().getNameAsString()).endsWith(".StringBuilder"))) {
                         translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
                         collector.append("    call $__sb_length\n");
                     } else if (scope.isNameExpr() && localElementTypes.containsKey(scope.asNameExpr().getNameAsString())) {
@@ -1206,7 +1230,9 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     }
                 }
             } else {
-                if (DomHelper.isDomStaticMethod(mName) || DomHelper.isDomInstanceMethod(mName)) {
+                if (DomHelper.isDomStaticMethod(mName)) {
+                    translateDomOrWindowStaticCall(call, collector, localTypes, localElementTypes, localJavaTypes);
+                } else if (DomHelper.isDomInstanceMethod(mName)) {
                     for (Expression arg : call.getArguments()) {
                         translateDomStringArg(arg, collector, localTypes, localElementTypes, localJavaTypes);
                     }
@@ -1275,16 +1301,29 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             }
             if (mName.equals("getInnerText") || mName.equals("getAttribute") || mName.equals("getValue") ||
                     mName.equals("getStyle") || mName.equals("getFillStyle") || mName.equals("getStrokeStyle") ||
-                    mName.equals("getFont") || mName.equals("getTextAlign")) {
+                    mName.equals("getFont") || mName.equals("getTextAlign") ||
+                    mName.equals("getString") || mName.equals("callString") || mName.equals("asString")) {
                 return "String";
             }
-            if (mName.equals("getWidth") || mName.equals("getHeight")) {
+            if (mName.equals("global") || mName.equals("getWindow") || mName.equals("eval") ||
+                    mName.equals("createObject") || mName.equals("createArray") || mName.equals("get") ||
+                    mName.equals("call") || mName.equals("getIndex")) {
+                return "JSObject";
+            }
+            if (mName.equals("getWidth") || mName.equals("getHeight") ||
+                    mName.equals("setTimeout") || mName.equals("setInterval") || mName.equals("requestAnimationFrame") ||
+                    mName.equals("getInt") || mName.equals("callInt") || mName.equals("asInt")) {
                 return "int";
             }
-            if (mName.equals("getLineWidth") || mName.equals("getGlobalAlpha")) {
+            if (mName.equals("getLineWidth") || mName.equals("getGlobalAlpha") ||
+                    mName.equals("getDouble") || mName.equals("callDouble") || mName.equals("asDouble")) {
                 return "double";
             }
-            if (mName.equals("isChecked") || mName.equals("hasClass") || mName.equals("contains")) {
+            if (mName.equals("prompt")) {
+                return "String";
+            }
+            if (mName.equals("isChecked") || mName.equals("hasClass") || mName.equals("contains") ||
+                    mName.equals("getBoolean") || mName.equals("callBoolean") || mName.equals("asBoolean") || mName.equals("isArray")) {
                 return "boolean";
             }
             if (call.getScope().isPresent()) {
@@ -1351,7 +1390,15 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     mName.equals("getInnerText") || mName.equals("getAttribute") || mName.equals("getParent") ||
                     mName.equals("getValue") || mName.equals("isChecked") || mName.equals("getStyle") ||
                     mName.equals("hasClass") || mName.equals("getClassList") ||
-                    mName.equals("contains")) {
+                    mName.equals("contains") || mName.equals("setTimeout") || mName.equals("setInterval") ||
+                    mName.equals("requestAnimationFrame") || mName.equals("confirm") || mName.equals("prompt") ||
+                    mName.equals("get") || mName.equals("getAndSet") || mName.equals("compareAndSet") ||
+                    mName.equals("getAndAdd") || mName.equals("addAndGet") || mName.equals("getAndIncrement") ||
+                    mName.equals("incrementAndGet") || mName.equals("getAndDecrement") || mName.equals("decrementAndGet") ||
+                    mName.equals("getAndAnd") || mName.equals("getAndOr") || mName.equals("getAndXor") ||
+                    mName.equals("load") || mName.equals("exchange") || mName.equals("compareExchange") ||
+                    mName.equals("wait") || mName.equals("notify") || mName.equals("spawn") ||
+                    mName.equals("currentThreadId") || mName.equals("hardwareConcurrency")) {
                 return true;
             }
             if (call.getScope().isPresent()) {
@@ -1391,7 +1438,9 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     mName.equals("getInnerText") || mName.equals("getAttribute") ||
                     mName.equals("getValue") || mName.equals("getStyle") ||
                     mName.equals("getFillStyle") || mName.equals("getStrokeStyle") ||
-                    mName.equals("getFont") || mName.equals("getTextAlign")) return true;
+                    mName.equals("getFont") || mName.equals("getTextAlign") ||
+                    mName.equals("getString") || mName.equals("callString") || mName.equals("asString") ||
+                    mName.equals("prompt") || "String".equals(getExpressionJavaType(expr, localJavaTypes))) return true;
         }
         if (expr.isEnclosedExpr()) {
             return isStringType(expr.asEnclosedExpr().getInner(), localJavaTypes);
@@ -1411,6 +1460,446 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         } else {
             translateExpression(expr, collector, localTypes, localElementTypes, localJavaTypes, "i32");
             collector.append("    call $__str_from_i32\n");
+        }
+    }
+
+    private boolean isSystemOrWasiCall(MethodCallExpr call) {
+        if (!call.getScope().isPresent()) return false;
+        String scopeStr = call.getScope().get().toString();
+        String mName = call.getNameAsString();
+        if (scopeStr.equals("System.out") || scopeStr.equals("System.err")) {
+            return mName.equals("println") || mName.equals("print");
+        }
+        if (scopeStr.equals("System")) {
+            return mName.equals("exit");
+        }
+        if (scopeStr.equals("WASI") || scopeStr.endsWith(".WASI")) {
+            return true;
+        }
+        return false;
+    }
+
+    private void translateSystemOrWasiCall(MethodCallExpr call, StringBuilder collector, Map<String, String> localTypes, Map<String, String> localElementTypes, Map<String, String> localJavaTypes) {
+        String mName = call.getNameAsString();
+        Expression scope = call.getScope().orElse(null);
+        String scopeStr = scope != null ? scope.toString() : "";
+
+        int fd = (scopeStr.contains("err") || mName.startsWith("eprint")) ? 2 : 1;
+        boolean isNewline = mName.endsWith("println") || mName.equals("eprintln");
+
+        if (mName.equals("exit") || mName.equals("procExit")) {
+            if (call.getArguments().size() > 0) {
+                translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            } else {
+                collector.append("    i32.const 0\n");
+            }
+            collector.append("    call $__wasi_proc_exit\n");
+            return;
+        }
+
+        if (mName.equals("fdWrite")) {
+            translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            translateDomStringArg(call.getArgument(1), collector, localTypes, localElementTypes, localJavaTypes);
+            collector.append("    i32.const 0\n");
+            collector.append("    call $__wasi_print_str\n");
+            return;
+        }
+
+        if (call.getArguments().isEmpty()) {
+            collector.append("    i32.const ").append(fd).append("\n");
+            collector.append("    call $__wasi_println_empty\n");
+            return;
+        }
+
+        Expression arg = call.getArgument(0);
+        String argType = inferType(arg, localTypes, localElementTypes, localJavaTypes, null);
+        String argJavaType = getExpressionJavaType(arg, localJavaTypes);
+
+        if (isStringType(arg, localJavaTypes) || "String".equals(argJavaType) || "String".equals(argType)) {
+            collector.append("    i32.const ").append(fd).append("\n");
+            translateDomStringArg(arg, collector, localTypes, localElementTypes, localJavaTypes);
+            collector.append("    i32.const ").append(isNewline ? 1 : 0).append("\n");
+            collector.append("    call $__wasi_print_str\n");
+        } else if ("f64".equals(argType) || "double".equals(argJavaType) || "float".equals(argJavaType) || arg.isDoubleLiteralExpr()) {
+            collector.append("    i32.const ").append(fd).append("\n");
+            translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "f64");
+            collector.append("    i32.const ").append(isNewline ? 1 : 0).append("\n");
+            collector.append("    call $__wasi_print_double\n");
+        } else if ("boolean".equals(argJavaType) || (arg.isBooleanLiteralExpr())) {
+            collector.append("    i32.const ").append(fd).append("\n");
+            translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    i32.const ").append(isNewline ? 1 : 0).append("\n");
+            collector.append("    call $__wasi_print_bool\n");
+        } else if ("char".equals(argJavaType) || (arg.isCharLiteralExpr())) {
+            collector.append("    i32.const ").append(fd).append("\n");
+            translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    i32.const ").append(isNewline ? 1 : 0).append("\n");
+            collector.append("    call $__wasi_print_char\n");
+        } else {
+            collector.append("    i32.const ").append(fd).append("\n");
+            translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    i32.const ").append(isNewline ? 1 : 0).append("\n");
+            collector.append("    call $__wasi_print_int\n");
+        }
+    }
+
+    private void translateDomOrWindowStaticCall(MethodCallExpr call, StringBuilder collector, Map<String, String> localTypes, Map<String, String> localElementTypes, Map<String, String> localJavaTypes) {
+        String mName = call.getNameAsString();
+        if (mName.equals("global") || mName.equals("getWindow")) {
+            collector.append("    call $dom_js_global\n");
+        } else if (mName.equals("eval")) {
+            translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
+            collector.append("    call $dom_js_eval\n");
+        } else if (mName.equals("createObject")) {
+            collector.append("    call $dom_js_createObject\n");
+        } else if (mName.equals("createArray")) {
+            collector.append("    call $dom_js_createArray\n");
+        } else if (mName.equals("setTimeout") || mName.equals("setInterval")) {
+            translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
+            translateExpression(call.getArgument(1), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    call $dom_").append(mName).append("\n");
+        } else if (mName.equals("clearTimeout") || mName.equals("clearInterval") || mName.equals("cancelAnimationFrame")) {
+            translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    call $dom_").append(mName).append("\n");
+        } else if (mName.equals("requestAnimationFrame")) {
+            translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
+            collector.append("    call $dom_requestAnimationFrame\n");
+        } else if (mName.equals("fetch")) {
+            translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
+            translateDomStringArg(call.getArgument(1), collector, localTypes, localElementTypes, localJavaTypes);
+            collector.append("    call $dom_fetch\n");
+        } else if (mName.equals("alert") || mName.equals("confirm") || mName.equals("prompt")) {
+            translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
+            collector.append("    call $dom_").append(mName).append("\n");
+        } else {
+            for (Expression arg : call.getArguments()) {
+                translateDomStringArg(arg, collector, localTypes, localElementTypes, localJavaTypes);
+            }
+            collector.append("    call $dom_").append(mName).append("\n");
+        }
+    }
+
+    private void translateAtomicsStaticCall(MethodCallExpr call, StringBuilder collector, Map<String, String> localTypes, Map<String, String> localElementTypes, Map<String, String> localJavaTypes) {
+        String mName = call.getNameAsString();
+        // Atomics methods take int[] array as arg 0, index as arg 1
+        // Base address calculation: arr_ptr + 4 + (idx * 4)
+        translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+        collector.append("    i32.const 4\n");
+        collector.append("    i32.add\n");
+        translateExpression(call.getArgument(1), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+        collector.append("    i32.const 2\n");
+        collector.append("    i32.shl\n");
+        collector.append("    i32.add\n");
+
+        if (mName.equals("load")) {
+            collector.append("    i32.atomic.load\n");
+        } else if (mName.equals("store")) {
+            translateExpression(call.getArgument(2), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    i32.atomic.store\n");
+        } else if (mName.equals("add")) {
+            translateExpression(call.getArgument(2), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    i32.atomic.rmw.add\n");
+        } else if (mName.equals("sub")) {
+            translateExpression(call.getArgument(2), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    i32.atomic.rmw.sub\n");
+        } else if (mName.equals("and")) {
+            translateExpression(call.getArgument(2), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    i32.atomic.rmw.and\n");
+        } else if (mName.equals("or")) {
+            translateExpression(call.getArgument(2), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    i32.atomic.rmw.or\n");
+        } else if (mName.equals("xor")) {
+            translateExpression(call.getArgument(2), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    i32.atomic.rmw.xor\n");
+        } else if (mName.equals("exchange")) {
+            translateExpression(call.getArgument(2), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    i32.atomic.rmw.xchg\n");
+        } else if (mName.equals("compareExchange")) {
+            translateExpression(call.getArgument(2), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            translateExpression(call.getArgument(3), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    i32.atomic.rmw.cmpxchg\n");
+        } else if (mName.equals("wait")) {
+            translateExpression(call.getArgument(2), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            if (call.getArguments().size() > 3) {
+                translateExpression(call.getArgument(3), collector, localTypes, localElementTypes, localJavaTypes, "i64");
+            } else {
+                collector.append("    i64.const -1\n");
+            }
+            collector.append("    memory.atomic.wait32\n");
+        } else if (mName.equals("notify")) {
+            if (call.getArguments().size() > 2) {
+                translateExpression(call.getArgument(2), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            } else {
+                collector.append("    i32.const 1\n");
+            }
+            collector.append("    memory.atomic.notify\n");
+        }
+    }
+
+    private void translateWasmThreadStaticCall(MethodCallExpr call, StringBuilder collector, Map<String, String> localTypes, Map<String, String> localElementTypes, Map<String, String> localJavaTypes) {
+        String mName = call.getNameAsString();
+        if (mName.equals("spawn")) {
+            translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
+            translateExpression(call.getArgument(1), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    call $dom_thread_spawn\n");
+        } else if (mName.equals("sleep")) {
+            translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    call $dom_thread_sleep\n");
+        } else if (mName.equals("currentThreadId")) {
+            collector.append("    call $dom_thread_current_id\n");
+        } else if (mName.equals("hardwareConcurrency")) {
+            collector.append("    call $dom_thread_hardware_concurrency\n");
+        }
+    }
+
+    private void translateAtomicIntegerInstanceCall(MethodCallExpr call, StringBuilder collector, Map<String, String> localTypes, Map<String, String> localElementTypes, Map<String, String> localJavaTypes) {
+        String mName = call.getNameAsString();
+        Expression scope = call.getScope().get();
+
+        if (mName.equals("get")) {
+            translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    i32.atomic.load offset=4\n");
+        } else if (mName.equals("set")) {
+            translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    i32.atomic.store offset=4\n");
+        } else if (mName.equals("getAndSet")) {
+            translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    i32.atomic.rmw.xchg offset=4\n");
+        } else if (mName.equals("compareAndSet")) {
+            translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    local.set $__atomic_tmp\n");
+            collector.append("    local.get $__atomic_tmp\n");
+            translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    local.set $__atomic_val\n");
+            collector.append("    local.get $__atomic_val\n");
+            translateExpression(call.getArgument(1), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    i32.atomic.rmw.cmpxchg offset=4\n");
+            collector.append("    local.get $__atomic_val\n");
+            collector.append("    i32.eq\n");
+        } else if (mName.equals("getAndAdd")) {
+            translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    i32.atomic.rmw.add offset=4\n");
+        } else if (mName.equals("addAndGet")) {
+            translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    local.set $__atomic_tmp\n");
+            collector.append("    local.get $__atomic_tmp\n");
+            translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    local.set $__atomic_val\n");
+            collector.append("    local.get $__atomic_val\n");
+            collector.append("    i32.atomic.rmw.add offset=4\n");
+            collector.append("    local.get $__atomic_val\n");
+            collector.append("    i32.add\n");
+        } else if (mName.equals("getAndIncrement")) {
+            translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    i32.const 1\n");
+            collector.append("    i32.atomic.rmw.add offset=4\n");
+        } else if (mName.equals("incrementAndGet")) {
+            translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    local.set $__atomic_tmp\n");
+            collector.append("    local.get $__atomic_tmp\n");
+            collector.append("    i32.const 1\n");
+            collector.append("    i32.atomic.rmw.add offset=4\n");
+            collector.append("    i32.const 1\n");
+            collector.append("    i32.add\n");
+        } else if (mName.equals("getAndDecrement")) {
+            translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    i32.const -1\n");
+            collector.append("    i32.atomic.rmw.add offset=4\n");
+        } else if (mName.equals("decrementAndGet")) {
+            translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    local.set $__atomic_tmp\n");
+            collector.append("    local.get $__atomic_tmp\n");
+            collector.append("    i32.const -1\n");
+            collector.append("    i32.atomic.rmw.add offset=4\n");
+            collector.append("    i32.const 1\n");
+            collector.append("    i32.sub\n");
+        } else if (mName.equals("getAndAnd")) {
+            translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    i32.atomic.rmw.and offset=4\n");
+        } else if (mName.equals("getAndOr")) {
+            translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    i32.atomic.rmw.or offset=4\n");
+        } else if (mName.equals("getAndXor")) {
+            translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    i32.atomic.rmw.xor offset=4\n");
+        }
+    }
+
+    private void translateJsInstanceCall(MethodCallExpr call, StringBuilder collector, Map<String, String> localTypes, Map<String, String> localElementTypes, Map<String, String> localJavaTypes) {
+        Expression scope = call.getScope().get();
+        String mName = call.getNameAsString();
+        translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+
+        if (mName.equals("get")) {
+            translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
+            collector.append("    call $dom_js_get\n");
+        } else if (mName.equals("getString")) {
+            translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
+            collector.append("    call $dom_js_getString\n");
+        } else if (mName.equals("getInt")) {
+            translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
+            collector.append("    call $dom_js_getInt\n");
+        } else if (mName.equals("getDouble")) {
+            translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
+            collector.append("    call $dom_js_getDouble\n");
+        } else if (mName.equals("getBoolean")) {
+            translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
+            collector.append("    call $dom_js_getBoolean\n");
+        } else if (mName.equals("set")) {
+            translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
+            Expression val = call.getArgument(1);
+            String valType = inferType(val, localTypes, localElementTypes, localJavaTypes, null);
+            String javaType = getExpressionJavaType(val, localJavaTypes);
+            if (val.isStringLiteralExpr() || "String".equals(javaType) || "String".equals(valType)) {
+                translateDomStringArg(val, collector, localTypes, localElementTypes, localJavaTypes);
+                collector.append("    call $dom_js_setString\n");
+            } else if ("f64".equals(valType) || "double".equals(javaType) || val.isDoubleLiteralExpr()) {
+                translateExpression(val, collector, localTypes, localElementTypes, localJavaTypes, "f64");
+                collector.append("    call $dom_js_setDouble\n");
+            } else if ("boolean".equals(javaType) || val.isBooleanLiteralExpr()) {
+                translateExpression(val, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                collector.append("    call $dom_js_setBoolean\n");
+            } else if ("JSObject".equals(javaType) || "Element".equals(javaType)) {
+                translateExpression(val, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                collector.append("    call $dom_js_setObject\n");
+            } else {
+                translateExpression(val, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                collector.append("    call $dom_js_setInt\n");
+            }
+        } else if (mName.equals("call")) {
+            translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
+            int argCount = call.getArguments().size();
+            if (argCount == 1) {
+                collector.append("    call $dom_js_call0\n");
+            } else if (argCount == 2) {
+                Expression a1 = call.getArgument(1);
+                String a1WasmType = inferType(a1, localTypes, localElementTypes, localJavaTypes, null);
+                String a1JavaType = getExpressionJavaType(a1, localJavaTypes);
+                if (a1.isStringLiteralExpr() || "String".equals(a1JavaType) || "String".equals(a1WasmType)) {
+                    translateDomStringArg(a1, collector, localTypes, localElementTypes, localJavaTypes);
+                    collector.append("    call $dom_js_call1_str\n");
+                } else if ("f64".equals(a1WasmType) || "double".equals(a1JavaType) || a1.isDoubleLiteralExpr()) {
+                    translateExpression(a1, collector, localTypes, localElementTypes, localJavaTypes, "f64");
+                    collector.append("    call $dom_js_call1_double\n");
+                } else if ("boolean".equals(a1JavaType) || a1.isBooleanLiteralExpr()) {
+                    translateExpression(a1, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                    collector.append("    call $dom_js_call1_bool\n");
+                } else if ("JSObject".equals(a1JavaType) || "Element".equals(a1JavaType)) {
+                    translateExpression(a1, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                    collector.append("    call $dom_js_call1_obj\n");
+                } else {
+                    translateExpression(a1, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                    collector.append("    call $dom_js_call1_int\n");
+                }
+            } else if (argCount == 3) {
+                Expression a1 = call.getArgument(1);
+                Expression a2 = call.getArgument(2);
+                String a1JavaType = getExpressionJavaType(a1, localJavaTypes);
+                String a2JavaType = getExpressionJavaType(a2, localJavaTypes);
+                boolean a1Str = a1.isStringLiteralExpr() || "String".equals(a1JavaType);
+                boolean a2Str = a2.isStringLiteralExpr() || "String".equals(a2JavaType);
+                if (a1Str && a2Str) {
+                    translateDomStringArg(a1, collector, localTypes, localElementTypes, localJavaTypes);
+                    translateDomStringArg(a2, collector, localTypes, localElementTypes, localJavaTypes);
+                    collector.append("    call $dom_js_call2_str_str\n");
+                } else if (a1Str && ("JSObject".equals(a2JavaType) || "Element".equals(a2JavaType))) {
+                    translateDomStringArg(a1, collector, localTypes, localElementTypes, localJavaTypes);
+                    translateExpression(a2, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                    collector.append("    call $dom_js_call2_str_obj\n");
+                } else if (a1Str) {
+                    translateDomStringArg(a1, collector, localTypes, localElementTypes, localJavaTypes);
+                    translateExpression(a2, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                    collector.append("    call $dom_js_call2_str_int\n");
+                } else {
+                    translateExpression(a1, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                    translateExpression(a2, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                    collector.append("    call $dom_js_call2_obj_obj\n");
+                }
+            }
+        } else if (mName.equals("callString")) {
+            translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
+            if (call.getArguments().size() > 1) {
+                translateDomStringArg(call.getArgument(1), collector, localTypes, localElementTypes, localJavaTypes);
+                collector.append("    call $dom_js_callString1_str\n");
+            } else {
+                collector.append("    call $dom_js_callString0\n");
+            }
+        } else if (mName.equals("callInt")) {
+            translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
+            if (call.getArguments().size() > 1) {
+                translateExpression(call.getArgument(1), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                collector.append("    call $dom_js_callInt1_int\n");
+            } else {
+                collector.append("    call $dom_js_callInt0\n");
+            }
+        } else if (mName.equals("callDouble")) {
+            translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
+            collector.append("    call $dom_js_callDouble0\n");
+        } else if (mName.equals("callBoolean")) {
+            translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
+            collector.append("    call $dom_js_callBoolean0\n");
+        } else if (mName.equals("asString")) {
+            collector.append("    call $dom_js_asString\n");
+        } else if (mName.equals("asInt")) {
+            collector.append("    call $dom_js_asInt\n");
+        } else if (mName.equals("asDouble")) {
+            collector.append("    call $dom_js_asDouble\n");
+        } else if (mName.equals("asBoolean")) {
+            collector.append("    call $dom_js_asBoolean\n");
+        } else if (mName.equals("isArray")) {
+            collector.append("    call $dom_js_isArray\n");
+        } else if (mName.equals("length")) {
+            collector.append("    call $dom_js_length\n");
+        } else if (mName.equals("getIndex")) {
+            translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    call $dom_js_getIndex\n");
+        } else if (mName.equals("setIndex")) {
+            translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            Expression val = call.getArgument(1);
+            String valType = inferType(val, localTypes, localElementTypes, localJavaTypes, null);
+            String javaType = getExpressionJavaType(val, localJavaTypes);
+            if (val.isStringLiteralExpr() || "String".equals(javaType) || "String".equals(valType)) {
+                translateDomStringArg(val, collector, localTypes, localElementTypes, localJavaTypes);
+                collector.append("    call $dom_js_setIndexStr\n");
+            } else if ("f64".equals(valType) || "double".equals(javaType) || val.isDoubleLiteralExpr()) {
+                translateExpression(val, collector, localTypes, localElementTypes, localJavaTypes, "f64");
+                collector.append("    call $dom_js_setIndexDouble\n");
+            } else if ("boolean".equals(javaType) || val.isBooleanLiteralExpr()) {
+                translateExpression(val, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                collector.append("    call $dom_js_setIndexBoolean\n");
+            } else if ("JSObject".equals(javaType) || "Element".equals(javaType)) {
+                translateExpression(val, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                collector.append("    call $dom_js_setIndexObj\n");
+            } else {
+                translateExpression(val, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                collector.append("    call $dom_js_setIndexInt\n");
+            }
+        } else if (mName.equals("push")) {
+            Expression val = call.getArgument(0);
+            String valType = inferType(val, localTypes, localElementTypes, localJavaTypes, null);
+            String javaType = getExpressionJavaType(val, localJavaTypes);
+            if (val.isStringLiteralExpr() || "String".equals(javaType) || "String".equals(valType)) {
+                translateDomStringArg(val, collector, localTypes, localElementTypes, localJavaTypes);
+                collector.append("    call $dom_js_pushStr\n");
+            } else if ("f64".equals(valType) || "double".equals(javaType) || val.isDoubleLiteralExpr()) {
+                translateExpression(val, collector, localTypes, localElementTypes, localJavaTypes, "f64");
+                collector.append("    call $dom_js_pushDouble\n");
+            } else if ("boolean".equals(javaType) || val.isBooleanLiteralExpr()) {
+                translateExpression(val, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                collector.append("    call $dom_js_pushBoolean\n");
+            } else if ("JSObject".equals(javaType) || "Element".equals(javaType)) {
+                translateExpression(val, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                collector.append("    call $dom_js_pushObj\n");
+            } else {
+                translateExpression(val, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                collector.append("    call $dom_js_pushInt\n");
+            }
         }
     }
 
@@ -1476,6 +1965,12 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         }
         if (expr.isArrayAccessExpr()) {
             return getArrayElementType(expr.asArrayAccessExpr(), localElementTypes, fallback);
+        }
+        if (expr.isMethodCallExpr()) {
+            String javaType = getExpressionJavaType(expr, localJavaTypes);
+            if ("double".equals(javaType)) return "f64";
+            if ("String".equals(javaType)) return "String";
+            return "i32";
         }
         if (expr.isFieldAccessExpr()) {
             FieldAccessExpr fae = expr.asFieldAccessExpr();

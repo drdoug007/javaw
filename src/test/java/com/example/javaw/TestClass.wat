@@ -13,35 +13,101 @@
   (import "dom" "fill" (func $dom_fill (param i32)))
   (import "dom" "webgl_clearColor" (func $dom_webgl_clearColor (param i32 f64 f64 f64 f64)))
   (import "dom" "webgl_clear" (func $dom_webgl_clear (param i32 i32)))
-  (memory (export "memory") 2)
-  (data (i32.const 4096) "Hello\00")
-  (data (i32.const 4102) "WebAssembly\00")
-  (data (i32.const 4114) ", \00")
-  (data (i32.const 4117) "!\00")
-  (data (i32.const 4119) "User: \00")
-  (data (i32.const 4126) " (age: \00")
-  (data (i32.const 4134) ")\00")
-  (data (i32.const 4136) "Hello World\00")
-  (data (i32.const 4148) "World\00")
-  (data (i32.const 4154) "Java\00")
-  (data (i32.const 4159) "Count: \00")
-  (data (i32.const 4167) "testCanvas\00")
-  (data (i32.const 4178) "#ff0000\00")
-  (data (i32.const 4186) "glCanvas\00")
+  (import "dom" "setTimeout" (func $dom_setTimeout (param i32 i32 i32) (result i32)))
+  (import "dom" "setInterval" (func $dom_setInterval (param i32 i32 i32) (result i32)))
+  (import "dom" "requestAnimationFrame" (func $dom_requestAnimationFrame (param i32 i32) (result i32)))
+  (import "dom" "fetch" (func $dom_fetch (param i32 i32 i32 i32)))
+  (import "dom" "confirm" (func $dom_confirm (param i32 i32) (result i32)))
+  (import "dom" "js_global" (func $dom_js_global (result i32)))
+  (import "dom" "js_eval" (func $dom_js_eval (param i32 i32) (result i32)))
+  (import "dom" "js_createObject" (func $dom_js_createObject (result i32)))
+  (import "dom" "js_createArray" (func $dom_js_createArray (result i32)))
+  (import "dom" "js_get" (func $dom_js_get (param i32 i32 i32) (result i32)))
+  (import "dom" "js_getString" (func $dom_js_getString (param i32 i32 i32) (result i32)))
+  (import "dom" "js_getInt" (func $dom_js_getInt (param i32 i32 i32) (result i32)))
+  (import "dom" "js_getBoolean" (func $dom_js_getBoolean (param i32 i32 i32) (result i32)))
+  (import "dom" "js_setString" (func $dom_js_setString (param i32 i32 i32 i32 i32)))
+  (import "dom" "js_setInt" (func $dom_js_setInt (param i32 i32 i32 i32)))
+  (import "dom" "js_setDouble" (func $dom_js_setDouble (param i32 i32 i32 f64)))
+  (import "dom" "js_setBoolean" (func $dom_js_setBoolean (param i32 i32 i32 i32)))
+  (import "dom" "js_setObject" (func $dom_js_setObject (param i32 i32 i32 i32)))
+  (import "dom" "js_callInt0" (func $dom_js_callInt0 (param i32 i32 i32) (result i32)))
+  (import "dom" "js_callInt1_int" (func $dom_js_callInt1_int (param i32 i32 i32 i32) (result i32)))
+  (import "dom" "js_asString" (func $dom_js_asString (param i32) (result i32)))
+  (import "dom" "js_length" (func $dom_js_length (param i32) (result i32)))
+  (import "dom" "js_getIndex" (func $dom_js_getIndex (param i32 i32) (result i32)))
+  (import "dom" "js_setIndexObj" (func $dom_js_setIndexObj (param i32 i32 i32)))
+  (import "dom" "js_setIndexStr" (func $dom_js_setIndexStr (param i32 i32 i32 i32)))
+  (import "dom" "js_setIndexInt" (func $dom_js_setIndexInt (param i32 i32 i32)))
+  (import "dom" "js_setIndexDouble" (func $dom_js_setIndexDouble (param i32 i32 f64)))
+  (import "dom" "js_setIndexBoolean" (func $dom_js_setIndexBoolean (param i32 i32 i32)))
+  (import "dom" "js_pushObj" (func $dom_js_pushObj (param i32 i32)))
+  (import "dom" "js_pushStr" (func $dom_js_pushStr (param i32 i32 i32)))
+  (import "dom" "js_pushInt" (func $dom_js_pushInt (param i32 i32)))
+  (import "dom" "js_pushDouble" (func $dom_js_pushDouble (param i32 f64)))
+  (import "dom" "js_pushBoolean" (func $dom_js_pushBoolean (param i32 i32)))
+  (import "dom" "thread_sleep" (func $dom_thread_sleep (param i32)))
+  (import "dom" "thread_current_id" (func $dom_thread_current_id (result i32)))
+  (import "dom" "thread_hardware_concurrency" (func $dom_thread_hardware_concurrency (result i32)))
+  ;; --- WASI Host Imports (wasi_snapshot_preview1) ---
+  (import "wasi_snapshot_preview1" "fd_write" (func $__wasi_fd_write (param i32 i32 i32 i32) (result i32)))
+  (memory (export "memory") 2 20 shared)
+  (global $asyncCounter (mut i32) (i32.const 0))
+  (global $asyncFetchedData (mut i32) (i32.const 0))
+  (data (i32.const 4096) "\00")
+  (data (i32.const 4097) "onTimerTick\00")
+  (data (i32.const 4109) "onFrameUpdate\00")
+  (data (i32.const 4123) "onFetchSuccess\00")
+  (data (i32.const 4138) "Hello\00")
+  (data (i32.const 4144) "WebAssembly\00")
+  (data (i32.const 4156) ", \00")
+  (data (i32.const 4159) "!\00")
+  (data (i32.const 4161) "User: \00")
+  (data (i32.const 4168) " (age: \00")
+  (data (i32.const 4176) ")\00")
+  (data (i32.const 4178) "Hello World\00")
+  (data (i32.const 4190) "World\00")
+  (data (i32.const 4196) "Java\00")
+  (data (i32.const 4201) "Count: \00")
+  (data (i32.const 4209) "testCanvas\00")
+  (data (i32.const 4220) "#ff0000\00")
+  (data (i32.const 4228) "glCanvas\00")
+  (data (i32.const 4237) "({ title: 'Dynamic JS', count: 42, active: true })\00")
+  (data (i32.const 4288) "title\00")
+  (data (i32.const 4294) "count\00")
+  (data (i32.const 4300) "active\00")
+  (data (i32.const 4307) "user\00")
+  (data (i32.const 4312) "Alice\00")
+  (data (i32.const 4318) "score\00")
+  (data (i32.const 4324) "rating\00")
+  (data (i32.const 4331) "premium\00")
+  (data (i32.const 4339) "item1\00")
+  (data (i32.const 4345) "item2\00")
+  (data (i32.const 4351) "updated\00")
+  (data (i32.const 4359) "Math\00")
+  (data (i32.const 4364) "max\00")
+  (data (i32.const 4368) "Testing WASI standard output from Java!\00")
+  (data (i32.const 4408) "Progress: \00")
+  (data (i32.const 4419) "WASI stderr stream message\00")
+  (data (i32.const 4446) "WASI Facade message: \00")
+  (data (i32.const 4468) "Active\00")
+  (data (i32.const 4475) "WASI Facade Error\00")
   (global $__heap_ptr (mut i32) (i32.const 65536))
   ;; --- WebAssembly Function Type Signatures ---
   (type $t_sig_1 (func (param i32)))
-  (type $t_sig_2 (func (param i32 i32 i32) (result i32)))
-  (type $t_sig_3 (func (param i32) (result f64)))
+  (type $t_sig_2 (func (param i32 f64)))
+  (type $t_sig_3 (func (param i32 i32)))
   (type $t_sig_4 (func (param i32 i32) (result i32)))
-  (type $t_sig_5 (func (param i32 i32) (result f64)))
-  (type $t_sig_6 (func (param i32) (result i32)))
-  (type $t_sig_7 (func (param i32 i32 i32 i32) (result i32)))
-  (type $t_sig_8 (func (param i32 i32 i32 i32 i32) (result i32)))
-  (type $t_sig_9 (func (param i32 i32 i32)))
+  (type $t_sig_5 (func (param i32) (result i32)))
+  (type $t_sig_6 (func (param i32 i32 i32) (result i32)))
+  (type $t_sig_7 (func (param i32) (result f64)))
+  (type $t_sig_8 (func (param i32 i32) (result f64)))
+  (type $t_sig_9 (func (param i32 i32 i32 i32) (result i32)))
+  (type $t_sig_10 (func (param i32 i32 i32 i32 i32) (result i32)))
+  (type $t_sig_11 (func (param i32 i32 i32)))
   ;; --- WebAssembly Function Table (VTable) ---
-  (table (export "__vtable") 46 funcref)
-  (elem (i32.const 0) $sayHello $addNumbers $getPi $calculateFactorial $sumRangeWithSkips $sumArray $sumArrayWithSkips $sumDoubleArray $sumInlineArray $createAndSumArray $evaluateSwitch $switchFallthrough $switchInsideLoop $labeledBreakNestedLoops $labeledContinueNestedLoops $labeledBlockBreak $labeledWhileBreak $concatStrings $formatUser $getStringLength $getCharAtIndex $getSubString $compareStrings $findSubstringIndex $findMissingSubstringIndex $buildCustomString $manipulateStringBuilder $testPointObject $testDirectFieldAccess $testPolymorphismArea $testInheritedColor $testInstanceOf $testObjectArray $testCanvasDraw $testWebGLInit $Point_getX $Point_getY $Point_setLocation $Point_distanceSq $Shape_getColor $Shape_area $Shape_getColor $Circle_area $Circle_getRadius $Shape_getColor $Rectangle_area)
+  (table (export "__vtable") 63 funcref)
+  (elem (i32.const 0) $onTimerTick $onFrameUpdate $onFetchSuccess $testScheduleTimer $testScheduleInterval $testRequestAnimationFrame $testFetchData $testConfirm $sayHello $addNumbers $getPi $calculateFactorial $sumRangeWithSkips $sumArray $sumArrayWithSkips $sumDoubleArray $sumInlineArray $createAndSumArray $evaluateSwitch $switchFallthrough $switchInsideLoop $labeledBreakNestedLoops $labeledContinueNestedLoops $labeledBlockBreak $labeledWhileBreak $concatStrings $formatUser $getStringLength $getCharAtIndex $getSubString $compareStrings $findSubstringIndex $findMissingSubstringIndex $buildCustomString $manipulateStringBuilder $testPointObject $testDirectFieldAccess $testPolymorphismArea $testInheritedColor $testInstanceOf $testObjectArray $testCanvasDraw $testWebGLInit $testJsEvalAndGet $testJsCreateAndSet $testJsArrayOperations $testJsGlobalMathCall $testWasiOutput $testWasiFacade $testAtomicIntegerOperations $testAtomicsArrayOperations $testWasmThread $Point_getX $Point_getY $Point_setLocation $Point_distanceSq $Shape_getColor $Shape_area $Shape_getColor $Circle_area $Circle_getRadius $Shape_getColor $Rectangle_area)
   ;; --- Heap Allocation Functions ---
   (func $__heap_alloc (export "__heap_alloc") (param $size i32) (result i32)
     (local $ptr i32)
@@ -348,6 +414,68 @@
       i32.const 0
     else
       i32.const 0
+    end
+  )
+  (func $__str_from_f64 (export "__str_from_f64") (param $val f64) (result i32)
+    (local $int_part i32)
+    (local $frac_part i32)
+    (local $s_int i32)
+    (local $s_frac i32)
+    (local $s_dot i32)
+    (local $s_res i32)
+    (local $is_neg i32)
+    local.get $val
+    f64.const 0.0
+    f64.lt
+    local.set $is_neg
+    local.get $is_neg
+    if
+      f64.const 0.0
+      local.get $val
+      f64.sub
+      local.set $val
+    end
+    local.get $val
+    i32.trunc_f64_s
+    local.set $int_part
+    local.get $val
+    local.get $int_part
+    f64.convert_i32_s
+    f64.sub
+    f64.const 100.0
+    f64.mul
+    i32.trunc_f64_s
+    local.set $frac_part
+    local.get $int_part
+    call $__str_from_i32
+    local.set $s_int
+    i32.const 1
+    call $__str_alloc
+    local.set $s_dot
+    local.get $s_dot
+    i32.const 46
+    i32.store8
+    local.get $frac_part
+    call $__str_from_i32
+    local.set $s_frac
+    local.get $s_int
+    local.get $s_dot
+    call $__str_concat
+    local.get $s_frac
+    call $__str_concat
+    local.set $s_res
+    local.get $is_neg
+    if (result i32)
+      i32.const 1
+      call $__str_alloc
+      local.tee $s_dot
+      i32.const 45
+      i32.store8
+      local.get $s_dot
+      local.get $s_res
+      call $__str_concat
+    else
+      local.get $s_res
     end
   )
   (func $__str_charAt (export "__str_charAt") (param $s i32) (param $idx i32) (result i32)
@@ -751,7 +879,236 @@
     local.get $c
     i32.store8
   )
+  ;; --- WASI Runtime Helpers ---
+  (func $__wasi_print_str (export "__wasi_print_str") (param $fd i32) (param $str_ptr i32) (param $str_len i32) (param $newline i32)
+    (local $num_iovs i32)
+    i32.const 4
+    i32.const 10
+    i32.store8
+    i32.const 8
+    local.get $str_ptr
+    i32.store
+    i32.const 12
+    local.get $str_len
+    i32.store
+    i32.const 16
+    i32.const 4
+    i32.store
+    i32.const 20
+    i32.const 1
+    i32.store
+    local.get $newline
+    if
+      i32.const 2
+      local.set $num_iovs
+    else
+      i32.const 1
+      local.set $num_iovs
+    end
+    local.get $fd
+    i32.const 8
+    local.get $num_iovs
+    i32.const 24
+    call $__wasi_fd_write
+    drop
+  )
+  (func $__wasi_print_int (export "__wasi_print_int") (param $fd i32) (param $val i32) (param $newline i32)
+    (local $s i32)
+    local.get $val
+    call $__str_from_i32
+    local.set $s
+    local.get $fd
+    local.get $s
+    local.get $s
+    call $__str_length
+    local.get $newline
+    call $__wasi_print_str
+  )
+  (func $__wasi_print_double (export "__wasi_print_double") (param $fd i32) (param $val f64) (param $newline i32)
+    (local $s i32)
+    local.get $val
+    call $__str_from_f64
+    local.set $s
+    local.get $fd
+    local.get $s
+    local.get $s
+    call $__str_length
+    local.get $newline
+    call $__wasi_print_str
+  )
+  (func $__wasi_print_bool (export "__wasi_print_bool") (param $fd i32) (param $val i32) (param $newline i32)
+    (local $s i32)
+    local.get $val
+    call $__str_from_bool
+    local.set $s
+    local.get $fd
+    local.get $s
+    local.get $s
+    call $__str_length
+    local.get $newline
+    call $__wasi_print_str
+  )
+  (func $__wasi_print_char (export "__wasi_print_char") (param $fd i32) (param $c i32) (param $newline i32)
+    i32.const 0
+    local.get $c
+    i32.store8
+    local.get $fd
+    i32.const 0
+    i32.const 1
+    local.get $newline
+    call $__wasi_print_str
+  )
+  (func $__wasi_println_empty (export "__wasi_println_empty") (param $fd i32)
+    local.get $fd
+    i32.const 4
+    i32.const 0
+    i32.const 1
+    call $__wasi_print_str
+  )
   ;; Class/Interface: TestClass
+  (func $onTimerTick (export "onTimerTick")
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    global.get $asyncCounter
+    i32.const 10
+    i32.add
+    global.set $asyncCounter
+  )
+  (func $onFrameUpdate (export "onFrameUpdate") (param $timestamp f64)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    global.get $asyncCounter
+    i32.const 5
+    i32.add
+    global.set $asyncCounter
+  )
+  (func $onFetchSuccess (export "onFetchSuccess") (param $data i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    local.get $data
+    global.set $asyncFetchedData
+  )
+  (func $testScheduleTimer (export "testScheduleTimer") (param $delay i32) (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    i32.const 4097
+    i32.const 11
+    local.get $delay
+    call $dom_setTimeout
+    return
+  )
+  (func $testScheduleInterval (export "testScheduleInterval") (param $delay i32) (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    i32.const 4097
+    i32.const 11
+    local.get $delay
+    call $dom_setInterval
+    return
+  )
+  (func $testRequestAnimationFrame (export "testRequestAnimationFrame") (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    i32.const 4109
+    i32.const 13
+    call $dom_requestAnimationFrame
+    return
+  )
+  (func $testFetchData (export "testFetchData") (param $url i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    local.get $url
+    local.set $__str_arg_ptr
+    local.get $__str_arg_ptr
+    local.get $__str_arg_ptr
+    call $__str_length
+    i32.const 4123
+    i32.const 14
+    call $dom_fetch
+  )
+  (func $testConfirm (export "testConfirm") (param $message i32) (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    local.get $message
+    local.set $__str_arg_ptr
+    local.get $__str_arg_ptr
+    local.get $__str_arg_ptr
+    call $__str_length
+    call $dom_confirm
+    return
+  )
   (func $sayHello (export "sayHello")
     (local $__arr_alloc_ptr i32)
     (local $__arr_alloc_len i32)
@@ -762,6 +1119,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
   )
   (func $addNumbers (export "addNumbers") (param $a i32) (param $b i32) (result i32)
     (local $__arr_alloc_ptr i32)
@@ -773,6 +1132,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     local.get $a
     local.get $b
     i32.add
@@ -788,6 +1149,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     f64.const 3.14159
     return
   )
@@ -803,6 +1166,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     i32.const 1
     local.set $result
     i32.const 1
@@ -842,6 +1207,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     i32.const 0
     local.set $sum
     i32.const 1
@@ -896,6 +1263,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     i32.const 0
     local.set $total
     local.get $numbers
@@ -949,6 +1318,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     i32.const 0
     local.set $total
     local.get $numbers
@@ -1014,6 +1385,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     f64.const 0.0
     local.set $total
     local.get $values
@@ -1067,6 +1440,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     i32.const 0
     local.set $total
     global.get $__heap_ptr
@@ -1142,6 +1517,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     global.get $__heap_ptr
     local.set $__arr_alloc_ptr
     global.get $__heap_ptr
@@ -1212,6 +1589,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     i32.const 0
     local.set $result
     local.get $code
@@ -1269,6 +1648,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     i32.const 0
     local.set $result
     local.get $code
@@ -1332,6 +1713,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     i32.const 0
     local.set $total
     i32.const 1
@@ -1403,6 +1786,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     i32.const 0
     local.set $count
     i32.const 0
@@ -1471,6 +1856,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     i32.const 0
     local.set $count
     i32.const 0
@@ -1533,6 +1920,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     i32.const 10
     local.set $res
     (block $break_label_16
@@ -1567,6 +1956,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     i32.const 0
     local.set $sum
     i32.const 0
@@ -1630,16 +2021,18 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
-    i32.const 4096
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    i32.const 4138
     local.set $greeting
-    i32.const 4102
+    i32.const 4144
     local.set $target
     local.get $greeting
-    i32.const 4114
+    i32.const 4156
     call $__str_concat
     local.get $target
     call $__str_concat
-    i32.const 4117
+    i32.const 4159
     call $__str_concat
     return
   )
@@ -1653,15 +2046,17 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
-    i32.const 4119
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    i32.const 4161
     local.get $name
     call $__str_concat
-    i32.const 4126
+    i32.const 4168
     call $__str_concat
     local.get $age
     call $__str_from_i32
     call $__str_concat
-    i32.const 4134
+    i32.const 4176
     call $__str_concat
     return
   )
@@ -1676,7 +2071,9 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
-    i32.const 4102
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    i32.const 4144
     local.set $s
     local.get $s
     call $__str_length
@@ -1693,7 +2090,9 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
-    i32.const 4102
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    i32.const 4144
     local.set $s
     local.get $s
     local.get $idx
@@ -1711,7 +2110,9 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
-    i32.const 4136
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    i32.const 4178
     local.set $s
     local.get $s
     local.get $start
@@ -1729,6 +2130,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     local.get $a
     local.get $b
     call $__str_equals
@@ -1750,10 +2153,12 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
-    i32.const 4136
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    i32.const 4178
     local.set $s
     local.get $s
-    i32.const 4148
+    i32.const 4190
     call $__str_indexOf
     return
   )
@@ -1768,10 +2173,12 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
-    i32.const 4136
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    i32.const 4178
     local.set $s
     local.get $s
-    i32.const 4154
+    i32.const 4196
     call $__str_indexOf
     return
   )
@@ -1787,11 +2194,13 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     i32.const 16
     call $__sb_new
     local.set $__sb_tmp
     local.get $__sb_tmp
-    i32.const 4159
+    i32.const 4201
     call $__sb_append_str
     drop
     local.get $__sb_tmp
@@ -1837,11 +2246,13 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     i32.const 16
     call $__sb_new
     local.set $__sb_tmp
     local.get $__sb_tmp
-    i32.const 4154
+    i32.const 4196
     call $__sb_append_str
     drop
     local.get $__sb_tmp
@@ -1869,11 +2280,13 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     i32.const 16
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 35
+    i32.const 52
     i32.store offset=0
     local.get $__obj_alloc_ptr
     local.get $x
@@ -1894,7 +2307,7 @@
     i32.load offset=0
     i32.const 2
     i32.add
-    call_indirect (type $t_sig_9)
+    call_indirect (type $t_sig_11)
     local.get $p
     local.set $__obj_tmp
     local.get $__obj_tmp
@@ -1902,7 +2315,7 @@
     i32.load offset=0
     i32.const 3
     i32.add
-    call_indirect (type $t_sig_6)
+    call_indirect (type $t_sig_5)
     return
   )
   (func $testDirectFieldAccess (export "testDirectFieldAccess") (param $x i32) (param $y i32) (result i32)
@@ -1916,11 +2329,13 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     i32.const 16
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 35
+    i32.const 52
     i32.store offset=0
     local.get $__obj_alloc_ptr
     local.get $x
@@ -1962,6 +2377,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     local.get $type
     i32.const 1
     i32.eq
@@ -1970,7 +2387,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 41
+    i32.const 58
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 100
@@ -1983,7 +2400,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 44
+    i32.const 61
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 200
@@ -2000,7 +2417,7 @@
     i32.load offset=0
     i32.const 1
     i32.add
-    call_indirect (type $t_sig_6)
+    call_indirect (type $t_sig_5)
     return
   )
   (func $testInheritedColor (export "testInheritedColor") (param $type i32) (param $color i32) (param $param1 i32) (param $param2 i32) (result i32)
@@ -2014,6 +2431,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     local.get $type
     i32.const 1
     i32.eq
@@ -2022,7 +2441,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 41
+    i32.const 58
     i32.store offset=0
     local.get $__obj_alloc_ptr
     local.get $color
@@ -2035,7 +2454,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 44
+    i32.const 61
     i32.store offset=0
     local.get $__obj_alloc_ptr
     local.get $color
@@ -2052,7 +2471,7 @@
     i32.load offset=0
     i32.const 0
     i32.add
-    call_indirect (type $t_sig_6)
+    call_indirect (type $t_sig_5)
     return
   )
   (func $testInstanceOf (export "testInstanceOf") (param $type i32) (result i32)
@@ -2066,6 +2485,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     local.get $type
     i32.const 1
     i32.eq
@@ -2074,7 +2495,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 41
+    i32.const 58
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 10
@@ -2087,7 +2508,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 44
+    i32.const 61
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 20
@@ -2109,7 +2530,7 @@
       local.set $__vtable_tmp
       i32.const 0
       local.get $__vtable_tmp
-      i32.const 41
+      i32.const 58
       i32.eq
       i32.or
     end
@@ -2129,7 +2550,7 @@
       local.set $__vtable_tmp
       i32.const 0
       local.get $__vtable_tmp
-      i32.const 44
+      i32.const 61
       i32.eq
       i32.or
     end
@@ -2157,6 +2578,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     i32.const 3
     local.set $__arr_alloc_len
     global.get $__heap_ptr
@@ -2185,7 +2608,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 35
+    i32.const 52
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 1
@@ -2202,7 +2625,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 35
+    i32.const 52
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 3
@@ -2219,7 +2642,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 35
+    i32.const 52
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 5
@@ -2258,7 +2681,7 @@
     i32.load offset=0
     i32.const 3
     i32.add
-    call_indirect (type $t_sig_6)
+    call_indirect (type $t_sig_5)
     i32.add
     local.set $totalDist
         )
@@ -2284,7 +2707,9 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
-    i32.const 4167
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    i32.const 4209
     i32.const 10
     call $dom_getElementById
     local.set $canvas
@@ -2298,7 +2723,7 @@
     call $dom_getContext2D
     local.set $ctx
     local.get $ctx
-    i32.const 4178
+    i32.const 4220
     i32.const 7
     call $dom_setFillStyle
     local.get $ctx
@@ -2338,7 +2763,9 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
-    i32.const 4186
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    i32.const 4228
     i32.const 8
     call $dom_getElementById
     local.set $glCanvas
@@ -2357,6 +2784,495 @@
     i32.const 1
     return
   )
+  (func $testJsEvalAndGet (export "testJsEvalAndGet") (result i32)
+    (local $obj i32)
+    (local $title i32)
+    (local $count i32)
+    (local $active i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    i32.const 4237
+    i32.const 50
+    call $dom_js_eval
+    local.set $obj
+    local.get $obj
+    i32.const 4288
+    i32.const 5
+    call $dom_js_getString
+    local.set $title
+    local.get $obj
+    i32.const 4294
+    i32.const 5
+    call $dom_js_getInt
+    local.set $count
+    local.get $obj
+    i32.const 4300
+    i32.const 6
+    call $dom_js_getBoolean
+    local.set $active
+    local.get $active
+    local.get $count
+    i32.const 42
+    i32.eq
+    i32.and
+    local.get $title
+    call $__str_length
+    i32.const 10
+    i32.eq
+    i32.and
+    if
+    local.get $count
+    return
+    end
+    i32.const 0
+    return
+  )
+  (func $testJsCreateAndSet (export "testJsCreateAndSet") (result i32)
+    (local $obj i32)
+    (local $user i32)
+    (local $score i32)
+    (local $premium i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    call $dom_js_createObject
+    local.set $obj
+    local.get $obj
+    i32.const 4307
+    i32.const 4
+    i32.const 4312
+    i32.const 5
+    call $dom_js_setString
+    local.get $obj
+    i32.const 4318
+    i32.const 5
+    i32.const 95
+    call $dom_js_setInt
+    local.get $obj
+    i32.const 4324
+    i32.const 6
+    f64.const 4.8
+    call $dom_js_setDouble
+    local.get $obj
+    i32.const 4331
+    i32.const 7
+    i32.const 1
+    call $dom_js_setBoolean
+    local.get $obj
+    i32.const 4307
+    i32.const 4
+    call $dom_js_getString
+    local.set $user
+    local.get $obj
+    i32.const 4318
+    i32.const 5
+    call $dom_js_getInt
+    local.set $score
+    local.get $obj
+    i32.const 4331
+    i32.const 7
+    call $dom_js_getBoolean
+    local.set $premium
+    local.get $premium
+    local.get $user
+    call $__str_length
+    i32.const 5
+    i32.eq
+    i32.and
+    if
+    local.get $score
+    return
+    end
+    i32.const 0
+    return
+  )
+  (func $testJsArrayOperations (export "testJsArrayOperations") (result i32)
+    (local $arr i32)
+    (local $len i32)
+    (local $item1 i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    call $dom_js_createArray
+    local.set $arr
+    local.get $arr
+    i32.const 4339
+    i32.const 5
+    call $dom_js_pushStr
+    local.get $arr
+    i32.const 4345
+    i32.const 5
+    call $dom_js_pushStr
+    local.get $arr
+    i32.const 123
+    call $dom_js_pushInt
+    local.get $arr
+    call $dom_js_length
+    local.set $len
+    local.get $arr
+    i32.const 1
+    i32.const 4351
+    i32.const 7
+    call $dom_js_setIndexStr
+    local.get $arr
+    i32.const 1
+    call $dom_js_getIndex
+    call $dom_js_asString
+    local.set $item1
+    local.get $len
+    i32.const 3
+    i32.eq
+    local.get $item1
+    call $__str_length
+    i32.const 7
+    i32.eq
+    i32.and
+    if
+    local.get $len
+    return
+    end
+    i32.const 0
+    return
+  )
+  (func $testJsGlobalMathCall (export "testJsGlobalMathCall") (result i32)
+    (local $math i32)
+    (local $max i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    call $dom_js_global
+    i32.const 4359
+    i32.const 4
+    call $dom_js_get
+    local.set $math
+    local.get $math
+    i32.const 4364
+    i32.const 3
+    i32.const 100
+    call $dom_js_callInt1_int
+    local.set $max
+    local.get $max
+    return
+  )
+  (func $testWasiOutput (export "testWasiOutput") (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    i32.const 1
+    i32.const 4368
+    i32.const 39
+    i32.const 1
+    call $__wasi_print_str
+    i32.const 1
+    i32.const 4408
+    i32.const 10
+    i32.const 0
+    call $__wasi_print_str
+    i32.const 1
+    i32.const 100
+    i32.const 1
+    call $__wasi_print_int
+    i32.const 2
+    i32.const 4419
+    i32.const 26
+    i32.const 1
+    call $__wasi_print_str
+    i32.const 1
+    return
+  )
+  (func $testWasiFacade (export "testWasiFacade") (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    i32.const 1
+    i32.const 4446
+    i32.const 21
+    i32.const 0
+    call $__wasi_print_str
+    i32.const 1
+    i32.const 4468
+    i32.const 6
+    i32.const 1
+    call $__wasi_print_str
+    i32.const 1
+    i32.const 42
+    i32.const 1
+    call $__wasi_print_int
+    i32.const 2
+    i32.const 4475
+    i32.const 17
+    i32.const 1
+    call $__wasi_print_str
+    i32.const 42
+    return
+  )
+  (func $testAtomicIntegerOperations (export "testAtomicIntegerOperations") (result i32)
+    (local $counter i32)
+    (local $val1 i32)
+    (local $val2 i32)
+    (local $cas i32)
+    (local $val3 i32)
+    (local $finalVal i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    i32.const 8
+    call $__heap_alloc
+    local.set $__atomic_tmp
+    local.get $__atomic_tmp
+    i32.const 10
+    i32.atomic.store offset=4
+    local.get $__atomic_tmp
+    local.set $counter
+    local.get $counter
+    local.set $__atomic_tmp
+    local.get $__atomic_tmp
+    i32.const 1
+    i32.atomic.rmw.add offset=4
+    i32.const 1
+    i32.add
+    local.set $val1
+    local.get $counter
+    local.set $__atomic_tmp
+    local.get $__atomic_tmp
+    i32.const 5
+    local.set $__atomic_val
+    local.get $__atomic_val
+    i32.atomic.rmw.add offset=4
+    local.get $__atomic_val
+    i32.add
+    local.set $val2
+    local.get $counter
+    local.set $__atomic_tmp
+    local.get $__atomic_tmp
+    i32.const 16
+    local.set $__atomic_val
+    local.get $__atomic_val
+    i32.const 50
+    i32.atomic.rmw.cmpxchg offset=4
+    local.get $__atomic_val
+    i32.eq
+    local.set $cas
+    local.get $counter
+    i32.const 10
+    i32.atomic.rmw.add offset=4
+    local.set $val3
+    local.get $counter
+    i32.atomic.load offset=4
+    local.set $finalVal
+    local.get $cas
+    local.get $val1
+    i32.const 11
+    i32.eq
+    i32.and
+    local.get $val2
+    i32.const 16
+    i32.eq
+    i32.and
+    local.get $val3
+    i32.const 50
+    i32.eq
+    i32.and
+    local.get $finalVal
+    i32.const 60
+    i32.eq
+    i32.and
+    if
+    i32.const 1
+    return
+    end
+    i32.const 0
+    return
+  )
+  (func $testAtomicsArrayOperations (export "testAtomicsArrayOperations") (result i32)
+    (local $arr i32)
+    (local $prev1 i32)
+    (local $prev2 i32)
+    (local $loaded0 i32)
+    (local $loaded1 i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    global.get $__heap_ptr
+    local.set $__arr_alloc_ptr
+    global.get $__heap_ptr
+    i32.const 16
+    i32.add
+    global.set $__heap_ptr
+    local.get $__arr_alloc_ptr
+    i32.const 3
+    i32.store
+    local.get $__arr_alloc_ptr
+    i32.const 100
+    i32.store offset=4
+    local.get $__arr_alloc_ptr
+    i32.const 200
+    i32.store offset=8
+    local.get $__arr_alloc_ptr
+    i32.const 300
+    i32.store offset=12
+    local.get $__arr_alloc_ptr
+    local.set $arr
+    local.get $arr
+    i32.const 4
+    i32.add
+    i32.const 0
+    i32.const 2
+    i32.shl
+    i32.add
+    i32.const 25
+    i32.atomic.rmw.add
+    local.set $prev1
+    local.get $arr
+    i32.const 4
+    i32.add
+    i32.const 1
+    i32.const 2
+    i32.shl
+    i32.add
+    i32.const 200
+    i32.const 777
+    i32.atomic.rmw.cmpxchg
+    local.set $prev2
+    local.get $arr
+    i32.const 4
+    i32.add
+    i32.const 0
+    i32.const 2
+    i32.shl
+    i32.add
+    i32.atomic.load
+    local.set $loaded0
+    local.get $arr
+    i32.const 4
+    i32.add
+    i32.const 1
+    i32.const 2
+    i32.shl
+    i32.add
+    i32.atomic.load
+    local.set $loaded1
+    local.get $prev1
+    i32.const 100
+    i32.eq
+    local.get $prev2
+    i32.const 200
+    i32.eq
+    i32.and
+    local.get $loaded0
+    i32.const 125
+    i32.eq
+    i32.and
+    local.get $loaded1
+    i32.const 777
+    i32.eq
+    i32.and
+    if
+    i32.const 1
+    return
+    end
+    i32.const 0
+    return
+  )
+  (func $testWasmThread (export "testWasmThread") (result i32)
+    (local $hc i32)
+    (local $tid i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    call $dom_thread_hardware_concurrency
+    local.set $hc
+    call $dom_thread_current_id
+    local.set $tid
+    i32.const 1
+    call $dom_thread_sleep
+    local.get $hc
+    i32.const 1
+    i32.ge_s
+    local.get $tid
+    i32.const 0
+    i32.eq
+    i32.and
+    if
+    i32.const 1
+    return
+    end
+    i32.const 0
+    return
+  )
   ;; Class/Interface: Point
   (func $Point__init (export "Point__init") (param $this i32) (param $x i32) (param $y i32)
     (local $__arr_alloc_ptr i32)
@@ -2368,6 +3284,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     local.get $this
     local.get $x
     i32.store offset=4
@@ -2385,6 +3303,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     local.get $this
     i32.load offset=4
     return
@@ -2399,6 +3319,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     local.get $this
     i32.load offset=8
     return
@@ -2413,6 +3335,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     local.get $this
     local.get $newX
     i32.store offset=4
@@ -2430,6 +3354,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     local.get $this
     i32.load offset=4
     local.get $this
@@ -2454,6 +3380,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     local.get $this
     local.get $color
     i32.store offset=4
@@ -2468,6 +3396,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     local.get $this
     i32.load offset=4
     return
@@ -2482,6 +3412,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     i32.const 0
     return
   )
@@ -2496,6 +3428,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     local.get $this
     local.get $color
     call $Shape__init
@@ -2513,6 +3447,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     local.get $this
     i32.load offset=8
     return
@@ -2527,6 +3463,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     i32.const 3
     local.get $this
     i32.load offset=8
@@ -2547,6 +3485,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     local.get $this
     local.get $color
     call $Shape__init
@@ -2567,6 +3507,8 @@
     (local $__obj_alloc_ptr i32)
     (local $__obj_tmp i32)
     (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
     local.get $this
     i32.load offset=8
     local.get $this

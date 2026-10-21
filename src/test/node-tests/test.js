@@ -444,7 +444,48 @@ async function runTest() {
                 console.log('✓ WebGL testWebGLInit assertions passed.');
             }
 
-            console.log('✓ TestClass execution assertions passed (including for loops, for-each loops, arrays, switches, labeled break/continue, compound assignments, dynamic strings, OOP, Canvas 2D, and WebGL).');
+            // Test Asynchronous Browser Interop (Timers, Animation Frame, Fetch)
+            if (typeof instance.exports.testScheduleTimer === 'function') {
+                const tId = instance.exports.testScheduleTimer(10);
+                assert.ok(tId > 0, 'Timer ID should be positive integer');
+                await new Promise(r => setTimeout(r, 30));
+
+                const rafId = instance.exports.testRequestAnimationFrame();
+                assert.ok(rafId > 0, 'Frame ID should be positive integer');
+                await new Promise(r => setTimeout(r, 30));
+
+                // Test global fetch mock
+                global.fetch = async (url) => ({ status: 200, text: async () => '{"status":"ok"}' });
+                instance.exports.testFetchData('https://api.example.com/test');
+                await new Promise(r => setTimeout(r, 30));
+                console.log('✓ Asynchronous Browser Interop assertions passed (setTimeout, requestAnimationFrame, fetch).');
+            }
+
+            // Test Generic JavaScript Dynamic Interop (JSObject)
+            if (typeof instance.exports.testJsEvalAndGet === 'function') {
+                assert.strictEqual(instance.exports.testJsEvalAndGet(), 42, 'testJsEvalAndGet should return 42');
+                assert.strictEqual(instance.exports.testJsCreateAndSet(), 95, 'testJsCreateAndSet should return 95');
+                assert.strictEqual(instance.exports.testJsArrayOperations(), 3, 'testJsArrayOperations should return 3');
+                assert.strictEqual(instance.exports.testJsGlobalMathCall(), 100, 'testJsGlobalMathCall should return 100');
+                console.log('✓ Generic JavaScript Dynamic Interop (JSObject) assertions passed.');
+            }
+
+            // Test WASI Standard I/O and System.out/err
+            if (typeof instance.exports.testWasiOutput === 'function') {
+                assert.strictEqual(instance.exports.testWasiOutput(), 1, 'testWasiOutput should return 1');
+                assert.strictEqual(instance.exports.testWasiFacade(), 42, 'testWasiFacade should return 42');
+                console.log('✓ WASI Target & System.out/err standard I/O assertions passed.');
+            }
+
+            // Test WebAssembly Threads, Shared Memory, and Atomics
+            if (typeof instance.exports.testAtomicIntegerOperations === 'function') {
+                assert.strictEqual(instance.exports.testAtomicIntegerOperations(), 1, 'testAtomicIntegerOperations should return 1');
+                assert.strictEqual(instance.exports.testAtomicsArrayOperations(), 1, 'testAtomicsArrayOperations should return 1');
+                assert.strictEqual(instance.exports.testWasmThread(), 1, 'testWasmThread should return 1');
+                console.log('✓ WebAssembly Threads, Shared Memory, and Atomics assertions passed.');
+            }
+
+            console.log('✓ TestClass execution assertions passed (including for loops, for-each loops, arrays, switches, labeled break/continue, compound assignments, dynamic strings, OOP, Canvas 2D, WebGL, JSObject, WASI, and Threads/Atomics).');
         }
 
         // ==========================================

@@ -413,4 +413,177 @@ public class JavacToWasmTest {
         assertTrue(wat.contains("(import \"dom\" \"webgl_clear\" (func $dom_webgl_clear (param i32 i32)))"));
         assertTrue(wat.contains("(import \"dom\" \"webgl_viewport\" (func $dom_webgl_viewport (param i32 i32 i32 i32 i32)))"));
     }
+
+    @Test
+    public void testGenerateWatWithAsyncAndWindowApis() {
+        String javaSource = "package com.example.javaw;\n" +
+                "import com.example.javaw.dom.DOM;\n" +
+                "import com.example.javaw.dom.Window;\n" +
+                "public class AsyncApp {\n" +
+                "    public void scheduleTasks() {\n" +
+                "        int tId = Window.setTimeout(\"onTimeout\", 1000);\n" +
+                "        int iId = Window.setInterval(\"onTick\", 500);\n" +
+                "        Window.clearTimeout(tId);\n" +
+                "        Window.clearInterval(iId);\n" +
+                "        int fId = DOM.requestAnimationFrame(\"onFrame\");\n" +
+                "        DOM.cancelAnimationFrame(fId);\n" +
+                "        DOM.fetch(\"/api/data\", \"onDataReceived\");\n" +
+                "        Window.alert(\"Notification\");\n" +
+                "        boolean ok = Window.confirm(\"Are you sure?\");\n" +
+                "    }\n" +
+                "}\n";
+
+        CompilationUnit cu = StaticJavaParser.parse(javaSource);
+        String wat = JavacToWasm.generateWat(cu);
+
+        assertTrue(wat.contains("(import \"dom\" \"setTimeout\" (func $dom_setTimeout (param i32 i32 i32) (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"setInterval\" (func $dom_setInterval (param i32 i32 i32) (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"clearTimeout\" (func $dom_clearTimeout (param i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"clearInterval\" (func $dom_clearInterval (param i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"requestAnimationFrame\" (func $dom_requestAnimationFrame (param i32 i32) (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"cancelAnimationFrame\" (func $dom_cancelAnimationFrame (param i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"fetch\" (func $dom_fetch (param i32 i32 i32 i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"alert\" (func $dom_alert (param i32 i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"confirm\" (func $dom_confirm (param i32 i32) (result i32)))"));
+    }
+
+    @Test
+    public void testGenerateWatWithJSObjectDynamicInterop() {
+        String javaSource = "package com.example.javaw;\n" +
+                "import com.example.javaw.dom.JSObject;\n" +
+                "public class JsInteropApp {\n" +
+                "    public void runInterop() {\n" +
+                "        JSObject global = JSObject.global();\n" +
+                "        JSObject custom = JSObject.eval(\"({ x: 10, name: 'test' })\");\n" +
+                "        JSObject obj = JSObject.createObject();\n" +
+                "        JSObject arr = JSObject.createArray();\n" +
+                "        obj.set(\"title\", \"Hello\");\n" +
+                "        obj.set(\"count\", 42);\n" +
+                "        obj.set(\"ratio\", 3.14);\n" +
+                "        obj.set(\"active\", true);\n" +
+                "        obj.set(\"nested\", custom);\n" +
+                "        String title = obj.getString(\"title\");\n" +
+                "        int count = obj.getInt(\"count\");\n" +
+                "        double ratio = obj.getDouble(\"ratio\");\n" +
+                "        boolean active = obj.getBoolean(\"active\");\n" +
+                "        JSObject nested = obj.get(\"nested\");\n" +
+                "        JSObject res = obj.call(\"toString\");\n" +
+                "        String resStr = obj.callString(\"toString\");\n" +
+                "        int len = arr.length();\n" +
+                "        arr.push(\"item1\");\n" +
+                "        arr.push(100);\n" +
+                "        arr.push(true);\n" +
+                "        JSObject first = arr.getIndex(0);\n" +
+                "        arr.setIndex(0, \"updated\");\n" +
+                "    }\n" +
+                "}\n";
+
+        CompilationUnit cu = StaticJavaParser.parse(javaSource);
+        String wat = JavacToWasm.generateWat(cu);
+
+        assertTrue(wat.contains("(import \"dom\" \"js_global\" (func $dom_js_global (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_eval\" (func $dom_js_eval (param i32 i32) (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_createObject\" (func $dom_js_createObject (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_createArray\" (func $dom_js_createArray (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_setString\" (func $dom_js_setString (param i32 i32 i32 i32 i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_setInt\" (func $dom_js_setInt (param i32 i32 i32 i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_setDouble\" (func $dom_js_setDouble (param i32 i32 i32 f64)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_setBoolean\" (func $dom_js_setBoolean (param i32 i32 i32 i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_setObject\" (func $dom_js_setObject (param i32 i32 i32 i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_getString\" (func $dom_js_getString (param i32 i32 i32) (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_getInt\" (func $dom_js_getInt (param i32 i32 i32) (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_getDouble\" (func $dom_js_getDouble (param i32 i32 i32) (result f64)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_getBoolean\" (func $dom_js_getBoolean (param i32 i32 i32) (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_get\" (func $dom_js_get (param i32 i32 i32) (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_call0\" (func $dom_js_call0 (param i32 i32 i32) (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_callString0\" (func $dom_js_callString0 (param i32 i32 i32) (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_length\" (func $dom_js_length (param i32) (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_pushStr\" (func $dom_js_pushStr (param i32 i32 i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_pushInt\" (func $dom_js_pushInt (param i32 i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_pushBoolean\" (func $dom_js_pushBoolean (param i32 i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_getIndex\" (func $dom_js_getIndex (param i32 i32) (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_setIndexStr\" (func $dom_js_setIndexStr (param i32 i32 i32 i32)))"));
+    }
+
+    @Test
+    public void testGenerateWatWithWasiAndSystemOut() {
+        String javaSource = "package com.example.javaw;\n" +
+                "import com.example.javaw.wasi.WASI;\n" +
+                "public class WasiApp {\n" +
+                "    public void runWasi() {\n" +
+                "        System.out.println(\"Hello WASI!\");\n" +
+                "        System.out.print(\"Count: \");\n" +
+                "        System.out.println(42);\n" +
+                "        System.out.println(3.14);\n" +
+                "        System.out.println(true);\n" +
+                "        System.err.println(\"Warning message\");\n" +
+                "        WASI.println(\"Via WASI facade\");\n" +
+                "        WASI.eprintln(\"Error via WASI\");\n" +
+                "        WASI.exit(0);\n" +
+                "    }\n" +
+                "}\n";
+
+        CompilationUnit cu = StaticJavaParser.parse(javaSource);
+        String wat = JavacToWasm.generateWat(cu);
+
+        assertTrue(wat.contains("(import \"wasi_snapshot_preview1\" \"fd_write\" (func $__wasi_fd_write (param i32 i32 i32 i32) (result i32)))"));
+        assertTrue(wat.contains("(import \"wasi_snapshot_preview1\" \"proc_exit\" (func $__wasi_proc_exit (param i32)))"));
+        assertTrue(wat.contains("call $__wasi_print_str"));
+        assertTrue(wat.contains("call $__wasi_print_int"));
+        assertTrue(wat.contains("call $__wasi_print_double"));
+        assertTrue(wat.contains("call $__wasi_print_bool"));
+        assertTrue(wat.contains("call $__wasi_proc_exit"));
+    }
+
+    @Test
+    public void testGenerateWatWithAtomicIntegerAndAtomics() {
+        String javaSource = "package com.example.javaw;\n" +
+                "import com.example.javaw.concurrent.AtomicInteger;\n" +
+                "import com.example.javaw.concurrent.Atomics;\n" +
+                "import com.example.javaw.concurrent.WasmThread;\n" +
+                "public class ThreadApp {\n" +
+                "    public int runAtomics() {\n" +
+                "        AtomicInteger counter = new AtomicInteger(10);\n" +
+                "        counter.incrementAndGet();\n" +
+                "        counter.compareAndSet(11, 42);\n" +
+                "        int[] arr = new int[]{1, 2, 3};\n" +
+                "        Atomics.add(arr, 0, 5);\n" +
+                "        Atomics.compareExchange(arr, 1, 2, 99);\n" +
+                "        WasmThread.spawn(\"workerHandler\", 1);\n" +
+                "        WasmThread.sleep(10);\n" +
+                "        return counter.get();\n" +
+                "    }\n" +
+                "}\n";
+
+        CompilationUnit cu = StaticJavaParser.parse(javaSource);
+        String wat = JavacToWasm.generateWat(cu);
+
+        assertTrue(wat.contains("(memory (export \"memory\") 2 20 shared)"));
+        assertTrue(wat.contains("i32.atomic.load"));
+        assertTrue(wat.contains("i32.atomic.rmw.add"));
+        assertTrue(wat.contains("i32.atomic.rmw.cmpxchg"));
+        assertTrue(wat.contains("(import \"dom\" \"thread_spawn\" (func $dom_thread_spawn (param i32 i32 i32) (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"thread_sleep\" (func $dom_thread_sleep (param i32)))"));
+        assertTrue(wat.contains("call $dom_thread_spawn"));
+        assertTrue(wat.contains("call $dom_thread_sleep"));
+    }
+
+    @Test
+    public void testMultiFileCompilation() {
+        String src1 = "package com.example.javaw;\n" +
+                "public class ServiceA {\n" +
+                "    public int calculate(int x) { return x * 2; }\n" +
+                "}\n";
+        String src2 = "package com.example.javaw;\n" +
+                "public class ServiceB {\n" +
+                "    public int compute(int y) { return y + 10; }\n" +
+                "}\n";
+
+        CompilationUnit cu1 = StaticJavaParser.parse(src1);
+        CompilationUnit cu2 = StaticJavaParser.parse(src2);
+
+        String wat = JavacToWasm.generateWat(java.util.List.of(cu1, cu2));
+        assertTrue(wat.contains("(func $calculate"));
+        assertTrue(wat.contains("(func $compute"));
+    }
 }

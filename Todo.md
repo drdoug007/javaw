@@ -74,27 +74,41 @@ This roadmap organizes planned features by their utility and return on investmen
   - Context styling & properties (`fillStyle`, `strokeStyle`, `lineWidth`, `font`, `textAlign`, `globalAlpha`).
   - Canvas dimension controls (`getWidth()`, `setWidth(w)`, `getHeight()`, `setHeight(h)`) and context retrieval (`element.getContext2D()`, `DOM.getCanvasContext2D(id)`).
   - Basic WebGL context (`WebGLRenderingContext`) with `clearColor`, `clear`, `viewport`, `enable`, `disable`.
-- [ ] **Asynchronous Browser Interop (Promises & Timers)**
-  - `fetch(url)`, `setTimeout`, `setInterval`, `requestAnimationFrame`.
-- [ ] **Generic JavaScript Dynamic Interop (`JSObject`)**
-  - Dynamic evaluation and method calling against arbitrary JavaScript objects.
+- [x] **Asynchronous Browser Interop (Promises & Timers)**
+  - Timers: `Window.setTimeout(handler, ms)`, `Window.clearTimeout(id)`, `Window.setInterval(handler, ms)`, `Window.clearInterval(id)`.
+  - Animation frame: `Window.requestAnimationFrame(handler)`, `Window.cancelAnimationFrame(id)`.
+  - HTTP Fetch & Promises: `Window.fetch(url, callbackHandler)`.
+  - Window dialogs: `Window.alert(msg)`, `Window.confirm(msg)`, `Window.prompt(msg)`.
+- [x] **Generic JavaScript Dynamic Interop (`JSObject`)**
+  - Dynamic evaluation and method calling against arbitrary JavaScript objects (`JSObject.eval`, `JSObject.global()`, `JSObject.createObject()`, `JSObject.createArray()`).
+  - Property accessors/mutators (`get`, `getString`, `getInt`, `getDouble`, `getBoolean`, `set`).
+  - Dynamic method invocations (`call`, `callString`, `callInt`, `callDouble`, `callBoolean`).
+  - Dynamic conversions (`asString`, `asInt`, `asDouble`, `asBoolean`).
+  - Array operations (`isArray`, `length`, `getIndex`, `setIndex`, `push`).
 
 ---
 
 ## 6. Non-Browser Standards (WASI & Concurrency)
 
-- [ ] **WASI Target (`wasi_snapshot_preview1`)**
-  - Support `System.out.println`, file I/O, and CLI arguments for serverless runtimes.
-- [ ] **WebAssembly Threads & Shared Memory**
-  - Multi-threaded execution and atomic operations (`atomic.rmw.*`).
+- [x] **WASI Target (`wasi_snapshot_preview1`)**
+  - Standard I/O output: `System.out.println`, `System.out.print`, `System.err.println`, `System.err.print`, and `System.exit(code)` lowered to WASI `fd_write` and `proc_exit`.
+  - Typed output support for strings, integers, floating point (`f64`), booleans, and characters with automated memory buffering.
+  - Strongly-typed `WASI` facade (`com.example.javaw.wasi.WASI`) with `print`, `println`, `eprint`, `eprintln`, `exit`, `fdWrite`, and `procExit`.
+  - Built-in WASI runtime layer in `javaw-runtime.js` supporting `fd_write`, `fd_read`, `proc_exit`, `args_sizes_get`, `args_get`, `environ_sizes_get`, `environ_get`, `clock_time_get`, and `random_get`.
+- [x] **WebAssembly Threads & Shared Memory**
+  - WebAssembly shared memory declaration `(memory (export "memory") 2 20 shared)` for multithreaded runtime support.
+  - Strongly-typed `AtomicInteger` facade (`com.example.javaw.concurrent.AtomicInteger`) supporting `get`, `set`, `getAndSet`, `compareAndSet`, `getAndAdd`, `addAndGet`, `incrementAndGet`, `decrementAndGet`, and bitwise atomic operations (`i32.atomic.load`, `i32.atomic.store`, `i32.atomic.rmw.*`).
+  - Low-level array atomic primitives (`com.example.javaw.concurrent.Atomics`) supporting `load`, `store`, `add`, `sub`, `and`, `or`, `xor`, `exchange`, `compareExchange`, `wait` (`memory.atomic.wait32`), and `notify` (`memory.atomic.notify`).
+  - Web Worker and thread management facade (`com.example.javaw.concurrent.WasmThread`) supporting `spawn(entryPoint, arg)`, `sleep(ms)`, `currentThreadId()`, and `hardwareConcurrency()`.
+  - Host runtime bridge in `javaw-runtime.js` for thread spawning, sleep via atomics, and concurrency detection.
 
 ---
 
 ## 7. Tooling & Optimization Pipeline
 
-- [ ] **Binaryen Optimization Pass (`wasm-opt`)**
-  - Automated dead-code elimination, inlining, and binary size reduction.
+- [x] **Binaryen Optimization Pass (`wasm-opt`)**
+  - Automated dead-code elimination, inlining, and binary size reduction via integrated `wasm-opt -O3 --enable-threads` pipeline.
 - [ ] **Source Maps & DWARF Debugging**
   - Generate source maps mapping WebAssembly bytecode to Java source lines.
-- [ ] **Multi-File Compilation & Project Linking**
-  - Compile multi-file Java packages into single WebAssembly modules.
+- [x] **Multi-File Compilation & Project Linking**
+  - Compile multiple Java source files or entire directories into a unified WebAssembly module.

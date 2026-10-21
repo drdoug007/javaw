@@ -26,43 +26,83 @@ public class JavacToWasm {
 
     public static void main(String[] args) {
         if (args.length < 1) {
-            System.err.println("Usage: javaw <JavaFile.java>");
+            System.err.println("Usage: javaw <JavaFile.java | dir> [extra files...]");
             System.exit(1);
         }
 
-        String javaFilePath = args[0];
-        Path path = Paths.get(javaFilePath).toAbsolutePath().normalize();
-        String stem = path.getFileName().toString().replace(".java", "");
-        Path watFilePath = path.getParent().resolve(stem + ".wat");
-        Path wasmFilePath = path.getParent().resolve(stem + ".wasm");
+        List<Path> javaFiles = new ArrayList<>();
+        boolean optimize = true;
+        for (String arg : args) {
+            if (arg.equals("-O0") || arg.equals("--no-opt")) {
+                optimize = false;
+                continue;
+            }
+            Path p = Paths.get(arg).toAbsolutePath().normalize();
+            if (java.nio.file.Files.isDirectory(p)) {
+                try (java.util.stream.Stream<Path> stream = java.nio.file.Files.walk(p)) {
+                    stream.filter(f -> f.toString().endsWith(".java")).forEach(javaFiles::add);
+                } catch (IOException e) {
+                    System.err.println("Error reading directory " + p + ": " + e.getMessage());
+                }
+            } else if (p.toString().endsWith(".java")) {
+                javaFiles.add(p);
+            }
+        }
+
+        if (javaFiles.isEmpty()) {
+            System.err.println("No .java files found to compile.");
+            System.exit(1);
+        }
+
+        Path firstPath = javaFiles.get(0);
+        String stem = firstPath.getFileName().toString().replace(".java", "");
+        Path watFilePath = firstPath.getParent().resolve(stem + ".wat");
+        Path wasmFilePath = firstPath.getParent().resolve(stem + ".wasm");
 
         try {
-            System.out.println("Compiling: " + path);
-            System.out.println("Target WAT: " + watFilePath);
+            System.out.println("Compiling " + javaFiles.size() + " Java source file(s)...");
+            List<CompilationUnit> cus = new ArrayList<>();
+            for (Path path : javaFiles) {
+                cus.add(StaticJavaParser.parse(path));
+            }
 
-            CompilationUnit cu = StaticJavaParser.parse(path);
-            String watContent = generateWat(cu);
-
+            String watContent = generateWat(cus);
             try (FileWriter writer = new FileWriter(watFilePath.toFile())) {
                 writer.write(watContent);
             }
-
-            System.out.println("WAT generation successful.");
+            System.out.println("WAT generation successful: " + watFilePath);
 
             // Attempt to compile to binary WASM if wat2wasm is available
+            boolean wasmGenerated = false;
             try {
-                Process process = new ProcessBuilder("wat2wasm", watFilePath.toString(), "-o", wasmFilePath.toString())
+                Process process = new ProcessBuilder("wat2wasm", "--enable-threads", watFilePath.toString(), "-o", wasmFilePath.toString())
                         .redirectErrorStream(true)
                         .start();
                 int exitCode = process.waitFor();
                 if (exitCode == 0) {
                     System.out.println("Binary WASM generated: " + wasmFilePath);
+                    wasmGenerated = true;
                 } else {
                     System.err.println("wat2wasm compilation exited with code: " + exitCode);
                 }
             } catch (IOException e) {
                 // wat2wasm not installed or not in PATH
                 System.out.println("wat2wasm not available in PATH; skipping binary .wasm compilation.");
+            }
+
+            // Attempt to optimize with wasm-opt if available
+            if (wasmGenerated && optimize) {
+                try {
+                    Process optProcess = new ProcessBuilder("wasm-opt", "-O3", "--enable-threads", wasmFilePath.toString(), "-o", wasmFilePath.toString())
+                            .redirectErrorStream(true)
+                            .start();
+                    int optExit = optProcess.waitFor();
+                    if (optExit == 0) {
+                        System.out.println("Binary WASM optimized with wasm-opt (-O3): " + wasmFilePath);
+                    }
+                } catch (IOException e) {
+                    // wasm-opt not installed, skipping optimization
+                }
             }
 
             System.out.println("Compilation successful.");
@@ -141,6 +181,30 @@ public class JavacToWasm {
         return DomHelper.isDomInstanceMethod(mName);
     }
 
+    public static boolean hasThreadsOrAtomics(CompilationUnit cu) {
+        String code = cu.toString();
+        return code.contains("AtomicInteger") || code.contains("Atomics") || code.contains("WasmThread") || code.contains("concurrent");
+    }
+
+    public static String generateWat(List<CompilationUnit> cus) {
+        if (cus.isEmpty()) {
+            return "(module)\n";
+        }
+        if (cus.size() == 1) {
+            return generateWat(cus.get(0));
+        }
+        CompilationUnit merged = new CompilationUnit();
+        for (CompilationUnit cu : cus) {
+            cu.getImports().forEach(i -> {
+                if (!merged.getImports().contains(i)) {
+                    merged.addImport(i.clone());
+                }
+            });
+            cu.getTypes().forEach(t -> merged.addType(t.clone()));
+        }
+        return generateWat(merged);
+    }
+
     public static String generateWat(CompilationUnit cu) {
         StringBuilder watOutput = new StringBuilder();
         watOutput.append("(module\n");
@@ -148,7 +212,14 @@ public class JavacToWasm {
         Set<String> domImports = DomHelper.collectDomImports(cu);
         DomHelper.emitDomImports(domImports, watOutput);
 
-        watOutput.append("  (memory (export \"memory\") 2)\n");
+        Set<String> wasiImports = WasiHelper.collectWasiImports(cu);
+        WasiHelper.emitWasiImports(wasiImports, watOutput);
+
+        if (hasThreadsOrAtomics(cu)) {
+            watOutput.append("  (memory (export \"memory\") 2 20 shared)\n");
+        } else {
+            watOutput.append("  (memory (export \"memory\") 2)\n");
+        }
 
         Map<String, GlobalVar> globalVars = collectGlobalVars(cu);
         for (GlobalVar gv : globalVars.values()) {
@@ -175,7 +246,7 @@ public class JavacToWasm {
         int trueOffset = stringPool.containsKey("true") ? stringPool.get("true").offset : 0;
         int falseOffset = stringPool.containsKey("false") ? stringPool.get("false").offset : 0;
 
-        WasmRuntime.emitRuntimeFunctions(watOutput, trueOffset, falseOffset);
+        WasmRuntime.emitRuntimeFunctions(watOutput, trueOffset, falseOffset, wasiImports.contains("fd_write"));
 
         cu.accept(new WasmGeneratorVisitor(stringPool, globalVars, classRegistry), watOutput);
         watOutput.append(")\n");

@@ -24,6 +24,19 @@
             return this.instance ? this.instance.exports.memory : null;
         }
 
+        getExportedFunction(name) {
+            if (!this.instance || !this.instance.exports) return null;
+            if (typeof this.instance.exports[name] === 'function') {
+                return this.instance.exports[name];
+            }
+            for (const key of Object.keys(this.instance.exports)) {
+                if (key.endsWith('_' + name) && typeof this.instance.exports[key] === 'function') {
+                    return this.instance.exports[key];
+                }
+            }
+            return null;
+        }
+
         readString(ptr, len) {
             const memory = this.getMemory();
             if (!memory || len === 0) return '';
@@ -253,11 +266,119 @@
             const el = this.getElement(handle);
             if (el && typeof el.addEventListener === 'function') {
                 el.addEventListener(eventName, (event) => {
-                    if (this.instance && typeof this.instance.exports[handlerName] === 'function') {
-                        this.instance.exports[handlerName]();
+                    const fn = this.getExportedFunction(handlerName);
+                    if (fn) {
+                        fn();
                     }
                 });
             }
+        }
+
+        setTimeout(handlerPtr, handlerLen, delayMs) {
+            const handlerName = this.readString(handlerPtr, handlerLen);
+            const timer = setTimeout(() => {
+                const fn = this.getExportedFunction(handlerName);
+                if (fn) {
+                    fn();
+                }
+            }, delayMs);
+            return typeof timer === 'number' ? timer : (timer && timer[Symbol.toPrimitive] ? Number(timer) : (this.nextHandle++));
+        }
+
+        clearTimeout(timerId) {
+            clearTimeout(timerId);
+        }
+
+        setInterval(handlerPtr, handlerLen, delayMs) {
+            const handlerName = this.readString(handlerPtr, handlerLen);
+            const timer = setInterval(() => {
+                const fn = this.getExportedFunction(handlerName);
+                if (fn) {
+                    fn();
+                }
+            }, delayMs);
+            return typeof timer === 'number' ? timer : (timer && timer[Symbol.toPrimitive] ? Number(timer) : (this.nextHandle++));
+        }
+
+        clearInterval(intervalId) {
+            clearInterval(intervalId);
+        }
+
+        requestAnimationFrame(handlerPtr, handlerLen) {
+            const handlerName = this.readString(handlerPtr, handlerLen);
+            const rafFn = (typeof requestAnimationFrame !== 'undefined') ? requestAnimationFrame :
+                          (fn => setTimeout(() => fn(Date.now()), 16));
+            const frameId = rafFn((timestamp) => {
+                const fn = this.getExportedFunction(handlerName);
+                if (fn) {
+                    if (fn.length === 0) {
+                        fn();
+                    } else {
+                        fn(timestamp);
+                    }
+                }
+            });
+            return typeof frameId === 'number' ? frameId : (frameId && frameId[Symbol.toPrimitive] ? Number(frameId) : 1);
+        }
+
+        cancelAnimationFrame(frameId) {
+            const cancelRafFn = (typeof cancelAnimationFrame !== 'undefined') ? cancelAnimationFrame : clearTimeout;
+            cancelRafFn(frameId);
+        }
+
+        fetch(urlPtr, urlLen, handlerPtr, handlerLen) {
+            const url = this.readString(urlPtr, urlLen);
+            const handlerName = this.readString(handlerPtr, handlerLen);
+            const fetchFn = (typeof fetch !== 'undefined') ? fetch : (typeof globalThis !== 'undefined' && globalThis.fetch);
+            if (!fetchFn) return;
+            fetchFn(url)
+                .then(async (res) => {
+                    const text = await res.text();
+                    const fn = this.getExportedFunction(handlerName);
+                    if (fn) {
+                        const ptr = this.writeString(text);
+                        if (fn.length === 2) {
+                            fn(res.status, ptr);
+                        } else if (fn.length === 1) {
+                            fn(ptr);
+                        } else {
+                            fn();
+                        }
+                    }
+                })
+                .catch((err) => {
+                    const errFn = this.getExportedFunction(handlerName + "_error");
+                    if (errFn) {
+                        const ptr = this.writeString(err ? (err.message || String(err)) : "Error");
+                        errFn(ptr);
+                    }
+                });
+        }
+
+        alert(msgPtr, msgLen) {
+            const msg = this.readString(msgPtr, msgLen);
+            if (typeof alert !== 'undefined') {
+                alert(msg);
+            } else if (typeof console !== 'undefined') {
+                console.log("[ALERT]", msg);
+            }
+        }
+
+        confirm(msgPtr, msgLen) {
+            const msg = this.readString(msgPtr, msgLen);
+            if (typeof confirm !== 'undefined') {
+                return confirm(msg) ? 1 : 0;
+            }
+            return 1;
+        }
+
+        prompt(msgPtr, msgLen) {
+            const msg = this.readString(msgPtr, msgLen);
+            if (typeof prompt !== 'undefined') {
+                const res = prompt(msg);
+                return res !== null ? this.writeString(res) : 0;
+            }
+            return 0;
         }
 
         getCanvasContext2D(idPtr, idLen) {
@@ -521,6 +642,389 @@
             if (ctx && typeof ctx.disable === 'function') ctx.disable(cap);
         }
 
+        // Generic JS dynamic interop host methods
+        js_global() {
+            const g = (typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : global));
+            return this.getOrCreateHandle(g);
+        }
+
+        js_eval(ptr, len) {
+            const code = this.readString(ptr, len);
+            let res = null;
+            try {
+                res = (0, eval)(code);
+            } catch (e) {
+                res = null;
+            }
+            return this.getOrCreateHandle(res);
+        }
+
+        js_createObject() {
+            return this.getOrCreateHandle({});
+        }
+
+        js_createArray() {
+            return this.getOrCreateHandle([]);
+        }
+
+        js_get(handle, propPtr, propLen) {
+            const obj = this.getElement(handle);
+            const prop = this.readString(propPtr, propLen);
+            const res = obj ? obj[prop] : null;
+            return this.getOrCreateHandle(res);
+        }
+
+        js_getString(handle, propPtr, propLen) {
+            const obj = this.getElement(handle);
+            const prop = this.readString(propPtr, propLen);
+            const val = (obj && obj[prop] !== undefined && obj[prop] !== null) ? String(obj[prop]) : '';
+            return this.writeString(val);
+        }
+
+        js_getInt(handle, propPtr, propLen) {
+            const obj = this.getElement(handle);
+            const prop = this.readString(propPtr, propLen);
+            const val = obj ? Number(obj[prop]) || 0 : 0;
+            return val | 0;
+        }
+
+        js_getDouble(handle, propPtr, propLen) {
+            const obj = this.getElement(handle);
+            const prop = this.readString(propPtr, propLen);
+            return obj ? (Number(obj[prop]) || 0.0) : 0.0;
+        }
+
+        js_getBoolean(handle, propPtr, propLen) {
+            const obj = this.getElement(handle);
+            const prop = this.readString(propPtr, propLen);
+            return (obj && obj[prop]) ? 1 : 0;
+        }
+
+        js_setString(handle, propPtr, propLen, valPtr, valLen) {
+            const obj = this.getElement(handle);
+            const prop = this.readString(propPtr, propLen);
+            const val = this.readString(valPtr, valLen);
+            if (obj) obj[prop] = val;
+        }
+
+        js_setInt(handle, propPtr, propLen, val) {
+            const obj = this.getElement(handle);
+            const prop = this.readString(propPtr, propLen);
+            if (obj) obj[prop] = val;
+        }
+
+        js_setDouble(handle, propPtr, propLen, val) {
+            const obj = this.getElement(handle);
+            const prop = this.readString(propPtr, propLen);
+            if (obj) obj[prop] = val;
+        }
+
+        js_setBoolean(handle, propPtr, propLen, val) {
+            const obj = this.getElement(handle);
+            const prop = this.readString(propPtr, propLen);
+            if (obj) obj[prop] = (val !== 0);
+        }
+
+        js_setObject(handle, propPtr, propLen, valHandle) {
+            const obj = this.getElement(handle);
+            const prop = this.readString(propPtr, propLen);
+            const val = this.getElement(valHandle);
+            if (obj) obj[prop] = val;
+        }
+
+        js_call0(handle, mPtr, mLen) {
+            const obj = this.getElement(handle);
+            const mName = this.readString(mPtr, mLen);
+            let res = null;
+            if (obj && typeof obj[mName] === 'function') {
+                res = obj[mName]();
+            }
+            return this.getOrCreateHandle(res);
+        }
+
+        js_call1_str(handle, mPtr, mLen, aPtr, aLen) {
+            const obj = this.getElement(handle);
+            const mName = this.readString(mPtr, mLen);
+            const arg = this.readString(aPtr, aLen);
+            let res = null;
+            if (obj && typeof obj[mName] === 'function') {
+                res = obj[mName](arg);
+            }
+            return this.getOrCreateHandle(res);
+        }
+
+        js_call1_int(handle, mPtr, mLen, arg) {
+            const obj = this.getElement(handle);
+            const mName = this.readString(mPtr, mLen);
+            let res = null;
+            if (obj && typeof obj[mName] === 'function') {
+                res = obj[mName](arg);
+            }
+            return this.getOrCreateHandle(res);
+        }
+
+        js_call1_double(handle, mPtr, mLen, arg) {
+            const obj = this.getElement(handle);
+            const mName = this.readString(mPtr, mLen);
+            let res = null;
+            if (obj && typeof obj[mName] === 'function') {
+                res = obj[mName](arg);
+            }
+            return this.getOrCreateHandle(res);
+        }
+
+        js_call1_bool(handle, mPtr, mLen, arg) {
+            const obj = this.getElement(handle);
+            const mName = this.readString(mPtr, mLen);
+            let res = null;
+            if (obj && typeof obj[mName] === 'function') {
+                res = obj[mName](arg !== 0);
+            }
+            return this.getOrCreateHandle(res);
+        }
+
+        js_call1_obj(handle, mPtr, mLen, aHandle) {
+            const obj = this.getElement(handle);
+            const mName = this.readString(mPtr, mLen);
+            const arg = this.getElement(aHandle);
+            let res = null;
+            if (obj && typeof obj[mName] === 'function') {
+                res = obj[mName](arg);
+            }
+            return this.getOrCreateHandle(res);
+        }
+
+        js_call2_str_str(handle, mPtr, mLen, a1Ptr, a1Len, a2Ptr, a2Len) {
+            const obj = this.getElement(handle);
+            const mName = this.readString(mPtr, mLen);
+            const arg1 = this.readString(a1Ptr, a1Len);
+            const arg2 = this.readString(a2Ptr, a2Len);
+            let res = null;
+            if (obj && typeof obj[mName] === 'function') {
+                res = obj[mName](arg1, arg2);
+            }
+            return this.getOrCreateHandle(res);
+        }
+
+        js_call2_str_int(handle, mPtr, mLen, a1Ptr, a1Len, arg2) {
+            const obj = this.getElement(handle);
+            const mName = this.readString(mPtr, mLen);
+            const arg1 = this.readString(a1Ptr, a1Len);
+            let res = null;
+            if (obj && typeof obj[mName] === 'function') {
+                res = obj[mName](arg1, arg2);
+            }
+            return this.getOrCreateHandle(res);
+        }
+
+        js_call2_str_obj(handle, mPtr, mLen, a1Ptr, a1Len, a2Handle) {
+            const obj = this.getElement(handle);
+            const mName = this.readString(mPtr, mLen);
+            const arg1 = this.readString(a1Ptr, a1Len);
+            const arg2 = this.getElement(a2Handle);
+            let res = null;
+            if (obj && typeof obj[mName] === 'function') {
+                res = obj[mName](arg1, arg2);
+            }
+            return this.getOrCreateHandle(res);
+        }
+
+        js_call2_obj_obj(handle, mPtr, mLen, a1Handle, a2Handle) {
+            const obj = this.getElement(handle);
+            const mName = this.readString(mPtr, mLen);
+            const arg1 = this.getElement(a1Handle);
+            const arg2 = this.getElement(a2Handle);
+            let res = null;
+            if (obj && typeof obj[mName] === 'function') {
+                res = obj[mName](arg1, arg2);
+            }
+            return this.getOrCreateHandle(res);
+        }
+
+        js_callString0(handle, mPtr, mLen) {
+            const obj = this.getElement(handle);
+            const mName = this.readString(mPtr, mLen);
+            let res = '';
+            if (obj && typeof obj[mName] === 'function') {
+                const val = obj[mName]();
+                res = (val !== undefined && val !== null) ? String(val) : '';
+            }
+            return this.writeString(res);
+        }
+
+        js_callString1_str(handle, mPtr, mLen, aPtr, aLen) {
+            const obj = this.getElement(handle);
+            const mName = this.readString(mPtr, mLen);
+            const arg = this.readString(aPtr, aLen);
+            let res = '';
+            if (obj && typeof obj[mName] === 'function') {
+                const val = obj[mName](arg);
+                res = (val !== undefined && val !== null) ? String(val) : '';
+            }
+            return this.writeString(res);
+        }
+
+        js_callInt0(handle, mPtr, mLen) {
+            const obj = this.getElement(handle);
+            const mName = this.readString(mPtr, mLen);
+            let res = 0;
+            if (obj && typeof obj[mName] === 'function') {
+                res = Number(obj[mName]()) || 0;
+            }
+            return res | 0;
+        }
+
+        js_callInt1_int(handle, mPtr, mLen, arg) {
+            const obj = this.getElement(handle);
+            const mName = this.readString(mPtr, mLen);
+            let res = 0;
+            if (obj && typeof obj[mName] === 'function') {
+                res = Number(obj[mName](arg)) || 0;
+            }
+            return res | 0;
+        }
+
+        js_callDouble0(handle, mPtr, mLen) {
+            const obj = this.getElement(handle);
+            const mName = this.readString(mPtr, mLen);
+            return (obj && typeof obj[mName] === 'function') ? (Number(obj[mName]()) || 0.0) : 0.0;
+        }
+
+        js_callBoolean0(handle, mPtr, mLen) {
+            const obj = this.getElement(handle);
+            const mName = this.readString(mPtr, mLen);
+            return (obj && typeof obj[mName] === 'function' && obj[mName]()) ? 1 : 0;
+        }
+
+        js_asString(handle) {
+            const obj = this.getElement(handle);
+            return this.writeString((obj !== null && obj !== undefined) ? String(obj) : '');
+        }
+
+        js_asInt(handle) {
+            const obj = this.getElement(handle);
+            return (Number(obj) || 0) | 0;
+        }
+
+        js_asDouble(handle) {
+            const obj = this.getElement(handle);
+            return Number(obj) || 0.0;
+        }
+
+        js_asBoolean(handle) {
+            const obj = this.getElement(handle);
+            return obj ? 1 : 0;
+        }
+
+        js_isArray(handle) {
+            const obj = this.getElement(handle);
+            return Array.isArray(obj) ? 1 : 0;
+        }
+
+        js_length(handle) {
+            const obj = this.getElement(handle);
+            return (obj && typeof obj.length === 'number') ? obj.length : 0;
+        }
+
+        js_getIndex(handle, index) {
+            const obj = this.getElement(handle);
+            const item = (obj && obj[index] !== undefined) ? obj[index] : null;
+            return this.getOrCreateHandle(item);
+        }
+
+        js_setIndexObj(handle, index, valHandle) {
+            const obj = this.getElement(handle);
+            const item = this.getElement(valHandle);
+            if (obj) obj[index] = item;
+        }
+
+        js_setIndexStr(handle, index, ptr, len) {
+            const obj = this.getElement(handle);
+            const str = this.readString(ptr, len);
+            if (obj) obj[index] = str;
+        }
+
+        js_setIndexInt(handle, index, val) {
+            const obj = this.getElement(handle);
+            if (obj) obj[index] = val;
+        }
+
+        js_setIndexDouble(handle, index, val) {
+            const obj = this.getElement(handle);
+            if (obj) obj[index] = val;
+        }
+
+        js_setIndexBoolean(handle, index, val) {
+            const obj = this.getElement(handle);
+            if (obj) obj[index] = (val !== 0);
+        }
+
+        js_pushObj(handle, valHandle) {
+            const obj = this.getElement(handle);
+            const item = this.getElement(valHandle);
+            if (obj && typeof obj.push === 'function') obj.push(item);
+        }
+
+        js_pushStr(handle, ptr, len) {
+            const obj = this.getElement(handle);
+            const str = this.readString(ptr, len);
+            if (obj && typeof obj.push === 'function') obj.push(str);
+        }
+
+        js_pushInt(handle, val) {
+            const obj = this.getElement(handle);
+            if (obj && typeof obj.push === 'function') obj.push(val);
+        }
+
+        js_pushDouble(handle, val) {
+            const obj = this.getElement(handle);
+            if (obj && typeof obj.push === 'function') obj.push(val);
+        }
+
+        js_pushBoolean(handle, val) {
+            const obj = this.getElement(handle);
+            if (obj && typeof obj.push === 'function') obj.push(val !== 0);
+        }
+
+        thread_spawn(namePtr, nameLen, arg) {
+            const funcName = this.readString(namePtr, nameLen);
+            if (this.instance && this.instance.exports && typeof this.instance.exports[funcName] === 'function') {
+                if (typeof setTimeout !== 'undefined') {
+                    setTimeout(() => {
+                        this.instance.exports[funcName](arg);
+                    }, 0);
+                } else {
+                    this.instance.exports[funcName](arg);
+                }
+                return 1;
+            }
+            return 0;
+        }
+
+        thread_sleep(ms) {
+            if (typeof Atomics !== 'undefined' && typeof SharedArrayBuffer !== 'undefined') {
+                const sleepBuf = new Int32Array(new SharedArrayBuffer(4));
+                Atomics.wait(sleepBuf, 0, 0, ms);
+            }
+        }
+
+        thread_current_id() {
+            return 0;
+        }
+
+        thread_hardware_concurrency() {
+            if (typeof navigator !== 'undefined' && navigator.hardwareConcurrency) {
+                return navigator.hardwareConcurrency;
+            }
+            if (typeof require !== 'undefined') {
+                try {
+                    const os = require('os');
+                    if (os && os.cpus) return os.cpus().length;
+                } catch (e) {}
+            }
+            return 4;
+        }
+
         getImports(customImports = {}) {
             return {
                 dom: {
@@ -595,7 +1099,154 @@
                     webgl_enable: (h, c) => this.webgl_enable(h, c),
                     webgl_disable: (h, c) => this.webgl_disable(h, c),
                     addEventListener: (handle, ep, el, hp, hl) => this.addEventListener(handle, ep, el, hp, hl),
+                    setTimeout: (hp, hl, d) => this.setTimeout(hp, hl, d),
+                    clearTimeout: (id) => this.clearTimeout(id),
+                    setInterval: (hp, hl, d) => this.setInterval(hp, hl, d),
+                    clearInterval: (id) => this.clearInterval(id),
+                    requestAnimationFrame: (hp, hl) => this.requestAnimationFrame(hp, hl),
+                    cancelAnimationFrame: (id) => this.cancelAnimationFrame(id),
+                    fetch: (up, ul, hp, hl) => this.fetch(up, ul, hp, hl),
+                    alert: (mp, ml) => this.alert(mp, ml),
+                    confirm: (mp, ml) => this.confirm(mp, ml),
+                    prompt: (mp, ml) => this.prompt(mp, ml),
+                    js_global: () => this.js_global(),
+                    js_eval: (ptr, len) => this.js_eval(ptr, len),
+                    js_createObject: () => this.js_createObject(),
+                    js_createArray: () => this.js_createArray(),
+                    js_get: (h, pp, pl) => this.js_get(h, pp, pl),
+                    js_getString: (h, pp, pl) => this.js_getString(h, pp, pl),
+                    js_getInt: (h, pp, pl) => this.js_getInt(h, pp, pl),
+                    js_getDouble: (h, pp, pl) => this.js_getDouble(h, pp, pl),
+                    js_getBoolean: (h, pp, pl) => this.js_getBoolean(h, pp, pl),
+                    js_setString: (h, pp, pl, vp, vl) => this.js_setString(h, pp, pl, vp, vl),
+                    js_setInt: (h, pp, pl, v) => this.js_setInt(h, pp, pl, v),
+                    js_setDouble: (h, pp, pl, v) => this.js_setDouble(h, pp, pl, v),
+                    js_setBoolean: (h, pp, pl, v) => this.js_setBoolean(h, pp, pl, v),
+                    js_setObject: (h, pp, pl, vh) => this.js_setObject(h, pp, pl, vh),
+                    js_call0: (h, mp, ml) => this.js_call0(h, mp, ml),
+                    js_call1_str: (h, mp, ml, ap, al) => this.js_call1_str(h, mp, ml, ap, al),
+                    js_call1_int: (h, mp, ml, a) => this.js_call1_int(h, mp, ml, a),
+                    js_call1_double: (h, mp, ml, a) => this.js_call1_double(h, mp, ml, a),
+                    js_call1_bool: (h, mp, ml, a) => this.js_call1_bool(h, mp, ml, a),
+                    js_call1_obj: (h, mp, ml, ah) => this.js_call1_obj(h, mp, ml, ah),
+                    js_call2_str_str: (h, mp, ml, a1p, a1l, a2p, a2l) => this.js_call2_str_str(h, mp, ml, a1p, a1l, a2p, a2l),
+                    js_call2_str_int: (h, mp, ml, a1p, a1l, a2) => this.js_call2_str_int(h, mp, ml, a1p, a1l, a2),
+                    js_call2_str_obj: (h, mp, ml, a1p, a1l, a2h) => this.js_call2_str_obj(h, mp, ml, a1p, a1l, a2h),
+                    js_call2_obj_obj: (h, mp, ml, a1h, a2h) => this.js_call2_obj_obj(h, mp, ml, a1h, a2h),
+                    js_callString0: (h, mp, ml) => this.js_callString0(h, mp, ml),
+                    js_callString1_str: (h, mp, ml, ap, al) => this.js_callString1_str(h, mp, ml, ap, al),
+                    js_callInt0: (h, mp, ml) => this.js_callInt0(h, mp, ml),
+                    js_callInt1_int: (h, mp, ml, a) => this.js_callInt1_int(h, mp, ml, a),
+                    js_callDouble0: (h, mp, ml) => this.js_callDouble0(h, mp, ml),
+                    js_callBoolean0: (h, mp, ml) => this.js_callBoolean0(h, mp, ml),
+                    js_asString: (h) => this.js_asString(h),
+                    js_asInt: (h) => this.js_asInt(h),
+                    js_asDouble: (h) => this.js_asDouble(h),
+                    js_asBoolean: (h) => this.js_asBoolean(h),
+                    js_isArray: (h) => this.js_isArray(h),
+                    js_length: (h) => this.js_length(h),
+                    js_getIndex: (h, idx) => this.js_getIndex(h, idx),
+                    js_setIndexObj: (h, idx, vh) => this.js_setIndexObj(h, idx, vh),
+                    js_setIndexStr: (h, idx, p, l) => this.js_setIndexStr(h, idx, p, l),
+                    js_setIndexInt: (h, idx, v) => this.js_setIndexInt(h, idx, v),
+                    js_setIndexDouble: (h, idx, v) => this.js_setIndexDouble(h, idx, v),
+                    js_setIndexBoolean: (h, idx, v) => this.js_setIndexBoolean(h, idx, v),
+                    js_pushObj: (h, vh) => this.js_pushObj(h, vh),
+                    js_pushStr: (h, p, l) => this.js_pushStr(h, p, l),
+                    js_pushInt: (h, v) => this.js_pushInt(h, v),
+                    js_pushDouble: (h, v) => this.js_pushDouble(h, v),
+                    js_pushBoolean: (h, v) => this.js_pushBoolean(h, v),
+                    thread_spawn: (p, l, a) => this.thread_spawn(p, l, a),
+                    thread_sleep: (ms) => this.thread_sleep(ms),
+                    thread_current_id: () => this.thread_current_id(),
+                    thread_hardware_concurrency: () => this.thread_hardware_concurrency(),
                     ...(customImports.dom || {})
+                },
+                wasi_snapshot_preview1: {
+                    fd_write: (fd, iovs_ptr, iovs_len, nwritten_ptr) => {
+                        let totalWritten = 0;
+                        let str = '';
+                        if (this.memory && this.memory.buffer) {
+                            const view = new DataView(this.memory.buffer);
+                            for (let i = 0; i < iovs_len; i++) {
+                                const bufPtr = view.getUint32(iovs_ptr + i * 8, true);
+                                const bufLen = view.getUint32(iovs_ptr + i * 8 + 4, true);
+                                if (bufLen > 0) {
+                                    const bytes = new Uint8Array(this.memory.buffer, bufPtr, bufLen);
+                                    str += this.decoder.decode(bytes);
+                                    totalWritten += bufLen;
+                                }
+                            }
+                            if (view.byteLength >= nwritten_ptr + 4) {
+                                view.setUint32(nwritten_ptr, totalWritten, true);
+                            }
+                        }
+                        if (fd === 1) {
+                            if (typeof process !== 'undefined' && process.stdout && typeof process.stdout.write === 'function') {
+                                process.stdout.write(str);
+                            } else {
+                                console.log(str.endsWith('\n') ? str.slice(0, -1) : str);
+                            }
+                        } else if (fd === 2) {
+                            if (typeof process !== 'undefined' && process.stderr && typeof process.stderr.write === 'function') {
+                                process.stderr.write(str);
+                            } else {
+                                console.error(str.endsWith('\n') ? str.slice(0, -1) : str);
+                            }
+                        }
+                        return 0;
+                    },
+                    fd_read: (fd, iovs_ptr, iovs_len, nread_ptr) => {
+                        if (this.memory && this.memory.buffer) {
+                            const view = new DataView(this.memory.buffer);
+                            if (view.byteLength >= nread_ptr + 4) {
+                                view.setUint32(nread_ptr, 0, true);
+                            }
+                        }
+                        return 0;
+                    },
+                    fd_close: (fd) => 0,
+                    proc_exit: (rval) => {
+                        this.lastExitCode = rval;
+                    },
+                    args_sizes_get: (argc_ptr, argv_buf_size_ptr) => {
+                        if (this.memory && this.memory.buffer) {
+                            const view = new DataView(this.memory.buffer);
+                            view.setUint32(argc_ptr, 0, true);
+                            view.setUint32(argv_buf_size_ptr, 0, true);
+                        }
+                        return 0;
+                    },
+                    args_get: (argv_ptr, argv_buf_ptr) => 0,
+                    environ_sizes_get: (env_count_ptr, env_buf_size_ptr) => {
+                        if (this.memory && this.memory.buffer) {
+                            const view = new DataView(this.memory.buffer);
+                            view.setUint32(env_count_ptr, 0, true);
+                            view.setUint32(env_buf_size_ptr, 0, true);
+                        }
+                        return 0;
+                    },
+                    environ_get: (environ_ptr, environ_buf_ptr) => 0,
+                    clock_time_get: (id, precision, time_ptr) => {
+                        if (this.memory && this.memory.buffer) {
+                            const view = new DataView(this.memory.buffer);
+                            const nowNs = BigInt(Date.now()) * 1000000n;
+                            view.setBigUint64(time_ptr, nowNs, true);
+                        }
+                        return 0;
+                    },
+                    random_get: (buf_ptr, buf_len) => {
+                        if (this.memory && this.memory.buffer) {
+                            const arr = new Uint8Array(this.memory.buffer, buf_ptr, buf_len);
+                            if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+                                crypto.getRandomValues(arr);
+                            } else {
+                                for (let i = 0; i < buf_len; i++) arr[i] = (Math.random() * 256) | 0;
+                            }
+                        }
+                        return 0;
+                    },
+                    ...(customImports.wasi_snapshot_preview1 || {})
                 },
                 ...customImports
             };
