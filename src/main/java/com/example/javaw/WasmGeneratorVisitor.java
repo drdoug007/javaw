@@ -1,5 +1,6 @@
 package com.example.javaw;
 
+import com.example.javaw.js.JsAnnotationHelper;
 import com.example.javaw.sourcemap.SourceMapTracker;
 import com.github.javaparser.ast.body.*;
 import com.github.javaparser.ast.expr.*;
@@ -298,7 +299,25 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         collector.append("\n");
 
         // Body
-        if (n.getBody().isPresent()) {
+        Optional<AnnotationExpr> jsAnnoOpt = JsAnnotationHelper.getJsAnnotation(n);
+        boolean isJsInline = jsAnnoOpt.isPresent();
+
+        if (isJsInline) {
+            String className = currentClass != null ? currentClass.getName() : "Global";
+            String importName = "js_inline_" + className + "_" + methodName;
+            for (Parameter p : n.getParameters()) {
+                String pName = p.getNameAsString();
+                String pType = p.getType().asString();
+                if ("String".equals(pType) || "java.lang.String".equals(pType)) {
+                    collector.append("    local.get $").append(pName).append("\n");
+                    collector.append("    local.get $").append(pName).append("\n");
+                    collector.append("    call $__str_length\n");
+                } else {
+                    collector.append("    local.get $").append(pName).append("\n");
+                }
+            }
+            collector.append("    call $dom_").append(importName).append("\n");
+        } else if (n.getBody().isPresent()) {
             BlockStmt body = n.getBody().get();
             emitLocalDeclarationsAndHelpers(body, collector, localTypes, localElementTypes, localJavaTypes);
 

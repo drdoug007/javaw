@@ -14,6 +14,10 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
 
 ## Features
 
+- **`@JS` Inline JavaScript Annotations & Code Generation**:
+  - Allows Java methods (declared `native`) to define inline JavaScript logic directly using `@JS("return Math.hypot(a, b);")`, `@JS("console.log(message);")`, or `@JS("return 'Hello ' + name;")`.
+  - Automatically extracts snippet code during AST analysis, emits corresponding host import signatures (`(import "dom" "js_inline_..." ...)`), and serializes metadata into WebAssembly custom sections (`(@custom "javaw_js_snippets" ...)` and binary `.wasm` sections).
+  - The runtime bridge (`javaw-runtime.js`) automatically deserializes inline snippets and synthesizes callable host functions with zero-copy string decoding and argument conversions.
 - **AST-Based Lowering & Modular Compiler Architecture**:
   - Directly parses Java source files using JavaParser and translates statements and expressions to WebAssembly instructions.
   - Modular architecture separated into dedicated components: `JavacToWasm`, `WasmGeneratorVisitor`, `WasmRuntime`, `DomHelper`, `WasiHelper`, `TypeMapper`, `ClassRegistry`, `ClassModel`, `FieldModel`, `MethodModel`, `GlobalVar`, `StringConstant`, and `LoopContext`.
@@ -168,6 +172,10 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
 │   │   │   │   ├── WebGLRenderingContext.java    # HTML5 WebGL graphics facade
 │   │   │   │   ├── Window.java        # Browser Window, timers & async fetch facade
 │   │   │   │   └── JSObject.java      # Generic dynamic JavaScript interop facade
+│   │   │   ├── js
+│   │   │   │   ├── JS.java                # @JS annotation and sub-annotation definitions
+│   │   │   │   ├── JsSnippetModel.java    # Model for extracted @JS inline JavaScript snippets
+│   │   │   │   └── JsAnnotationHelper.java # AST visitor and annotation discovery helper
 │   │   │   ├── memory
 │   │   │   │   └── Memory.java        # WebAssembly Multi-Memory segregation & operations facade
 │   │   │   ├── simd
@@ -816,6 +824,43 @@ public class SourceMapDemo {
         MappingEntry entry = map.findMappingForGenerated(4, 0);
         if (entry != null) {
             System.out.println("Mapped to Java line: " + (entry.getOriginalLine() + 1));
+        }
+    }
+}
+```
+
+---
+
+#### Example Q: @JS Inline JavaScript Annotations & Host Bridge
+
+Use `@JS` annotations to execute inline JavaScript expressions directly from Java `native` methods across the WebAssembly-to-JavaScript boundary:
+
+```java
+package com.example.javaw;
+
+import com.example.javaw.js.JS;
+
+public class InlineJsDemo {
+    // Mathematical and browser operations written in inline JavaScript
+    @JS("return Math.hypot(a, b);")
+    public static native double calculateHypotenuse(double a, double b);
+
+    @JS("console.log('[JavaW]: ' + message);")
+    public static native void logToConsole(String message);
+
+    @JS("return 'Hello ' + name + '!';")
+    public static native String formatGreeting(String name);
+
+    @JS("return window.innerWidth > 768;")
+    public static native boolean isDesktopViewport();
+
+    public static void run() {
+        logToConsole("Initializing application...");
+        double dist = calculateHypotenuse(3.0, 4.0); // Returns 5.0
+        String greeting = formatGreeting("WebAssembly Developer");
+        
+        if (isDesktopViewport()) {
+            logToConsole(greeting + " (Hypotenuse: " + dist + ")");
         }
     }
 }

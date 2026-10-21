@@ -11,6 +11,7 @@ import com.example.javaw.wasi.WASIFile;
 import com.example.javaw.simd.Float32x4;
 import com.example.javaw.simd.Int32x4;
 import com.example.javaw.memory.Memory;
+import com.example.javaw.js.JS;
 import java.util.Arrays;
 
 public class TestClass {
@@ -725,6 +726,18 @@ public class TestClass {
         int s2 = heap.size();
         return s2 - s1;
     }
+
+    @JS("return Math.hypot(a, b);")
+    public static native double jsHypot(double a, double b);
+
+    @JS("return 'Hello ' + name + '!';")
+    public static native String jsGreet(String name);
+
+    @JS("return a * b + 10;")
+    public static native int jsMultiplyAndAdd(int a, int b);
+
+    @JS("return x > 100;")
+    public static native boolean jsIsGreaterThan100(int x);
 }
 
 record Pair(int first, int second) {}

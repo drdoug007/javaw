@@ -50,6 +50,11 @@
   (import "dom" "thread_sleep" (func $dom_thread_sleep (param i32)))
   (import "dom" "thread_current_id" (func $dom_thread_current_id (result i32)))
   (import "dom" "thread_hardware_concurrency" (func $dom_thread_hardware_concurrency (result i32)))
+  (@custom "javaw_js_snippets" "[{\22className\22:\22TestClass\22,\22methodName\22:\22jsHypot\22,\22importName\22:\22js_inline_TestClass_jsHypot\22,\22jsCode\22:\22return Math.hypot(a, b);\22,\22returnType\22:\22double\22,\22returnWasmType\22:\22f64\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22a\22,\22javaType\22:\22double\22,\22wasmType\22:\22f64\22,\22coerced\22:false},{\22name\22:\22b\22,\22javaType\22:\22double\22,\22wasmType\22:\22f64\22,\22coerced\22:false}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsGreet\22,\22importName\22:\22js_inline_TestClass_jsGreet\22,\22jsCode\22:\22return 'Hello ' + name + '!';\22,\22returnType\22:\22String\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22name\22,\22javaType\22:\22String\22,\22wasmType\22:\22i32\22,\22coerced\22:false}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsMultiplyAndAdd\22,\22importName\22:\22js_inline_TestClass_jsMultiplyAndAdd\22,\22jsCode\22:\22return a * b + 10;\22,\22returnType\22:\22int\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22a\22,\22javaType\22:\22int\22,\22wasmType\22:\22i32\22,\22coerced\22:false},{\22name\22:\22b\22,\22javaType\22:\22int\22,\22wasmType\22:\22i32\22,\22coerced\22:false}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsIsGreaterThan100\22,\22importName\22:\22js_inline_TestClass_jsIsGreaterThan100\22,\22jsCode\22:\22return x > 100;\22,\22returnType\22:\22boolean\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22x\22,\22javaType\22:\22int\22,\22wasmType\22:\22i32\22,\22coerced\22:false}]}]")
+  (import "dom" "js_inline_TestClass_jsHypot" (func $dom_js_inline_TestClass_jsHypot (param f64 f64) (result f64)))
+  (import "dom" "js_inline_TestClass_jsGreet" (func $dom_js_inline_TestClass_jsGreet (param i32 i32) (result i32)))
+  (import "dom" "js_inline_TestClass_jsMultiplyAndAdd" (func $dom_js_inline_TestClass_jsMultiplyAndAdd (param i32 i32) (result i32)))
+  (import "dom" "js_inline_TestClass_jsIsGreaterThan100" (func $dom_js_inline_TestClass_jsIsGreaterThan100 (param i32) (result i32)))
   ;; --- WASI Host Imports (wasi_snapshot_preview1) ---
   (import "wasi_snapshot_preview1" "fd_write" (func $__wasi_fd_write (param i32 i32 i32 i32) (result i32)))
   (import "wasi_snapshot_preview1" "fd_read" (func $__wasi_fd_read (param i32 i32 i32 i32) (result i32)))
@@ -134,6 +139,10 @@
   (data (memory $strings) (i32.const 4684) ";Active=true\00")
   (data (memory $strings) (i32.const 4697) "/app/temp.log\00")
   (data (memory $strings) (i32.const 4711) "12345\00")
+  (data (memory $strings) (i32.const 4717) "return Math.hypot(a, b);\00")
+  (data (memory $strings) (i32.const 4742) "return 'Hello ' + name + '!';\00")
+  (data (memory $strings) (i32.const 4772) "return a * b + 10;\00")
+  (data (memory $strings) (i32.const 4791) "return x > 100;\00")
   (global $__heap_ptr (mut i32) (i32.const 0))
   ;; --- WebAssembly Function Type Signatures ---
   (type $t_sig_1 (func (param i32) (result i32)))
@@ -5698,6 +5707,26 @@
     local.get $s1
     i32.sub
     return
+  )
+  (func $jsHypot (export "jsHypot") (param $a f64) (param $b f64) (result f64)
+    local.get $a
+    local.get $b
+    call $dom_js_inline_TestClass_jsHypot
+  )
+  (func $jsGreet (export "jsGreet") (param $name i32) (result i32)
+    local.get $name
+    local.get $name
+    call $__str_length
+    call $dom_js_inline_TestClass_jsGreet
+  )
+  (func $jsMultiplyAndAdd (export "jsMultiplyAndAdd") (param $a i32) (param $b i32) (result i32)
+    local.get $a
+    local.get $b
+    call $dom_js_inline_TestClass_jsMultiplyAndAdd
+  )
+  (func $jsIsGreaterThan100 (export "jsIsGreaterThan100") (param $x i32) (result i32)
+    local.get $x
+    call $dom_js_inline_TestClass_jsIsGreaterThan100
   )
   ;; Record: Pair
   ;; Record: Point3D

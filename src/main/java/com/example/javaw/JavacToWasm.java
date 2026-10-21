@@ -1,5 +1,8 @@
 package com.example.javaw;
 
+import com.example.javaw.js.JS;
+import com.example.javaw.js.JsAnnotationHelper;
+import com.example.javaw.js.JsSnippetModel;
 import com.example.javaw.sourcemap.SourceMap;
 import com.example.javaw.sourcemap.SourceMapGenerator;
 import com.example.javaw.sourcemap.SourceMapTracker;
@@ -277,6 +280,17 @@ public class JavacToWasm {
         Set<String> domImports = DomHelper.collectDomImports(cu);
         DomHelper.emitDomImports(domImports, watOutput);
 
+        Map<String, JsSnippetModel> jsSnippets = JsAnnotationHelper.collectJsSnippets(cu);
+        if (!jsSnippets.isEmpty()) {
+            String snippetsJson = JsAnnotationHelper.snippetsToJson(jsSnippets);
+            watOutput.append("  (@custom \"javaw_js_snippets\" \"")
+                    .append(SourceMapGenerator.escapeRawCustomSectionPayload(snippetsJson))
+                    .append("\")\n");
+            for (JsSnippetModel snippet : jsSnippets.values()) {
+                watOutput.append("  ").append(snippet.getWasmImportSignature()).append("\n");
+            }
+        }
+
         Set<String> wasiImports = WasiHelper.collectWasiImports(cu);
         WasiHelper.emitWasiImports(wasiImports, watOutput);
 
@@ -362,7 +376,8 @@ public class JavacToWasm {
 
         String wat = generateWat(cu, sourceMapGen, fileName);
         byte[] wasm = assembleWasm(wat, optimize);
-        return new CompilationResult(wat, wasm, sourceMapGen);
+        Map<String, JsSnippetModel> jsSnippets = JsAnnotationHelper.collectJsSnippets(cu);
+        return new CompilationResult(wat, wasm, sourceMapGen, jsSnippets);
     }
 
     public static byte[] assembleWasm(String watContent, boolean optimize) {
@@ -401,15 +416,21 @@ public class JavacToWasm {
         private final String wat;
         private final byte[] wasm;
         private final SourceMapGenerator sourceMapGenerator;
+        private final Map<String, JsSnippetModel> jsSnippets;
 
         public CompilationResult(String wat, byte[] wasm) {
-            this(wat, wasm, null);
+            this(wat, wasm, null, java.util.Collections.emptyMap());
         }
 
         public CompilationResult(String wat, byte[] wasm, SourceMapGenerator sourceMapGenerator) {
+            this(wat, wasm, sourceMapGenerator, java.util.Collections.emptyMap());
+        }
+
+        public CompilationResult(String wat, byte[] wasm, SourceMapGenerator sourceMapGenerator, Map<String, JsSnippetModel> jsSnippets) {
             this.wat = wat;
             this.wasm = wasm;
             this.sourceMapGenerator = sourceMapGenerator;
+            this.jsSnippets = jsSnippets != null ? jsSnippets : java.util.Collections.emptyMap();
         }
 
         public String getWat() {
@@ -439,6 +460,14 @@ public class JavacToWasm {
 
         public String getSourceMapDataUri() {
             return sourceMapGenerator != null ? sourceMapGenerator.generateBase64DataUri() : null;
+        }
+
+        public Map<String, JsSnippetModel> getJsSnippets() {
+            return jsSnippets;
+        }
+
+        public String getJsSnippetsJson() {
+            return JsAnnotationHelper.snippetsToJson(jsSnippets);
         }
     }
 

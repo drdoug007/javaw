@@ -17,6 +17,120 @@
             this.vfs = new Map();
             this.fds = new Map();
             this.nextFd = 3;
+            this.inlineJsFunctions = new Map();
+        }
+
+        registerInlineJs(snippets) {
+            if (!snippets) return;
+            if (typeof snippets === 'string') {
+                try {
+                    snippets = JSON.parse(snippets);
+                } catch (e) {
+                    console.error('Failed to parse JS snippets JSON:', e);
+                    return;
+                }
+            }
+            if (typeof snippets === 'object' && !Array.isArray(snippets)) {
+                snippets = Object.values(snippets);
+            }
+            if (!Array.isArray(snippets)) return;
+            for (const def of snippets) {
+                if (def && def.importName) {
+                    const fn = this.createInlineJsFunction(def);
+                    this.inlineJsFunctions.set(def.importName, fn);
+                }
+            }
+        }
+
+        createInlineJsFunction(def) {
+            const runtime = this;
+            const params = def.parameters || [];
+            const jsCode = def.jsCode || '';
+            const returnType = def.returnType || 'void';
+
+            const userParamNames = params.map(p => p.name);
+            let userFn;
+            try {
+                let body = jsCode.trim();
+                if (!body.includes('return') && !body.includes(';') && !body.includes('\n') && returnType !== 'void') {
+                    body = 'return (' + body + ');';
+                }
+                userFn = new Function(...userParamNames, 'runtime', body);
+            } catch (e) {
+                console.error('Error compiling inline JS snippet ' + def.importName + ':', e);
+                userFn = () => {};
+            }
+
+            return function (...args) {
+                const userArgs = [];
+                let argIdx = 0;
+                for (const p of params) {
+                    const pType = p.javaType;
+                    if (pType === 'String' || pType === 'java.lang.String') {
+                        const ptr = args[argIdx++];
+                        const len = args[argIdx++];
+                        userArgs.push(runtime.readString(ptr, len));
+                    } else if (pType === 'boolean') {
+                        const val = args[argIdx++];
+                        userArgs.push(Boolean(val));
+                    } else if (pType === 'JSObject' || pType === 'Element' || (pType && (pType.endsWith('.JSObject') || pType.endsWith('.Element')))) {
+                        const handle = args[argIdx++];
+                        userArgs.push(runtime.getElement(handle));
+                    } else if (pType && pType.endsWith('[]')) {
+                        const ptr = args[argIdx++];
+                        userArgs.push(ptr);
+                    } else {
+                        const val = args[argIdx++];
+                        userArgs.push(val);
+                    }
+                }
+
+                let result;
+                try {
+                    result = userFn.apply(null, [...userArgs, runtime]);
+                } catch (err) {
+                    console.error('Error executing inline JS snippet ' + def.importName + ':', err);
+                    throw err;
+                }
+
+                if (returnType === 'void') {
+                    return;
+                } else if (returnType === 'String' || returnType === 'java.lang.String') {
+                    return runtime.writeString(result != null ? String(result) : '');
+                } else if (returnType === 'boolean') {
+                    return result ? 1 : 0;
+                } else if (returnType === 'int' || returnType === 'short' || returnType === 'byte' || returnType === 'char') {
+                    return Math.trunc(Number(result)) | 0;
+                } else if (returnType === 'double' || returnType === 'float') {
+                    return Number(result);
+                } else if (returnType === 'long') {
+                    return typeof BigInt !== 'undefined' ? BigInt(result) : Math.trunc(Number(result));
+                } else if (returnType === 'JSObject' || returnType === 'Element' || (returnType && (returnType.endsWith('.JSObject') || returnType.endsWith('.Element')))) {
+                    return runtime.getOrCreateHandle(result);
+                } else {
+                    return typeof result === 'number' ? result : runtime.getOrCreateHandle(result);
+                }
+            };
+        }
+
+        loadCustomSections(module) {
+            if (!module || typeof WebAssembly.Module.customSections !== 'function') return;
+            try {
+                const sections = WebAssembly.Module.customSections(module, 'javaw_js_snippets');
+                if (sections && sections.length > 0) {
+                    for (const sec of sections) {
+                        const uint8 = new Uint8Array(sec);
+                        let jsonStr = textDecoder.decode(uint8);
+                        const firstChar = jsonStr.indexOf('[');
+                        if (firstChar >= 0) {
+                            jsonStr = jsonStr.substring(firstChar);
+                        }
+                        this.registerInlineJs(jsonStr);
+                    }
+                }
+            } catch (e) {
+                console.warn('Error reading custom section javaw_js_snippets:', e);
+            }
         }
 
         normalizePath(p) {
@@ -1112,8 +1226,13 @@
         }
 
         getImports(customImports = {}) {
+            const inlineObj = {};
+            for (const [key, fn] of this.inlineJsFunctions.entries()) {
+                inlineObj[key] = fn;
+            }
             return {
                 dom: {
+                    ...inlineObj,
                     getElementById: (ptr, len) => this.getElementById(ptr, len),
                     createElement: (ptr, len) => this.createElement(ptr, len),
                     getBody: () => this.getBody(),
@@ -1468,6 +1587,10 @@
                     },
                     ...(customImports.wasi_snapshot_preview1 || {})
                 },
+                js: {
+                    ...inlineObj,
+                    ...(customImports.js || {})
+                },
                 ...customImports
             };
         }
@@ -1475,18 +1598,30 @@
 
     async function instantiateJavaw(wasmSource, customImports = {}, doc = null) {
         const runtime = new JavawRuntime(doc);
-        const importObject = runtime.getImports(customImports);
-        let result;
-        if (typeof WebAssembly.instantiateStreaming === 'function' && wasmSource instanceof Response) {
-            result = await WebAssembly.instantiateStreaming(wasmSource, importObject);
+        let module;
+        let wasmBytes;
+        if (wasmSource instanceof WebAssembly.Module) {
+            module = wasmSource;
+        } else if (wasmSource instanceof ArrayBuffer || wasmSource instanceof Uint8Array) {
+            wasmBytes = wasmSource instanceof Uint8Array ? wasmSource.buffer : wasmSource;
+            module = await WebAssembly.compile(wasmBytes);
+        } else if (typeof WebAssembly.compileStreaming === 'function' && typeof Response !== 'undefined' && wasmSource instanceof Response) {
+            module = await WebAssembly.compileStreaming(wasmSource);
+        } else if (typeof Response !== 'undefined' && wasmSource instanceof Response) {
+            wasmBytes = await wasmSource.arrayBuffer();
+            module = await WebAssembly.compile(wasmBytes);
         } else {
-            result = await WebAssembly.instantiate(wasmSource, importObject);
+            module = await WebAssembly.compile(wasmSource);
         }
-        const instance = result.instance || result;
+
+        runtime.loadCustomSections(module);
+        const importObject = runtime.getImports(customImports);
+        const instance = await WebAssembly.instantiate(module, importObject);
         runtime.setInstance(instance);
         return {
             instance,
             runtime,
+            module,
             exports: instance.exports
         };
     }

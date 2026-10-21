@@ -912,4 +912,42 @@ public class JavacToWasmTest {
         org.junit.jupiter.api.Assertions.assertTrue(map.getMappings().size() >= 3);
         org.junit.jupiter.api.Assertions.assertEquals("DebuggableApp.java", map.getSources().get(0));
     }
+
+    @Test
+    public void testJsInlineAnnotationWATGeneration() {
+        String javaSource = "package com.example.javaw;\n" +
+                "import com.example.javaw.js.JS;\n" +
+                "public class JsBridgeApp {\n" +
+                "    @JS(\"return Math.hypot(a, b);\")\n" +
+                "    public static native double hypot(double a, double b);\n" +
+                "\n" +
+                "    @JS(\"console.log(message);\")\n" +
+                "    public static native void log(String message);\n" +
+                "\n" +
+                "    @JS(\"return 'Hello ' + name;\")\n" +
+                "    public static native String greet(String name);\n" +
+                "\n" +
+                "    @JS(\"return window.innerWidth > 500;\")\n" +
+                "    public static native boolean isWide();\n" +
+                "}\n";
+
+        CompilationUnit cu = StaticJavaParser.parse(javaSource);
+        String wat = JavacToWasm.generateWat(cu);
+
+        assertTrue(wat.contains("(@custom \"javaw_js_snippets\""));
+        assertTrue(wat.contains("(import \"dom\" \"js_inline_JsBridgeApp_hypot\" (func $dom_js_inline_JsBridgeApp_hypot (param f64 f64) (result f64)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_inline_JsBridgeApp_log\" (func $dom_js_inline_JsBridgeApp_log (param i32 i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_inline_JsBridgeApp_greet\" (func $dom_js_inline_JsBridgeApp_greet (param i32 i32) (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_inline_JsBridgeApp_isWide\" (func $dom_js_inline_JsBridgeApp_isWide (result i32)))"));
+        assertTrue(wat.contains("(func $hypot (export \"hypot\") (param $a f64) (param $b f64) (result f64)"));
+        assertTrue(wat.contains("call $dom_js_inline_JsBridgeApp_hypot"));
+        assertTrue(wat.contains("call $dom_js_inline_JsBridgeApp_log"));
+        assertTrue(wat.contains("call $dom_js_inline_JsBridgeApp_greet"));
+        assertTrue(wat.contains("call $dom_js_inline_JsBridgeApp_isWide"));
+
+        JavacToWasm.CompilationResult result = JavacToWasm.compile("JsBridgeApp.java", javaSource, true);
+        org.junit.jupiter.api.Assertions.assertNotNull(result.getJsSnippets());
+        org.junit.jupiter.api.Assertions.assertEquals(4, result.getJsSnippets().size());
+        org.junit.jupiter.api.Assertions.assertTrue(result.getJsSnippetsJson().contains("Math.hypot"));
+    }
 }

@@ -598,6 +598,27 @@ async function runTest() {
                 assert.ok(instance.exports.strings instanceof WebAssembly.Memory, 'Export "strings" must be a WebAssembly.Memory');
                 assert.ok(instance.exports.stack instanceof WebAssembly.Memory, 'Export "stack" must be a WebAssembly.Memory');
                 console.log('✓ Multi-Memory Segregation & Isolation (Memory.HEAP, Memory.STRINGS, Memory.STACK, loads/stores, growth) assertions passed.');
+
+                // @JS Inline JavaScript Snippet Assertions
+                if (typeof instance.exports.jsHypot === 'function') {
+                    const hypotRes = instance.exports.jsHypot(3.0, 4.0);
+                    assert.ok(Math.abs(hypotRes - 5.0) < 0.001, `jsHypot(3.0, 4.0) expected 5.0, got ${hypotRes}`);
+
+                    const greetPtr = instance.exports.jsGreet(writeWasmString(instance, 'World'));
+                    const greetStr = readWasmString(instance.exports.memory.buffer, greetPtr);
+                    assert.strictEqual(greetStr, 'Hello World!', `jsGreet("World") expected "Hello World!", got "${greetStr}"`);
+
+                    const multAdd = instance.exports.jsMultiplyAndAdd(5, 6);
+                    assert.strictEqual(multAdd, 40, `jsMultiplyAndAdd(5, 6) expected 40, got ${multAdd}`);
+
+                    const isGt1 = instance.exports.jsIsGreaterThan100(150);
+                    assert.strictEqual(isGt1, 1, 'jsIsGreaterThan100(150) expected 1');
+
+                    const isGt2 = instance.exports.jsIsGreaterThan100(50);
+                    assert.strictEqual(isGt2, 0, 'jsIsGreaterThan100(50) expected 0');
+
+                    console.log('✓ @JS Inline JavaScript Annotations & Host Snippet execution assertions passed.');
+                }
             }
 
             console.log('✓ TestClass execution assertions passed (including for loops, for-each loops, arrays, switches, labeled break/continue, compound assignments, dynamic strings, OOP, Canvas 2D, WebGL, JSObject, WASI VFS, Threads/Atomics, Exceptions, Multi-Value Returns, Bulk Memory, Fixed-Width SIMD, and Multi-Memory Segregation).');

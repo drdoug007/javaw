@@ -146,3 +146,24 @@ This roadmap organizes planned features by their utility and return on investmen
   - Compile multiple Java source files or entire directories into a unified WebAssembly module.
 - [x] **In-Memory Java Compiler API & Embedded REPL**
   - Expose programmatic in-memory compilation (`JavacToWasm.compile(String javaSource)`) returning compiled WAT strings and byte arrays for embedded browser editors, dynamic code generation, and direct unit testing.
+
+---
+
+## 8. GraalVM Web Image-Inspired Interoperability & Application Tooling
+
+- [x] **`@JS` Inline JavaScript Annotation & Code Generation**
+  - Allow Java methods (declared `native`) to define their implementation using inline JavaScript snippets via `@JS("console.log(message);")` or `@JS("return a + b;")`.
+  - Automatically extract snippet code during AST traversal and synthesize host bridge functions in `javaw-runtime.js` without manual glue code.
+  - Custom section `javaw_js_snippets` metadata serialization in WebAssembly modules (`.wat` and `.wasm`) with automated runtime instantiation and binding.
+- [ ] **Automatic Type Coercion (`@JS.Coerce`)**
+  - Automatically marshal primitive and reference types across the WASM-JS boundary (Java `int`, `double`, `boolean`, `String` &harr; JavaScript `number`, `boolean`, `string`) when annotated with `@JS.Coerce`.
+- [ ] **JavaScript Value Hierarchy Facades (`JSValue`, `JSNumber`, `JSBoolean`, `JSString`, `JSBigInt`, `JSSymbol`, `JSUndefined`, `JSError`)**
+  - Introduce explicit typed wrappers for JavaScript runtime types allowing fine-grained control over JS value manipulation, prototype access, and type checks (`typeof`, `instanceof`).
+- [ ] **Global JavaScript Class & Object Binding (`@JS.Import`)**
+  - Annotate Java classes/interfaces with `@JS.Import("Date")`, `@JS.Import("Math")`, or `@JS.Import("WebSocket")` to map standard browser APIs directly to typed Java facades.
+- [ ] **Exporting Java Classes to JavaScript Scope (`@JS.Export`)**
+  - Annotate Java classes with `@JS.Export` to register constructor functions and prototypes in JavaScript (`globalThis.MyJavaClass = ...`), allowing JavaScript to instantiate Java classes and call methods directly.
+- [ ] **JavaScript Asset Bundling & Resource Embedding (`@JS.Code`, `@JS.Code.Include`, `@JSResource`)**
+  - Embed external JavaScript scripts and static web resources directly into the compiled WebAssembly bundle or runtime harness.
+- [ ] **Interactive In-Browser Terminal & REPL Integration (WASI & xterm.js)**
+  - Provide an out-of-the-box browser terminal runner harness (powered by xterm.js or ANSI terminal emulation) connected to WASI standard I/O streams (`stdin`, `stdout`, `stderr`), enabling interactive Java CLI applications (such as shells, interpreters, and compilers) to run interactively in the browser.

@@ -311,6 +311,20 @@ public class SourceMapGenerator {
         return sb.toString();
     }
 
+    public static String escapeRawCustomSectionPayload(String str) {
+        byte[] bytes = str.getBytes(StandardCharsets.UTF_8);
+        StringBuilder sb = new StringBuilder();
+        for (byte b : bytes) {
+            int ub = b & 0xFF;
+            if (ub >= 32 && ub <= 126 && ub != '"' && ub != '\\') {
+                sb.append((char) ub);
+            } else {
+                sb.append(String.format("\\%02x", ub));
+            }
+        }
+        return sb.toString();
+    }
+
     public static void writeUnsignedLeb128(ByteArrayOutputStream out, int value) {
         int remaining = value >>> 7;
         while (remaining != 0) {
