@@ -75,7 +75,7 @@ public class JavacToWasm {
             // Attempt to compile to binary WASM if wat2wasm is available
             boolean wasmGenerated = false;
             try {
-                Process process = new ProcessBuilder("wat2wasm", "--enable-threads", watFilePath.toString(), "-o", wasmFilePath.toString())
+                Process process = new ProcessBuilder("wat2wasm", "--enable-threads", "--enable-exceptions", watFilePath.toString(), "-o", wasmFilePath.toString())
                         .redirectErrorStream(true)
                         .start();
                 int exitCode = process.waitFor();
@@ -93,7 +93,7 @@ public class JavacToWasm {
             // Attempt to optimize with wasm-opt if available
             if (wasmGenerated && optimize) {
                 try {
-                    Process optProcess = new ProcessBuilder("wasm-opt", "-O3", "--enable-threads", wasmFilePath.toString(), "-o", wasmFilePath.toString())
+                    Process optProcess = new ProcessBuilder("wasm-opt", "-O3", "--enable-threads", "--enable-exception-handling", wasmFilePath.toString(), "-o", wasmFilePath.toString())
                             .redirectErrorStream(true)
                             .start();
                     int optExit = optProcess.waitFor();
@@ -214,6 +214,8 @@ public class JavacToWasm {
 
         Set<String> wasiImports = WasiHelper.collectWasiImports(cu);
         WasiHelper.emitWasiImports(wasiImports, watOutput);
+
+        watOutput.append("  (tag $Exception (export \"Exception\") (param i32))\n");
 
         if (hasThreadsOrAtomics(cu)) {
             watOutput.append("  (memory (export \"memory\") 2 20 shared)\n");

@@ -163,6 +163,17 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             for (Statement stmt : body.getStatements()) {
                 translateStatement(stmt, collector, localTypes, localElementTypes, localJavaTypes, returnWasmType);
             }
+            if (returnWasmType != null) {
+                if (body.getStatements().isEmpty() || !body.getStatements().get(body.getStatements().size() - 1).isReturnStmt()) {
+                    if ("f64".equals(returnWasmType)) {
+                        collector.append("    f64.const 0\n");
+                    } else if ("i64".equals(returnWasmType)) {
+                        collector.append("    i64.const 0\n");
+                    } else {
+                        collector.append("    i32.const 0\n");
+                    }
+                }
+            }
         }
 
         collector.append("  )\n");
@@ -216,6 +227,21 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         collector.append("    (local $__vtable_tmp i32)\n");
         collector.append("    (local $__atomic_tmp i32)\n");
         collector.append("    (local $__atomic_val i32)\n");
+
+        List<TryStmt> tryStmts = body.findAll(TryStmt.class);
+        for (TryStmt ts : tryStmts) {
+            for (CatchClause cc : ts.getCatchClauses()) {
+                String pName = cc.getParameter().getNameAsString();
+                String pType = cc.getParameter().getType().asString();
+                localTypes.put(pName, "i32");
+                localJavaTypes.put(pName, pType);
+                if (!declaredLocals.contains(pName)) {
+                    declaredLocals.add(pName);
+                    collector.append("    (local $").append(pName).append(" i32)\n");
+                }
+            }
+        }
+        collector.append("    (local $__caught_exc i32)\n");
     }
 
     private void translateStatement(Statement stmt, StringBuilder collector, Map<String, String> localTypes, Map<String, String> localElementTypes, Map<String, String> localJavaTypes, String returnWasmType) {
@@ -229,11 +255,19 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             for (Expression arg : ecis.getArguments()) {
                 translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
             }
-            if (ecis.isThis()) {
-                collector.append("    call $").append(currentClass.getName()).append("__init\n");
-            } else if (currentClass != null && currentClass.getSuperClassName() != null) {
-                collector.append("    call $").append(currentClass.getSuperClassName()).append("__init\n");
+            int argCount = ecis.getArguments().size();
+            String targetClass = ecis.isThis() ? currentClass.getName() : currentClass.getSuperClassName();
+            String initFunc = "$" + targetClass + "__init";
+            if (classRegistry != null && classRegistry.hasClass(targetClass)) {
+                ClassModel targetCm = classRegistry.getClass(targetClass);
+                for (MethodModel cons : targetCm.getConstructors()) {
+                    if (cons.getParamNames().size() == argCount) {
+                        initFunc = cons.getFunctionName();
+                        break;
+                    }
+                }
             }
+            collector.append("    call ").append(initFunc).append("\n");
         } else if (stmt.isReturnStmt()) {
             ReturnStmt ret = stmt.asReturnStmt();
             if (ret.getExpression().isPresent()) {
@@ -475,6 +509,143 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             for (Statement s : stmt.asBlockStmt().getStatements()) {
                 translateStatement(s, collector, localTypes, localElementTypes, localJavaTypes, returnWasmType);
             }
+        } else if (stmt.isThrowStmt()) {
+            ThrowStmt throwStmt = stmt.asThrowStmt();
+            translateExpression(throwStmt.getExpression(), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    throw $Exception\n");
+        } else if (stmt.isTryStmt()) {
+            translateTryStatement(stmt.asTryStmt(), collector, localTypes, localElementTypes, localJavaTypes, returnWasmType);
+        }
+    }
+
+    private void translateTryStatement(TryStmt tryStmt, StringBuilder collector, Map<String, String> localTypes, Map<String, String> localElementTypes, Map<String, String> localJavaTypes, String returnWasmType) {
+        boolean hasFinally = tryStmt.getFinallyBlock().isPresent();
+        boolean hasCatch = !tryStmt.getCatchClauses().isEmpty();
+
+        if (hasCatch && !hasFinally) {
+            collector.append("    (try\n");
+            collector.append("      (do\n");
+            for (Statement s : tryStmt.getTryBlock().getStatements()) {
+                translateStatement(s, collector, localTypes, localElementTypes, localJavaTypes, returnWasmType);
+            }
+            collector.append("      )\n");
+            collector.append("      (catch $Exception\n");
+            collector.append("        local.set $__caught_exc\n");
+            translateCatchClauses(tryStmt.getCatchClauses(), collector, localTypes, localElementTypes, localJavaTypes, returnWasmType);
+            collector.append("      )\n");
+            collector.append("    )\n");
+        } else if (!hasCatch && hasFinally) {
+            collector.append("    (try\n");
+            collector.append("      (do\n");
+            for (Statement s : tryStmt.getTryBlock().getStatements()) {
+                translateStatement(s, collector, localTypes, localElementTypes, localJavaTypes, returnWasmType);
+            }
+            collector.append("      )\n");
+            collector.append("      (catch_all\n");
+            for (Statement s : tryStmt.getFinallyBlock().get().getStatements()) {
+                translateStatement(s, collector, localTypes, localElementTypes, localJavaTypes, returnWasmType);
+            }
+            collector.append("        (rethrow 0)\n");
+            collector.append("      )\n");
+            collector.append("    )\n");
+            for (Statement s : tryStmt.getFinallyBlock().get().getStatements()) {
+                translateStatement(s, collector, localTypes, localElementTypes, localJavaTypes, returnWasmType);
+            }
+        } else if (hasCatch && hasFinally) {
+            collector.append("    (try\n");
+            collector.append("      (do\n");
+            collector.append("        (try\n");
+            collector.append("          (do\n");
+            for (Statement s : tryStmt.getTryBlock().getStatements()) {
+                translateStatement(s, collector, localTypes, localElementTypes, localJavaTypes, returnWasmType);
+            }
+            collector.append("          )\n");
+            collector.append("          (catch $Exception\n");
+            collector.append("            local.set $__caught_exc\n");
+            translateCatchClauses(tryStmt.getCatchClauses(), collector, localTypes, localElementTypes, localJavaTypes, returnWasmType);
+            collector.append("          )\n");
+            collector.append("        )\n");
+            collector.append("      )\n");
+            collector.append("      (catch_all\n");
+            for (Statement s : tryStmt.getFinallyBlock().get().getStatements()) {
+                translateStatement(s, collector, localTypes, localElementTypes, localJavaTypes, returnWasmType);
+            }
+            collector.append("        (rethrow 0)\n");
+            collector.append("      )\n");
+            collector.append("    )\n");
+            for (Statement s : tryStmt.getFinallyBlock().get().getStatements()) {
+                translateStatement(s, collector, localTypes, localElementTypes, localJavaTypes, returnWasmType);
+            }
+        }
+    }
+
+    private void translateCatchClauses(List<CatchClause> clauses, StringBuilder collector, Map<String, String> localTypes, Map<String, String> localElementTypes, Map<String, String> localJavaTypes, String returnWasmType) {
+        if (clauses.isEmpty()) return;
+
+        if (clauses.size() == 1) {
+            CatchClause cc = clauses.get(0);
+            String pName = cc.getParameter().getNameAsString();
+            collector.append("        local.get $__caught_exc\n");
+            collector.append("        local.set $").append(pName).append("\n");
+            for (Statement s : cc.getBody().getStatements()) {
+                translateStatement(s, collector, localTypes, localElementTypes, localJavaTypes, returnWasmType);
+            }
+            return;
+        }
+
+        int unclosedElseCount = 0;
+        for (int i = 0; i < clauses.size(); i++) {
+            CatchClause cc = clauses.get(i);
+            String pName = cc.getParameter().getNameAsString();
+            String pType = cc.getParameter().getType().asString();
+            boolean isLast = (i == clauses.size() - 1);
+            boolean isCatchAllType = pType.equals("Exception") || pType.equals("Throwable") || pType.equals("Object");
+
+            if (isLast && isCatchAllType) {
+                collector.append("        local.get $__caught_exc\n");
+                collector.append("        local.set $").append(pName).append("\n");
+                for (Statement s : cc.getBody().getStatements()) {
+                    translateStatement(s, collector, localTypes, localElementTypes, localJavaTypes, returnWasmType);
+                }
+            } else {
+                collector.append("        local.get $__caught_exc\n");
+                collector.append("        i32.eqz\n");
+                collector.append("        if (result i32)\n");
+                collector.append("          i32.const 0\n");
+                collector.append("        else\n");
+                collector.append("          local.get $__caught_exc\n");
+                collector.append("          i32.load offset=0\n");
+                collector.append("          local.set $__vtable_tmp\n");
+                collector.append("          i32.const 0\n");
+                if (classRegistry != null) {
+                    for (ClassModel cm : classRegistry.getClasses().values()) {
+                        if (classRegistry.isSubclassOf(cm.getName(), pType)) {
+                            collector.append("          local.get $__vtable_tmp\n");
+                            collector.append("          i32.const ").append(cm.getVtableBase()).append("\n");
+                            collector.append("          i32.eq\n");
+                            collector.append("          i32.or\n");
+                        }
+                    }
+                }
+                collector.append("        end\n");
+                collector.append("        if\n");
+                collector.append("          local.get $__caught_exc\n");
+                collector.append("          local.set $").append(pName).append("\n");
+                for (Statement s : cc.getBody().getStatements()) {
+                    translateStatement(s, collector, localTypes, localElementTypes, localJavaTypes, returnWasmType);
+                }
+                collector.append("        else\n");
+                unclosedElseCount++;
+                if (isLast) {
+                    collector.append("          local.get $__caught_exc\n");
+                    collector.append("          throw $Exception\n");
+                }
+            }
+        }
+
+        while (unclosedElseCount > 0) {
+            collector.append("        end\n");
+            unclosedElseCount--;
         }
     }
 
@@ -676,7 +847,15 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 for (Expression arg : oce.getArguments()) {
                     translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
                 }
-                collector.append("    call $").append(typeName).append("__init\n");
+                int argCount = oce.getArguments().size();
+                String initFunc = "$" + typeName + "__init";
+                for (MethodModel cons : cm.getConstructors()) {
+                    if (cons.getParamNames().size() == argCount) {
+                        initFunc = cons.getFunctionName();
+                        break;
+                    }
+                }
+                collector.append("    call ").append(initFunc).append("\n");
                 collector.append("    local.get $__obj_alloc_ptr\n");
             }
         } else if (expr.isArrayCreationExpr()) {

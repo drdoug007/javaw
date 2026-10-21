@@ -16,6 +16,7 @@
   (import "dom" "addClass" (func $dom_addClass (param i32 i32 i32)))
   (import "dom" "toggleClass" (func $dom_toggleClass (param i32 i32 i32)))
   (import "dom" "addEventListener" (func $dom_addEventListener (param i32 i32 i32 i32 i32)))
+  (tag $Exception (export "Exception") (param i32))
   (memory (export "memory") 2)
   (global $counter (mut i32) (i32.const 0))
   (data (i32.const 4096) "app\00")
@@ -58,8 +59,8 @@
   (type $t_sig_1 (func (param i32)))
   (type $t_sig_2 (func (param i32) (result i32)))
   ;; --- WebAssembly Function Table (VTable) ---
-  (table (export "__vtable") 7 funcref)
-  (elem (i32.const 0) $start $increment $readStatusText $readInputValue $readCheckboxState $countItemTags $removeFirstItem)
+  (table (export "__vtable") 13 funcref)
+  (elem (i32.const 0) $start $increment $readStatusText $readInputValue $readCheckboxState $countItemTags $removeFirstItem $Throwable_getMessage $Exception_getMessage $RuntimeException_getMessage $IllegalArgumentException_getMessage $IllegalStateException_getMessage $NullPointerException_getMessage)
   ;; --- Heap Allocation Functions ---
   (func $__heap_alloc (export "__heap_alloc") (param $size i32) (result i32)
     (local $ptr i32)
@@ -831,6 +832,86 @@
     local.get $c
     i32.store8
   )
+  ;; --- Exception Runtime Functions ---
+  (func $Throwable__init (export "Throwable__init") (param $this i32)
+    local.get $this
+    i32.const 0
+    i32.store offset=4
+  )
+  (func $Throwable__init_1 (export "Throwable__init_1") (param $this i32) (param $message i32)
+    local.get $this
+    local.get $message
+    i32.store offset=4
+  )
+  (func $Throwable_getMessage (export "Throwable_getMessage") (param $this i32) (result i32)
+    local.get $this
+    i32.load offset=4
+  )
+  (func $Exception__init (export "Exception__init") (param $this i32)
+    local.get $this
+    call $Throwable__init
+  )
+  (func $Exception__init_1 (export "Exception__init_1") (param $this i32) (param $message i32)
+    local.get $this
+    local.get $message
+    call $Throwable__init_1
+  )
+  (func $Exception_getMessage (export "Exception_getMessage") (param $this i32) (result i32)
+    local.get $this
+    call $Throwable_getMessage
+  )
+  (func $RuntimeException__init (export "RuntimeException__init") (param $this i32)
+    local.get $this
+    call $Exception__init
+  )
+  (func $RuntimeException__init_1 (export "RuntimeException__init_1") (param $this i32) (param $message i32)
+    local.get $this
+    local.get $message
+    call $Exception__init_1
+  )
+  (func $RuntimeException_getMessage (export "RuntimeException_getMessage") (param $this i32) (result i32)
+    local.get $this
+    call $Exception_getMessage
+  )
+  (func $IllegalArgumentException__init (export "IllegalArgumentException__init") (param $this i32)
+    local.get $this
+    call $RuntimeException__init
+  )
+  (func $IllegalArgumentException__init_1 (export "IllegalArgumentException__init_1") (param $this i32) (param $message i32)
+    local.get $this
+    local.get $message
+    call $RuntimeException__init_1
+  )
+  (func $IllegalArgumentException_getMessage (export "IllegalArgumentException_getMessage") (param $this i32) (result i32)
+    local.get $this
+    call $RuntimeException_getMessage
+  )
+  (func $IllegalStateException__init (export "IllegalStateException__init") (param $this i32)
+    local.get $this
+    call $RuntimeException__init
+  )
+  (func $IllegalStateException__init_1 (export "IllegalStateException__init_1") (param $this i32) (param $message i32)
+    local.get $this
+    local.get $message
+    call $RuntimeException__init_1
+  )
+  (func $IllegalStateException_getMessage (export "IllegalStateException_getMessage") (param $this i32) (result i32)
+    local.get $this
+    call $RuntimeException_getMessage
+  )
+  (func $NullPointerException__init (export "NullPointerException__init") (param $this i32)
+    local.get $this
+    call $RuntimeException__init
+  )
+  (func $NullPointerException__init_1 (export "NullPointerException__init_1") (param $this i32) (param $message i32)
+    local.get $this
+    local.get $message
+    call $RuntimeException__init_1
+  )
+  (func $NullPointerException_getMessage (export "NullPointerException_getMessage") (param $this i32) (result i32)
+    local.get $this
+    call $RuntimeException_getMessage
+  )
   ;; Class/Interface: App
   (func $start (export "start")
     (local $app i32)
@@ -853,6 +934,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 4096
     i32.const 3
     call $dom_getElementById
@@ -1035,6 +1117,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     global.get $counter
     i32.const 1
     i32.add
@@ -1085,6 +1168,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 4412
     i32.const 12
     call $dom_querySelector
@@ -1106,6 +1190,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 4258
     i32.const 10
     call $dom_getElementById
@@ -1127,6 +1212,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 4292
     i32.const 10
     call $dom_getElementById
@@ -1148,6 +1234,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 4425
     i32.const 9
     call $dom_querySelectorAll
@@ -1170,6 +1257,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 4316
     i32.const 14
     call $dom_getElementById

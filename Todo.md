@@ -20,9 +20,11 @@ This roadmap organizes planned features by their utility and return on investmen
 - [x] **Enhanced `break` and `continue` with labels**
   - Map labeled break/continue statements to outer WebAssembly block/loop depths.
   - Support labeled `for`, `while`, `for-each` loops, `switch` statements, and standalone labeled code blocks.
-- [ ] **WebAssembly Exception Handling (`try-catch-finally`, `throw`)**
-  - Lower Java `try-catch-finally` blocks and `throw` statements directly to standard WebAssembly exception handling (`(tag $Exception ...)`, `try_table`, `throw`, `catch`).
-  - Enable zero-cost exception propagation without JavaScript bridge overhead.
+- [x] **WebAssembly Exception Handling (`try-catch-finally`, `throw`)**
+  - Lower Java `try-catch-finally` blocks and `throw` statements directly to standard WebAssembly exception handling (`(tag $Exception ...)`, `(try ... (catch $Exception ...) (catch_all ...))`, `throw`, `rethrow`).
+  - Pre-registered built-in exception hierarchy (`Throwable`, `Exception`, `RuntimeException`, `IllegalArgumentException`, `IllegalStateException`, `NullPointerException`) and custom exception class support.
+  - Multi-catch type dispatch with dynamic inheritance subtype checking and fallback rethrowing.
+  - Zero-cost exception propagation without JavaScript bridge overhead.
 - [ ] **Multi-Value Returns (`(result ...)`)**
   - Support multi-value returns on the WebAssembly evaluation stack for tuples, records, and internal helper routines without heap allocation overhead.
 

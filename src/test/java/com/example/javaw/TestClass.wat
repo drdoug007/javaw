@@ -51,6 +51,7 @@
   (import "dom" "thread_hardware_concurrency" (func $dom_thread_hardware_concurrency (result i32)))
   ;; --- WASI Host Imports (wasi_snapshot_preview1) ---
   (import "wasi_snapshot_preview1" "fd_write" (func $__wasi_fd_write (param i32 i32 i32 i32) (result i32)))
+  (tag $Exception (export "Exception") (param i32))
   (memory (export "memory") 2 20 shared)
   (global $asyncCounter (mut i32) (i32.const 0))
   (global $asyncFetchedData (mut i32) (i32.const 0))
@@ -92,6 +93,13 @@
   (data (i32.const 4446) "WASI Facade message: \00")
   (data (i32.const 4468) "Active\00")
   (data (i32.const 4475) "WASI Facade Error\00")
+  (data (i32.const 4493) "Test error\00")
+  (data (i32.const 4504) "Custom exception message\00")
+  (data (i32.const 4529) "App failed\00")
+  (data (i32.const 4540) "Code error\00")
+  (data (i32.const 4551) "Bad arg\00")
+  (data (i32.const 4559) "Generic error\00")
+  (data (i32.const 4573) "Inner error\00")
   (global $__heap_ptr (mut i32) (i32.const 65536))
   ;; --- WebAssembly Function Type Signatures ---
   (type $t_sig_1 (func (param i32)))
@@ -106,8 +114,8 @@
   (type $t_sig_10 (func (param i32 i32 i32 i32 i32) (result i32)))
   (type $t_sig_11 (func (param i32 i32 i32)))
   ;; --- WebAssembly Function Table (VTable) ---
-  (table (export "__vtable") 63 funcref)
-  (elem (i32.const 0) $onTimerTick $onFrameUpdate $onFetchSuccess $testScheduleTimer $testScheduleInterval $testRequestAnimationFrame $testFetchData $testConfirm $sayHello $addNumbers $getPi $calculateFactorial $sumRangeWithSkips $sumArray $sumArrayWithSkips $sumDoubleArray $sumInlineArray $createAndSumArray $evaluateSwitch $switchFallthrough $switchInsideLoop $labeledBreakNestedLoops $labeledContinueNestedLoops $labeledBlockBreak $labeledWhileBreak $concatStrings $formatUser $getStringLength $getCharAtIndex $getSubString $compareStrings $findSubstringIndex $findMissingSubstringIndex $buildCustomString $manipulateStringBuilder $testPointObject $testDirectFieldAccess $testPolymorphismArea $testInheritedColor $testInstanceOf $testObjectArray $testCanvasDraw $testWebGLInit $testJsEvalAndGet $testJsCreateAndSet $testJsArrayOperations $testJsGlobalMathCall $testWasiOutput $testWasiFacade $testAtomicIntegerOperations $testAtomicsArrayOperations $testWasmThread $Point_getX $Point_getY $Point_setLocation $Point_distanceSq $Shape_getColor $Shape_area $Shape_getColor $Circle_area $Circle_getRadius $Shape_getColor $Rectangle_area)
+  (table (export "__vtable") 76 funcref)
+  (elem (i32.const 0) $onTimerTick $onFrameUpdate $onFetchSuccess $testScheduleTimer $testScheduleInterval $testRequestAnimationFrame $testFetchData $testConfirm $sayHello $addNumbers $getPi $calculateFactorial $sumRangeWithSkips $sumArray $sumArrayWithSkips $sumDoubleArray $sumInlineArray $createAndSumArray $evaluateSwitch $switchFallthrough $switchInsideLoop $labeledBreakNestedLoops $labeledContinueNestedLoops $labeledBlockBreak $labeledWhileBreak $concatStrings $formatUser $getStringLength $getCharAtIndex $getSubString $compareStrings $findSubstringIndex $findMissingSubstringIndex $buildCustomString $manipulateStringBuilder $testPointObject $testDirectFieldAccess $testPolymorphismArea $testInheritedColor $testInstanceOf $testObjectArray $testCanvasDraw $testWebGLInit $testJsEvalAndGet $testJsCreateAndSet $testJsArrayOperations $testJsGlobalMathCall $testWasiOutput $testWasiFacade $testAtomicIntegerOperations $testAtomicsArrayOperations $testWasmThread $testSimpleTryCatch $testExceptionMessage $testCustomExceptionHandling $testMultiCatchDispatch $testTryFinally $Throwable_getMessage $Exception_getMessage $Exception_getMessage $CustomAppException_getCode $Point_getX $Point_getY $Point_setLocation $Point_distanceSq $Shape_getColor $Shape_area $Shape_getColor $Circle_area $Circle_getRadius $Shape_getColor $Rectangle_area $RuntimeException_getMessage $IllegalArgumentException_getMessage $IllegalStateException_getMessage $NullPointerException_getMessage)
   ;; --- Heap Allocation Functions ---
   (func $__heap_alloc (export "__heap_alloc") (param $size i32) (result i32)
     (local $ptr i32)
@@ -879,6 +887,86 @@
     local.get $c
     i32.store8
   )
+  ;; --- Exception Runtime Functions ---
+  (func $Throwable__init (export "Throwable__init") (param $this i32)
+    local.get $this
+    i32.const 0
+    i32.store offset=4
+  )
+  (func $Throwable__init_1 (export "Throwable__init_1") (param $this i32) (param $message i32)
+    local.get $this
+    local.get $message
+    i32.store offset=4
+  )
+  (func $Throwable_getMessage (export "Throwable_getMessage") (param $this i32) (result i32)
+    local.get $this
+    i32.load offset=4
+  )
+  (func $Exception__init (export "Exception__init") (param $this i32)
+    local.get $this
+    call $Throwable__init
+  )
+  (func $Exception__init_1 (export "Exception__init_1") (param $this i32) (param $message i32)
+    local.get $this
+    local.get $message
+    call $Throwable__init_1
+  )
+  (func $Exception_getMessage (export "Exception_getMessage") (param $this i32) (result i32)
+    local.get $this
+    call $Throwable_getMessage
+  )
+  (func $RuntimeException__init (export "RuntimeException__init") (param $this i32)
+    local.get $this
+    call $Exception__init
+  )
+  (func $RuntimeException__init_1 (export "RuntimeException__init_1") (param $this i32) (param $message i32)
+    local.get $this
+    local.get $message
+    call $Exception__init_1
+  )
+  (func $RuntimeException_getMessage (export "RuntimeException_getMessage") (param $this i32) (result i32)
+    local.get $this
+    call $Exception_getMessage
+  )
+  (func $IllegalArgumentException__init (export "IllegalArgumentException__init") (param $this i32)
+    local.get $this
+    call $RuntimeException__init
+  )
+  (func $IllegalArgumentException__init_1 (export "IllegalArgumentException__init_1") (param $this i32) (param $message i32)
+    local.get $this
+    local.get $message
+    call $RuntimeException__init_1
+  )
+  (func $IllegalArgumentException_getMessage (export "IllegalArgumentException_getMessage") (param $this i32) (result i32)
+    local.get $this
+    call $RuntimeException_getMessage
+  )
+  (func $IllegalStateException__init (export "IllegalStateException__init") (param $this i32)
+    local.get $this
+    call $RuntimeException__init
+  )
+  (func $IllegalStateException__init_1 (export "IllegalStateException__init_1") (param $this i32) (param $message i32)
+    local.get $this
+    local.get $message
+    call $RuntimeException__init_1
+  )
+  (func $IllegalStateException_getMessage (export "IllegalStateException_getMessage") (param $this i32) (result i32)
+    local.get $this
+    call $RuntimeException_getMessage
+  )
+  (func $NullPointerException__init (export "NullPointerException__init") (param $this i32)
+    local.get $this
+    call $RuntimeException__init
+  )
+  (func $NullPointerException__init_1 (export "NullPointerException__init_1") (param $this i32) (param $message i32)
+    local.get $this
+    local.get $message
+    call $RuntimeException__init_1
+  )
+  (func $NullPointerException_getMessage (export "NullPointerException_getMessage") (param $this i32) (result i32)
+    local.get $this
+    call $RuntimeException_getMessage
+  )
   ;; --- WASI Runtime Helpers ---
   (func $__wasi_print_str (export "__wasi_print_str") (param $fd i32) (param $str_ptr i32) (param $str_len i32) (param $newline i32)
     (local $num_iovs i32)
@@ -978,6 +1066,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     global.get $asyncCounter
     i32.const 10
     i32.add
@@ -995,6 +1084,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     global.get $asyncCounter
     i32.const 5
     i32.add
@@ -1012,6 +1102,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     local.get $data
     global.set $asyncFetchedData
   )
@@ -1027,6 +1118,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 4097
     i32.const 11
     local.get $delay
@@ -1045,6 +1137,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 4097
     i32.const 11
     local.get $delay
@@ -1063,6 +1156,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 4109
     i32.const 13
     call $dom_requestAnimationFrame
@@ -1080,6 +1174,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     local.get $url
     local.set $__str_arg_ptr
     local.get $__str_arg_ptr
@@ -1101,6 +1196,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     local.get $message
     local.set $__str_arg_ptr
     local.get $__str_arg_ptr
@@ -1121,6 +1217,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
   )
   (func $addNumbers (export "addNumbers") (param $a i32) (param $b i32) (result i32)
     (local $__arr_alloc_ptr i32)
@@ -1134,6 +1231,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     local.get $a
     local.get $b
     i32.add
@@ -1151,6 +1249,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     f64.const 3.14159
     return
   )
@@ -1168,6 +1267,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 1
     local.set $result
     i32.const 1
@@ -1209,6 +1309,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 0
     local.set $sum
     i32.const 1
@@ -1265,6 +1366,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 0
     local.set $total
     local.get $numbers
@@ -1320,6 +1422,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 0
     local.set $total
     local.get $numbers
@@ -1387,6 +1490,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     f64.const 0.0
     local.set $total
     local.get $values
@@ -1442,6 +1546,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 0
     local.set $total
     global.get $__heap_ptr
@@ -1519,6 +1624,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     global.get $__heap_ptr
     local.set $__arr_alloc_ptr
     global.get $__heap_ptr
@@ -1591,6 +1697,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 0
     local.set $result
     local.get $code
@@ -1650,6 +1757,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 0
     local.set $result
     local.get $code
@@ -1715,6 +1823,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 0
     local.set $total
     i32.const 1
@@ -1788,6 +1897,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 0
     local.set $count
     i32.const 0
@@ -1858,6 +1968,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 0
     local.set $count
     i32.const 0
@@ -1922,6 +2033,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 10
     local.set $res
     (block $break_label_16
@@ -1958,6 +2070,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 0
     local.set $sum
     i32.const 0
@@ -2023,6 +2136,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 4138
     local.set $greeting
     i32.const 4144
@@ -2048,6 +2162,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 4161
     local.get $name
     call $__str_concat
@@ -2073,6 +2188,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 4144
     local.set $s
     local.get $s
@@ -2092,6 +2208,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 4144
     local.set $s
     local.get $s
@@ -2112,6 +2229,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 4178
     local.set $s
     local.get $s
@@ -2132,6 +2250,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     local.get $a
     local.get $b
     call $__str_equals
@@ -2155,6 +2274,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 4178
     local.set $s
     local.get $s
@@ -2175,6 +2295,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 4178
     local.set $s
     local.get $s
@@ -2196,6 +2317,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 16
     call $__sb_new
     local.set $__sb_tmp
@@ -2248,6 +2370,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 16
     call $__sb_new
     local.set $__sb_tmp
@@ -2282,11 +2405,12 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 16
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 52
+    i32.const 61
     i32.store offset=0
     local.get $__obj_alloc_ptr
     local.get $x
@@ -2331,11 +2455,12 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 16
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 52
+    i32.const 61
     i32.store offset=0
     local.get $__obj_alloc_ptr
     local.get $x
@@ -2379,6 +2504,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     local.get $type
     i32.const 1
     i32.eq
@@ -2387,7 +2513,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 58
+    i32.const 67
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 100
@@ -2400,7 +2526,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 61
+    i32.const 70
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 200
@@ -2433,6 +2559,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     local.get $type
     i32.const 1
     i32.eq
@@ -2441,7 +2568,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 58
+    i32.const 67
     i32.store offset=0
     local.get $__obj_alloc_ptr
     local.get $color
@@ -2454,7 +2581,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 61
+    i32.const 70
     i32.store offset=0
     local.get $__obj_alloc_ptr
     local.get $color
@@ -2487,6 +2614,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     local.get $type
     i32.const 1
     i32.eq
@@ -2495,7 +2623,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 58
+    i32.const 67
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 10
@@ -2508,7 +2636,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 61
+    i32.const 70
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 20
@@ -2530,7 +2658,7 @@
       local.set $__vtable_tmp
       i32.const 0
       local.get $__vtable_tmp
-      i32.const 58
+      i32.const 67
       i32.eq
       i32.or
     end
@@ -2550,7 +2678,7 @@
       local.set $__vtable_tmp
       i32.const 0
       local.get $__vtable_tmp
-      i32.const 61
+      i32.const 70
       i32.eq
       i32.or
     end
@@ -2580,6 +2708,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 3
     local.set $__arr_alloc_len
     global.get $__heap_ptr
@@ -2608,7 +2737,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 52
+    i32.const 61
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 1
@@ -2625,7 +2754,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 52
+    i32.const 61
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 3
@@ -2642,7 +2771,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 52
+    i32.const 61
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 5
@@ -2709,6 +2838,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 4209
     i32.const 10
     call $dom_getElementById
@@ -2765,6 +2895,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 4228
     i32.const 8
     call $dom_getElementById
@@ -2800,6 +2931,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 4237
     i32.const 50
     call $dom_js_eval
@@ -2852,6 +2984,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     call $dom_js_createObject
     local.set $obj
     local.get $obj
@@ -2918,6 +3051,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     call $dom_js_createArray
     local.set $arr
     local.get $arr
@@ -2973,6 +3107,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     call $dom_js_global
     i32.const 4359
     i32.const 4
@@ -2999,6 +3134,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 1
     i32.const 4368
     i32.const 39
@@ -3033,6 +3169,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 1
     i32.const 4446
     i32.const 21
@@ -3073,6 +3210,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 8
     call $__heap_alloc
     local.set $__atomic_tmp
@@ -3158,6 +3296,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     global.get $__heap_ptr
     local.set $__arr_alloc_ptr
     global.get $__heap_ptr
@@ -3253,6 +3392,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     call $dom_thread_hardware_concurrency
     local.set $hc
     call $dom_thread_current_id
@@ -3273,6 +3413,379 @@
     i32.const 0
     return
   )
+  (func $testSimpleTryCatch (export "testSimpleTryCatch") (param $shouldThrow i32) (result i32)
+    (local $result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $e i32)
+    (local $__caught_exc i32)
+    i32.const 0
+    local.set $result
+    (try
+      (do
+    local.get $shouldThrow
+    i32.const 1
+    i32.eq
+    if
+    i32.const 8
+    call $__heap_alloc
+    local.set $__obj_alloc_ptr
+    local.get $__obj_alloc_ptr
+    i32.const 72
+    i32.store offset=0
+    local.get $__obj_alloc_ptr
+    i32.const 4493
+    call $RuntimeException__init_1
+    local.get $__obj_alloc_ptr
+    throw $Exception
+    end
+    i32.const 100
+    local.set $result
+      )
+      (catch $Exception
+        local.set $__caught_exc
+        local.get $__caught_exc
+        local.set $e
+    i32.const 999
+    local.set $result
+      )
+    )
+    local.get $result
+    return
+  )
+  (func $testExceptionMessage (export "testExceptionMessage") (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $e i32)
+    (local $__caught_exc i32)
+    (try
+      (do
+    i32.const 8
+    call $__heap_alloc
+    local.set $__obj_alloc_ptr
+    local.get $__obj_alloc_ptr
+    i32.const 58
+    i32.store offset=0
+    local.get $__obj_alloc_ptr
+    i32.const 4504
+    call $Exception__init_1
+    local.get $__obj_alloc_ptr
+    throw $Exception
+      )
+      (catch $Exception
+        local.set $__caught_exc
+        local.get $__caught_exc
+        local.set $e
+    local.get $e
+    local.set $__obj_tmp
+    local.get $__obj_tmp
+    local.get $__obj_tmp
+    i32.load offset=0
+    i32.const 0
+    i32.add
+    call_indirect (type $t_sig_5)
+    return
+      )
+    )
+    i32.const 0
+  )
+  (func $testCustomExceptionHandling (export "testCustomExceptionHandling") (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $ce i32)
+    (local $__caught_exc i32)
+    (try
+      (do
+    i32.const 16
+    call $__heap_alloc
+    local.set $__obj_alloc_ptr
+    local.get $__obj_alloc_ptr
+    i32.const 59
+    i32.store offset=0
+    local.get $__obj_alloc_ptr
+    i32.const 4529
+    i32.const 404
+    call $CustomAppException__init
+    local.get $__obj_alloc_ptr
+    throw $Exception
+      )
+      (catch $Exception
+        local.set $__caught_exc
+        local.get $__caught_exc
+        local.set $ce
+    local.get $ce
+    local.set $__obj_tmp
+    local.get $__obj_tmp
+    local.get $__obj_tmp
+    i32.load offset=0
+    i32.const 1
+    i32.add
+    call_indirect (type $t_sig_5)
+    return
+      )
+    )
+    i32.const 0
+  )
+  (func $testMultiCatchDispatch (export "testMultiCatchDispatch") (param $type i32) (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $ce i32)
+    (local $iae i32)
+    (local $e i32)
+    (local $__caught_exc i32)
+    (try
+      (do
+    local.get $type
+    i32.const 1
+    i32.eq
+    if
+    i32.const 16
+    call $__heap_alloc
+    local.set $__obj_alloc_ptr
+    local.get $__obj_alloc_ptr
+    i32.const 59
+    i32.store offset=0
+    local.get $__obj_alloc_ptr
+    i32.const 4540
+    i32.const 500
+    call $CustomAppException__init
+    local.get $__obj_alloc_ptr
+    throw $Exception
+    else
+    local.get $type
+    i32.const 2
+    i32.eq
+    if
+    i32.const 8
+    call $__heap_alloc
+    local.set $__obj_alloc_ptr
+    local.get $__obj_alloc_ptr
+    i32.const 73
+    i32.store offset=0
+    local.get $__obj_alloc_ptr
+    i32.const 4551
+    call $IllegalArgumentException__init_1
+    local.get $__obj_alloc_ptr
+    throw $Exception
+    else
+    i32.const 8
+    call $__heap_alloc
+    local.set $__obj_alloc_ptr
+    local.get $__obj_alloc_ptr
+    i32.const 58
+    i32.store offset=0
+    local.get $__obj_alloc_ptr
+    i32.const 4559
+    call $Exception__init_1
+    local.get $__obj_alloc_ptr
+    throw $Exception
+    end
+    end
+      )
+      (catch $Exception
+        local.set $__caught_exc
+        local.get $__caught_exc
+        i32.eqz
+        if (result i32)
+          i32.const 0
+        else
+          local.get $__caught_exc
+          i32.load offset=0
+          local.set $__vtable_tmp
+          i32.const 0
+          local.get $__vtable_tmp
+          i32.const 59
+          i32.eq
+          i32.or
+        end
+        if
+          local.get $__caught_exc
+          local.set $ce
+    i32.const 1000
+    local.get $ce
+    local.set $__obj_tmp
+    local.get $__obj_tmp
+    local.get $__obj_tmp
+    i32.load offset=0
+    i32.const 1
+    i32.add
+    call_indirect (type $t_sig_5)
+    i32.add
+    return
+        else
+        local.get $__caught_exc
+        i32.eqz
+        if (result i32)
+          i32.const 0
+        else
+          local.get $__caught_exc
+          i32.load offset=0
+          local.set $__vtable_tmp
+          i32.const 0
+          local.get $__vtable_tmp
+          i32.const 73
+          i32.eq
+          i32.or
+        end
+        if
+          local.get $__caught_exc
+          local.set $iae
+    i32.const 2000
+    return
+        else
+        local.get $__caught_exc
+        local.set $e
+    i32.const 3000
+    return
+        end
+        end
+      )
+    )
+    i32.const 0
+  )
+  (func $testTryFinally (export "testTryFinally") (param $shouldThrow i32) (result i32)
+    (local $state i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $e i32)
+    (local $__caught_exc i32)
+    i32.const 0
+    local.set $state
+    (try
+      (do
+    local.get $shouldThrow
+    i32.const 1
+    i32.eq
+    if
+    (try
+      (do
+    i32.const 8
+    call $__heap_alloc
+    local.set $__obj_alloc_ptr
+    local.get $__obj_alloc_ptr
+    i32.const 72
+    i32.store offset=0
+    local.get $__obj_alloc_ptr
+    i32.const 4573
+    call $RuntimeException__init_1
+    local.get $__obj_alloc_ptr
+    throw $Exception
+      )
+      (catch $Exception
+        local.set $__caught_exc
+        local.get $__caught_exc
+        local.set $e
+    local.get $state
+    i32.const 10
+    i32.add
+    local.set $state
+      )
+    )
+    else
+    local.get $state
+    i32.const 1
+    i32.add
+    local.set $state
+    end
+      )
+      (catch_all
+    local.get $state
+    i32.const 100
+    i32.add
+    local.set $state
+        (rethrow 0)
+      )
+    )
+    local.get $state
+    i32.const 100
+    i32.add
+    local.set $state
+    local.get $state
+    return
+  )
+  ;; Class/Interface: CustomAppException
+  (func $CustomAppException__init (export "CustomAppException__init") (param $this i32) (param $msg i32) (param $code i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__caught_exc i32)
+    local.get $this
+    local.get $msg
+    call $Exception__init_1
+    local.get $this
+    local.get $code
+    i32.store offset=8
+  )
+  (func $CustomAppException_getCode (export "CustomAppException_getCode") (param $this i32) (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__caught_exc i32)
+    local.get $this
+    i32.load offset=8
+    return
+  )
   ;; Class/Interface: Point
   (func $Point__init (export "Point__init") (param $this i32) (param $x i32) (param $y i32)
     (local $__arr_alloc_ptr i32)
@@ -3286,6 +3799,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     local.get $this
     local.get $x
     i32.store offset=4
@@ -3305,6 +3819,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     local.get $this
     i32.load offset=4
     return
@@ -3321,6 +3836,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     local.get $this
     i32.load offset=8
     return
@@ -3337,6 +3853,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     local.get $this
     local.get $newX
     i32.store offset=4
@@ -3356,6 +3873,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     local.get $this
     i32.load offset=4
     local.get $this
@@ -3382,6 +3900,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     local.get $this
     local.get $color
     i32.store offset=4
@@ -3398,6 +3917,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     local.get $this
     i32.load offset=4
     return
@@ -3414,6 +3934,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 0
     return
   )
@@ -3430,6 +3951,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     local.get $this
     local.get $color
     call $Shape__init
@@ -3449,6 +3971,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     local.get $this
     i32.load offset=8
     return
@@ -3465,6 +3988,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     i32.const 3
     local.get $this
     i32.load offset=8
@@ -3487,6 +4011,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     local.get $this
     local.get $color
     call $Shape__init
@@ -3509,6 +4034,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__caught_exc i32)
     local.get $this
     i32.load offset=8
     local.get $this

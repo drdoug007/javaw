@@ -470,6 +470,84 @@ public class TestClass {
         }
         return 0;
     }
+
+    public int testSimpleTryCatch(int shouldThrow) {
+        int result = 0;
+        try {
+            if (shouldThrow == 1) {
+                throw new RuntimeException("Test error");
+            }
+            result = 100;
+        } catch (RuntimeException e) {
+            result = 999;
+        }
+        return result;
+    }
+
+    public String testExceptionMessage() {
+        try {
+            throw new Exception("Custom exception message");
+        } catch (Exception e) {
+            return e.getMessage();
+        }
+    }
+
+    public int testCustomExceptionHandling() {
+        try {
+            throw new CustomAppException("App failed", 404);
+        } catch (CustomAppException ce) {
+            return ce.getCode();
+        }
+    }
+
+    public int testMultiCatchDispatch(int type) {
+        try {
+            if (type == 1) {
+                throw new CustomAppException("Code error", 500);
+            } else if (type == 2) {
+                throw new IllegalArgumentException("Bad arg");
+            } else {
+                throw new Exception("Generic error");
+            }
+        } catch (CustomAppException ce) {
+            return 1000 + ce.getCode();
+        } catch (IllegalArgumentException iae) {
+            return 2000;
+        } catch (Exception e) {
+            return 3000;
+        }
+    }
+
+    public int testTryFinally(int shouldThrow) {
+        int state = 0;
+        try {
+            if (shouldThrow == 1) {
+                try {
+                    throw new RuntimeException("Inner error");
+                } catch (RuntimeException e) {
+                    state += 10;
+                }
+            } else {
+                state += 1;
+            }
+        } finally {
+            state += 100;
+        }
+        return state;
+    }
+}
+
+class CustomAppException extends Exception {
+    public int code;
+
+    public CustomAppException(String msg, int code) {
+        super(msg);
+        this.code = code;
+    }
+
+    public int getCode() {
+        return code;
+    }
 }
 
 class Point {

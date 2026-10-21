@@ -483,9 +483,26 @@ async function runTest() {
                 assert.strictEqual(instance.exports.testAtomicsArrayOperations(), 1, 'testAtomicsArrayOperations should return 1');
                 assert.strictEqual(instance.exports.testWasmThread(), 1, 'testWasmThread should return 1');
                 console.log('✓ WebAssembly Threads, Shared Memory, and Atomics assertions passed.');
+
+                // WebAssembly Exception Handling assertions
+                assert.strictEqual(instance.exports.testSimpleTryCatch(0), 100, 'testSimpleTryCatch(0) should return 100');
+                assert.strictEqual(instance.exports.testSimpleTryCatch(1), 999, 'testSimpleTryCatch(1) should return 999');
+
+                const excMsgPtr = instance.exports.testExceptionMessage();
+                const excMsg = readWasmString(instance.exports.memory.buffer, excMsgPtr);
+                assert.strictEqual(excMsg, 'Custom exception message', 'testExceptionMessage should match');
+
+                assert.strictEqual(instance.exports.testCustomExceptionHandling(), 404, 'testCustomExceptionHandling should return 404');
+                assert.strictEqual(instance.exports.testMultiCatchDispatch(1), 1500, 'testMultiCatchDispatch(1) should return 1500');
+                assert.strictEqual(instance.exports.testMultiCatchDispatch(2), 2000, 'testMultiCatchDispatch(2) should return 2000');
+                assert.strictEqual(instance.exports.testMultiCatchDispatch(3), 3000, 'testMultiCatchDispatch(3) should return 3000');
+
+                assert.strictEqual(instance.exports.testTryFinally(0), 101, 'testTryFinally(0) should return 101');
+                assert.strictEqual(instance.exports.testTryFinally(1), 110, 'testTryFinally(1) should return 110');
+                console.log('✓ WebAssembly Exception Handling (try-catch-finally, throw, multi-catch) assertions passed.');
             }
 
-            console.log('✓ TestClass execution assertions passed (including for loops, for-each loops, arrays, switches, labeled break/continue, compound assignments, dynamic strings, OOP, Canvas 2D, WebGL, JSObject, WASI, and Threads/Atomics).');
+            console.log('✓ TestClass execution assertions passed (including for loops, for-each loops, arrays, switches, labeled break/continue, compound assignments, dynamic strings, OOP, Canvas 2D, WebGL, JSObject, WASI, Threads/Atomics, and Exceptions).');
         }
 
         // ==========================================

@@ -101,6 +101,38 @@ public class ClassRegistry {
             }
         }
 
+        // Pre-register built-in exception classes if not defined in source
+        String[][] builtins = {
+                {"Throwable", null},
+                {"Exception", "Throwable"},
+                {"RuntimeException", "Exception"},
+                {"IllegalArgumentException", "RuntimeException"},
+                {"IllegalStateException", "RuntimeException"},
+                {"NullPointerException", "RuntimeException"}
+        };
+        for (String[] def : builtins) {
+            String cName = def[0];
+            String superName = def[1];
+            if (!classes.containsKey(cName)) {
+                ClassModel cm = new ClassModel(cName, superName, false, classIdCounter++);
+                cm.addField(new FieldModel("message", "String", "i32", 4, 4, false));
+
+                MethodModel init0 = new MethodModel("<init>", cName, "$" + cName + "__init", "void", null,
+                        Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), false, true);
+                cm.addConstructor(init0);
+
+                MethodModel init1 = new MethodModel("<init>", cName, "$" + cName + "__init_1", "void", null,
+                        Collections.singletonList("message"), Collections.singletonList("String"), Collections.singletonList("i32"), false, true);
+                cm.addConstructor(init1);
+
+                MethodModel getMsg = new MethodModel("getMessage", cName, "$" + cName + "_getMessage", "String", "i32",
+                        Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), false, false);
+                cm.addMethod(getMsg);
+
+                classes.put(cName, cm);
+            }
+        }
+
         // Phase 2: Compute Field Layouts & Struct Sizes in inheritance order
         for (ClassModel cm : getClassesInHierarchyOrder()) {
             int currentOffset = 4; // Offset 0 is reserved for vtable/classId header (4 bytes)

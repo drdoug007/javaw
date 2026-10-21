@@ -586,4 +586,32 @@ public class JavacToWasmTest {
         assertTrue(wat.contains("(func $calculate"));
         assertTrue(wat.contains("(func $compute"));
     }
+
+    @Test
+    public void testGenerateWatWithExceptionsAndTryCatch() {
+        String javaSource = "package com.example.javaw;\n" +
+                "public class ExceptionApp {\n" +
+                "    public int testTryCatch(int val) {\n" +
+                "        try {\n" +
+                "            if (val == 0) {\n" +
+                "                throw new RuntimeException(\"Zero not allowed\");\n" +
+                "            }\n" +
+                "            return 100 / val;\n" +
+                "        } catch (RuntimeException e) {\n" +
+                "            return -1;\n" +
+                "        } finally {\n" +
+                "            val = val + 1;\n" +
+                "        }\n" +
+                "    }\n" +
+                "}\n";
+
+        CompilationUnit cu = StaticJavaParser.parse(javaSource);
+        String wat = JavacToWasm.generateWat(cu);
+
+        assertTrue(wat.contains("(tag $Exception (export \"Exception\") (param i32))"));
+        assertTrue(wat.contains("throw $Exception"));
+        assertTrue(wat.contains("(catch $Exception"));
+        assertTrue(wat.contains("(catch_all"));
+        assertTrue(wat.contains("(rethrow 0)"));
+    }
 }

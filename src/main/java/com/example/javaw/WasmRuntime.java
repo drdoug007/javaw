@@ -798,6 +798,92 @@ public class WasmRuntime {
         watOutput.append("    i32.store8\n");
         watOutput.append("  )\n");
 
+        watOutput.append("  ;; --- Exception Runtime Functions ---\n");
+        watOutput.append("  (func $Throwable__init (export \"Throwable__init\") (param $this i32)\n");
+        watOutput.append("    local.get $this\n");
+        watOutput.append("    i32.const 0\n");
+        watOutput.append("    i32.store offset=4\n");
+        watOutput.append("  )\n");
+        watOutput.append("  (func $Throwable__init_1 (export \"Throwable__init_1\") (param $this i32) (param $message i32)\n");
+        watOutput.append("    local.get $this\n");
+        watOutput.append("    local.get $message\n");
+        watOutput.append("    i32.store offset=4\n");
+        watOutput.append("  )\n");
+        watOutput.append("  (func $Throwable_getMessage (export \"Throwable_getMessage\") (param $this i32) (result i32)\n");
+        watOutput.append("    local.get $this\n");
+        watOutput.append("    i32.load offset=4\n");
+        watOutput.append("  )\n");
+
+        watOutput.append("  (func $Exception__init (export \"Exception__init\") (param $this i32)\n");
+        watOutput.append("    local.get $this\n");
+        watOutput.append("    call $Throwable__init\n");
+        watOutput.append("  )\n");
+        watOutput.append("  (func $Exception__init_1 (export \"Exception__init_1\") (param $this i32) (param $message i32)\n");
+        watOutput.append("    local.get $this\n");
+        watOutput.append("    local.get $message\n");
+        watOutput.append("    call $Throwable__init_1\n");
+        watOutput.append("  )\n");
+        watOutput.append("  (func $Exception_getMessage (export \"Exception_getMessage\") (param $this i32) (result i32)\n");
+        watOutput.append("    local.get $this\n");
+        watOutput.append("    call $Throwable_getMessage\n");
+        watOutput.append("  )\n");
+
+        watOutput.append("  (func $RuntimeException__init (export \"RuntimeException__init\") (param $this i32)\n");
+        watOutput.append("    local.get $this\n");
+        watOutput.append("    call $Exception__init\n");
+        watOutput.append("  )\n");
+        watOutput.append("  (func $RuntimeException__init_1 (export \"RuntimeException__init_1\") (param $this i32) (param $message i32)\n");
+        watOutput.append("    local.get $this\n");
+        watOutput.append("    local.get $message\n");
+        watOutput.append("    call $Exception__init_1\n");
+        watOutput.append("  )\n");
+        watOutput.append("  (func $RuntimeException_getMessage (export \"RuntimeException_getMessage\") (param $this i32) (result i32)\n");
+        watOutput.append("    local.get $this\n");
+        watOutput.append("    call $Exception_getMessage\n");
+        watOutput.append("  )\n");
+
+        watOutput.append("  (func $IllegalArgumentException__init (export \"IllegalArgumentException__init\") (param $this i32)\n");
+        watOutput.append("    local.get $this\n");
+        watOutput.append("    call $RuntimeException__init\n");
+        watOutput.append("  )\n");
+        watOutput.append("  (func $IllegalArgumentException__init_1 (export \"IllegalArgumentException__init_1\") (param $this i32) (param $message i32)\n");
+        watOutput.append("    local.get $this\n");
+        watOutput.append("    local.get $message\n");
+        watOutput.append("    call $RuntimeException__init_1\n");
+        watOutput.append("  )\n");
+        watOutput.append("  (func $IllegalArgumentException_getMessage (export \"IllegalArgumentException_getMessage\") (param $this i32) (result i32)\n");
+        watOutput.append("    local.get $this\n");
+        watOutput.append("    call $RuntimeException_getMessage\n");
+        watOutput.append("  )\n");
+
+        watOutput.append("  (func $IllegalStateException__init (export \"IllegalStateException__init\") (param $this i32)\n");
+        watOutput.append("    local.get $this\n");
+        watOutput.append("    call $RuntimeException__init\n");
+        watOutput.append("  )\n");
+        watOutput.append("  (func $IllegalStateException__init_1 (export \"IllegalStateException__init_1\") (param $this i32) (param $message i32)\n");
+        watOutput.append("    local.get $this\n");
+        watOutput.append("    local.get $message\n");
+        watOutput.append("    call $RuntimeException__init_1\n");
+        watOutput.append("  )\n");
+        watOutput.append("  (func $IllegalStateException_getMessage (export \"IllegalStateException_getMessage\") (param $this i32) (result i32)\n");
+        watOutput.append("    local.get $this\n");
+        watOutput.append("    call $RuntimeException_getMessage\n");
+        watOutput.append("  )\n");
+
+        watOutput.append("  (func $NullPointerException__init (export \"NullPointerException__init\") (param $this i32)\n");
+        watOutput.append("    local.get $this\n");
+        watOutput.append("    call $RuntimeException__init\n");
+        watOutput.append("  )\n");
+        watOutput.append("  (func $NullPointerException__init_1 (export \"NullPointerException__init_1\") (param $this i32) (param $message i32)\n");
+        watOutput.append("    local.get $this\n");
+        watOutput.append("    local.get $message\n");
+        watOutput.append("    call $RuntimeException__init_1\n");
+        watOutput.append("  )\n");
+        watOutput.append("  (func $NullPointerException_getMessage (export \"NullPointerException_getMessage\") (param $this i32) (result i32)\n");
+        watOutput.append("    local.get $this\n");
+        watOutput.append("    call $RuntimeException_getMessage\n");
+        watOutput.append("  )\n");
+
         if (hasWasi) {
             watOutput.append("  ;; --- WASI Runtime Helpers ---\n");
             watOutput.append("  (func $__wasi_print_str (export \"__wasi_print_str\") (param $fd i32) (param $str_ptr i32) (param $str_len i32) (param $newline i32)\n");

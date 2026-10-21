@@ -45,7 +45,7 @@ public class AppBrowserTest {
 
         Path appWasmPath = Paths.get("src/test/java/com/example/javaw/App.wasm").toAbsolutePath().normalize();
         try {
-            Process process = new ProcessBuilder("wat2wasm", appWatPath.toString(), "-o", appWasmPath.toString())
+            Process process = new ProcessBuilder("wat2wasm", "--enable-threads", "--enable-exceptions", appWatPath.toString(), "-o", appWasmPath.toString())
                     .redirectErrorStream(true)
                     .start();
             process.waitFor();
@@ -151,7 +151,7 @@ public class AppBrowserTest {
             writer.write(watContent);
         }
 
-        Process process = new ProcessBuilder("wat2wasm", tempWat.getAbsolutePath(), "-o", tempWasm.getAbsolutePath())
+        Process process = new ProcessBuilder("wat2wasm", "--enable-threads", "--enable-exceptions", tempWat.getAbsolutePath(), "-o", tempWasm.getAbsolutePath())
                 .redirectErrorStream(true)
                 .start();
         process.waitFor();
@@ -214,7 +214,7 @@ public class AppBrowserTest {
             writer.write(watContent);
         }
 
-        Process process = new ProcessBuilder("wat2wasm", tempWat.getAbsolutePath(), "-o", tempWasm.getAbsolutePath())
+        Process process = new ProcessBuilder("wat2wasm", "--enable-threads", "--enable-exceptions", tempWat.getAbsolutePath(), "-o", tempWasm.getAbsolutePath())
                 .redirectErrorStream(true)
                 .start();
         process.waitFor();
@@ -295,7 +295,7 @@ public class AppBrowserTest {
             writer.write(watContent);
         }
 
-        Process process = new ProcessBuilder("wat2wasm", tempWat.getAbsolutePath(), "-o", tempWasm.getAbsolutePath())
+        Process process = new ProcessBuilder("wat2wasm", "--enable-threads", "--enable-exceptions", tempWat.getAbsolutePath(), "-o", tempWasm.getAbsolutePath())
                 .redirectErrorStream(true)
                 .start();
         process.waitFor();
@@ -361,7 +361,7 @@ public class AppBrowserTest {
             writer.write(watContent);
         }
 
-        Process process = new ProcessBuilder("wat2wasm", tempWat.getAbsolutePath(), "-o", tempWasm.getAbsolutePath())
+        Process process = new ProcessBuilder("wat2wasm", "--enable-threads", "--enable-exceptions", tempWat.getAbsolutePath(), "-o", tempWasm.getAbsolutePath())
                 .redirectErrorStream(true)
                 .start();
         process.waitFor();
