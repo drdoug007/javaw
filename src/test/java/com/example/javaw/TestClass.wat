@@ -1,4 +1,18 @@
 (module
+  (import "dom" "getElementById" (func $dom_getElementById (param i32 i32) (result i32)))
+  (import "dom" "getContext2D" (func $dom_getContext2D (param i32) (result i32)))
+  (import "dom" "getWebGLContext" (func $dom_getWebGLContext (param i32) (result i32)))
+  (import "dom" "getWidth" (func $dom_getWidth (param i32) (result i32)))
+  (import "dom" "setWidth" (func $dom_setWidth (param i32 i32)))
+  (import "dom" "getHeight" (func $dom_getHeight (param i32) (result i32)))
+  (import "dom" "setHeight" (func $dom_setHeight (param i32 i32)))
+  (import "dom" "setFillStyle" (func $dom_setFillStyle (param i32 i32 i32)))
+  (import "dom" "fillRect" (func $dom_fillRect (param i32 f64 f64 f64 f64)))
+  (import "dom" "beginPath" (func $dom_beginPath (param i32)))
+  (import "dom" "arc" (func $dom_arc (param i32 f64 f64 f64 f64 f64 i32)))
+  (import "dom" "fill" (func $dom_fill (param i32)))
+  (import "dom" "webgl_clearColor" (func $dom_webgl_clearColor (param i32 f64 f64 f64 f64)))
+  (import "dom" "webgl_clear" (func $dom_webgl_clear (param i32 i32)))
   (memory (export "memory") 2)
   (data (i32.const 4096) "Hello\00")
   (data (i32.const 4102) "WebAssembly\00")
@@ -11,6 +25,9 @@
   (data (i32.const 4148) "World\00")
   (data (i32.const 4154) "Java\00")
   (data (i32.const 4159) "Count: \00")
+  (data (i32.const 4167) "testCanvas\00")
+  (data (i32.const 4178) "#ff0000\00")
+  (data (i32.const 4186) "glCanvas\00")
   (global $__heap_ptr (mut i32) (i32.const 65536))
   ;; --- WebAssembly Function Type Signatures ---
   (type $t_sig_1 (func (param i32)))
@@ -23,8 +40,8 @@
   (type $t_sig_8 (func (param i32 i32 i32 i32 i32) (result i32)))
   (type $t_sig_9 (func (param i32 i32 i32)))
   ;; --- WebAssembly Function Table (VTable) ---
-  (table (export "__vtable") 44 funcref)
-  (elem (i32.const 0) $sayHello $addNumbers $getPi $calculateFactorial $sumRangeWithSkips $sumArray $sumArrayWithSkips $sumDoubleArray $sumInlineArray $createAndSumArray $evaluateSwitch $switchFallthrough $switchInsideLoop $labeledBreakNestedLoops $labeledContinueNestedLoops $labeledBlockBreak $labeledWhileBreak $concatStrings $formatUser $getStringLength $getCharAtIndex $getSubString $compareStrings $findSubstringIndex $findMissingSubstringIndex $buildCustomString $manipulateStringBuilder $testPointObject $testDirectFieldAccess $testPolymorphismArea $testInheritedColor $testInstanceOf $testObjectArray $Point_getX $Point_getY $Point_setLocation $Point_distanceSq $Shape_getColor $Shape_area $Shape_getColor $Circle_area $Circle_getRadius $Shape_getColor $Rectangle_area)
+  (table (export "__vtable") 46 funcref)
+  (elem (i32.const 0) $sayHello $addNumbers $getPi $calculateFactorial $sumRangeWithSkips $sumArray $sumArrayWithSkips $sumDoubleArray $sumInlineArray $createAndSumArray $evaluateSwitch $switchFallthrough $switchInsideLoop $labeledBreakNestedLoops $labeledContinueNestedLoops $labeledBlockBreak $labeledWhileBreak $concatStrings $formatUser $getStringLength $getCharAtIndex $getSubString $compareStrings $findSubstringIndex $findMissingSubstringIndex $buildCustomString $manipulateStringBuilder $testPointObject $testDirectFieldAccess $testPolymorphismArea $testInheritedColor $testInstanceOf $testObjectArray $testCanvasDraw $testWebGLInit $Point_getX $Point_getY $Point_setLocation $Point_distanceSq $Shape_getColor $Shape_area $Shape_getColor $Circle_area $Circle_getRadius $Shape_getColor $Rectangle_area)
   ;; --- Heap Allocation Functions ---
   (func $__heap_alloc (export "__heap_alloc") (param $size i32) (result i32)
     (local $ptr i32)
@@ -1856,7 +1873,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 33
+    i32.const 35
     i32.store offset=0
     local.get $__obj_alloc_ptr
     local.get $x
@@ -1903,7 +1920,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 33
+    i32.const 35
     i32.store offset=0
     local.get $__obj_alloc_ptr
     local.get $x
@@ -1953,7 +1970,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 39
+    i32.const 41
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 100
@@ -1966,7 +1983,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 42
+    i32.const 44
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 200
@@ -2005,7 +2022,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 39
+    i32.const 41
     i32.store offset=0
     local.get $__obj_alloc_ptr
     local.get $color
@@ -2018,7 +2035,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 42
+    i32.const 44
     i32.store offset=0
     local.get $__obj_alloc_ptr
     local.get $color
@@ -2057,7 +2074,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 39
+    i32.const 41
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 10
@@ -2070,7 +2087,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 42
+    i32.const 44
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 20
@@ -2092,7 +2109,7 @@
       local.set $__vtable_tmp
       i32.const 0
       local.get $__vtable_tmp
-      i32.const 39
+      i32.const 41
       i32.eq
       i32.or
     end
@@ -2112,7 +2129,7 @@
       local.set $__vtable_tmp
       i32.const 0
       local.get $__vtable_tmp
-      i32.const 42
+      i32.const 44
       i32.eq
       i32.or
     end
@@ -2168,7 +2185,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 33
+    i32.const 35
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 1
@@ -2185,7 +2202,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 33
+    i32.const 35
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 3
@@ -2202,7 +2219,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 33
+    i32.const 35
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 5
@@ -2253,6 +2270,91 @@
       )
     )
     local.get $totalDist
+    return
+  )
+  (func $testCanvasDraw (export "testCanvasDraw") (result i32)
+    (local $canvas i32)
+    (local $ctx i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    i32.const 4167
+    i32.const 10
+    call $dom_getElementById
+    local.set $canvas
+    local.get $canvas
+    i32.const 500
+    call $dom_setWidth
+    local.get $canvas
+    i32.const 300
+    call $dom_setHeight
+    local.get $canvas
+    call $dom_getContext2D
+    local.set $ctx
+    local.get $ctx
+    i32.const 4178
+    i32.const 7
+    call $dom_setFillStyle
+    local.get $ctx
+    f64.const 10
+    f64.const 20
+    f64.const 100
+    f64.const 50
+    call $dom_fillRect
+    local.get $ctx
+    call $dom_beginPath
+    local.get $ctx
+    f64.const 60
+    f64.const 60
+    f64.const 20
+    f64.const 0
+    f64.const 6.28
+    i32.const 0
+    call $dom_arc
+    local.get $ctx
+    call $dom_fill
+    local.get $canvas
+    call $dom_getWidth
+    local.get $canvas
+    call $dom_getHeight
+    i32.add
+    return
+  )
+  (func $testWebGLInit (export "testWebGLInit") (result i32)
+    (local $glCanvas i32)
+    (local $gl i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    i32.const 4186
+    i32.const 8
+    call $dom_getElementById
+    local.set $glCanvas
+    local.get $glCanvas
+    call $dom_getWebGLContext
+    local.set $gl
+    local.get $gl
+    f64.const 0.2
+    f64.const 0.4
+    f64.const 0.6
+    f64.const 1.0
+    call $dom_webgl_clearColor
+    local.get $gl
+    i32.const 16384
+    call $dom_webgl_clear
+    i32.const 1
     return
   )
   ;; Class/Interface: Point

@@ -99,10 +99,16 @@ public class AppBrowserTest {
         String buttonText = page.textContent("#btn-increment");
         assertEquals("Increment Counter", buttonText);
 
+        // Verify Input value and Checkbox state
+        assertEquals("Initial text", page.inputValue("#user-input"));
+        assertTrue(page.isChecked("#user-check"));
+        assertEquals(3, page.locator(".item-tag").count());
+
         // Click 1: Expect "Count: 1 click"
         page.click("#btn-increment");
         page.waitForFunction("() => document.getElementById('status-text').innerText === 'Count: 1 click'");
         assertEquals("Count: 1 click", page.textContent("#status-text"));
+        assertTrue(page.locator("#status-text").getAttribute("class").contains("active"));
 
         // Click 2: Expect "Count: 2 clicks"
         page.click("#btn-increment");
@@ -113,6 +119,7 @@ public class AppBrowserTest {
         page.click("#btn-increment");
         page.waitForFunction("() => document.getElementById('status-text').innerText === 'Count: multiple clicks'");
         assertEquals("Count: multiple clicks", page.textContent("#status-text"));
+        assertTrue(page.locator("#status-text").getAttribute("class").contains("active"));
 
         page.close();
     }
@@ -171,6 +178,80 @@ public class AppBrowserTest {
 
         int count = page.locator(".item-node").count();
         assertEquals(3, count);
+
+        page.close();
+        tempWat.delete();
+        tempWasm.delete();
+    }
+
+    @Test
+    public void testCanvasDrawingInBrowser() throws Exception {
+        String canvasJavaSource = "package com.example.javaw;\n" +
+                "import com.example.javaw.dom.DOM;\n" +
+                "import com.example.javaw.dom.Element;\n" +
+                "import com.example.javaw.dom.CanvasRenderingContext2D;\n" +
+                "public class CanvasApp {\n" +
+                "    public void draw() {\n" +
+                "        Element canvas = DOM.getElementById(\"browser-canvas\");\n" +
+                "        canvas.setWidth(300);\n" +
+                "        canvas.setHeight(150);\n" +
+                "        CanvasRenderingContext2D ctx = canvas.getContext2D();\n" +
+                "        ctx.setFillStyle(\"#00ff00\");\n" +
+                "        ctx.fillRect(0, 0, 300, 150);\n" +
+                "        ctx.setFillStyle(\"#0000ff\");\n" +
+                "        ctx.beginPath();\n" +
+                "        ctx.arc(150, 75, 40, 0, 6.28);\n" +
+                "        ctx.fill();\n" +
+                "    }\n" +
+                "}\n";
+
+        CompilationUnit cu = StaticJavaParser.parse(canvasJavaSource);
+        String watContent = JavacToWasm.generateWat(cu);
+        File tempWat = File.createTempFile("canvas_app", ".wat");
+        File tempWasm = File.createTempFile("canvas_app", ".wasm");
+
+        try (FileWriter writer = new FileWriter(tempWat)) {
+            writer.write(watContent);
+        }
+
+        Process process = new ProcessBuilder("wat2wasm", tempWat.getAbsolutePath(), "-o", tempWasm.getAbsolutePath())
+                .redirectErrorStream(true)
+                .start();
+        process.waitFor();
+
+        byte[] wasmBytes = Files.readAllBytes(tempWasm.toPath());
+        String base64Wasm = java.util.Base64.getEncoder().encodeToString(wasmBytes);
+
+        Page page = browser.newPage();
+        String htmlContent = "<!DOCTYPE html><html><body>" +
+                "<canvas id=\"browser-canvas\"></canvas>" +
+                "<script src=\"http://127.0.0.1:" + port + "/src/main/resources/javaw-runtime.js\"></script>" +
+                "<script>" +
+                "  async function execute() {" +
+                "    const binary = Uint8Array.from(atob('" + base64Wasm + "'), c => c.charCodeAt(0));" +
+                "    const { exports } = await Javaw.instantiateJavaw(binary);" +
+                "    exports.draw();" +
+                "    window.__canvasReady = true;" +
+                "  }" +
+                "  window.onload = execute;" +
+                "</script></body></html>";
+
+        page.setContent(htmlContent);
+        page.waitForFunction("() => window.__canvasReady === true");
+
+        Object widthObj = page.evaluate("() => document.getElementById('browser-canvas').width");
+        assertEquals(300, ((Number) widthObj).intValue());
+
+        Object heightObj = page.evaluate("() => document.getElementById('browser-canvas').height");
+        assertEquals(150, ((Number) heightObj).intValue());
+
+        // Verify drawn pixel at (150, 75) is blue (#0000ff -> [0, 0, 255, 255])
+        Object pixelObj = page.evaluate("() => {" +
+                "  const ctx = document.getElementById('browser-canvas').getContext('2d');" +
+                "  const p = ctx.getImageData(150, 75, 1, 1).data;" +
+                "  return Array.from(p);" +
+                "}");
+        assertTrue(pixelObj.toString().contains("255"));
 
         page.close();
         tempWat.delete();

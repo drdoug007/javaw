@@ -118,6 +118,67 @@ public class JavacToWasmTest {
     }
 
     @Test
+    public void testGenerateWatWithExtendedDomOperations() {
+        String javaSource = "package com.example.javaw;\n" +
+                "import com.example.javaw.dom.DOM;\n" +
+                "import com.example.javaw.dom.Element;\n" +
+                "public class ExtendedDomApp {\n" +
+                "    public void run() {\n" +
+                "        Element root = DOM.querySelector(\"#app\");\n" +
+                "        Element[] items = DOM.querySelectorAll(\".item\");\n" +
+                "        String txt = root.getInnerText();\n" +
+                "        String val = root.getValue();\n" +
+                "        root.setValue(\"Hello\");\n" +
+                "        boolean checked = root.isChecked();\n" +
+                "        root.setChecked(true);\n" +
+                "        root.setStyle(\"color\", \"red\");\n" +
+                "        String color = root.getStyle(\"color\");\n" +
+                "        root.addClass(\"active\");\n" +
+                "        root.removeClass(\"hidden\");\n" +
+                "        boolean has = root.hasClass(\"active\");\n" +
+                "        root.toggleClass(\"highlight\");\n" +
+                "        Element parent = root.getParent();\n" +
+                "        root.remove();\n" +
+                "    }\n" +
+                "}\n";
+
+        CompilationUnit cu = StaticJavaParser.parse(javaSource);
+        String wat = JavacToWasm.generateWat(cu);
+
+        assertTrue(wat.contains("(import \"dom\" \"querySelector\" (func $dom_querySelector (param i32 i32) (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"querySelectorAll\" (func $dom_querySelectorAll (param i32 i32) (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"getInnerText\" (func $dom_getInnerText (param i32) (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"getValue\" (func $dom_getValue (param i32) (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"setValue\" (func $dom_setValue (param i32 i32 i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"isChecked\" (func $dom_isChecked (param i32) (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"setChecked\" (func $dom_setChecked (param i32 i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"setStyle\" (func $dom_setStyle (param i32 i32 i32 i32 i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"getStyle\" (func $dom_getStyle (param i32 i32 i32) (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"addClass\" (func $dom_addClass (param i32 i32 i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"removeClass\" (func $dom_removeClass (param i32 i32 i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"hasClass\" (func $dom_hasClass (param i32 i32 i32) (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"toggleClass\" (func $dom_toggleClass (param i32 i32 i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"getParent\" (func $dom_getParent (param i32) (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"remove\" (func $dom_remove (param i32)))"));
+
+        assertTrue(wat.contains("call $dom_querySelector"));
+        assertTrue(wat.contains("call $dom_querySelectorAll"));
+        assertTrue(wat.contains("call $dom_getInnerText"));
+        assertTrue(wat.contains("call $dom_getValue"));
+        assertTrue(wat.contains("call $dom_setValue"));
+        assertTrue(wat.contains("call $dom_isChecked"));
+        assertTrue(wat.contains("call $dom_setChecked"));
+        assertTrue(wat.contains("call $dom_setStyle"));
+        assertTrue(wat.contains("call $dom_getStyle"));
+        assertTrue(wat.contains("call $dom_addClass"));
+        assertTrue(wat.contains("call $dom_removeClass"));
+        assertTrue(wat.contains("call $dom_hasClass"));
+        assertTrue(wat.contains("call $dom_toggleClass"));
+        assertTrue(wat.contains("call $dom_getParent"));
+        assertTrue(wat.contains("call $dom_remove"));
+    }
+
+    @Test
     public void testGenerateWatWithForLoopAndBreakContinue() {
         String javaSource = "package com.example.javaw;\n" +
                 "public class LoopApp {\n" +
@@ -296,5 +357,60 @@ public class JavacToWasmTest {
         assertTrue(wat.contains("(func $Circle_area"));
         assertTrue(wat.contains("(func $Shape_area"));
         assertTrue(wat.contains("(func $testOop (export \"testOop\") (result i32)"));
+    }
+
+    @Test
+    public void testGenerateWatWithCanvasAndWebGLGraphics() {
+        String javaSource = "package com.example.javaw;\n" +
+                "import com.example.javaw.dom.DOM;\n" +
+                "import com.example.javaw.dom.Element;\n" +
+                "import com.example.javaw.dom.CanvasRenderingContext2D;\n" +
+                "import com.example.javaw.dom.WebGLRenderingContext;\n" +
+                "public class GraphicsApp {\n" +
+                "    public void drawScene() {\n" +
+                "        Element canvas = DOM.getElementById(\"myCanvas\");\n" +
+                "        canvas.setWidth(800);\n" +
+                "        canvas.setHeight(600);\n" +
+                "        CanvasRenderingContext2D ctx = canvas.getContext2D();\n" +
+                "        ctx.setFillStyle(\"#ff0000\");\n" +
+                "        ctx.fillRect(10, 20, 100, 50);\n" +
+                "        ctx.beginPath();\n" +
+                "        ctx.arc(50, 50, 25, 0, 6.28);\n" +
+                "        ctx.fill();\n" +
+                "        ctx.strokeText(\"Canvas Java\", 150, 80);\n" +
+                "        ctx.save();\n" +
+                "        ctx.translate(100, 100);\n" +
+                "        ctx.rotate(0.5);\n" +
+                "        ctx.restore();\n" +
+                "    }\n" +
+                "    public void initGl() {\n" +
+                "        Element glCanvas = DOM.getElementById(\"glCanvas\");\n" +
+                "        WebGLRenderingContext gl = glCanvas.getWebGLContext();\n" +
+                "        gl.clearColor(0.1, 0.2, 0.3, 1.0);\n" +
+                "        gl.clear(WebGLRenderingContext.COLOR_BUFFER_BIT);\n" +
+                "        gl.viewport(0, 0, 800, 600);\n" +
+                "    }\n" +
+                "}\n";
+
+        CompilationUnit cu = StaticJavaParser.parse(javaSource);
+        String wat = JavacToWasm.generateWat(cu);
+
+        assertTrue(wat.contains("(import \"dom\" \"setWidth\" (func $dom_setWidth (param i32 i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"setHeight\" (func $dom_setHeight (param i32 i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"getContext2D\" (func $dom_getContext2D (param i32) (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"setFillStyle\" (func $dom_setFillStyle (param i32 i32 i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"fillRect\" (func $dom_fillRect (param i32 f64 f64 f64 f64)))"));
+        assertTrue(wat.contains("(import \"dom\" \"beginPath\" (func $dom_beginPath (param i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"arc\" (func $dom_arc (param i32 f64 f64 f64 f64 f64 i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"fill\" (func $dom_fill (param i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"strokeText\" (func $dom_strokeText (param i32 i32 i32 f64 f64)))"));
+        assertTrue(wat.contains("(import \"dom\" \"save\" (func $dom_save (param i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"translate\" (func $dom_translate (param i32 f64 f64)))"));
+        assertTrue(wat.contains("(import \"dom\" \"rotate\" (func $dom_rotate (param i32 f64)))"));
+        assertTrue(wat.contains("(import \"dom\" \"restore\" (func $dom_restore (param i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"getWebGLContext\" (func $dom_getWebGLContext (param i32) (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"webgl_clearColor\" (func $dom_webgl_clearColor (param i32 f64 f64 f64 f64)))"));
+        assertTrue(wat.contains("(import \"dom\" \"webgl_clear\" (func $dom_webgl_clear (param i32 i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"webgl_viewport\" (func $dom_webgl_viewport (param i32 i32 i32 i32 i32)))"));
     }
 }

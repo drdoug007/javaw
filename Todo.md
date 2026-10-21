@@ -63,13 +63,17 @@ This roadmap organizes planned features by their utility and return on investmen
 
 ## 5. Extended Web & Browser Platform APIs
 
-- [ ] **DOM Facade Extensions**
-  - `DOM.querySelector(selector)` / `DOM.querySelectorAll(selector)`.
-  - `element.remove()`, `element.removeChild(child)`, `element.getParent()`.
-  - `element.getValue()`, `element.setValue(val)`, `element.isChecked()`.
-  - `element.getClassList().add(...)` / `remove(...)`.
-- [ ] **HTML5 Canvas 2D & WebGL Graphics Facades**
-  - 2D context drawing primitives (`fillRect`, `beginPath`, `arc`, `drawImage`).
+- [x] **DOM Facade Extensions**
+  - `DOM.querySelector(selector)` / `DOM.querySelectorAll(selector)` for CSS querying and element array collections.
+  - `element.remove()`, `element.removeChild(child)`, `element.getParent()` for DOM tree navigation and mutation.
+  - `element.getValue()`, `element.setValue(val)`, `element.isChecked()`, `element.setChecked(boolean)` for forms and input controls.
+  - `element.setStyle(name, val)`, `element.getStyle(name)`, `element.getAttribute(name)`, `element.getInnerText()`.
+  - `element.addClass(name)`, `element.removeClass(name)`, `element.hasClass(name)`, `element.toggleClass(name)`, and `element.getClassList()` (`ClassList` facade).
+- [x] **HTML5 Canvas 2D & WebGL Graphics Facades**
+  - 2D context drawing primitives (`fillRect`, `strokeRect`, `clearRect`, `beginPath`, `closePath`, `moveTo`, `lineTo`, `arc`, `rect`, `ellipse`, `fill`, `stroke`, `fillText`, `strokeText`, `drawImage`, `save`, `restore`, `translate`, `rotate`, `scale`, `resetTransform`).
+  - Context styling & properties (`fillStyle`, `strokeStyle`, `lineWidth`, `font`, `textAlign`, `globalAlpha`).
+  - Canvas dimension controls (`getWidth()`, `setWidth(w)`, `getHeight()`, `setHeight(h)`) and context retrieval (`element.getContext2D()`, `DOM.getCanvasContext2D(id)`).
+  - Basic WebGL context (`WebGLRenderingContext`) with `clearColor`, `clear`, `viewport`, `enable`, `disable`.
 - [ ] **Asynchronous Browser Interop (Promises & Timers)**
   - `fetch(url)`, `setTimeout`, `setInterval`, `requestAnimationFrame`.
 - [ ] **Generic JavaScript Dynamic Interop (`JSObject`)**

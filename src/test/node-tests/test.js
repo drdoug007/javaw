@@ -34,28 +34,174 @@ const APP_WAT = path.resolve(__dirname, '../java/com/example/javaw/App.wat');
 const APP_WASM = path.resolve(__dirname, '../java/com/example/javaw/App.wasm');
 
 // Lightweight DOM Mock for Node.js testing
+class MockCanvasContext2D {
+    constructor(element) {
+        this.element = element;
+        this.fillStyle = '#000000';
+        this.strokeStyle = '#000000';
+        this.lineWidth = 1.0;
+        this.font = '10px sans-serif';
+        this.textAlign = 'start';
+        this.calls = [];
+    }
+    fillRect(x, y, w, h) {
+        this.calls.push({ op: 'fillRect', x, y, w, h, fillStyle: this.fillStyle });
+    }
+    strokeRect(x, y, w, h) {
+        this.calls.push({ op: 'strokeRect', x, y, w, h });
+    }
+    clearRect(x, y, w, h) {
+        this.calls.push({ op: 'clearRect', x, y, w, h });
+    }
+    beginPath() {
+        this.calls.push({ op: 'beginPath' });
+    }
+    closePath() {
+        this.calls.push({ op: 'closePath' });
+    }
+    moveTo(x, y) {
+        this.calls.push({ op: 'moveTo', x, y });
+    }
+    lineTo(x, y) {
+        this.calls.push({ op: 'lineTo', x, y });
+    }
+    arc(x, y, r, sa, ea, ccw) {
+        this.calls.push({ op: 'arc', x, y, r, sa, ea, ccw });
+    }
+    fill() {
+        this.calls.push({ op: 'fill', fillStyle: this.fillStyle });
+    }
+    stroke() {
+        this.calls.push({ op: 'stroke', strokeStyle: this.strokeStyle });
+    }
+    fillText(text, x, y) {
+        this.calls.push({ op: 'fillText', text, x, y });
+    }
+    strokeText(text, x, y) {
+        this.calls.push({ op: 'strokeText', text, x, y });
+    }
+    save() {
+        this.calls.push({ op: 'save' });
+    }
+    restore() {
+        this.calls.push({ op: 'restore' });
+    }
+    translate(x, y) {
+        this.calls.push({ op: 'translate', x, y });
+    }
+    rotate(angle) {
+        this.calls.push({ op: 'rotate', angle });
+    }
+    scale(sx, sy) {
+        this.calls.push({ op: 'scale', sx, sy });
+    }
+    resetTransform() {
+        this.calls.push({ op: 'resetTransform' });
+    }
+}
+
+class MockWebGLContext {
+    constructor(element) {
+        this.element = element;
+        this.calls = [];
+    }
+    clearColor(r, g, b, a) {
+        this.calls.push({ op: 'clearColor', r, g, b, a });
+    }
+    clear(mask) {
+        this.calls.push({ op: 'clear', mask });
+    }
+    viewport(x, y, w, h) {
+        this.calls.push({ op: 'viewport', x, y, w, h });
+    }
+}
+
+class MockClassList {
+    constructor(element) {
+        this.element = element;
+        this.classes = new Set();
+    }
+    add(cls) {
+        this.classes.add(cls);
+        this.element.attributes['class'] = Array.from(this.classes).join(' ');
+    }
+    remove(cls) {
+        this.classes.delete(cls);
+        this.element.attributes['class'] = Array.from(this.classes).join(' ');
+    }
+    contains(cls) {
+        return this.classes.has(cls);
+    }
+    toggle(cls) {
+        if (this.classes.has(cls)) {
+            this.remove(cls);
+        } else {
+            this.add(cls);
+        }
+    }
+}
+
 class MockElement {
     constructor(tagName) {
         this.tagName = tagName.toUpperCase();
         this.attributes = {};
         this.children = [];
         this.innerText = '';
+        this.value = '';
+        this.checked = false;
+        this.style = {};
         this.listeners = {};
+        this.parentElement = null;
+        this.classList = new MockClassList(this);
+        this.width = 0;
+        this.height = 0;
+        this.ctx2d = null;
+        this.webgl = null;
+    }
+
+    getContext(type) {
+        if (type === '2d') {
+            if (!this.ctx2d) this.ctx2d = new MockCanvasContext2D(this);
+            return this.ctx2d;
+        }
+        if (type === 'webgl' || type === 'experimental-webgl') {
+            if (!this.webgl) this.webgl = new MockWebGLContext(this);
+            return this.webgl;
+        }
+        return null;
     }
 
     setAttribute(name, value) {
         this.attributes[name] = value;
+        if (name === 'class') {
+            this.classList.classes = new Set(value.split(' ').filter(Boolean));
+        }
         if (name === 'id' && this.doc) {
             this.doc.registerElement(value, this);
         }
     }
 
     getAttribute(name) {
-        return this.attributes[name];
+        return this.attributes[name] !== undefined ? this.attributes[name] : null;
     }
 
     appendChild(child) {
+        child.parentElement = this;
         this.children.push(child);
+    }
+
+    removeChild(child) {
+        const idx = this.children.indexOf(child);
+        if (idx !== -1) {
+            this.children.splice(idx, 1);
+            child.parentElement = null;
+        }
+    }
+
+    remove() {
+        if (this.parentElement) {
+            this.parentElement.removeChild(this);
+        }
     }
 
     addEventListener(event, handler) {
@@ -68,6 +214,29 @@ class MockElement {
         for (const h of handlers) {
             h({ type: 'click' });
         }
+    }
+
+    querySelector(selector) {
+        const all = this.querySelectorAll(selector);
+        return all.length > 0 ? all[0] : null;
+    }
+
+    querySelectorAll(selector) {
+        const results = [];
+        const match = (el) => {
+            if (selector.startsWith('#') && el.getAttribute('id') === selector.slice(1)) return true;
+            if (selector.startsWith('.') && el.classList.contains(selector.slice(1))) return true;
+            if (el.tagName.toLowerCase() === selector.toLowerCase()) return true;
+            return false;
+        };
+        const traverse = (el) => {
+            for (const child of el.children) {
+                if (match(child)) results.push(child);
+                traverse(child);
+            }
+        };
+        traverse(this);
+        return results;
     }
 }
 
@@ -90,6 +259,17 @@ class MockDocument {
 
     registerElement(id, el) {
         this.elementsById.set(id, el);
+    }
+
+    querySelector(selector) {
+        if (selector.startsWith('#')) {
+            return this.getElementById(selector.slice(1));
+        }
+        return this.body.querySelector(selector);
+    }
+
+    querySelectorAll(selector) {
+        return this.body.querySelectorAll(selector);
     }
 }
 
@@ -122,8 +302,17 @@ async function runTest() {
         assert.ok(testContent.includes('(func $switchInsideLoop'), 'Must contain switchInsideLoop');
 
         if (fs.existsSync(TESTCLASS_WASM)) {
+            const mockDoc = new MockDocument();
+            const canvasEl = mockDoc.createElement('canvas');
+            canvasEl.setAttribute('id', 'testCanvas');
+            mockDoc.body.appendChild(canvasEl);
+
+            const glEl = mockDoc.createElement('canvas');
+            glEl.setAttribute('id', 'glCanvas');
+            mockDoc.body.appendChild(glEl);
+
             const wasmBytes = fs.readFileSync(TESTCLASS_WASM);
-            const { instance } = await WebAssembly.instantiate(wasmBytes);
+            const { instance, exports } = await instantiateJavaw(wasmBytes, {}, mockDoc);
             assert.strictEqual(instance.exports.addNumbers(15, 27), 42);
             assert.ok(Math.abs(instance.exports.getPi() - 3.14159) < 0.0001);
             assert.strictEqual(instance.exports.calculateFactorial(5), 120);
@@ -145,61 +334,59 @@ async function runTest() {
             intArrView[5] = 50;
             assert.strictEqual(instance.exports.sumArray(intArrPtr), 150);
 
-            // Test for-each loop with skips (continue on 3, break on >8)
-            const skipArrPtr = 81000;
+            const skipArrPtr = 82000;
             const skipArrView = new Int32Array(memory.buffer, skipArrPtr, 6);
             skipArrView[0] = 5; // length
-            skipArrView[1] = 1;
-            skipArrView[2] = 2;
-            skipArrView[3] = 3; // skipped
-            skipArrView[4] = 4;
-            skipArrView[5] = 10; // triggers break
-            assert.strictEqual(instance.exports.sumArrayWithSkips(skipArrPtr), 7); // 1 + 2 + 4 = 7
+            skipArrView[1] = 2; // +2
+            skipArrView[2] = 3; // skipped
+            skipArrView[3] = 4; // +4
+            skipArrView[4] = 5; // +5
+            skipArrView[5] = 10; // break
+            assert.strictEqual(instance.exports.sumArrayWithSkips(skipArrPtr), 11);
 
-            // Test for-each loop over double[] array
-            const dblArrPtr = 82000;
-            new Int32Array(memory.buffer, dblArrPtr, 1)[0] = 3; // length
-            const dblView = new Float64Array(memory.buffer, dblArrPtr + 8, 3);
-            dblView[0] = 1.5;
-            dblView[1] = 2.5;
-            dblView[2] = 3.5;
+            const dblArrPtr = 81000;
+            const dblArrLenView = new Int32Array(memory.buffer, dblArrPtr, 1);
+            dblArrLenView[0] = 3;
+            const dblArrValView = new Float64Array(memory.buffer, dblArrPtr + 8, 3);
+            dblArrValView[0] = 1.5;
+            dblArrValView[1] = 2.5;
+            dblArrValView[2] = 3.5;
             assert.ok(Math.abs(instance.exports.sumDoubleArray(dblArrPtr) - 7.5) < 0.0001);
 
-            // Test Switch statements
+            // Test Switch statements & expressions
             assert.strictEqual(instance.exports.evaluateSwitch(1), 100);
             assert.strictEqual(instance.exports.evaluateSwitch(2), 200);
             assert.strictEqual(instance.exports.evaluateSwitch(3), 300);
             assert.strictEqual(instance.exports.evaluateSwitch(99), -1);
 
-            // Test Switch fallthrough
-            assert.strictEqual(instance.exports.switchFallthrough(1), 30); // 10 + 20 (falls through to case 2 and breaks)
-            assert.strictEqual(instance.exports.switchFallthrough(2), 20); // 20
-            assert.strictEqual(instance.exports.switchFallthrough(3), 30); // 30
-            assert.strictEqual(instance.exports.switchFallthrough(99), 5); // default
+            assert.strictEqual(instance.exports.switchFallthrough(1), 30);
+            assert.strictEqual(instance.exports.switchFallthrough(2), 20);
+            assert.strictEqual(instance.exports.switchFallthrough(3), 30);
+            assert.strictEqual(instance.exports.switchFallthrough(99), 5);
 
-            // Test Switch inside loop
-            assert.strictEqual(instance.exports.switchInsideLoop(5), 63); // i=1(1) + i=2(20) + i=3(1) + i=4(40) + i=5(1) = 63
+            assert.strictEqual(instance.exports.switchInsideLoop(5), 63);
 
-            // Test Dynamic String Concatenation & Core String Methods
-            const helloStrPtr = instance.exports.concatStrings();
-            const helloStr = readWasmString(instance.exports.memory.buffer, helloStrPtr);
-            assert.strictEqual(helloStr, 'Hello, WebAssembly!');
+            // Test Dynamic String Concatenation & Passing
+            const concatPtr = instance.exports.concatStrings();
+            const concatStr = readWasmString(instance.exports.memory.buffer, concatPtr);
+            assert.strictEqual(concatStr, 'Hello, WebAssembly!');
 
-            const alicePtr = writeWasmString(instance, 'Alice');
-            const formattedPtr = instance.exports.formatUser(alicePtr, 28);
-            const formatted = readWasmString(instance.exports.memory.buffer, formattedPtr);
-            assert.strictEqual(formatted, 'User: Alice (age: 28)');
+            const namePtr = writeWasmString(instance, 'Alice');
+            const formatPtr = instance.exports.formatUser(namePtr, 30);
+            const formatStr = readWasmString(instance.exports.memory.buffer, formatPtr);
+            assert.strictEqual(formatStr, 'User: Alice (age: 30)');
 
+            // Test Core String Methods
             assert.strictEqual(instance.exports.getStringLength(), 11);
-            assert.strictEqual(instance.exports.getCharAtIndex(3), 'A'.charCodeAt(0));
+            assert.strictEqual(instance.exports.getCharAtIndex(0), 87); // 'W'
+            assert.strictEqual(instance.exports.getCharAtIndex(4), 115); // 's'
 
-            const subStrPtr = instance.exports.getSubString(6, 11);
-            const subStr = readWasmString(instance.exports.memory.buffer, subStrPtr);
-            assert.strictEqual(subStr, 'World');
+            const subPtr = instance.exports.getSubString(0, 5);
+            assert.strictEqual(readWasmString(instance.exports.memory.buffer, subPtr), 'Hello');
 
-            const applePtr1 = writeWasmString(instance, 'Apple');
-            const applePtr2 = writeWasmString(instance, 'Apple');
-            const orangePtr = writeWasmString(instance, 'Orange');
+            const applePtr1 = writeWasmString(instance, 'apple');
+            const applePtr2 = writeWasmString(instance, 'apple');
+            const orangePtr = writeWasmString(instance, 'orange');
             assert.strictEqual(instance.exports.compareStrings(applePtr1, applePtr2), 1);
             assert.strictEqual(instance.exports.compareStrings(applePtr1, orangePtr), 0);
             assert.strictEqual(instance.exports.findSubstringIndex(), 6);
@@ -235,7 +422,29 @@ async function runTest() {
             assert.strictEqual(instance.exports.testObjectArray(), 91);
 
             console.log('✓ OOP & Polymorphism assertions passed (objects, constructors, fields, vtable dispatch, instanceof, object arrays).');
-            console.log('✓ TestClass execution assertions passed (including for loops, for-each loops, arrays, switches, labeled break/continue, compound assignments, dynamic strings, and OOP).');
+
+            // Test Canvas 2D & WebGL Graphics
+            if (typeof instance.exports.testCanvasDraw === 'function') {
+                const dimSum = instance.exports.testCanvasDraw();
+                assert.strictEqual(dimSum, 800);
+                assert.strictEqual(canvasEl.width, 500);
+                assert.strictEqual(canvasEl.height, 300);
+                const ctx = canvasEl.getContext('2d');
+                assert.ok(ctx.calls.some(c => c.op === 'fillRect' && c.w === 100 && c.h === 50 && c.fillStyle === '#ff0000'));
+                assert.ok(ctx.calls.some(c => c.op === 'arc' && c.x === 60 && c.y === 60 && c.r === 20));
+                assert.ok(ctx.calls.some(c => c.op === 'fill'));
+                console.log('✓ Canvas 2D testCanvasDraw assertions passed.');
+            }
+            if (typeof instance.exports.testWebGLInit === 'function') {
+                const glRes = instance.exports.testWebGLInit();
+                assert.strictEqual(glRes, 1);
+                const glCtx = glEl.getContext('webgl');
+                assert.ok(glCtx.calls.some(c => c.op === 'clearColor' && Math.abs(c.r - 0.2) < 0.01));
+                assert.ok(glCtx.calls.some(c => c.op === 'clear' && c.mask === 16384));
+                console.log('✓ WebGL testWebGLInit assertions passed.');
+            }
+
+            console.log('✓ TestClass execution assertions passed (including for loops, for-each loops, arrays, switches, labeled break/continue, compound assignments, dynamic strings, OOP, Canvas 2D, and WebGL).');
         }
 
         // ==========================================
@@ -255,6 +464,8 @@ async function runTest() {
         assert.ok(appWat.includes('(import "dom" "setAttribute"'), 'Must declare setAttribute import');
         assert.ok(appWat.includes('(import "dom" "appendChild"'), 'Must declare appendChild import');
         assert.ok(appWat.includes('(import "dom" "addEventListener"'), 'Must declare addEventListener import');
+        assert.ok(appWat.includes('(import "dom" "querySelector"'), 'Must declare querySelector import');
+        assert.ok(appWat.includes('(import "dom" "querySelectorAll"'), 'Must declare querySelectorAll import');
         assert.ok(appWat.includes('(memory (export "memory")'), 'Must export linear memory');
         console.log('✓ App.wat import signatures and memory declarations verified.');
 
@@ -275,17 +486,19 @@ async function runTest() {
             exports.start();
 
             // Verify DOM mutations
-            assert.strictEqual(rootApp.children.length, 3, 'App container should contain 3 children');
-            const [heading, status, btn] = rootApp.children;
+            assert.strictEqual(rootApp.children.length, 6, 'App container should contain 6 children');
+            const [heading, status, btn, input, checkbox, container] = rootApp.children;
 
             assert.strictEqual(heading.tagName, 'H1');
             assert.strictEqual(heading.getAttribute('class'), 'app-title');
             assert.strictEqual(heading.innerText, 'Java to WebAssembly DOM App');
+            assert.strictEqual(heading.style['color'], 'blue');
             console.log('✓ Heading element created and styled correctly.');
 
             assert.strictEqual(status.tagName, 'P');
             assert.strictEqual(status.getAttribute('id'), 'status-text');
             assert.strictEqual(status.innerText, 'Count: 0');
+            assert.strictEqual(status.classList.contains('status-badge'), true);
             console.log('✓ Status paragraph created with initial count.');
 
             assert.strictEqual(btn.tagName, 'BUTTON');
@@ -293,18 +506,43 @@ async function runTest() {
             assert.strictEqual(btn.innerText, 'Increment Counter');
             console.log('✓ Button created with click listener attached.');
 
+            assert.strictEqual(input.value, 'Initial text');
+            assert.strictEqual(checkbox.checked, true);
+            assert.strictEqual(container.children.length, 3);
+            console.log('✓ Input, checkbox, and item container created.');
+
+            // Test DOM query methods exported by Java
+            const statusTextPtr = exports.readStatusText();
+            const readStatus = readWasmString(instance.exports.memory.buffer, statusTextPtr);
+            assert.strictEqual(readStatus, 'Count: 0');
+
+            const inputValPtr = exports.readInputValue();
+            assert.strictEqual(readWasmString(instance.exports.memory.buffer, inputValPtr), 'Initial text');
+            assert.strictEqual(exports.readCheckboxState(), 1);
+            assert.strictEqual(exports.countItemTags(), 3);
+            console.log('✓ Java querySelector, querySelectorAll, getValue, isChecked verified.');
+
             // Test Interactive Event Dispatch
             btn.click();
             assert.strictEqual(status.innerText, 'Count: 1 click', 'Status text after 1st click');
-            console.log('✓ Click 1: status updated to "Count: 1 click".');
+            assert.strictEqual(status.classList.contains('active'), true);
+            console.log('✓ Click 1: status updated to "Count: 1 click" and active class toggled.');
 
             btn.click();
             assert.strictEqual(status.innerText, 'Count: 2 clicks', 'Status text after 2nd click');
+            assert.strictEqual(status.classList.contains('active'), false);
             console.log('✓ Click 2: status updated to "Count: 2 clicks".');
 
             btn.click();
             assert.strictEqual(status.innerText, 'Count: multiple clicks', 'Status text after 3rd click');
+            assert.strictEqual(status.classList.contains('active'), true);
             console.log('✓ Click 3: status updated to "Count: multiple clicks".');
+
+            // Test removeChild
+            exports.removeFirstItem();
+            assert.strictEqual(container.children.length, 2);
+            assert.strictEqual(exports.countItemTags(), 2);
+            console.log('✓ removeChild verified.');
         }
 
         console.log('\n==========================================');
@@ -316,7 +554,7 @@ async function runTest() {
         console.error(error.message);
         console.error(error.stack);
         process.exit(1);
-    }
+        }
 }
 
 runTest();

@@ -40,10 +40,15 @@ With built-in linear memory allocation, static string constant pooling, and a ze
   - `while` loops, standard `for` loops, and enhanced `for-each` loops over arrays.
   - `switch` statements and `switch` expressions (with `yield`, case matching, and fallthrough).
   - Labeled `break` and `continue` statements for targeted outer loop/block exits.
-- **Strongly-Typed Java DOM Facade**:
-  - `com.example.javaw.dom.DOM`: Static methods such as `getElementById`, `createElement`, and `getBody`.
-  - `com.example.javaw.dom.Element`: Instance methods including `setInnerText`, `setAttribute`, `appendChild`, and `addEventListener`.
-- **Automatic Host Import Generation**: Automatically detects DOM method invocations and emits corresponding `(import "dom" ...)` declarations.
+- **Rich DOM & UI Manipulation Facades**:
+  - `com.example.javaw.dom.DOM`: Static methods such as `getElementById`, `createElement`, `getBody`, `querySelector`, `querySelectorAll`, and `getCanvasContext2D`.
+  - `com.example.javaw.dom.Element`: DOM tree mutations (`appendChild`, `removeChild`, `remove`, `getParent`), attribute & style controls (`setAttribute`, `getAttribute`, `setStyle`, `getStyle`), text & form values (`setInnerText`, `getInnerText`, `getValue`, `setValue`, `isChecked`, `setChecked`), and event handling (`addEventListener`).
+  - `com.example.javaw.dom.ClassList`: Dynamic CSS class token list management (`addClass`, `removeClass`, `hasClass`, `toggleClass`, `getClassList`).
+- **HTML5 Canvas 2D & WebGL Graphics**:
+  - `com.example.javaw.dom.CanvasRenderingContext2D`: Full 2D drawing pipeline including path creation (`beginPath`, `closePath`, `moveTo`, `lineTo`, `arc`, `rect`, `ellipse`), shape drawing (`fillRect`, `strokeRect`, `clearRect`, `fill`, `stroke`), text rendering (`fillText`, `strokeText`), image/canvas blitting (`drawImage`), styling (`fillStyle`, `strokeStyle`, `lineWidth`, `font`, `textAlign`, `globalAlpha`), and matrix transforms (`save`, `restore`, `translate`, `rotate`, `scale`, `resetTransform`).
+  - `com.example.javaw.dom.WebGLRenderingContext`: Hardware-accelerated 3D graphics context (`clearColor`, `clear`, `viewport`, `enable`, `disable`, and buffer mask / capability constants).
+  - Canvas dimension controls on `Element` (`getWidth`, `setWidth`, `getHeight`, `setHeight`) and direct context accessors (`element.getContext2D()`, `element.getWebGLContext()`).
+- **Automatic Host Import Generation**: Automatically detects DOM, Canvas 2D, and WebGL method invocations and emits corresponding `(import "dom" ...)` declarations.
 - **Lightweight Browser Runtime Bridge (`javaw-runtime.js`)**:
   - Minimal footprint (< 15KB) with zero external dependencies.
   - 32-bit integer handle lookup table (`Map<number, HTMLElement>`) for safe referencing of DOM elements from WebAssembly.
@@ -85,7 +90,10 @@ With built-in linear memory allocation, static string constant pooling, and a ze
 │   │   │   ├── LoopContext.java       # Loop label and jump context tracker
 │   │   │   ├── dom
 │   │   │   │   ├── DOM.java           # Java DOM API facade
-│   │   │   │   └── Element.java       # Java DOM Element facade
+│   │   │   │   ├── Element.java       # Java DOM Element facade
+│   │   │   │   ├── ClassList.java     # Java DOM ClassList facade
+│   │   │   │   ├── CanvasRenderingContext2D.java # HTML5 Canvas 2D graphics facade
+│   │   │   │   └── WebGLRenderingContext.java    # HTML5 WebGL graphics facade
 │   │   │   └── util
 │   │   │       └── StringBuilder.java # Dynamic string builder facade
 │   │   └── resources
@@ -328,6 +336,44 @@ public class Geometry {
 
     public boolean isCircle(Shape shape) {
         return shape instanceof Circle;
+    }
+}
+```
+
+---
+
+#### Example E: HTML5 Canvas 2D Graphics
+
+```java
+package com.example.javaw;
+
+import com.example.javaw.dom.DOM;
+import com.example.javaw.dom.Element;
+import com.example.javaw.dom.CanvasRenderingContext2D;
+
+public class CanvasDemo {
+    public void render() {
+        Element canvas = DOM.getElementById("main-canvas");
+        canvas.setWidth(400);
+        canvas.setHeight(300);
+
+        CanvasRenderingContext2D ctx = canvas.getContext2D();
+
+        // Background
+        ctx.setFillStyle("#1e1e2e");
+        ctx.fillRect(0, 0, 400, 300);
+
+        // Draw circle
+        ctx.beginPath();
+        ctx.arc(200, 150, 60, 0, 6.283185307179586);
+        ctx.setFillStyle("#f38ba8");
+        ctx.fill();
+
+        // Draw text
+        ctx.setFont("bold 20px sans-serif");
+        ctx.setFillStyle("#cdd6f4");
+        ctx.setTextAlign("center");
+        ctx.fillText("Rendered with Java WASM", 200, 155);
     }
 }
 ```

@@ -1,5 +1,10 @@
 package com.example.javaw;
 
+import com.example.javaw.dom.DOM;
+import com.example.javaw.dom.Element;
+import com.example.javaw.dom.CanvasRenderingContext2D;
+import com.example.javaw.dom.WebGLRenderingContext;
+
 public class TestClass {
     public void sayHello() {
         // This is a comment
@@ -309,6 +314,27 @@ public class TestClass {
             totalDist += p.distanceSq();
         }
         return totalDist;
+    }
+
+    public int testCanvasDraw() {
+        Element canvas = DOM.getElementById("testCanvas");
+        canvas.setWidth(500);
+        canvas.setHeight(300);
+        CanvasRenderingContext2D ctx = canvas.getContext2D();
+        ctx.setFillStyle("#ff0000");
+        ctx.fillRect(10, 20, 100, 50);
+        ctx.beginPath();
+        ctx.arc(60, 60, 20, 0, 6.28);
+        ctx.fill();
+        return canvas.getWidth() + canvas.getHeight();
+    }
+
+    public int testWebGLInit() {
+        Element glCanvas = DOM.getElementById("glCanvas");
+        WebGLRenderingContext gl = glCanvas.getWebGLContext();
+        gl.clearColor(0.2, 0.4, 0.6, 1.0);
+        gl.clear(WebGLRenderingContext.COLOR_BUFFER_BIT);
+        return 1;
     }
 }
 

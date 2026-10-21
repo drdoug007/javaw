@@ -1,9 +1,20 @@
 (module
   (import "dom" "getElementById" (func $dom_getElementById (param i32 i32) (result i32)))
   (import "dom" "createElement" (func $dom_createElement (param i32 i32) (result i32)))
+  (import "dom" "querySelector" (func $dom_querySelector (param i32 i32) (result i32)))
+  (import "dom" "querySelectorAll" (func $dom_querySelectorAll (param i32 i32) (result i32)))
   (import "dom" "setInnerText" (func $dom_setInnerText (param i32 i32 i32)))
+  (import "dom" "getInnerText" (func $dom_getInnerText (param i32) (result i32)))
   (import "dom" "setAttribute" (func $dom_setAttribute (param i32 i32 i32 i32 i32)))
   (import "dom" "appendChild" (func $dom_appendChild (param i32 i32)))
+  (import "dom" "removeChild" (func $dom_removeChild (param i32 i32)))
+  (import "dom" "getValue" (func $dom_getValue (param i32) (result i32)))
+  (import "dom" "setValue" (func $dom_setValue (param i32 i32 i32)))
+  (import "dom" "isChecked" (func $dom_isChecked (param i32) (result i32)))
+  (import "dom" "setChecked" (func $dom_setChecked (param i32 i32)))
+  (import "dom" "setStyle" (func $dom_setStyle (param i32 i32 i32 i32 i32)))
+  (import "dom" "addClass" (func $dom_addClass (param i32 i32 i32)))
+  (import "dom" "toggleClass" (func $dom_toggleClass (param i32 i32 i32)))
   (import "dom" "addEventListener" (func $dom_addEventListener (param i32 i32 i32 i32 i32)))
   (memory (export "memory") 2)
   (global $counter (mut i32) (i32.const 0))
@@ -12,24 +23,43 @@
   (data (i32.const 4103) "class\00")
   (data (i32.const 4109) "app-title\00")
   (data (i32.const 4119) "Java to WebAssembly DOM App\00")
-  (data (i32.const 4147) "p\00")
-  (data (i32.const 4149) "id\00")
-  (data (i32.const 4152) "status-text\00")
-  (data (i32.const 4164) "Count: 0\00")
-  (data (i32.const 4173) "button\00")
-  (data (i32.const 4180) "btn-increment\00")
-  (data (i32.const 4194) "Increment Counter\00")
-  (data (i32.const 4212) "click\00")
-  (data (i32.const 4218) "increment\00")
-  (data (i32.const 4228) "Count: 1 click\00")
-  (data (i32.const 4243) "Count: 2 clicks\00")
-  (data (i32.const 4259) "Count: multiple clicks\00")
+  (data (i32.const 4147) "color\00")
+  (data (i32.const 4153) "blue\00")
+  (data (i32.const 4158) "p\00")
+  (data (i32.const 4160) "id\00")
+  (data (i32.const 4163) "status-text\00")
+  (data (i32.const 4175) "Count: 0\00")
+  (data (i32.const 4184) "status-badge\00")
+  (data (i32.const 4197) "button\00")
+  (data (i32.const 4204) "btn-increment\00")
+  (data (i32.const 4218) "Increment Counter\00")
+  (data (i32.const 4236) "click\00")
+  (data (i32.const 4242) "increment\00")
+  (data (i32.const 4252) "input\00")
+  (data (i32.const 4258) "user-input\00")
+  (data (i32.const 4269) "type\00")
+  (data (i32.const 4274) "text\00")
+  (data (i32.const 4279) "Initial text\00")
+  (data (i32.const 4292) "user-check\00")
+  (data (i32.const 4303) "checkbox\00")
+  (data (i32.const 4312) "div\00")
+  (data (i32.const 4316) "item-container\00")
+  (data (i32.const 4331) "span\00")
+  (data (i32.const 4336) "item-tag\00")
+  (data (i32.const 4345) "Item \00")
+  (data (i32.const 4351) "Count: 1 click\00")
+  (data (i32.const 4366) "Count: 2 clicks\00")
+  (data (i32.const 4382) "Count: multiple clicks\00")
+  (data (i32.const 4405) "active\00")
+  (data (i32.const 4412) "#status-text\00")
+  (data (i32.const 4425) ".item-tag\00")
   (global $__heap_ptr (mut i32) (i32.const 65536))
   ;; --- WebAssembly Function Type Signatures ---
   (type $t_sig_1 (func (param i32)))
+  (type $t_sig_2 (func (param i32) (result i32)))
   ;; --- WebAssembly Function Table (VTable) ---
-  (table (export "__vtable") 2 funcref)
-  (elem (i32.const 0) $start $increment)
+  (table (export "__vtable") 7 funcref)
+  (elem (i32.const 0) $start $increment $readStatusText $readInputValue $readCheckboxState $countItemTags $removeFirstItem)
   ;; --- Heap Allocation Functions ---
   (func $__heap_alloc (export "__heap_alloc") (param $size i32) (result i32)
     (local $ptr i32)
@@ -745,6 +775,11 @@
     (local $heading i32)
     (local $status i32)
     (local $btn i32)
+    (local $input i32)
+    (local $checkbox i32)
+    (local $container i32)
+    (local $i i32)
+    (local $item i32)
     (local $__arr_alloc_ptr i32)
     (local $__arr_alloc_len i32)
     (local $__str_arg_ptr i32)
@@ -772,48 +807,155 @@
     i32.const 4119
     i32.const 27
     call $dom_setInnerText
+    local.get $heading
+    i32.const 4147
+    i32.const 5
+    i32.const 4153
+    i32.const 4
+    call $dom_setStyle
     local.get $app
     local.get $heading
     call $dom_appendChild
-    i32.const 4147
+    i32.const 4158
     i32.const 1
     call $dom_createElement
     local.set $status
     local.get $status
-    i32.const 4149
+    i32.const 4160
     i32.const 2
-    i32.const 4152
+    i32.const 4163
     i32.const 11
     call $dom_setAttribute
     local.get $status
-    i32.const 4164
+    i32.const 4175
     i32.const 8
     call $dom_setInnerText
+    local.get $status
+    i32.const 4184
+    i32.const 12
+    call $dom_addClass
     local.get $app
     local.get $status
     call $dom_appendChild
-    i32.const 4173
+    i32.const 4197
     i32.const 6
     call $dom_createElement
     local.set $btn
     local.get $btn
-    i32.const 4149
+    i32.const 4160
     i32.const 2
-    i32.const 4180
+    i32.const 4204
     i32.const 13
     call $dom_setAttribute
     local.get $btn
-    i32.const 4194
+    i32.const 4218
     i32.const 17
     call $dom_setInnerText
     local.get $btn
-    i32.const 4212
+    i32.const 4236
     i32.const 5
-    i32.const 4218
+    i32.const 4242
     i32.const 9
     call $dom_addEventListener
     local.get $app
     local.get $btn
+    call $dom_appendChild
+    i32.const 4252
+    i32.const 5
+    call $dom_createElement
+    local.set $input
+    local.get $input
+    i32.const 4160
+    i32.const 2
+    i32.const 4258
+    i32.const 10
+    call $dom_setAttribute
+    local.get $input
+    i32.const 4269
+    i32.const 4
+    i32.const 4274
+    i32.const 4
+    call $dom_setAttribute
+    local.get $input
+    i32.const 4279
+    i32.const 12
+    call $dom_setValue
+    local.get $app
+    local.get $input
+    call $dom_appendChild
+    i32.const 4252
+    i32.const 5
+    call $dom_createElement
+    local.set $checkbox
+    local.get $checkbox
+    i32.const 4160
+    i32.const 2
+    i32.const 4292
+    i32.const 10
+    call $dom_setAttribute
+    local.get $checkbox
+    i32.const 4269
+    i32.const 4
+    i32.const 4303
+    i32.const 8
+    call $dom_setAttribute
+    local.get $checkbox
+    i32.const 1
+    call $dom_setChecked
+    local.get $app
+    local.get $checkbox
+    call $dom_appendChild
+    i32.const 4312
+    i32.const 3
+    call $dom_createElement
+    local.set $container
+    local.get $container
+    i32.const 4160
+    i32.const 2
+    i32.const 4316
+    i32.const 14
+    call $dom_setAttribute
+    i32.const 0
+    local.set $i
+    (block $break_for_1
+      (loop $loop_for_1
+    local.get $i
+    i32.const 3
+    i32.lt_s
+        i32.eqz
+        br_if $break_for_1
+        (block $continue_for_1
+    i32.const 4331
+    i32.const 4
+    call $dom_createElement
+    local.set $item
+    local.get $item
+    i32.const 4336
+    i32.const 8
+    call $dom_addClass
+    local.get $item
+    i32.const 4345
+    local.get $i
+    call $__str_from_i32
+    call $__str_concat
+    local.set $__str_arg_ptr
+    local.get $__str_arg_ptr
+    local.get $__str_arg_ptr
+    call $__str_length
+    call $dom_setInnerText
+    local.get $container
+    local.get $item
+    call $dom_appendChild
+        )
+    local.get $i
+    i32.const 1
+    i32.add
+    local.set $i
+        br $loop_for_1
+      )
+    )
+    local.get $app
+    local.get $container
     call $dom_appendChild
   )
   (func $increment (export "increment")
@@ -831,7 +973,7 @@
     i32.const 1
     i32.add
     global.set $counter
-    i32.const 4152
+    i32.const 4163
     i32.const 11
     call $dom_getElementById
     local.set $status
@@ -840,7 +982,7 @@
     i32.eq
     if
     local.get $status
-    i32.const 4228
+    i32.const 4351
     i32.const 14
     call $dom_setInnerText
     else
@@ -849,15 +991,119 @@
     i32.eq
     if
     local.get $status
-    i32.const 4243
+    i32.const 4366
     i32.const 15
     call $dom_setInnerText
     else
     local.get $status
-    i32.const 4259
+    i32.const 4382
     i32.const 22
     call $dom_setInnerText
     end
     end
+    local.get $status
+    i32.const 4405
+    i32.const 6
+    call $dom_toggleClass
+  )
+  (func $readStatusText (export "readStatusText") (result i32)
+    (local $status i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    i32.const 4412
+    i32.const 12
+    call $dom_querySelector
+    local.set $status
+    local.get $status
+    call $dom_getInnerText
+    return
+  )
+  (func $readInputValue (export "readInputValue") (result i32)
+    (local $input i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    i32.const 4258
+    i32.const 10
+    call $dom_getElementById
+    local.set $input
+    local.get $input
+    call $dom_getValue
+    return
+  )
+  (func $readCheckboxState (export "readCheckboxState") (result i32)
+    (local $check i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    i32.const 4292
+    i32.const 10
+    call $dom_getElementById
+    local.set $check
+    local.get $check
+    call $dom_isChecked
+    return
+  )
+  (func $countItemTags (export "countItemTags") (result i32)
+    (local $items i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    i32.const 4425
+    i32.const 9
+    call $dom_querySelectorAll
+    local.set $items
+    local.get $items
+    i32.load
+    return
+  )
+  (func $removeFirstItem (export "removeFirstItem")
+    (local $container i32)
+    (local $firstItem i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    i32.const 4316
+    i32.const 14
+    call $dom_getElementById
+    local.set $container
+    i32.const 4425
+    i32.const 9
+    call $dom_querySelector
+    local.set $firstItem
+    local.get $container
+    local.get $firstItem
+    call $dom_removeChild
   )
 )

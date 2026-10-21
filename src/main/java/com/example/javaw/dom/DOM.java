@@ -12,4 +12,16 @@ public class DOM {
     public static Element getBody() {
         return null;
     }
+
+    public static Element querySelector(String selector) {
+        return null;
+    }
+
+    public static Element[] querySelectorAll(String selector) {
+        return null;
+    }
+
+    public static CanvasRenderingContext2D getCanvasContext2D(String canvasId) {
+        return null;
+    }
 }

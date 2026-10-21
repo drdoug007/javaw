@@ -540,7 +540,11 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 translateExpression(u.getExpression(), collector, localTypes, localElementTypes, localJavaTypes, expectedType);
             }
         } else if (expr.isIntegerLiteralExpr()) {
-            collector.append("    i32.const ").append(expr.asIntegerLiteralExpr().getValue()).append("\n");
+            if ("f64".equals(expectedType)) {
+                collector.append("    f64.const ").append(expr.asIntegerLiteralExpr().getValue()).append("\n");
+            } else {
+                collector.append("    i32.const ").append(expr.asIntegerLiteralExpr().getValue()).append("\n");
+            }
         } else if (expr.isLongLiteralExpr()) {
             String val = expr.asLongLiteralExpr().getValue().replaceAll("[lL]", "");
             collector.append("    i64.const ").append(val).append("\n");
@@ -603,12 +607,21 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             String var = expr.asNameExpr().getNameAsString();
             if (localTypes.containsKey(var)) {
                 collector.append("    local.get $").append(var).append("\n");
+                if ("f64".equals(expectedType) && "i32".equals(localTypes.get(var))) {
+                    collector.append("    f64.convert_i32_s\n");
+                }
             } else if (currentClass != null && currentClass.getField(var) != null && !currentClass.getField(var).isStatic()) {
                 FieldModel fm = currentClass.getField(var);
                 collector.append("    local.get $this\n");
                 collector.append("    ").append(getLoadInstruction(fm.getWasmType())).append(" offset=").append(fm.getOffset()).append("\n");
+                if ("f64".equals(expectedType) && "i32".equals(fm.getWasmType())) {
+                    collector.append("    f64.convert_i32_s\n");
+                }
             } else if (globalVars != null && globalVars.containsKey(var)) {
                 collector.append("    global.get $").append(var).append("\n");
+                if ("f64".equals(expectedType) && "i32".equals(globalVars.get(var).type)) {
+                    collector.append("    f64.convert_i32_s\n");
+                }
             }
         } else if (expr.isEnclosedExpr()) {
             translateExpression(expr.asEnclosedExpr().getInner(), collector, localTypes, localElementTypes, localJavaTypes, expectedType);
@@ -754,6 +767,17 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             if (fName.equals("length")) {
                 translateExpression(fae.getScope(), collector, localTypes, localElementTypes, localJavaTypes, "i32");
                 collector.append("    i32.load\n");
+            } else if (fae.getScope().isNameExpr() && fae.getScope().asNameExpr().getNameAsString().equals("WebGLRenderingContext")) {
+                int val = switch (fName) {
+                    case "COLOR_BUFFER_BIT" -> 0x00004000;
+                    case "DEPTH_BUFFER_BIT" -> 0x00000100;
+                    case "STENCIL_BUFFER_BIT" -> 0x00000400;
+                    case "DEPTH_TEST" -> 0x0B71;
+                    case "BLEND" -> 0x0BE2;
+                    case "CULL_FACE" -> 0x0B44;
+                    default -> 0;
+                };
+                collector.append("    i32.const ").append(val).append("\n");
             } else {
                 String targetType = getExpressionJavaType(fae.getScope(), localJavaTypes);
                 FieldModel fm = null;
@@ -945,14 +969,116 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     collector.append("    call $dom_").append(mName).append("\n");
                 } else if (DomHelper.isDomInstanceMethod(mName)) {
                     translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
-                    if (mName.equals("appendChild")) {
+                    if (mName.equals("getClassList")) {
+                        // Leaves element handle on stack as ClassList handle
+                    } else if (mName.equals("getContext2D")) {
+                        collector.append("    call $dom_getContext2D\n");
+                    } else if (mName.equals("getWebGLContext")) {
+                        collector.append("    call $dom_getWebGLContext\n");
+                    } else if (mName.equals("getContext")) {
+                        translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
+                        collector.append("    call $dom_getContext\n");
+                    } else if (mName.equals("appendChild") || mName.equals("removeChild")) {
                         translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                        collector.append("    call $dom_").append(mName).append("\n");
+                    } else if (mName.equals("remove") || mName.equals("getInnerText") || mName.equals("getParent") ||
+                            mName.equals("getValue") || mName.equals("isChecked") || mName.equals("getWidth") ||
+                            mName.equals("getHeight") || mName.equals("getFillStyle") || mName.equals("getStrokeStyle") ||
+                            mName.equals("getLineWidth") || mName.equals("getFont") || mName.equals("getTextAlign") ||
+                            mName.equals("getGlobalAlpha") || mName.equals("beginPath") || mName.equals("closePath") ||
+                            mName.equals("fill") || mName.equals("stroke") || mName.equals("save") ||
+                            mName.equals("restore") || mName.equals("resetTransform")) {
+                        collector.append("    call $dom_").append(mName).append("\n");
+                    } else if (mName.equals("setChecked") || mName.equals("setWidth") || mName.equals("setHeight") ||
+                            mName.equals("clear") || mName.equals("enable") || mName.equals("disable")) {
+                        translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                        if (mName.equals("clear") || mName.equals("enable") || mName.equals("disable")) {
+                            collector.append("    call $dom_webgl_").append(mName).append("\n");
+                        } else {
+                            collector.append("    call $dom_").append(mName).append("\n");
+                        }
+                    } else if (mName.equals("fillRect") || mName.equals("strokeRect") || mName.equals("clearRect") || mName.equals("rect")) {
+                        for (Expression arg : call.getArguments()) {
+                            translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "f64");
+                        }
+                        collector.append("    call $dom_").append(mName).append("\n");
+                    } else if (mName.equals("moveTo") || mName.equals("lineTo") || mName.equals("translate") || mName.equals("scale")) {
+                        translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "f64");
+                        translateExpression(call.getArgument(1), collector, localTypes, localElementTypes, localJavaTypes, "f64");
+                        collector.append("    call $dom_").append(mName).append("\n");
+                    } else if (mName.equals("rotate") || mName.equals("setLineWidth") || mName.equals("setGlobalAlpha")) {
+                        translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "f64");
+                        collector.append("    call $dom_").append(mName).append("\n");
+                    } else if (mName.equals("arc")) {
+                        translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "f64");
+                        translateExpression(call.getArgument(1), collector, localTypes, localElementTypes, localJavaTypes, "f64");
+                        translateExpression(call.getArgument(2), collector, localTypes, localElementTypes, localJavaTypes, "f64");
+                        translateExpression(call.getArgument(3), collector, localTypes, localElementTypes, localJavaTypes, "f64");
+                        translateExpression(call.getArgument(4), collector, localTypes, localElementTypes, localJavaTypes, "f64");
+                        if (call.getArguments().size() > 5) {
+                            translateExpression(call.getArgument(5), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                        } else {
+                            collector.append("    i32.const 0\n");
+                        }
+                        collector.append("    call $dom_arc\n");
+                    } else if (mName.equals("ellipse")) {
+                        for (Expression arg : call.getArguments()) {
+                            translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "f64");
+                        }
+                        collector.append("    call $dom_ellipse\n");
+                    } else if (mName.equals("fillText") || mName.equals("strokeText")) {
+                        translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
+                        translateExpression(call.getArgument(1), collector, localTypes, localElementTypes, localJavaTypes, "f64");
+                        translateExpression(call.getArgument(2), collector, localTypes, localElementTypes, localJavaTypes, "f64");
+                        collector.append("    call $dom_").append(mName).append("\n");
+                    } else if (mName.equals("setFillStyle") || mName.equals("setStrokeStyle") || mName.equals("setFont") || mName.equals("setTextAlign")) {
+                        translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
+                        collector.append("    call $dom_").append(mName).append("\n");
+                    } else if (mName.equals("drawImage")) {
+                        translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                        if (call.getArguments().size() == 3) {
+                            translateExpression(call.getArgument(1), collector, localTypes, localElementTypes, localJavaTypes, "f64");
+                            translateExpression(call.getArgument(2), collector, localTypes, localElementTypes, localJavaTypes, "f64");
+                            collector.append("    f64.const 0.0\n    f64.const 0.0\n");
+                            collector.append("    call $dom_drawImage\n");
+                        } else if (call.getArguments().size() == 5) {
+                            translateExpression(call.getArgument(1), collector, localTypes, localElementTypes, localJavaTypes, "f64");
+                            translateExpression(call.getArgument(2), collector, localTypes, localElementTypes, localJavaTypes, "f64");
+                            translateExpression(call.getArgument(3), collector, localTypes, localElementTypes, localJavaTypes, "f64");
+                            translateExpression(call.getArgument(4), collector, localTypes, localElementTypes, localJavaTypes, "f64");
+                            collector.append("    call $dom_drawImage\n");
+                        } else if (call.getArguments().size() >= 9) {
+                            for (int i = 1; i <= 8; i++) {
+                                translateExpression(call.getArgument(i), collector, localTypes, localElementTypes, localJavaTypes, "f64");
+                            }
+                            collector.append("    call $dom_drawImageFull\n");
+                        }
+                    } else if (mName.equals("clearColor")) {
+                        for (Expression arg : call.getArguments()) {
+                            translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "f64");
+                        }
+                        collector.append("    call $dom_webgl_clearColor\n");
+                    } else if (mName.equals("viewport")) {
+                        for (Expression arg : call.getArguments()) {
+                            translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                        }
+                        collector.append("    call $dom_webgl_viewport\n");
                     } else {
                         for (Expression arg : call.getArguments()) {
                             translateDomStringArg(arg, collector, localTypes, localElementTypes, localJavaTypes);
                         }
+                        collector.append("    call $dom_").append(mName).append("\n");
                     }
-                    collector.append("    call $dom_").append(mName).append("\n");
+                } else if ((mName.equals("add") || mName.equals("remove") || mName.equals("contains") || mName.equals("toggle")) &&
+                        (scope.toString().contains("classList") || scope.toString().contains("ClassList") || "ClassList".equals(getExpressionJavaType(scope, localJavaTypes)))) {
+                    translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                    for (Expression arg : call.getArguments()) {
+                        translateDomStringArg(arg, collector, localTypes, localElementTypes, localJavaTypes);
+                    }
+                    if (mName.equals("add")) collector.append("    call $dom_addClass\n");
+                    else if (mName.equals("remove")) collector.append("    call $dom_removeClass\n");
+                    else if (mName.equals("contains")) collector.append("    call $dom_hasClass\n");
+                    else if (mName.equals("toggle")) collector.append("    call $dom_toggleClass\n");
                 } else if (mName.equals("length")) {
                     if (scope.isNameExpr() && localJavaTypes.containsKey(scope.asNameExpr().getNameAsString()) && (localJavaTypes.get(scope.asNameExpr().getNameAsString()).equals("StringBuilder") || localJavaTypes.get(scope.asNameExpr().getNameAsString()).endsWith(".StringBuilder"))) {
                         translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
@@ -1131,6 +1257,36 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         if (expr.isMethodCallExpr()) {
             MethodCallExpr call = expr.asMethodCallExpr();
             String mName = call.getNameAsString();
+            if (mName.equals("getElementById") || mName.equals("createElement") || mName.equals("getBody") ||
+                    mName.equals("querySelector") || mName.equals("getParent")) {
+                return "Element";
+            }
+            if (mName.equals("querySelectorAll")) {
+                return "Element[]";
+            }
+            if (mName.equals("getClassList")) {
+                return "ClassList";
+            }
+            if (mName.equals("getContext2D") || mName.equals("getContext") || mName.equals("getCanvasContext2D")) {
+                return "CanvasRenderingContext2D";
+            }
+            if (mName.equals("getWebGLContext")) {
+                return "WebGLRenderingContext";
+            }
+            if (mName.equals("getInnerText") || mName.equals("getAttribute") || mName.equals("getValue") ||
+                    mName.equals("getStyle") || mName.equals("getFillStyle") || mName.equals("getStrokeStyle") ||
+                    mName.equals("getFont") || mName.equals("getTextAlign")) {
+                return "String";
+            }
+            if (mName.equals("getWidth") || mName.equals("getHeight")) {
+                return "int";
+            }
+            if (mName.equals("getLineWidth") || mName.equals("getGlobalAlpha")) {
+                return "double";
+            }
+            if (mName.equals("isChecked") || mName.equals("hasClass") || mName.equals("contains")) {
+                return "boolean";
+            }
             if (call.getScope().isPresent()) {
                 String scopeType = getExpressionJavaType(call.getScope().get(), localJavaTypes);
                 if (scopeType != null && classRegistry != null && classRegistry.hasClass(scopeType)) {
@@ -1186,7 +1342,16 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             if (mName.equals("append") || mName.equals("toString") || mName.equals("substring") ||
                     mName.equals("concat") || mName.equals("length") || mName.equals("charAt") ||
                     mName.equals("indexOf") || mName.equals("equals") || mName.equals("isEmpty") ||
-                    mName.equals("getElementById") || mName.equals("createElement") || mName.equals("getBody")) {
+                    mName.equals("getElementById") || mName.equals("createElement") || mName.equals("getBody") ||
+                    mName.equals("querySelector") || mName.equals("querySelectorAll") ||
+                    mName.equals("getContext2D") || mName.equals("getContext") || mName.equals("getCanvasContext2D") ||
+                    mName.equals("getWebGLContext") || mName.equals("getWidth") || mName.equals("getHeight") ||
+                    mName.equals("getFillStyle") || mName.equals("getStrokeStyle") || mName.equals("getLineWidth") ||
+                    mName.equals("getFont") || mName.equals("getTextAlign") || mName.equals("getGlobalAlpha") ||
+                    mName.equals("getInnerText") || mName.equals("getAttribute") || mName.equals("getParent") ||
+                    mName.equals("getValue") || mName.equals("isChecked") || mName.equals("getStyle") ||
+                    mName.equals("hasClass") || mName.equals("getClassList") ||
+                    mName.equals("contains")) {
                 return true;
             }
             if (call.getScope().isPresent()) {
@@ -1222,7 +1387,11 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         if (expr.isMethodCallExpr()) {
             MethodCallExpr m = expr.asMethodCallExpr();
             String mName = m.getNameAsString();
-            if (mName.equals("toString") || mName.equals("substring") || mName.equals("concat")) return true;
+            if (mName.equals("toString") || mName.equals("substring") || mName.equals("concat") ||
+                    mName.equals("getInnerText") || mName.equals("getAttribute") ||
+                    mName.equals("getValue") || mName.equals("getStyle") ||
+                    mName.equals("getFillStyle") || mName.equals("getStrokeStyle") ||
+                    mName.equals("getFont") || mName.equals("getTextAlign")) return true;
         }
         if (expr.isEnclosedExpr()) {
             return isStringType(expr.asEnclosedExpr().getInner(), localJavaTypes);
