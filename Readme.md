@@ -1,6 +1,6 @@
 # javaw (Java to WebAssembly Compiler)
 
-A lightweight, high-performance Java-to-WebAssembly compiler that parses Java source files (`.java`) and compiles them directly into standard WebAssembly Text format (`.wat`) and optimized binary modules (`.wasm`). `javaw` delivers an efficient, standalone runtime pipeline supporting browser Document Object Model (DOM) manipulation, HTML5 Canvas 2D / WebGL graphics, WebAssembly Threads and shared memory atomics, WASI standard I/O, asynchronous timers/fetch, generic JavaScript dynamic interop, and complete object-oriented programming.
+A lightweight, high-performance Java-to-WebAssembly compiler that parses Java source files (`.java`) and compiles them directly into standard WebAssembly Text format (`.wat`) and optimized binary modules (`.wasm`). `javaw` delivers an efficient, standalone runtime pipeline supporting browser Document Object Model (DOM) manipulation, HTML5 Canvas 2D / WebGL graphics, WebAssembly Threads and shared memory atomics, WASI standard I/O, asynchronous timers/fetch, generic JavaScript dynamic interop, standard WebAssembly Exception Handling (`try-catch-finally`, `throw`), and complete object-oriented programming.
 
 ---
 
@@ -21,8 +21,14 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
   - Compiles multiple Java source files or entire project directories into a unified, linked WebAssembly module.
   - Automatically merges AST compilation units, resolves cross-file type references, and aggregates class hierarchies.
 - **Binaryen Optimization Pipeline (`wasm-opt`)**:
-  - Integrates automated `wasm-opt -O3 --enable-threads` optimization passes directly into the build pipeline for dead-code elimination, inlining, and binary size reduction.
+  - Integrates automated `wasm-opt -O3 --enable-threads --enable-exception-handling` optimization passes directly into the build pipeline for dead-code elimination, inlining, and binary size reduction.
   - Supports `--no-opt` / `-O0` flags to bypass optimization passes during development.
+- **WebAssembly Exception Handling (`try-catch-finally`, `throw`)**:
+  - Direct translation of Java `try`, `catch`, `finally`, and `throw` statements to standard WebAssembly exception handling instructions (`(tag $Exception ...)`, `(try ... (catch $Exception ...) (catch_all ...))`, `throw $Exception`, `rethrow`).
+  - Pre-registered built-in exception hierarchy (`Throwable`, `Exception`, `RuntimeException`, `IllegalArgumentException`, `IllegalStateException`, `NullPointerException`) providing standard constructor overloads and `.getMessage()`.
+  - Custom user-defined exception classes with inheritance and custom fields/methods.
+  - Polymorphic multi-catch blocks with dynamic subtype checking against the class registry vtable and fallback automatic rethrowing.
+  - Guaranteed `finally` block execution for normal returns, caught exceptions, and rethrown errors.
 - **WebAssembly Threads, Shared Memory & Atomic Operations**:
   - Automatically emits WebAssembly shared memory declarations `(memory (export "memory") 2 20 shared)` and enables thread extensions in `wat2wasm`.
   - **`AtomicInteger`** (`com.example.javaw.concurrent.AtomicInteger`): High-level atomic integer operations (`get`, `set`, `getAndSet`, `compareAndSet`, `getAndAdd`, `addAndGet`, `incrementAndGet`, `decrementAndGet`, and bitwise atomics `getAndAnd`, `getAndOr`, `getAndXor`) lowered to `i32.atomic.load`, `i32.atomic.store`, and `i32.atomic.rmw.*`.
@@ -476,6 +482,56 @@ public class DynamicJsDemo {
 
 ---
 
+#### Example I: WebAssembly Exception Handling (`try-catch-finally`, `throw`, `multi-catch`)
+
+```java
+package com.example.javaw;
+
+class ValidationException extends Exception {
+    private int errorCode;
+
+    public ValidationException(String message, int errorCode) {
+        super(message);
+        this.errorCode = errorCode;
+    }
+
+    public int getErrorCode() {
+        return this.errorCode;
+    }
+}
+
+public class ExceptionDemo {
+    public static int processInput(int value) {
+        int status = 0;
+        try {
+            if (value < 0) {
+                throw new ValidationException("Negative input not allowed", 400);
+            } else if (value == 0) {
+                throw new IllegalArgumentException("Zero input invalid");
+            }
+            status = 100 / value;
+        } catch (ValidationException ve) {
+            // Polymorphic multi-catch matching custom exception
+            System.out.println(ve.getMessage());
+            status = ve.getErrorCode();
+        } catch (IllegalArgumentException iae) {
+            // Multi-catch matching standard runtime exception
+            System.out.println(iae.getMessage());
+            status = -1;
+        } catch (Exception e) {
+            // Fallback catch
+            status = -999;
+        } finally {
+            // Guaranteed cleanup logic
+            System.out.println("Processing attempt completed");
+        }
+        return status;
+    }
+}
+```
+
+---
+
 ### 3. Running in the Browser
 
 Include `javaw-runtime.js` and instantiate the WebAssembly module:
@@ -524,7 +580,7 @@ The browser test suite (`AppBrowserTest.java`) launches a headless browser using
 
 ### End-to-End Node.js & DOM Integration Tests
 
-Run the Node.js test suite to verify binary execution, string decoding, threads/atomics, dynamic JavaScript interop, WASI streams, and interactive DOM mutations:
+Run the Node.js test suite to verify binary execution, string decoding, threads/atomics, WebAssembly exception handling, dynamic JavaScript interop, WASI streams, and interactive DOM mutations:
 
 ```bash
 npm test --prefix src/test/node-tests
