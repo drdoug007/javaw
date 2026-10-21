@@ -364,6 +364,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         collector.append("    (local $__vtable_tmp i32)\n");
         collector.append("    (local $__atomic_tmp i32)\n");
         collector.append("    (local $__atomic_val i32)\n");
+        collector.append("    (local $__simd_tmp v128)\n");
 
         List<TryStmt> tryStmts = body.findAll(TryStmt.class);
         for (TryStmt ts : tryStmts) {
@@ -816,6 +817,11 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             translateExpression(bin.getLeft(), collector, localTypes, localElementTypes, localJavaTypes, opType);
             translateExpression(bin.getRight(), collector, localTypes, localElementTypes, localJavaTypes, opType);
             collector.append("    ").append(getWasmBinaryOp(bin.getOperator(), opType)).append("\n");
+            if ("f64".equals(expectedType) && "f32".equals(opType)) {
+                collector.append("    f64.promote_f32\n");
+            } else if ("f32".equals(expectedType) && "f64".equals(opType)) {
+                collector.append("    f32.demote_f64\n");
+            }
         } else if (expr.isUnaryExpr()) {
             UnaryExpr u = expr.asUnaryExpr();
             String uType = inferType(u.getExpression(), localTypes, localElementTypes, localJavaTypes, expectedType);
@@ -869,6 +875,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         } else if (expr.isIntegerLiteralExpr()) {
             if ("f64".equals(expectedType)) {
                 collector.append("    f64.const ").append(expr.asIntegerLiteralExpr().getValue()).append("\n");
+            } else if ("f32".equals(expectedType)) {
+                collector.append("    f32.const ").append(expr.asIntegerLiteralExpr().getValue()).append(".0\n");
             } else {
                 collector.append("    i32.const ").append(expr.asIntegerLiteralExpr().getValue()).append("\n");
             }
@@ -876,7 +884,12 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             String val = expr.asLongLiteralExpr().getValue().replaceAll("[lL]", "");
             collector.append("    i64.const ").append(val).append("\n");
         } else if (expr.isDoubleLiteralExpr()) {
-            collector.append("    f64.const ").append(expr.asDoubleLiteralExpr().getValue()).append("\n");
+            String dVal = expr.asDoubleLiteralExpr().getValue().replaceAll("[fFdD]", "");
+            if ("f32".equals(expectedType)) {
+                collector.append("    f32.const ").append(dVal).append("\n");
+            } else {
+                collector.append("    f64.const ").append(dVal).append("\n");
+            }
         } else if (expr.isBooleanLiteralExpr()) {
             collector.append("    i32.const ").append(expr.asBooleanLiteralExpr().getValue() ? "1" : "0").append("\n");
         } else if (expr.isCharLiteralExpr()) {
@@ -951,11 +964,19 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 collector.append("    local.get $").append(var).append("\n");
                 if ("f64".equals(expectedType) && "i32".equals(localTypes.get(var))) {
                     collector.append("    f64.convert_i32_s\n");
+                } else if ("f32".equals(expectedType) && "f64".equals(localTypes.get(var))) {
+                    collector.append("    f32.demote_f64\n");
+                } else if ("f32".equals(expectedType) && "i32".equals(localTypes.get(var))) {
+                    collector.append("    f32.convert_i32_s\n");
                 }
             } else if (localTypes.containsKey("this$" + var)) {
                 collector.append("    local.get $this$").append(var).append("\n");
                 if ("f64".equals(expectedType) && "i32".equals(localTypes.get("this$" + var))) {
                     collector.append("    f64.convert_i32_s\n");
+                } else if ("f32".equals(expectedType) && "f64".equals(localTypes.get("this$" + var))) {
+                    collector.append("    f32.demote_f64\n");
+                } else if ("f32".equals(expectedType) && "i32".equals(localTypes.get("this$" + var))) {
+                    collector.append("    f32.convert_i32_s\n");
                 }
             } else if (currentClass != null && currentClass.getField(var) != null && !currentClass.getField(var).isStatic()) {
                 FieldModel fm = currentClass.getField(var);
@@ -963,11 +984,19 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 collector.append("    ").append(getLoadInstruction(fm.getWasmType())).append(" offset=").append(fm.getOffset()).append("\n");
                 if ("f64".equals(expectedType) && "i32".equals(fm.getWasmType())) {
                     collector.append("    f64.convert_i32_s\n");
+                } else if ("f32".equals(expectedType) && "f64".equals(fm.getWasmType())) {
+                    collector.append("    f32.demote_f64\n");
+                } else if ("f32".equals(expectedType) && "i32".equals(fm.getWasmType())) {
+                    collector.append("    f32.convert_i32_s\n");
                 }
             } else if (globalVars != null && globalVars.containsKey(var)) {
                 collector.append("    global.get $").append(var).append("\n");
                 if ("f64".equals(expectedType) && "i32".equals(globalVars.get(var).type)) {
                     collector.append("    f64.convert_i32_s\n");
+                } else if ("f32".equals(expectedType) && "f64".equals(globalVars.get(var).type)) {
+                    collector.append("    f32.demote_f64\n");
+                } else if ("f32".equals(expectedType) && "i32".equals(globalVars.get(var).type)) {
+                    collector.append("    f32.convert_i32_s\n");
                 }
             }
         } else if (expr.isEnclosedExpr()) {
@@ -1396,6 +1425,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 translateArrayUtilsCall(call, collector, localTypes, localElementTypes, localJavaTypes);
             } else if (isMathCall(call)) {
                 translateMathCall(call, collector, localTypes, localElementTypes, localJavaTypes);
+            } else if (isSimdCall(call, localJavaTypes)) {
+                translateSimdCall(call, collector, localTypes, localElementTypes, localJavaTypes, expectedType);
             } else if (call.getScope().isPresent()) {
                 Expression scope = call.getScope().get();
                 String scopeStr = scope.toString();
@@ -1800,6 +1831,44 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     mName.equals("delete") || mName.equals("createDirectory") || mName.equals("mkdir")) {
                 return "boolean";
             }
+            if (mName.equals("of") || mName.equals("splat") || mName.equals("zero") ||
+                    mName.equals("add") || mName.equals("sub") || mName.equals("mul") || mName.equals("div") ||
+                    mName.equals("min") || mName.equals("max") || mName.equals("sqrt") || mName.equals("abs") ||
+                    mName.equals("neg") || mName.equals("withLane") || mName.equals("replaceLane") ||
+                    mName.equals("withX") || mName.equals("withY") || mName.equals("withZ") || mName.equals("withW") ||
+                    mName.equals("and") || mName.equals("or") || mName.equals("xor") || mName.equals("not") ||
+                    mName.equals("shiftLeft") || mName.equals("shiftRight") || mName.equals("shl") || mName.equals("shr")) {
+                if (call.getScope().isPresent()) {
+                    String scopeStr = call.getScope().get().toString();
+                    String scopeType = getExpressionJavaType(call.getScope().get(), localJavaTypes);
+                    if ("Float32x4".equals(scopeStr) || "Float32x4".equals(scopeType) || (scopeType != null && scopeType.endsWith(".Float32x4"))) {
+                        return "Float32x4";
+                    }
+                    if ("Int32x4".equals(scopeStr) || "Int32x4".equals(scopeType) || (scopeType != null && scopeType.endsWith(".Int32x4"))) {
+                        return "Int32x4";
+                    }
+                }
+            }
+            if (mName.equals("getX") || mName.equals("getY") || mName.equals("getZ") || mName.equals("getW") ||
+                    mName.equals("get") || mName.equals("extractLane") || mName.equals("dot") || mName.equals("sum")) {
+                if (call.getScope().isPresent()) {
+                    String scopeType = getExpressionJavaType(call.getScope().get(), localJavaTypes);
+                    String scopeStr = call.getScope().get().toString();
+                    if ("Float32x4".equals(scopeStr) || "Float32x4".equals(scopeType) || (scopeType != null && scopeType.endsWith(".Float32x4"))) {
+                        return "float";
+                    }
+                    if ("Int32x4".equals(scopeStr) || "Int32x4".equals(scopeType) || (scopeType != null && scopeType.endsWith(".Int32x4"))) {
+                        return "int";
+                    }
+                }
+            }
+            if (mName.equals("load")) {
+                if (call.getScope().isPresent()) {
+                    String scopeStr = call.getScope().get().toString();
+                    if (scopeStr.equals("Float32x4") || scopeStr.endsWith(".Float32x4")) return "Float32x4";
+                    if (scopeStr.equals("Int32x4") || scopeStr.endsWith(".Int32x4")) return "Int32x4";
+                }
+            }
             if (call.getScope().isPresent()) {
                 String scopeType = getExpressionJavaType(call.getScope().get(), localJavaTypes);
                 if (scopeType != null && classRegistry != null && classRegistry.isRecord(scopeType)) {
@@ -1898,7 +1967,15 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     mName.equals("removeFile") || mName.equals("delete") || mName.equals("createDirectory") ||
                     mName.equals("mkdir") || mName.equals("open") || mName.equals("close") ||
                     mName.equals("seek") || mName.equals("currentTimeMillis") || mName.equals("clockTimeGet") ||
-                    mName.equals("randomInt") || mName.equals("randomGet") || mName.equals("getPath")) {
+                    mName.equals("randomInt") || mName.equals("randomGet") || mName.equals("getPath") ||
+                    mName.equals("of") || mName.equals("splat") || mName.equals("zero") || mName.equals("dot") ||
+                    mName.equals("sum") || mName.equals("withLane") || mName.equals("replaceLane") ||
+                    mName.equals("withX") || mName.equals("withY") || mName.equals("withZ") || mName.equals("withW") ||
+                    mName.equals("shiftLeft") || mName.equals("shiftRight") || mName.equals("shl") || mName.equals("shr") ||
+                    mName.equals("not") || mName.equals("and") || mName.equals("or") || mName.equals("xor") ||
+                    mName.equals("getX") || mName.equals("getY") || mName.equals("getZ") || mName.equals("getW") ||
+                    mName.equals("extractLane") || mName.equals("add") || mName.equals("sub") ||
+                    mName.equals("mul") || mName.equals("div") || mName.equals("neg")) {
                 return true;
             }
             if (call.getScope().isPresent()) {
@@ -2738,6 +2815,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     private String getLoadInstruction(String elemType) {
         if (elemType == null) return "i32.load";
         return switch (elemType) {
+            case "v128" -> "v128.load";
             case "f64" -> "f64.load";
             case "f32" -> "f32.load";
             case "i64" -> "i64.load";
@@ -2748,6 +2826,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     private String getStoreInstruction(String elemType) {
         if (elemType == null) return "i32.store";
         return switch (elemType) {
+            case "v128" -> "v128.store";
             case "f64" -> "f64.store";
             case "f32" -> "f32.store";
             case "i64" -> "i64.store";
@@ -2758,6 +2837,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     private String getWasmZeroConst(String type) {
         if (type == null) return "i32.const 0";
         return switch (type) {
+            case "v128" -> "v128.const i32x4 0 0 0 0";
             case "f64" -> "f64.const 0.0";
             case "f32" -> "f32.const 0.0";
             case "i64" -> "i64.const 0";
@@ -2796,7 +2876,9 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         }
         if (expr.isMethodCallExpr()) {
             String javaType = getExpressionJavaType(expr, localJavaTypes);
+            if ("Float32x4".equals(javaType) || "Int32x4".equals(javaType) || "Vector128".equals(javaType)) return "v128";
             if ("double".equals(javaType)) return "f64";
+            if ("float".equals(javaType)) return "f32";
             if ("String".equals(javaType)) return "String";
             return "i32";
         }
@@ -2862,5 +2944,269 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             case UNSIGNED_RIGHT_SHIFT -> prefix + ".shr_u";
             default -> prefix + ".add";
         };
+    }
+
+    private boolean isSimdCall(MethodCallExpr call, Map<String, String> localJavaTypes) {
+        if (!call.getScope().isPresent()) return false;
+        Expression scope = call.getScope().get();
+        String scopeStr = scope.toString();
+        String scopeJavaType = getExpressionJavaType(scope, localJavaTypes);
+
+        if (scopeStr.equals("Float32x4") || scopeStr.endsWith(".Float32x4") ||
+                scopeStr.equals("Int32x4") || scopeStr.endsWith(".Int32x4") ||
+                scopeStr.equals("Vector128") || scopeStr.endsWith(".Vector128")) {
+            return true;
+        }
+        if ("Float32x4".equals(scopeJavaType) || (scopeJavaType != null && scopeJavaType.endsWith(".Float32x4")) ||
+                "Int32x4".equals(scopeJavaType) || (scopeJavaType != null && scopeJavaType.endsWith(".Int32x4"))) {
+            return true;
+        }
+        return false;
+    }
+
+    private void translateSimdCall(MethodCallExpr call, StringBuilder collector, Map<String, String> localTypes, Map<String, String> localElementTypes, Map<String, String> localJavaTypes, String expectedType) {
+        Expression scope = call.getScope().get();
+        String scopeStr = scope.toString();
+        String scopeJavaType = getExpressionJavaType(scope, localJavaTypes);
+        boolean isFloat = scopeStr.equals("Float32x4") || scopeStr.endsWith(".Float32x4") ||
+                "Float32x4".equals(scopeJavaType) || (scopeJavaType != null && scopeJavaType.endsWith(".Float32x4"));
+        String mName = call.getNameAsString();
+
+        if (mName.equals("of")) {
+            if (call.getArguments().size() == 4) {
+                boolean allConst = true;
+                for (Expression arg : call.getArguments()) {
+                    if (!(arg.isIntegerLiteralExpr() || arg.isDoubleLiteralExpr() ||
+                            (arg.isUnaryExpr() && arg.asUnaryExpr().getOperator() == UnaryExpr.Operator.MINUS &&
+                                    (arg.asUnaryExpr().getExpression().isIntegerLiteralExpr() || arg.asUnaryExpr().getExpression().isDoubleLiteralExpr())))) {
+                        allConst = false;
+                        break;
+                    }
+                }
+                if (allConst) {
+                    if (isFloat) {
+                        collector.append("    v128.const f32x4 ")
+                                .append(getNumericLiteralString(call.getArgument(0), true))
+                                .append(" ")
+                                .append(getNumericLiteralString(call.getArgument(1), true))
+                                .append(" ")
+                                .append(getNumericLiteralString(call.getArgument(2), true))
+                                .append(" ")
+                                .append(getNumericLiteralString(call.getArgument(3), true))
+                                .append("\n");
+                    } else {
+                        collector.append("    v128.const i32x4 ")
+                                .append(getNumericLiteralString(call.getArgument(0), false))
+                                .append(" ")
+                                .append(getNumericLiteralString(call.getArgument(1), false))
+                                .append(" ")
+                                .append(getNumericLiteralString(call.getArgument(2), false))
+                                .append(" ")
+                                .append(getNumericLiteralString(call.getArgument(3), false))
+                                .append("\n");
+                    }
+                    return;
+                }
+                if (isFloat) {
+                    translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "f32");
+                    collector.append("    f32x4.splat\n");
+                    translateExpression(call.getArgument(1), collector, localTypes, localElementTypes, localJavaTypes, "f32");
+                    collector.append("    f32x4.replace_lane 1\n");
+                    translateExpression(call.getArgument(2), collector, localTypes, localElementTypes, localJavaTypes, "f32");
+                    collector.append("    f32x4.replace_lane 2\n");
+                    translateExpression(call.getArgument(3), collector, localTypes, localElementTypes, localJavaTypes, "f32");
+                    collector.append("    f32x4.replace_lane 3\n");
+                } else {
+                    translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                    collector.append("    i32x4.splat\n");
+                    translateExpression(call.getArgument(1), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                    collector.append("    i32x4.replace_lane 1\n");
+                    translateExpression(call.getArgument(2), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                    collector.append("    i32x4.replace_lane 2\n");
+                    translateExpression(call.getArgument(3), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                    collector.append("    i32x4.replace_lane 3\n");
+                }
+            }
+        } else if (mName.equals("splat")) {
+            if (isFloat) {
+                translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "f32");
+                collector.append("    f32x4.splat\n");
+            } else {
+                translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                collector.append("    i32x4.splat\n");
+            }
+        } else if (mName.equals("zero")) {
+            if (isFloat) {
+                collector.append("    v128.const f32x4 0.0 0.0 0.0 0.0\n");
+            } else {
+                collector.append("    v128.const i32x4 0 0 0 0\n");
+            }
+        } else if (mName.equals("add")) {
+            translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "v128");
+            translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "v128");
+            collector.append(isFloat ? "    f32x4.add\n" : "    i32x4.add\n");
+        } else if (mName.equals("sub")) {
+            translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "v128");
+            translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "v128");
+            collector.append(isFloat ? "    f32x4.sub\n" : "    i32x4.sub\n");
+        } else if (mName.equals("mul")) {
+            translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "v128");
+            translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "v128");
+            collector.append(isFloat ? "    f32x4.mul\n" : "    i32x4.mul\n");
+        } else if (mName.equals("div")) {
+            translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "v128");
+            translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "v128");
+            collector.append("    f32x4.div\n");
+        } else if (mName.equals("min")) {
+            translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "v128");
+            translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "v128");
+            collector.append(isFloat ? "    f32x4.min\n" : "    i32x4.min_s\n");
+        } else if (mName.equals("max")) {
+            translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "v128");
+            translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "v128");
+            collector.append(isFloat ? "    f32x4.max\n" : "    i32x4.max_s\n");
+        } else if (mName.equals("sqrt")) {
+            translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "v128");
+            collector.append("    f32x4.sqrt\n");
+        } else if (mName.equals("abs")) {
+            translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "v128");
+            collector.append(isFloat ? "    f32x4.abs\n" : "    i32x4.abs\n");
+        } else if (mName.equals("neg")) {
+            translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "v128");
+            collector.append(isFloat ? "    f32x4.neg\n" : "    i32x4.neg\n");
+        } else if (mName.equals("and")) {
+            translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "v128");
+            translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "v128");
+            collector.append("    v128.and\n");
+        } else if (mName.equals("or")) {
+            translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "v128");
+            translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "v128");
+            collector.append("    v128.or\n");
+        } else if (mName.equals("xor")) {
+            translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "v128");
+            translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "v128");
+            collector.append("    v128.xor\n");
+        } else if (mName.equals("not")) {
+            translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "v128");
+            collector.append("    v128.not\n");
+        } else if (mName.equals("shiftLeft") || mName.equals("shl")) {
+            translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "v128");
+            translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    i32x4.shl\n");
+        } else if (mName.equals("shiftRight") || mName.equals("shr")) {
+            translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "v128");
+            translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    i32x4.shr_s\n");
+        } else if (mName.equals("getX") || mName.equals("getY") || mName.equals("getZ") || mName.equals("getW") ||
+                mName.equals("get") || mName.equals("extractLane")) {
+            int lane = 0;
+            if (mName.equals("getY")) lane = 1;
+            else if (mName.equals("getZ")) lane = 2;
+            else if (mName.equals("getW")) lane = 3;
+            else if (call.getArguments().size() > 0 && call.getArgument(0).isIntegerLiteralExpr()) {
+                lane = call.getArgument(0).asIntegerLiteralExpr().asNumber().intValue();
+            }
+            translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "v128");
+            if (isFloat) {
+                collector.append("    f32x4.extract_lane ").append(lane).append("\n");
+                if ("f64".equals(expectedType) || "double".equals(expectedType)) {
+                    collector.append("    f64.promote_f32\n");
+                }
+            } else {
+                collector.append("    i32x4.extract_lane ").append(lane).append("\n");
+            }
+        } else if (mName.equals("withLane") || mName.equals("replaceLane") ||
+                mName.equals("withX") || mName.equals("withY") || mName.equals("withZ") || mName.equals("withW")) {
+            int lane = 0;
+            Expression valExpr = null;
+            if (mName.equals("withX")) { lane = 0; valExpr = call.getArgument(0); }
+            else if (mName.equals("withY")) { lane = 1; valExpr = call.getArgument(0); }
+            else if (mName.equals("withZ")) { lane = 2; valExpr = call.getArgument(0); }
+            else if (mName.equals("withW")) { lane = 3; valExpr = call.getArgument(0); }
+            else if (call.getArguments().size() == 2) {
+                if (call.getArgument(0).isIntegerLiteralExpr()) {
+                    lane = call.getArgument(0).asIntegerLiteralExpr().asNumber().intValue();
+                }
+                valExpr = call.getArgument(1);
+            }
+            translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "v128");
+            if (isFloat) {
+                translateExpression(valExpr, collector, localTypes, localElementTypes, localJavaTypes, "f32");
+                collector.append("    f32x4.replace_lane ").append(lane).append("\n");
+            } else {
+                translateExpression(valExpr, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                collector.append("    i32x4.replace_lane ").append(lane).append("\n");
+            }
+        } else if (mName.equals("load")) {
+            if (call.getArguments().size() == 2) {
+                translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                collector.append("    i32.const 4\n    i32.add\n");
+                translateExpression(call.getArgument(1), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                collector.append("    i32.const 4\n    i32.mul\n    i32.add\n");
+                collector.append("    v128.load\n");
+            } else if (call.getArguments().size() == 1) {
+                translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                collector.append("    v128.load\n");
+            }
+        } else if (mName.equals("store")) {
+            if (call.getArguments().size() == 2) {
+                translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                collector.append("    i32.const 4\n    i32.add\n");
+                translateExpression(call.getArgument(1), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                collector.append("    i32.const 4\n    i32.mul\n    i32.add\n");
+                translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "v128");
+                collector.append("    v128.store\n");
+            } else if (call.getArguments().size() == 1) {
+                translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "v128");
+                collector.append("    v128.store\n");
+            }
+        } else if (mName.equals("dot")) {
+            translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "v128");
+            translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "v128");
+            collector.append("    f32x4.mul\n");
+            collector.append("    local.set $__simd_tmp\n");
+            collector.append("    local.get $__simd_tmp\n    f32x4.extract_lane 0\n");
+            collector.append("    local.get $__simd_tmp\n    f32x4.extract_lane 1\n    f32.add\n");
+            collector.append("    local.get $__simd_tmp\n    f32x4.extract_lane 2\n    f32.add\n");
+            collector.append("    local.get $__simd_tmp\n    f32x4.extract_lane 3\n    f32.add\n");
+            if ("f64".equals(expectedType) || "double".equals(expectedType)) {
+                collector.append("    f64.promote_f32\n");
+            }
+        } else if (mName.equals("sum")) {
+            translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "v128");
+            collector.append("    local.set $__simd_tmp\n");
+            if (isFloat) {
+                collector.append("    local.get $__simd_tmp\n    f32x4.extract_lane 0\n");
+                collector.append("    local.get $__simd_tmp\n    f32x4.extract_lane 1\n    f32.add\n");
+                collector.append("    local.get $__simd_tmp\n    f32x4.extract_lane 2\n    f32.add\n");
+                collector.append("    local.get $__simd_tmp\n    f32x4.extract_lane 3\n    f32.add\n");
+                if ("f64".equals(expectedType) || "double".equals(expectedType)) {
+                    collector.append("    f64.promote_f32\n");
+                }
+            } else {
+                collector.append("    local.get $__simd_tmp\n    i32x4.extract_lane 0\n");
+                collector.append("    local.get $__simd_tmp\n    i32x4.extract_lane 1\n    i32.add\n");
+                collector.append("    local.get $__simd_tmp\n    i32x4.extract_lane 2\n    i32.add\n");
+                collector.append("    local.get $__simd_tmp\n    i32x4.extract_lane 3\n    i32.add\n");
+            }
+        }
+    }
+
+    private String getNumericLiteralString(Expression expr, boolean isFloat) {
+        if (expr.isDoubleLiteralExpr()) {
+            String val = expr.asDoubleLiteralExpr().getValue().replaceAll("[fFdD]", "");
+            if (isFloat && !val.contains(".")) val += ".0";
+            return val;
+        }
+        if (expr.isIntegerLiteralExpr()) {
+            String val = expr.asIntegerLiteralExpr().getValue().replaceAll("[lL_]", "");
+            if (isFloat) val += ".0";
+            return val;
+        }
+        if (expr.isUnaryExpr() && expr.asUnaryExpr().getOperator() == UnaryExpr.Operator.MINUS) {
+            return "-" + getNumericLiteralString(expr.asUnaryExpr().getExpression(), isFloat);
+        }
+        return isFloat ? "0.0" : "0";
     }
 }

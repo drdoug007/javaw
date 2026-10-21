@@ -8,6 +8,8 @@ import com.example.javaw.dom.Window;
 import com.example.javaw.dom.JSObject;
 import com.example.javaw.wasi.WASI;
 import com.example.javaw.wasi.WASIFile;
+import com.example.javaw.simd.Float32x4;
+import com.example.javaw.simd.Int32x4;
 import java.util.Arrays;
 
 public class TestClass {
@@ -657,6 +659,42 @@ public class TestClass {
         boolean deleted = file.delete();
         boolean existsAfter = file.exists();
         return len == 5 && exists && deleted && !existsAfter;
+    }
+
+    public double testSimdFloatAddAndSum() {
+        Float32x4 a = Float32x4.of(1.0f, 2.0f, 3.0f, 4.0f);
+        Float32x4 b = Float32x4.of(5.0f, 6.0f, 7.0f, 8.0f);
+        Float32x4 c = a.add(b);
+        return c.sum();
+    }
+
+    public double testSimdFloatMulAndDot() {
+        Float32x4 a = Float32x4.of(2.0f, 3.0f, 4.0f, 5.0f);
+        Float32x4 b = Float32x4.of(1.0f, 2.0f, 3.0f, 4.0f);
+        return a.dot(b);
+    }
+
+    public double testSimdFloatMathOps() {
+        Float32x4 a = Float32x4.splat(16.0f);
+        Float32x4 b = a.sqrt();
+        Float32x4 c = b.withLane(0, 100.0f);
+        return c.getX() + c.getY();
+    }
+
+    public int testSimdIntAddAndBitwise() {
+        Int32x4 a = Int32x4.of(10, 20, 30, 40);
+        Int32x4 b = Int32x4.of(1, 2, 3, 4);
+        Int32x4 c = a.add(b);
+        Int32x4 d = c.and(Int32x4.splat(15));
+        return d.sum();
+    }
+
+    public int testSimdArrayLoadStore() {
+        int[] arr = new int[]{100, 200, 300, 400};
+        Int32x4 vec = Int32x4.load(arr, 0);
+        Int32x4 doubled = vec.add(vec);
+        doubled.store(arr, 0);
+        return arr[0] + arr[1] + arr[2] + arr[3];
     }
 }
 

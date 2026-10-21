@@ -750,4 +750,38 @@ public class JavacToWasmTest {
         assertTrue(result.isWasmGenerated());
         assertTrue(result.getWasm().length > 0);
     }
+
+    @Test
+    public void testSimdVectorWatGeneration() {
+        String javaSource = "package com.example.javaw;\n" +
+                "import com.example.javaw.simd.Float32x4;\n" +
+                "import com.example.javaw.simd.Int32x4;\n" +
+                "public class SimdApp {\n" +
+                "    public Float32x4 vectorMath(Float32x4 a, Float32x4 b) {\n" +
+                "        Float32x4 sum = a.add(b);\n" +
+                "        Float32x4 mul = sum.mul(Float32x4.splat(2.0f));\n" +
+                "        Float32x4 sqrt = mul.sqrt();\n" +
+                "        return sqrt;\n" +
+                "    }\n" +
+                "    public Int32x4 intVectorOps(int[] arr) {\n" +
+                "        Int32x4 v = Int32x4.load(arr, 0);\n" +
+                "        Int32x4 shifted = v.shiftLeft(2);\n" +
+                "        shifted.store(arr, 0);\n" +
+                "        return shifted;\n" +
+                "    }\n" +
+                "}\n";
+
+        CompilationUnit cu = StaticJavaParser.parse(javaSource);
+        String wat = JavacToWasm.generateWat(cu);
+
+        assertTrue(wat.contains("(func $vectorMath (export \"vectorMath\") (param $a v128) (param $b v128) (result v128)"));
+        assertTrue(wat.contains("f32x4.add"));
+        assertTrue(wat.contains("f32x4.splat"));
+        assertTrue(wat.contains("f32x4.mul"));
+        assertTrue(wat.contains("f32x4.sqrt"));
+        assertTrue(wat.contains("(func $intVectorOps (export \"intVectorOps\") (param $arr i32) (result v128)"));
+        assertTrue(wat.contains("v128.load"));
+        assertTrue(wat.contains("i32x4.shl"));
+        assertTrue(wat.contains("v128.store"));
+    }
 }

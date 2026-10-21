@@ -45,7 +45,7 @@ public class ClassRegistry {
                     String fType = vd.getType().asString();
                     String wasmType = TypeMapper.mapType(vd.getType());
                     if (wasmType == null) wasmType = "i32";
-                    int size = ("i64".equals(wasmType) || "f64".equals(wasmType)) ? 8 : 4;
+                    int size = "v128".equals(wasmType) ? 16 : (("i64".equals(wasmType) || "f64".equals(wasmType)) ? 8 : 4);
                     // Offset will be calculated in Phase 2 for instance fields
                     cm.addField(new FieldModel(fName, fType, wasmType, 0, size, isStatic));
                 }
@@ -114,7 +114,7 @@ public class ClassRegistry {
                 String cType = p.getType().asString();
                 String wasmType = TypeMapper.mapType(p.getType());
                 if (wasmType == null) wasmType = "i32";
-                int size = ("i64".equals(wasmType) || "f64".equals(wasmType)) ? 8 : 4;
+                int size = "v128".equals(wasmType) ? 16 : (("i64".equals(wasmType) || "f64".equals(wasmType)) ? 8 : 4);
                 rm.addComponent(new FieldModel(cName, cType, wasmType, 0, size, false));
             }
 
@@ -202,7 +202,9 @@ public class ClassRegistry {
             for (Map.Entry<String, FieldModel> entry : new ArrayList<>(cm.getFields().entrySet())) {
                 FieldModel f = entry.getValue();
                 if (!f.isStatic() && f.getOffset() == 0) {
-                    if (f.getSize() == 8 && (currentOffset % 8 != 0)) {
+                    if (f.getSize() == 16 && (currentOffset % 16 != 0)) {
+                        currentOffset = ((currentOffset + 15) / 16) * 16; // 16-byte alignment
+                    } else if (f.getSize() == 8 && (currentOffset % 8 != 0)) {
                         currentOffset = ((currentOffset + 7) / 8) * 8; // 8-byte alignment
                     }
                     FieldModel updatedField = new FieldModel(f.getName(), f.getTypeName(), f.getWasmType(),

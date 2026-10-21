@@ -1634,6 +1634,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     global.get $asyncCounter
     i32.const 10
@@ -1652,6 +1653,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     global.get $asyncCounter
     i32.const 5
@@ -1670,6 +1672,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     local.get $data
     global.set $asyncFetchedData
@@ -1686,6 +1689,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 4097
     i32.const 11
@@ -1705,6 +1709,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 4097
     i32.const 11
@@ -1724,6 +1729,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 4109
     i32.const 13
@@ -1742,6 +1748,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     local.get $url
     local.set $__str_arg_ptr
@@ -1764,6 +1771,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     local.get $message
     local.set $__str_arg_ptr
@@ -1785,6 +1793,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
   )
   (func $addNumbers (export "addNumbers") (param $a i32) (param $b i32) (result i32)
@@ -1799,6 +1808,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     local.get $a
     local.get $b
@@ -1817,6 +1827,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     f64.const 3.14159
     return
@@ -1835,6 +1846,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 1
     local.set $result
@@ -1877,6 +1889,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 0
     local.set $sum
@@ -1934,6 +1947,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 0
     local.set $total
@@ -1990,6 +2004,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 0
     local.set $total
@@ -2058,6 +2073,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     f64.const 0.0
     local.set $total
@@ -2114,6 +2130,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 0
     local.set $total
@@ -2192,6 +2209,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     global.get $__heap_ptr
     local.set $__arr_alloc_ptr
@@ -2265,6 +2283,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 0
     local.set $result
@@ -2325,6 +2344,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 0
     local.set $result
@@ -2391,6 +2411,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 0
     local.set $total
@@ -2465,6 +2486,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 0
     local.set $count
@@ -2536,6 +2558,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 0
     local.set $count
@@ -2601,6 +2624,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 10
     local.set $res
@@ -2638,6 +2662,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 0
     local.set $sum
@@ -2704,6 +2729,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 4138
     local.set $greeting
@@ -2730,6 +2756,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 4161
     local.get $name
@@ -2756,6 +2783,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 4144
     local.set $s
@@ -2776,6 +2804,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 4144
     local.set $s
@@ -2797,6 +2826,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 4178
     local.set $s
@@ -2818,6 +2848,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     local.get $a
     local.get $b
@@ -2842,6 +2873,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 4178
     local.set $s
@@ -2863,6 +2895,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 4178
     local.set $s
@@ -2885,6 +2918,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 16
     call $__sb_new
@@ -2938,6 +2972,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 16
     call $__sb_new
@@ -2973,6 +3008,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 16
     call $__heap_alloc
@@ -3023,6 +3059,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 16
     call $__heap_alloc
@@ -3072,6 +3109,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     local.get $type
     i32.const 1
@@ -3127,6 +3165,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     local.get $type
     i32.const 1
@@ -3182,6 +3221,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     local.get $type
     i32.const 1
@@ -3276,6 +3316,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 3
     local.set $__arr_alloc_len
@@ -3406,6 +3447,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 4209
     i32.const 10
@@ -3463,6 +3505,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 4228
     i32.const 8
@@ -3499,6 +3542,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 4237
     i32.const 50
@@ -3552,6 +3596,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     call $dom_js_createObject
     local.set $obj
@@ -3619,6 +3664,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     call $dom_js_createArray
     local.set $arr
@@ -3675,6 +3721,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     call $dom_js_global
     i32.const 4359
@@ -3702,6 +3749,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 1
     i32.const 4368
@@ -3737,6 +3785,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 1
     i32.const 4446
@@ -3778,6 +3827,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 8
     call $__heap_alloc
@@ -3864,6 +3914,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     global.get $__heap_ptr
     local.set $__arr_alloc_ptr
@@ -3960,6 +4011,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     call $dom_thread_hardware_concurrency
     local.set $hc
@@ -3994,6 +4046,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $e i32)
     (local $__caught_exc i32)
     i32.const 0
@@ -4042,6 +4095,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $e i32)
     (local $__caught_exc i32)
     (try
@@ -4087,6 +4141,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $ce i32)
     (local $__caught_exc i32)
     (try
@@ -4133,6 +4188,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $ce i32)
     (local $iae i32)
     (local $e i32)
@@ -4260,6 +4316,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $e i32)
     (local $__caught_exc i32)
     i32.const 0
@@ -4328,6 +4385,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     local.get $a
     local.get $b
@@ -4345,6 +4403,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     local.get $p$first
     local.get $p$second
@@ -4365,6 +4424,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     local.get $a
     local.get $b
@@ -4388,6 +4448,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     local.get $dividend
     local.get $divisor
@@ -4411,6 +4472,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     local.get $dividend
     local.get $divisor
@@ -4434,6 +4496,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     local.get $pt$x
     local.get $factor
@@ -4458,6 +4521,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     local.get $a$x
     local.get $b$x
@@ -4486,6 +4550,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     global.get $__heap_ptr
     local.set $__arr_alloc_ptr
@@ -4600,6 +4665,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     global.get $__heap_ptr
     local.set $__arr_alloc_ptr
@@ -4706,6 +4772,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 5
     local.set $__arr_alloc_len
@@ -4875,6 +4942,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     global.get $__heap_ptr
     local.set $__arr_alloc_ptr
@@ -5013,6 +5081,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 4585
     i32.const 4596
@@ -5035,6 +5104,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     local.get $path
     call $__wasi_file_exists
@@ -5052,6 +5122,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     local.get $path
     call $__wasi_file_length
@@ -5069,6 +5140,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 4611
     i32.const 4623
@@ -5099,6 +5171,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 4635
     i32.const 4650
@@ -5136,6 +5209,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     call $__wasi_clock_time_ms
     local.set $time
@@ -5159,6 +5233,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 8
     call $__heap_alloc
@@ -5202,6 +5277,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 8
     call $__heap_alloc
@@ -5245,6 +5321,257 @@
     i32.and
     return
   )
+  (func $testSimdFloatAddAndSum (export "testSimdFloatAddAndSum") (result f64)
+    (local $a v128)
+    (local $b v128)
+    (local $c v128)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__caught_exc i32)
+    v128.const f32x4 1.0 2.0 3.0 4.0
+    local.set $a
+    v128.const f32x4 5.0 6.0 7.0 8.0
+    local.set $b
+    local.get $a
+    local.get $b
+    f32x4.add
+    local.set $c
+    local.get $c
+    local.set $__simd_tmp
+    local.get $__simd_tmp
+    f32x4.extract_lane 0
+    local.get $__simd_tmp
+    f32x4.extract_lane 1
+    f32.add
+    local.get $__simd_tmp
+    f32x4.extract_lane 2
+    f32.add
+    local.get $__simd_tmp
+    f32x4.extract_lane 3
+    f32.add
+    f64.promote_f32
+    return
+  )
+  (func $testSimdFloatMulAndDot (export "testSimdFloatMulAndDot") (result f64)
+    (local $a v128)
+    (local $b v128)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__caught_exc i32)
+    v128.const f32x4 2.0 3.0 4.0 5.0
+    local.set $a
+    v128.const f32x4 1.0 2.0 3.0 4.0
+    local.set $b
+    local.get $a
+    local.get $b
+    f32x4.mul
+    local.set $__simd_tmp
+    local.get $__simd_tmp
+    f32x4.extract_lane 0
+    local.get $__simd_tmp
+    f32x4.extract_lane 1
+    f32.add
+    local.get $__simd_tmp
+    f32x4.extract_lane 2
+    f32.add
+    local.get $__simd_tmp
+    f32x4.extract_lane 3
+    f32.add
+    f64.promote_f32
+    return
+  )
+  (func $testSimdFloatMathOps (export "testSimdFloatMathOps") (result f64)
+    (local $a v128)
+    (local $b v128)
+    (local $c v128)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__caught_exc i32)
+    f32.const 16.0
+    f32x4.splat
+    local.set $a
+    local.get $a
+    f32x4.sqrt
+    local.set $b
+    local.get $b
+    f32.const 100.0
+    f32x4.replace_lane 0
+    local.set $c
+    local.get $c
+    f32x4.extract_lane 0
+    local.get $c
+    f32x4.extract_lane 1
+    f32.add
+    f64.promote_f32
+    return
+  )
+  (func $testSimdIntAddAndBitwise (export "testSimdIntAddAndBitwise") (result i32)
+    (local $a v128)
+    (local $b v128)
+    (local $c v128)
+    (local $d v128)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__caught_exc i32)
+    v128.const i32x4 10 20 30 40
+    local.set $a
+    v128.const i32x4 1 2 3 4
+    local.set $b
+    local.get $a
+    local.get $b
+    i32x4.add
+    local.set $c
+    local.get $c
+    i32.const 15
+    i32x4.splat
+    v128.and
+    local.set $d
+    local.get $d
+    local.set $__simd_tmp
+    local.get $__simd_tmp
+    i32x4.extract_lane 0
+    local.get $__simd_tmp
+    i32x4.extract_lane 1
+    i32.add
+    local.get $__simd_tmp
+    i32x4.extract_lane 2
+    i32.add
+    local.get $__simd_tmp
+    i32x4.extract_lane 3
+    i32.add
+    return
+  )
+  (func $testSimdArrayLoadStore (export "testSimdArrayLoadStore") (result i32)
+    (local $arr i32)
+    (local $vec v128)
+    (local $doubled v128)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__caught_exc i32)
+    global.get $__heap_ptr
+    local.set $__arr_alloc_ptr
+    global.get $__heap_ptr
+    i32.const 24
+    i32.add
+    global.set $__heap_ptr
+    local.get $__arr_alloc_ptr
+    i32.const 4
+    i32.store
+    local.get $__arr_alloc_ptr
+    i32.const 100
+    i32.store offset=4
+    local.get $__arr_alloc_ptr
+    i32.const 200
+    i32.store offset=8
+    local.get $__arr_alloc_ptr
+    i32.const 300
+    i32.store offset=12
+    local.get $__arr_alloc_ptr
+    i32.const 400
+    i32.store offset=16
+    local.get $__arr_alloc_ptr
+    local.set $arr
+    local.get $arr
+    i32.const 4
+    i32.add
+    i32.const 0
+    i32.const 4
+    i32.mul
+    i32.add
+    v128.load
+    local.set $vec
+    local.get $vec
+    local.get $vec
+    i32x4.add
+    local.set $doubled
+    local.get $arr
+    i32.const 4
+    i32.add
+    i32.const 0
+    i32.const 4
+    i32.mul
+    i32.add
+    local.get $doubled
+    v128.store
+    local.get $arr
+    i32.const 0
+    i32.const 4
+    i32.mul
+    i32.add
+    i32.load offset=4
+    local.get $arr
+    i32.const 1
+    i32.const 4
+    i32.mul
+    i32.add
+    i32.load offset=4
+    i32.add
+    local.get $arr
+    i32.const 2
+    i32.const 4
+    i32.mul
+    i32.add
+    i32.load offset=4
+    i32.add
+    local.get $arr
+    i32.const 3
+    i32.const 4
+    i32.mul
+    i32.add
+    i32.load offset=4
+    i32.add
+    return
+  )
   ;; Record: Pair
   ;; Record: Point3D
   ;; Record: DivisionResult
@@ -5260,6 +5587,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     local.get $this$quotient
     local.get $this$remainder
@@ -5279,6 +5607,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     local.get $this
     local.get $msg
@@ -5299,6 +5628,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     local.get $this
     i32.load offset=8
@@ -5317,6 +5647,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     local.get $this
     local.get $x
@@ -5337,6 +5668,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     local.get $this
     i32.load offset=4
@@ -5354,6 +5686,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     local.get $this
     i32.load offset=8
@@ -5371,6 +5704,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     local.get $this
     local.get $newX
@@ -5391,6 +5725,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     local.get $this
     i32.load offset=4
@@ -5418,6 +5753,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     local.get $this
     local.get $color
@@ -5435,6 +5771,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     local.get $this
     i32.load offset=4
@@ -5452,6 +5789,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 0
     return
@@ -5469,6 +5807,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     local.get $this
     local.get $color
@@ -5489,6 +5828,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     local.get $this
     i32.load offset=8
@@ -5506,6 +5846,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 3
     local.get $this
@@ -5529,6 +5870,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     local.get $this
     local.get $color
@@ -5552,6 +5894,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     local.get $this
     i32.load offset=8

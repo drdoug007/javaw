@@ -29,8 +29,13 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
   - Strongly-typed array utility facade (`com.example.javaw.util.Arrays`) supporting `fill`, `copyOf`, `copyOfRange`, and `equals` for both `int[]` and `double[]`.
   - Accelerated dynamic heap zeroing (`$__heap_alloc`), dynamic string concatenation (`$__str_concat`), substring slicing (`$__str_substring`), and `StringBuilder` buffer expansion using zero-overhead memory copies.
 - **Binaryen Optimization Pipeline (`wasm-opt`)**:
-  - Integrates automated `wasm-opt -O3 --enable-threads --enable-exception-handling --enable-multivalue --enable-bulk-memory` optimization passes directly into the build pipeline for dead-code elimination, inlining, and binary size reduction.
+  - Integrates automated `wasm-opt -O3 --enable-simd --enable-threads --enable-exception-handling --enable-multivalue --enable-bulk-memory` optimization passes directly into the build pipeline for dead-code elimination, inlining, and binary size reduction.
   - Supports `--no-opt` / `-O0` flags to bypass optimization passes during development.
+- **Fixed-Width SIMD (`v128`) Vectorization Facades**:
+  - Strongly typed 128-bit vector facades (`com.example.javaw.simd.Float32x4`, `Int32x4`, `Vector128`) mapping directly to native WebAssembly `v128` vector value types without heap allocation overhead.
+  - Full support for vector math (`add`, `sub`, `mul`, `div`, `min`, `max`, `sqrt`, `abs`, `neg`), bitwise operations (`and`, `or`, `xor`, `not`, `shl`, `shr`), and scalar reductions (`dot`, `sum`).
+  - Lane extraction and replacement (`getX`..`getW`, `withX`..`withW`, `extractLane`, `replaceLane`), vector splatting (`Float32x4.splat`, `Int32x4.splat`), and bulk vector memory operations (`load`, `store`).
+  - Native lowering to WebAssembly instructions (`f32x4.add`, `f32x4.mul`, `f32x4.sqrt`, `i32x4.add`, `i32x4.shl`, `v128.and`, `v128.load`, `v128.store`).
 - **WebAssembly Exception Handling (`try-catch-finally`, `throw`)**:
   - Direct translation of Java `try`, `catch`, `finally`, and `throw` statements to standard WebAssembly exception handling instructions (`(tag $Exception ...)`, `(try ... (catch $Exception ...) (catch_all ...))`, `throw $Exception`, `rethrow`).
   - Pre-registered built-in exception hierarchy (`Throwable`, `Exception`, `RuntimeException`, `IllegalArgumentException`, `IllegalStateException`, `NullPointerException`) providing standard constructor overloads and `.getMessage()`.
@@ -152,6 +157,10 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
 │   │   │   │   ├── WebGLRenderingContext.java    # HTML5 WebGL graphics facade
 │   │   │   │   ├── Window.java        # Browser Window, timers & async fetch facade
 │   │   │   │   └── JSObject.java      # Generic dynamic JavaScript interop facade
+│   │   │   ├── simd
+│   │   │   │   ├── Float32x4.java     # 128-bit float vector facade (f32x4)
+│   │   │   │   ├── Int32x4.java       # 128-bit integer vector facade (i32x4)
+│   │   │   │   └── Vector128.java     # 128-bit SIMD constants and utilities
 │   │   │   ├── util
 │   │   │   │   ├── Arrays.java        # High-performance array utilities & bulk memory operations
 │   │   │   │   └── StringBuilder.java # Dynamic string builder facade
@@ -662,6 +671,45 @@ public class CompilerHost {
         
         System.out.println("Generated WAT:\n" + result.getWat());
         System.out.println("WASM Byte Count: " + result.getWasm().length);
+    }
+}
+```
+
+---
+
+#### Example N: Fixed-Width SIMD Vectorization (128-bit)
+
+```java
+package com.example.javaw;
+
+import com.example.javaw.simd.Float32x4;
+import com.example.javaw.simd.Int32x4;
+
+public class SimdDemo {
+    public static float calculateVectorMath() {
+        // 128-bit floating-point vector arithmetic (f32x4)
+        Float32x4 a = Float32x4.of(1.0f, 2.0f, 3.0f, 4.0f);
+        Float32x4 b = Float32x4.of(5.0f, 6.0f, 7.0f, 8.0f);
+        
+        // Native WebAssembly f32x4.add and f32x4.mul instructions
+        Float32x4 sum = a.add(b); // (6.0, 8.0, 10.0, 12.0)
+        Float32x4 scaled = sum.mul(Float32x4.splat(2.0f));
+        
+        // Dot product and vector reduction
+        float dotProduct = a.dot(b); // 1*5 + 2*6 + 3*7 + 4*8 = 70
+        return scaled.sum() + dotProduct;
+    }
+
+    public static int processIntArray(int[] data) {
+        // Fast 128-bit bulk load from array into vector register (v128.load)
+        Int32x4 vec = Int32x4.load(data, 0);
+        
+        // Bitwise operations and vector shifts (i32x4.shl)
+        Int32x4 shifted = vec.shiftLeft(2);
+        
+        // Store back to array in a single 128-bit operation (v128.store)
+        shifted.store(data, 0);
+        return shifted.sum();
     }
 }
 ```

@@ -14,12 +14,17 @@ public class TypeMapper {
         if (typeStr.endsWith("[]")) {
             return "i32";
         }
+        if (typeStr.endsWith("Float32x4") || typeStr.endsWith("Int32x4") || typeStr.endsWith("Vector128") ||
+                typeStr.endsWith("F32x4") || typeStr.endsWith("I32x4")) {
+            return "v128";
+        }
         return switch (typeStr) {
             case "void" -> null;
             case "int", "boolean", "byte", "short", "char" -> "i32";
             case "long" -> "i64";
             case "float" -> "f32";
             case "double" -> "f64";
+            case "Float32x4", "Int32x4", "Vector128", "F32x4", "I32x4" -> "v128";
             default -> "i32";
         };
     }

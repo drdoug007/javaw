@@ -120,8 +120,11 @@ This roadmap organizes planned features by their utility and return on investmen
   - Low-level array atomic primitives (`com.example.javaw.concurrent.Atomics`) supporting `load`, `store`, `add`, `sub`, `and`, `or`, `xor`, `exchange`, `compareExchange`, `wait` (`memory.atomic.wait32`), and `notify` (`memory.atomic.notify`).
   - Web Worker and thread management facade (`com.example.javaw.concurrent.WasmThread`) supporting `spawn(entryPoint, arg)`, `sleep(ms)`, `currentThreadId()`, and `hardwareConcurrency()`.
   - Host runtime bridge in `javaw-runtime.js` for thread spawning, sleep via atomics, and concurrency detection.
-- [ ] **Fixed-Width SIMD (`v128`) Vectorization Facades**
+- [x] **Fixed-Width SIMD (`v128`) Vectorization Facades**
   - Implement strongly typed SIMD vector facades (`Float32x4`, `Int32x4`, `Vector128`) mapping to WebAssembly 128-bit vector instructions for hardware-accelerated math, physics, and graphics.
+  - Native 128-bit `v128` WebAssembly value type mapping for parameters, local variables, and return values without heap allocation overhead.
+  - Full arithmetic, bitwise, math, lane extraction/replacement, dot product, reductions (`sum()`), and vector array load/store operations (`v128.load`, `v128.store`).
+  - Integrated `--enable-simd` in Binaryen `wasm-opt -O3` optimization pipeline.
 
 ---
 

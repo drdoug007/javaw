@@ -96,7 +96,7 @@ public class JavacToWasm {
             // Attempt to optimize with wasm-opt if available
             if (wasmGenerated && optimize) {
                 try {
-                    Process optProcess = new ProcessBuilder("wasm-opt", "-O3", "--enable-threads", "--enable-exception-handling", "--enable-multivalue", "--enable-bulk-memory", wasmFilePath.toString(), "-o", wasmFilePath.toString())
+                    Process optProcess = new ProcessBuilder("wasm-opt", "-O3", "--enable-simd", "--enable-threads", "--enable-exception-handling", "--enable-multivalue", "--enable-bulk-memory", wasmFilePath.toString(), "-o", wasmFilePath.toString())
                             .redirectErrorStream(true)
                             .start();
                     int optExit = optProcess.waitFor();
@@ -286,7 +286,7 @@ public class JavacToWasm {
                 if (exitCode == 0) {
                     if (optimize) {
                         try {
-                            Process optProcess = new ProcessBuilder("wasm-opt", "-O3", "--enable-threads", "--enable-exception-handling", "--enable-multivalue", "--enable-bulk-memory", tempWasm.toString(), "-o", tempWasm.toString())
+                            Process optProcess = new ProcessBuilder("wasm-opt", "-O3", "--enable-simd", "--enable-threads", "--enable-exception-handling", "--enable-multivalue", "--enable-bulk-memory", tempWasm.toString(), "-o", tempWasm.toString())
                                     .redirectErrorStream(true)
                                     .start();
                             optProcess.waitFor();

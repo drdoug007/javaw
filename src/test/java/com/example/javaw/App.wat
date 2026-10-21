@@ -1255,6 +1255,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 4096
     i32.const 3
@@ -1438,6 +1439,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     global.get $counter
     i32.const 1
@@ -1489,6 +1491,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 4412
     i32.const 12
@@ -1511,6 +1514,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 4258
     i32.const 10
@@ -1533,6 +1537,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 4292
     i32.const 10
@@ -1555,6 +1560,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 4425
     i32.const 9
@@ -1578,6 +1584,7 @@
     (local $__vtable_tmp i32)
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
+    (local $__simd_tmp v128)
     (local $__caught_exc i32)
     i32.const 4316
     i32.const 14

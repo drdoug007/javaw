@@ -552,9 +552,26 @@ async function runTest() {
 
                 assert.strictEqual(instance.exports.testWasiFileObjectOps(), 1, 'testWasiFileObjectOps() should succeed');
                 console.log('✓ Extended WASI & Virtual File System (VFS, WASIFile, file I/O, clocks, random) assertions passed.');
+
+                // SIMD Vectorization Tests
+                const simdFloatSum = instance.exports.testSimdFloatAddAndSum();
+                assert.ok(Math.abs(simdFloatSum - 36.0) < 0.001, `testSimdFloatAddAndSum() expected 36.0, got ${simdFloatSum}`);
+
+                const simdFloatDot = instance.exports.testSimdFloatMulAndDot();
+                assert.ok(Math.abs(simdFloatDot - 40.0) < 0.001, `testSimdFloatMulAndDot() expected 40.0, got ${simdFloatDot}`);
+
+                const simdFloatMath = instance.exports.testSimdFloatMathOps();
+                assert.ok(Math.abs(simdFloatMath - 104.0) < 0.001, `testSimdFloatMathOps() expected 104.0, got ${simdFloatMath}`);
+
+                const simdIntSum = instance.exports.testSimdIntAddAndBitwise();
+                assert.strictEqual(simdIntSum, 30, `testSimdIntAddAndBitwise() expected 30, got ${simdIntSum}`);
+
+                const simdArraySum = instance.exports.testSimdArrayLoadStore();
+                assert.strictEqual(simdArraySum, 2000, `testSimdArrayLoadStore() expected 2000, got ${simdArraySum}`);
+                console.log('✓ Fixed-Width SIMD (v128, Float32x4, Int32x4, vector math, dot product, array load/store) assertions passed.');
             }
 
-            console.log('✓ TestClass execution assertions passed (including for loops, for-each loops, arrays, switches, labeled break/continue, compound assignments, dynamic strings, OOP, Canvas 2D, WebGL, JSObject, WASI VFS, Threads/Atomics, Exceptions, Multi-Value Returns, and Bulk Memory).');
+            console.log('✓ TestClass execution assertions passed (including for loops, for-each loops, arrays, switches, labeled break/continue, compound assignments, dynamic strings, OOP, Canvas 2D, WebGL, JSObject, WASI VFS, Threads/Atomics, Exceptions, Multi-Value Returns, Bulk Memory, and Fixed-Width SIMD).');
         }
 
         // ==========================================
