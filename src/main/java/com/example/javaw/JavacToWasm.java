@@ -251,11 +251,80 @@ public class JavacToWasm {
         int trueOffset = stringPool.containsKey("true") ? stringPool.get("true").offset : 0;
         int falseOffset = stringPool.containsKey("false") ? stringPool.get("false").offset : 0;
 
-        WasmRuntime.emitRuntimeFunctions(watOutput, trueOffset, falseOffset, wasiImports.contains("fd_write"));
+        WasmRuntime.emitRuntimeFunctions(watOutput, trueOffset, falseOffset, !wasiImports.isEmpty());
 
         cu.accept(new WasmGeneratorVisitor(stringPool, globalVars, classRegistry), watOutput);
         watOutput.append(")\n");
         return watOutput.toString();
+    }
+
+    public static CompilationResult compile(String javaSource) {
+        return compile("Source.java", javaSource, true);
+    }
+
+    public static CompilationResult compile(String javaSource, boolean optimize) {
+        return compile("Source.java", javaSource, optimize);
+    }
+
+    public static CompilationResult compile(String fileName, String javaSource, boolean optimize) {
+        CompilationUnit cu = StaticJavaParser.parse(javaSource);
+        String wat = generateWat(cu);
+        byte[] wasm = assembleWasm(wat, optimize);
+        return new CompilationResult(wat, wasm);
+    }
+
+    public static byte[] assembleWasm(String watContent, boolean optimize) {
+        try {
+            java.nio.file.Path tempWat = java.nio.file.Files.createTempFile("javaw_", ".wat");
+            java.nio.file.Path tempWasm = java.nio.file.Files.createTempFile("javaw_", ".wasm");
+            java.nio.file.Files.writeString(tempWat, watContent);
+            try {
+                Process process = new ProcessBuilder("wat2wasm", "--enable-threads", "--enable-exceptions", tempWat.toString(), "-o", tempWasm.toString())
+                        .redirectErrorStream(true)
+                        .start();
+                int exitCode = process.waitFor();
+                if (exitCode == 0) {
+                    if (optimize) {
+                        try {
+                            Process optProcess = new ProcessBuilder("wasm-opt", "-O3", "--enable-threads", "--enable-exception-handling", "--enable-multivalue", "--enable-bulk-memory", tempWasm.toString(), "-o", tempWasm.toString())
+                                    .redirectErrorStream(true)
+                                    .start();
+                            optProcess.waitFor();
+                        } catch (Exception ignored) {
+                        }
+                    }
+                    return java.nio.file.Files.readAllBytes(tempWasm);
+                }
+            } finally {
+                java.nio.file.Files.deleteIfExists(tempWat);
+                java.nio.file.Files.deleteIfExists(tempWasm);
+            }
+        } catch (Exception e) {
+            // wat2wasm not available or error
+        }
+        return null;
+    }
+
+    public static class CompilationResult {
+        private final String wat;
+        private final byte[] wasm;
+
+        public CompilationResult(String wat, byte[] wasm) {
+            this.wat = wat;
+            this.wasm = wasm;
+        }
+
+        public String getWat() {
+            return wat;
+        }
+
+        public byte[] getWasm() {
+            return wasm;
+        }
+
+        public boolean isWasmGenerated() {
+            return wasm != null && wasm.length > 0;
+        }
     }
 
     public static String mapType(String typeStr) {

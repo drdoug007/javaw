@@ -14,6 +14,78 @@
             this.reverseMap = new Map();
             this.nextHandle = 1;
             this.instance = null;
+            this.vfs = new Map();
+            this.fds = new Map();
+            this.nextFd = 3;
+        }
+
+        normalizePath(p) {
+            if (!p) return '/';
+            p = p.replace(/\\/g, '/');
+            if (!p.startsWith('/')) p = '/' + p;
+            const segments = p.split('/').filter(Boolean);
+            const stack = [];
+            for (const seg of segments) {
+                if (seg === '.') continue;
+                if (seg === '..') {
+                    if (stack.length > 0) stack.pop();
+                } else {
+                    stack.push(seg);
+                }
+            }
+            return '/' + stack.join('/');
+        }
+
+        mount(path, content) {
+            const norm = this.normalizePath(path);
+            let bytes;
+            if (typeof content === 'string') {
+                bytes = textEncoder.encode(content);
+            } else if (content instanceof Uint8Array) {
+                bytes = new Uint8Array(content);
+            } else if (content instanceof ArrayBuffer) {
+                bytes = new Uint8Array(content);
+            } else {
+                bytes = new Uint8Array(0);
+            }
+            this.vfs.set(norm, { content: bytes, isDirectory: false, mtime: Date.now() });
+        }
+
+        writeFile(path, content) {
+            this.mount(path, content);
+        }
+
+        readFile(path) {
+            const norm = this.normalizePath(path);
+            const entry = this.vfs.get(norm);
+            if (!entry) return null;
+            return textDecoder.decode(entry.content);
+        }
+
+        readFileBytes(path) {
+            const norm = this.normalizePath(path);
+            const entry = this.vfs.get(norm);
+            return entry ? entry.content : null;
+        }
+
+        exists(path) {
+            const norm = this.normalizePath(path);
+            return this.vfs.has(norm);
+        }
+
+        unlink(path) {
+            const norm = this.normalizePath(path);
+            return this.vfs.delete(norm);
+        }
+
+        mkdir(path) {
+            const norm = this.normalizePath(path);
+            this.vfs.set(norm, { content: new Uint8Array(0), isDirectory: true, mtime: Date.now() });
+            return true;
+        }
+
+        listFiles() {
+            return Array.from(this.vfs.keys());
         }
 
         setInstance(instance) {
@@ -1165,53 +1237,184 @@
                 wasi_snapshot_preview1: {
                     fd_write: (fd, iovs_ptr, iovs_len, nwritten_ptr) => {
                         let totalWritten = 0;
-                        let str = '';
-                        if (this.memory && this.memory.buffer) {
-                            const view = new DataView(this.memory.buffer);
+                        const memory = this.getMemory();
+                        if (memory && memory.buffer) {
+                            const view = new DataView(memory.buffer);
+                            const chunks = [];
                             for (let i = 0; i < iovs_len; i++) {
                                 const bufPtr = view.getUint32(iovs_ptr + i * 8, true);
                                 const bufLen = view.getUint32(iovs_ptr + i * 8 + 4, true);
                                 if (bufLen > 0) {
-                                    const bytes = new Uint8Array(this.memory.buffer, bufPtr, bufLen);
-                                    str += this.decoder.decode(bytes);
+                                    const bytes = new Uint8Array(memory.buffer, bufPtr, bufLen);
+                                    chunks.push(bytes);
                                     totalWritten += bufLen;
                                 }
                             }
                             if (view.byteLength >= nwritten_ptr + 4) {
                                 view.setUint32(nwritten_ptr, totalWritten, true);
                             }
-                        }
-                        if (fd === 1) {
-                            if (typeof process !== 'undefined' && process.stdout && typeof process.stdout.write === 'function') {
-                                process.stdout.write(str);
-                            } else {
-                                console.log(str.endsWith('\n') ? str.slice(0, -1) : str);
-                            }
-                        } else if (fd === 2) {
-                            if (typeof process !== 'undefined' && process.stderr && typeof process.stderr.write === 'function') {
-                                process.stderr.write(str);
-                            } else {
-                                console.error(str.endsWith('\n') ? str.slice(0, -1) : str);
+                            if (fd === 1) {
+                                let str = '';
+                                for (const c of chunks) str += textDecoder.decode(c);
+                                if (typeof process !== 'undefined' && process.stdout && typeof process.stdout.write === 'function') {
+                                    process.stdout.write(str);
+                                } else {
+                                    console.log(str.endsWith('\n') ? str.slice(0, -1) : str);
+                                }
+                            } else if (fd === 2) {
+                                let str = '';
+                                for (const c of chunks) str += textDecoder.decode(c);
+                                if (typeof process !== 'undefined' && process.stderr && typeof process.stderr.write === 'function') {
+                                    process.stderr.write(str);
+                                } else {
+                                    console.error(str.endsWith('\n') ? str.slice(0, -1) : str);
+                                }
+                            } else if (this.fds.has(fd)) {
+                                const entry = this.fds.get(fd);
+                                const fileObj = entry.vfsFile;
+                                let needed = entry.offset;
+                                for (const c of chunks) needed += c.length;
+                                if (needed > fileObj.content.length) {
+                                    const newContent = new Uint8Array(needed);
+                                    newContent.set(fileObj.content, 0);
+                                    fileObj.content = newContent;
+                                }
+                                for (const c of chunks) {
+                                    fileObj.content.set(c, entry.offset);
+                                    entry.offset += c.length;
+                                }
+                                fileObj.mtime = Date.now();
                             }
                         }
                         return 0;
                     },
                     fd_read: (fd, iovs_ptr, iovs_len, nread_ptr) => {
-                        if (this.memory && this.memory.buffer) {
-                            const view = new DataView(this.memory.buffer);
+                        let totalRead = 0;
+                        const memory = this.getMemory();
+                        if (memory && memory.buffer) {
+                            const view = new DataView(memory.buffer);
+                            if (this.fds.has(fd)) {
+                                const entry = this.fds.get(fd);
+                                const fileObj = entry.vfsFile;
+                                for (let i = 0; i < iovs_len; i++) {
+                                    const bufPtr = view.getUint32(iovs_ptr + i * 8, true);
+                                    const bufLen = view.getUint32(iovs_ptr + i * 8 + 4, true);
+                                    const available = fileObj.content.length - entry.offset;
+                                    if (available <= 0) break;
+                                    const toRead = Math.min(bufLen, available);
+                                    if (toRead > 0) {
+                                        const dest = new Uint8Array(memory.buffer, bufPtr, toRead);
+                                        dest.set(fileObj.content.subarray(entry.offset, entry.offset + toRead));
+                                        entry.offset += toRead;
+                                        totalRead += toRead;
+                                    }
+                                }
+                            }
                             if (view.byteLength >= nread_ptr + 4) {
-                                view.setUint32(nread_ptr, 0, true);
+                                view.setUint32(nread_ptr, totalRead, true);
                             }
                         }
                         return 0;
                     },
-                    fd_close: (fd) => 0,
+                    path_open: (dirfd, dirflags, path_ptr, path_len, oflags, fs_rights_base, fs_rights_inheriting, fdflags, opened_fd_ptr) => {
+                        const path = this.readString(path_ptr, path_len);
+                        const norm = this.normalizePath(path);
+                        let fileObj = this.vfs.get(norm);
+                        if (!fileObj) {
+                            if ((oflags & 1) !== 0) { // O_CREAT
+                                fileObj = { content: new Uint8Array(0), isDirectory: (oflags & 2) !== 0, mtime: Date.now() };
+                                this.vfs.set(norm, fileObj);
+                            } else {
+                                return 44; // ENOENT
+                            }
+                        }
+                        if ((oflags & 8) !== 0) { // O_TRUNC
+                            fileObj.content = new Uint8Array(0);
+                        }
+                        const fd = this.nextFd++;
+                        const initialOffset = ((oflags & 16) !== 0) ? fileObj.content.length : 0; // O_APPEND
+                        this.fds.set(fd, { path: norm, vfsFile: fileObj, offset: initialOffset, flags: fdflags });
+                        const memory = this.getMemory();
+                        if (memory && memory.buffer) {
+                            const view = new DataView(memory.buffer);
+                            view.setUint32(opened_fd_ptr, fd, true);
+                        }
+                        return 0;
+                    },
+                    fd_close: (fd) => {
+                        this.fds.delete(fd);
+                        return 0;
+                    },
+                    fd_seek: (fd, offset_i64, whence, newoffset_ptr) => {
+                        const entry = this.fds.get(fd);
+                        if (!entry) return 8; // EBADF
+                        const off = Number(offset_i64);
+                        if (whence === 0) entry.offset = off; // SEEK_SET
+                        else if (whence === 1) entry.offset += off; // SEEK_CUR
+                        else if (whence === 2) entry.offset = entry.vfsFile.content.length + off; // SEEK_END
+                        if (entry.offset < 0) entry.offset = 0;
+                        const memory = this.getMemory();
+                        if (memory && memory.buffer && newoffset_ptr > 0) {
+                            const view = new DataView(memory.buffer);
+                            view.setBigUint64(newoffset_ptr, BigInt(entry.offset), true);
+                        }
+                        return 0;
+                    },
+                    fd_filestat_get: (fd, filestat_ptr) => {
+                        const entry = this.fds.get(fd);
+                        if (!entry) return 8;
+                        const memory = this.getMemory();
+                        if (memory && memory.buffer) {
+                            const view = new DataView(memory.buffer);
+                            view.setBigUint64(filestat_ptr, 0n, true); // dev
+                            view.setBigUint64(filestat_ptr + 8, BigInt(fd), true); // ino
+                            view.setUint8(filestat_ptr + 16, entry.vfsFile.isDirectory ? 3 : 4); // filetype
+                            view.setUint32(filestat_ptr + 20, 1, true); // nlink
+                            view.setBigUint64(filestat_ptr + 32, BigInt(entry.vfsFile.content.length), true); // size
+                            const timeNs = BigInt(entry.vfsFile.mtime || Date.now()) * 1000000n;
+                            view.setBigUint64(filestat_ptr + 40, timeNs, true); // atim
+                            view.setBigUint64(filestat_ptr + 48, timeNs, true); // mtim
+                            view.setBigUint64(filestat_ptr + 56, timeNs, true); // ctim
+                        }
+                        return 0;
+                    },
+                    path_filestat_get: (fd, flags, path_ptr, path_len, filestat_ptr) => {
+                        const path = this.readString(path_ptr, path_len);
+                        const norm = this.normalizePath(path);
+                        const fileObj = this.vfs.get(norm);
+                        if (!fileObj) return 44; // ENOENT
+                        const memory = this.getMemory();
+                        if (memory && memory.buffer) {
+                            const view = new DataView(memory.buffer);
+                            view.setBigUint64(filestat_ptr, 0n, true);
+                            view.setBigUint64(filestat_ptr + 8, 1n, true);
+                            view.setUint8(filestat_ptr + 16, fileObj.isDirectory ? 3 : 4);
+                            view.setUint32(filestat_ptr + 20, 1, true);
+                            view.setBigUint64(filestat_ptr + 32, BigInt(fileObj.content.length), true);
+                            const timeNs = BigInt(fileObj.mtime || Date.now()) * 1000000n;
+                            view.setBigUint64(filestat_ptr + 40, timeNs, true);
+                            view.setBigUint64(filestat_ptr + 48, timeNs, true);
+                            view.setBigUint64(filestat_ptr + 56, timeNs, true);
+                        }
+                        return 0;
+                    },
+                    path_create_directory: (fd, path_ptr, path_len) => {
+                        const path = this.readString(path_ptr, path_len);
+                        this.mkdir(path);
+                        return 0;
+                    },
+                    path_unlink_file: (fd, path_ptr, path_len) => {
+                        const path = this.readString(path_ptr, path_len);
+                        const success = this.unlink(path);
+                        return success ? 0 : 44;
+                    },
                     proc_exit: (rval) => {
                         this.lastExitCode = rval;
                     },
                     args_sizes_get: (argc_ptr, argv_buf_size_ptr) => {
-                        if (this.memory && this.memory.buffer) {
-                            const view = new DataView(this.memory.buffer);
+                        const memory = this.getMemory();
+                        if (memory && memory.buffer) {
+                            const view = new DataView(memory.buffer);
                             view.setUint32(argc_ptr, 0, true);
                             view.setUint32(argv_buf_size_ptr, 0, true);
                         }
@@ -1219,8 +1422,9 @@
                     },
                     args_get: (argv_ptr, argv_buf_ptr) => 0,
                     environ_sizes_get: (env_count_ptr, env_buf_size_ptr) => {
-                        if (this.memory && this.memory.buffer) {
-                            const view = new DataView(this.memory.buffer);
+                        const memory = this.getMemory();
+                        if (memory && memory.buffer) {
+                            const view = new DataView(memory.buffer);
                             view.setUint32(env_count_ptr, 0, true);
                             view.setUint32(env_buf_size_ptr, 0, true);
                         }
@@ -1228,16 +1432,18 @@
                     },
                     environ_get: (environ_ptr, environ_buf_ptr) => 0,
                     clock_time_get: (id, precision, time_ptr) => {
-                        if (this.memory && this.memory.buffer) {
-                            const view = new DataView(this.memory.buffer);
+                        const memory = this.getMemory();
+                        if (memory && memory.buffer) {
+                            const view = new DataView(memory.buffer);
                             const nowNs = BigInt(Date.now()) * 1000000n;
                             view.setBigUint64(time_ptr, nowNs, true);
                         }
                         return 0;
                     },
                     random_get: (buf_ptr, buf_len) => {
-                        if (this.memory && this.memory.buffer) {
-                            const arr = new Uint8Array(this.memory.buffer, buf_ptr, buf_len);
+                        const memory = this.getMemory();
+                        if (memory && memory.buffer) {
+                            const arr = new Uint8Array(memory.buffer, buf_ptr, buf_len);
                             if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
                                 crypto.getRandomValues(arr);
                             } else {

@@ -42,11 +42,15 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
   - **`AtomicInteger`** (`com.example.javaw.concurrent.AtomicInteger`): High-level atomic integer operations (`get`, `set`, `getAndSet`, `compareAndSet`, `getAndAdd`, `addAndGet`, `incrementAndGet`, `decrementAndGet`, and bitwise atomics `getAndAnd`, `getAndOr`, `getAndXor`) lowered to `i32.atomic.load`, `i32.atomic.store`, and `i32.atomic.rmw.*`.
   - **`Atomics`** (`com.example.javaw.concurrent.Atomics`): Low-level array atomic primitives (`load`, `store`, `add`, `sub`, `and`, `or`, `xor`, `exchange`, `compareExchange`, `wait` via `memory.atomic.wait32`, and `notify` via `memory.atomic.notify`).
   - **`WasmThread`** (`com.example.javaw.concurrent.WasmThread`): Web Worker thread management, entry point dispatching (`spawn`), thread sleep (`sleep`), thread ID discovery (`currentThreadId`), and CPU core detection (`hardwareConcurrency`).
-- **WASI Target Support (`wasi_snapshot_preview1`)**:
+- **WASI Target Support & Virtual File System (VFS)**:
   - Standard Java I/O stream lowering: `System.out.println`, `System.out.print`, `System.err.println`, `System.err.print`, and `System.exit(code)` lowered to WASI `fd_write` and `proc_exit`.
   - Automated linear memory string buffering and typed output conversion for strings, integers, floats, doubles, booleans, and characters.
-  - Strongly typed `WASI` facade (`com.example.javaw.wasi.WASI`) with `print`, `println`, `eprint`, `eprintln`, `exit`, `fdWrite`, and `procExit`.
-  - Built-in WASI runtime layer in `javaw-runtime.js` supporting standard file descriptors, clock timing, random byte generation, and process argument/environment queries.
+  - Strongly typed `WASI` facade (`com.example.javaw.wasi.WASI`) with `print`, `println`, `eprint`, `eprintln`, `exit`, `fdWrite`, `procExit`, `readString`, `writeString`, `appendString`, `fileExists`, `fileLength`, `deleteFile`, `createDirectory`, `open`, `close`, `seek`, `currentTimeMillis`, and `randomInt`.
+  - Object-oriented file abstraction (`com.example.javaw.wasi.WASIFile`) supporting `readString()`, `writeString(content)`, `appendString(content)`, `exists()`, `length()`, `delete()`, and `mkdir()`.
+  - Built-in Virtual File System (VFS) in `javaw-runtime.js` supporting file descriptor tables, in-memory mounting (`runtime.mount`), virtual sandboxing, file queries, clocks, and random sources across browser and Node.js environments.
+- **In-Memory Java Compiler API & Embedded REPL**:
+  - Programmatic in-memory compilation via `JavacToWasm.compile(String javaSource)` returning compiled WAT strings and executable WASM byte arrays (`byte[]`) without requiring disk I/O.
+  - Enables embedding Java compilation directly inside web IDEs, REPLs, and automated test runners.
 - **Generic JavaScript Dynamic Interop (`JSObject`)**:
   - `com.example.javaw.dom.JSObject`: Dynamic evaluation and interaction with arbitrary browser JavaScript objects without pre-declared static imports.
   - Global scope access (`JSObject.global()`, `JSObject.getWindow()`) and dynamic expression execution (`JSObject.eval(code)`).
@@ -152,7 +156,8 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
 │   │   │   │   ├── Arrays.java        # High-performance array utilities & bulk memory operations
 │   │   │   │   └── StringBuilder.java # Dynamic string builder facade
 │   │   │   └── wasi
-│   │   │       └── WASI.java          # WASI snapshot preview 1 system facade
+│   │   │       ├── WASI.java          # WASI snapshot preview 1 system & VFS facade
+│   │   │       └── WASIFile.java      # Object-oriented WASI Virtual File System abstraction
 │   │   └── resources
 │   │       └── javaw-runtime.js       # JavaScript WebAssembly host runtime bridge
 │   └── test
@@ -605,6 +610,58 @@ public class BulkMemoryDemo {
 
         boolean identical = Arrays.equals(slice, new int[]{20, 30, 40});
         return identical ? dest[2] + copy[0] : 0; // 20 + 10 = 30
+    }
+}
+```
+
+---
+
+#### Example L: Extended WASI & Virtual File System (VFS)
+
+```java
+package com.example.javaw;
+
+import com.example.javaw.wasi.WASI;
+import com.example.javaw.wasi.WASIFile;
+
+public class VfsDemo {
+    public static String handleFiles() {
+        // Direct static WASI file system manipulation
+        WASI.createDirectory("/app");
+        WASI.writeString("/app/config.json", "{\"mode\":\"production\",\"port\":8080}");
+        
+        // Append additional content
+        WASI.appendString("/app/log.txt", "Server started at timestamp: " + WASI.currentTimeMillis());
+
+        // Object-oriented file operations via WASIFile
+        WASIFile configFile = new WASIFile("/app/config.json");
+        if (configFile.exists()) {
+            return configFile.readString();
+        }
+        return "Not found";
+    }
+}
+```
+
+---
+
+#### Example M: Programmatic In-Memory Compilation API
+
+```java
+import com.example.javaw.JavacToWasm;
+
+public class CompilerHost {
+    public static void main(String[] args) {
+        String javaSource = "package com.example;\n" +
+                "public class MathLib {\n" +
+                "    public int square(int x) { return x * x; }\n" +
+                "}";
+
+        // In-memory compilation without file I/O
+        JavacToWasm.CompilationResult result = JavacToWasm.compile(javaSource);
+        
+        System.out.println("Generated WAT:\n" + result.getWat());
+        System.out.println("WASM Byte Count: " + result.getWasm().length);
     }
 }
 ```

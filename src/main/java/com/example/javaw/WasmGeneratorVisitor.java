@@ -1390,7 +1390,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         } else if (expr.isMethodCallExpr()) {
             MethodCallExpr call = expr.asMethodCallExpr();
             String mName = call.getNameAsString();
-            if (isSystemOrWasiCall(call)) {
+            if (isSystemOrWasiCall(call, localJavaTypes)) {
                 translateSystemOrWasiCall(call, collector, localTypes, localElementTypes, localJavaTypes);
             } else if (isArrayUtilsCall(call)) {
                 translateArrayUtilsCall(call, collector, localTypes, localElementTypes, localJavaTypes);
@@ -1769,7 +1769,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             if (mName.equals("getInnerText") || mName.equals("getAttribute") || mName.equals("getValue") ||
                     mName.equals("getStyle") || mName.equals("getFillStyle") || mName.equals("getStrokeStyle") ||
                     mName.equals("getFont") || mName.equals("getTextAlign") ||
-                    mName.equals("getString") || mName.equals("callString") || mName.equals("asString")) {
+                    mName.equals("getString") || mName.equals("callString") || mName.equals("asString") ||
+                    mName.equals("readString") || mName.equals("getPath")) {
                 return "String";
             }
             if (mName.equals("global") || mName.equals("getWindow") || mName.equals("eval") ||
@@ -1779,18 +1780,24 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             }
             if (mName.equals("getWidth") || mName.equals("getHeight") ||
                     mName.equals("setTimeout") || mName.equals("setInterval") || mName.equals("requestAnimationFrame") ||
-                    mName.equals("getInt") || mName.equals("callInt") || mName.equals("asInt")) {
+                    mName.equals("getInt") || mName.equals("callInt") || mName.equals("asInt") ||
+                    mName.equals("fileLength") || mName.equals("fileSize") || mName.equals("open") || mName.equals("close") ||
+                    mName.equals("seek") || mName.equals("randomInt") || mName.equals("randomGet")) {
                 return "int";
             }
             if (mName.equals("getLineWidth") || mName.equals("getGlobalAlpha") ||
-                    mName.equals("getDouble") || mName.equals("callDouble") || mName.equals("asDouble")) {
+                    mName.equals("getDouble") || mName.equals("callDouble") || mName.equals("asDouble") ||
+                    mName.equals("currentTimeMillis") || mName.equals("clockTimeGet")) {
                 return "double";
             }
             if (mName.equals("prompt")) {
                 return "String";
             }
             if (mName.equals("isChecked") || mName.equals("hasClass") || mName.equals("contains") ||
-                    mName.equals("getBoolean") || mName.equals("callBoolean") || mName.equals("asBoolean") || mName.equals("isArray")) {
+                    mName.equals("getBoolean") || mName.equals("callBoolean") || mName.equals("asBoolean") || mName.equals("isArray") ||
+                    mName.equals("writeString") || mName.equals("appendString") || mName.equals("fileExists") ||
+                    mName.equals("exists") || mName.equals("deleteFile") || mName.equals("removeFile") ||
+                    mName.equals("delete") || mName.equals("createDirectory") || mName.equals("mkdir")) {
                 return "boolean";
             }
             if (call.getScope().isPresent()) {
@@ -1884,7 +1891,14 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     mName.equals("currentThreadId") || mName.equals("hardwareConcurrency") ||
                     mName.equals("copyOf") || mName.equals("copyOfRange") ||
                     mName.equals("min") || mName.equals("max") || mName.equals("abs") ||
-                    mName.equals("sqrt") || mName.equals("floor") || mName.equals("ceil")) {
+                    mName.equals("sqrt") || mName.equals("floor") || mName.equals("ceil") ||
+                    mName.equals("readString") || mName.equals("writeString") || mName.equals("appendString") ||
+                    mName.equals("fileExists") || mName.equals("exists") || mName.equals("fileLength") ||
+                    mName.equals("fileSize") || mName.equals("length") || mName.equals("deleteFile") ||
+                    mName.equals("removeFile") || mName.equals("delete") || mName.equals("createDirectory") ||
+                    mName.equals("mkdir") || mName.equals("open") || mName.equals("close") ||
+                    mName.equals("seek") || mName.equals("currentTimeMillis") || mName.equals("clockTimeGet") ||
+                    mName.equals("randomInt") || mName.equals("randomGet") || mName.equals("getPath")) {
                 return true;
             }
             if (call.getScope().isPresent()) {
@@ -1949,7 +1963,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         }
     }
 
-    private boolean isSystemOrWasiCall(MethodCallExpr call) {
+    private boolean isSystemOrWasiCall(MethodCallExpr call, Map<String, String> localJavaTypes) {
         if (!call.getScope().isPresent()) return false;
         String scopeStr = call.getScope().get().toString();
         String mName = call.getNameAsString();
@@ -1959,7 +1973,11 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         if (scopeStr.equals("System")) {
             return mName.equals("exit");
         }
-        if (scopeStr.equals("WASI") || scopeStr.endsWith(".WASI")) {
+        if (scopeStr.equals("WASI") || scopeStr.endsWith(".WASI") || scopeStr.equals("WASIFile") || scopeStr.endsWith(".WASIFile")) {
+            return true;
+        }
+        String scopeJavaType = getExpressionJavaType(call.getScope().get(), localJavaTypes);
+        if ("WASIFile".equals(scopeJavaType)) {
             return true;
         }
         return false;
@@ -1969,9 +1987,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         String mName = call.getNameAsString();
         Expression scope = call.getScope().orElse(null);
         String scopeStr = scope != null ? scope.toString() : "";
-
-        int fd = (scopeStr.contains("err") || mName.startsWith("eprint")) ? 2 : 1;
-        boolean isNewline = mName.endsWith("println") || mName.equals("eprintln");
+        String scopeJavaType = scope != null ? getExpressionJavaType(scope, localJavaTypes) : null;
+        boolean isWasiFileInstance = "WASIFile".equals(scopeJavaType);
 
         if (mName.equals("exit") || mName.equals("procExit")) {
             if (call.getArguments().size() > 0) {
@@ -1990,6 +2007,134 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             collector.append("    call $__wasi_print_str\n");
             return;
         }
+
+        if (mName.equals("readString")) {
+            if (isWasiFileInstance) {
+                translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                collector.append("    i32.load offset=4\n");
+            } else {
+                translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "String");
+            }
+            collector.append("    call $__wasi_read_file_str\n");
+            return;
+        }
+
+        if (mName.equals("writeString")) {
+            if (isWasiFileInstance) {
+                translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                collector.append("    i32.load offset=4\n");
+                translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "String");
+            } else {
+                translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "String");
+                translateExpression(call.getArgument(1), collector, localTypes, localElementTypes, localJavaTypes, "String");
+            }
+            collector.append("    i32.const 0\n");
+            collector.append("    call $__wasi_write_file_str\n");
+            return;
+        }
+
+        if (mName.equals("appendString")) {
+            if (isWasiFileInstance) {
+                translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                collector.append("    i32.load offset=4\n");
+                translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "String");
+            } else {
+                translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "String");
+                translateExpression(call.getArgument(1), collector, localTypes, localElementTypes, localJavaTypes, "String");
+            }
+            collector.append("    i32.const 1\n");
+            collector.append("    call $__wasi_write_file_str\n");
+            return;
+        }
+
+        if (mName.equals("fileExists") || mName.equals("exists")) {
+            if (isWasiFileInstance) {
+                translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                collector.append("    i32.load offset=4\n");
+            } else {
+                translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "String");
+            }
+            collector.append("    call $__wasi_file_exists\n");
+            return;
+        }
+
+        if (mName.equals("fileLength") || mName.equals("fileSize") || mName.equals("length")) {
+            if (isWasiFileInstance) {
+                translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                collector.append("    i32.load offset=4\n");
+            } else {
+                translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "String");
+            }
+            collector.append("    call $__wasi_file_length\n");
+            return;
+        }
+
+        if (mName.equals("deleteFile") || mName.equals("removeFile") || mName.equals("delete")) {
+            if (isWasiFileInstance) {
+                translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                collector.append("    i32.load offset=4\n");
+            } else {
+                translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "String");
+            }
+            collector.append("    call $__wasi_file_delete\n");
+            return;
+        }
+
+        if (mName.equals("createDirectory") || mName.equals("mkdir")) {
+            if (isWasiFileInstance) {
+                translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                collector.append("    i32.load offset=4\n");
+            } else {
+                translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "String");
+            }
+            collector.append("    call $__wasi_create_dir\n");
+            return;
+        }
+
+        if (mName.equals("getPath") && isWasiFileInstance) {
+            translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    i32.load offset=4\n");
+            return;
+        }
+
+        if (mName.equals("currentTimeMillis") || mName.equals("clockTimeGet")) {
+            collector.append("    call $__wasi_clock_time_ms\n");
+            return;
+        }
+
+        if (mName.equals("randomInt") || mName.equals("randomGet")) {
+            collector.append("    call $__wasi_random_int\n");
+            return;
+        }
+
+        if (mName.equals("open")) {
+            translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "String");
+            translateExpression(call.getArgument(1), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    call $__wasi_path_open_helper\n");
+            return;
+        }
+
+        if (mName.equals("close")) {
+            translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    call $__wasi_fd_close\n");
+            return;
+        }
+
+        if (mName.equals("seek")) {
+            translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            translateExpression(call.getArgument(1), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    i64.extend_i32_s\n");
+            translateExpression(call.getArgument(2), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    i32.const 24\n");
+            collector.append("    call $__wasi_fd_seek\n");
+            collector.append("    drop\n");
+            collector.append("    i32.const 24\n");
+            collector.append("    i32.load\n");
+            return;
+        }
+
+        int fd = (scopeStr.contains("err") || mName.startsWith("eprint")) ? 2 : 1;
+        boolean isNewline = mName.endsWith("println") || mName.equals("eprintln");
 
         if (call.getArguments().isEmpty()) {
             collector.append("    i32.const ").append(fd).append("\n");

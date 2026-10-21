@@ -110,9 +110,10 @@ This roadmap organizes planned features by their utility and return on investmen
   - Typed output support for strings, integers, floating point (`f64`), booleans, and characters with automated memory buffering.
   - Strongly-typed `WASI` facade (`com.example.javaw.wasi.WASI`) with `print`, `println`, `eprint`, `eprintln`, `exit`, `fdWrite`, and `procExit`.
   - Built-in WASI runtime layer in `javaw-runtime.js` supporting `fd_write`, `fd_read`, `proc_exit`, `args_sizes_get`, `args_get`, `environ_sizes_get`, `environ_get`, `clock_time_get`, and `random_get`.
-- [ ] **Extended WASI & Virtual File System (VFS)**
-  - Expand `WASI` facade with file descriptor routines (`path_open`, `fd_read`, `fd_close`, `fd_seek`) and clock/random sources.
-  - Provide an in-memory and IndexedDB-backed virtual file system within `javaw-runtime.js` for sandboxed file operations in the browser.
+- [x] **Extended WASI & Virtual File System (VFS)**
+  - Expand `WASI` facade with file descriptor routines (`readString`, `writeString`, `appendString`, `fileExists`, `fileLength`, `deleteFile`, `createDirectory`, `open`, `close`, `seek`) and clock/random sources (`currentTimeMillis`, `randomInt`).
+  - Object-oriented file abstraction (`com.example.javaw.wasi.WASIFile`) supporting `readString()`, `writeString(content)`, `appendString(content)`, `exists()`, `length()`, `delete()`, `mkdir()`.
+  - High-performance in-memory and sandboxed virtual file system within `javaw-runtime.js` for browser and Node.js file operations (`path_open`, `fd_read`, `fd_write`, `fd_close`, `fd_seek`, `fd_filestat_get`, `path_filestat_get`, `path_create_directory`, `path_unlink_file`).
 - [x] **WebAssembly Threads & Shared Memory**
   - WebAssembly shared memory declaration `(memory (export "memory") 2 20 shared)` for multithreaded runtime support.
   - Strongly-typed `AtomicInteger` facade (`com.example.javaw.concurrent.AtomicInteger`) supporting `get`, `set`, `getAndSet`, `compareAndSet`, `getAndAdd`, `addAndGet`, `incrementAndGet`, `decrementAndGet`, and bitwise atomic operations (`i32.atomic.load`, `i32.atomic.store`, `i32.atomic.rmw.*`).
@@ -132,5 +133,5 @@ This roadmap organizes planned features by their utility and return on investmen
   - Generate source maps mapping WebAssembly bytecode to Java source lines.
 - [x] **Multi-File Compilation & Project Linking**
   - Compile multiple Java source files or entire directories into a unified WebAssembly module.
-- [ ] **In-Memory Java Compiler API & Embedded REPL**
+- [x] **In-Memory Java Compiler API & Embedded REPL**
   - Expose programmatic in-memory compilation (`JavacToWasm.compile(String javaSource)`) returning compiled WAT strings and byte arrays for embedded browser editors, dynamic code generation, and direct unit testing.

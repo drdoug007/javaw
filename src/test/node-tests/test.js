@@ -528,7 +528,33 @@ async function runTest() {
                 console.log('✓ Bulk Memory Operations (memory.copy, memory.fill, System.arraycopy, Arrays.*) assertions passed.');
             }
 
-            console.log('✓ TestClass execution assertions passed (including for loops, for-each loops, arrays, switches, labeled break/continue, compound assignments, dynamic strings, OOP, Canvas 2D, WebGL, JSObject, WASI, Threads/Atomics, Exceptions, Multi-Value Returns, and Bulk Memory).');
+            if (typeof instance.exports.testWasiFileWriteAndRead === 'function') {
+                const readPtr = instance.exports.testWasiFileWriteAndRead();
+                const content = readWasmString(instance.exports.memory.buffer, readPtr);
+                assert.strictEqual(content, 'Hello WASI VFS', 'testWasiFileWriteAndRead() should return "Hello WASI VFS"');
+
+                const exists = instance.exports.testWasiFileExists(writeWasmString(instance, '/hello.txt'));
+                assert.strictEqual(exists, 1, 'File /hello.txt should exist');
+
+                const len = instance.exports.testWasiFileLength(writeWasmString(instance, '/hello.txt'));
+                assert.strictEqual(len, 14, 'File /hello.txt length should be 14');
+
+                const appendPtr = instance.exports.testWasiFileAppend();
+                const appendContent = readWasmString(instance.exports.memory.buffer, appendPtr);
+                assert.strictEqual(appendContent, 'Part1Part2', 'testWasiFileAppend() should return "Part1Part2"');
+
+                assert.strictEqual(instance.exports.testWasiFileDelete(), 1, 'testWasiFileDelete() should succeed');
+                assert.strictEqual(instance.exports.testWasiTimeAndRandom(), 1, 'testWasiTimeAndRandom() should succeed');
+
+                const fileObjPtr = instance.exports.testWasiFileObject();
+                const fileObjContent = readWasmString(instance.exports.memory.buffer, fileObjPtr);
+                assert.strictEqual(fileObjContent, 'Config=42;Active=true', 'testWasiFileObject() should return "Config=42;Active=true"');
+
+                assert.strictEqual(instance.exports.testWasiFileObjectOps(), 1, 'testWasiFileObjectOps() should succeed');
+                console.log('✓ Extended WASI & Virtual File System (VFS, WASIFile, file I/O, clocks, random) assertions passed.');
+            }
+
+            console.log('✓ TestClass execution assertions passed (including for loops, for-each loops, arrays, switches, labeled break/continue, compound assignments, dynamic strings, OOP, Canvas 2D, WebGL, JSObject, WASI VFS, Threads/Atomics, Exceptions, Multi-Value Returns, and Bulk Memory).');
         }
 
         // ==========================================

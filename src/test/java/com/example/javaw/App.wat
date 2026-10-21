@@ -1228,6 +1228,11 @@
     local.get $this
     call $RuntimeException_getMessage
   )
+  (func $WASIFile__init (export "WASIFile__init") (param $this i32) (param $path i32)
+    local.get $this
+    local.get $path
+    i32.store offset=4
+  )
   ;; Class/Interface: App
   (func $start (export "start")
     (local $app i32)

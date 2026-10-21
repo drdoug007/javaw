@@ -6,6 +6,8 @@ import com.example.javaw.dom.CanvasRenderingContext2D;
 import com.example.javaw.dom.WebGLRenderingContext;
 import com.example.javaw.dom.Window;
 import com.example.javaw.dom.JSObject;
+import com.example.javaw.wasi.WASI;
+import com.example.javaw.wasi.WASIFile;
 import java.util.Arrays;
 
 public class TestClass {
@@ -605,6 +607,56 @@ public class TestClass {
         boolean eq2 = Arrays.equals(src, src2);
 
         return sum1 + sum2 + (eq1 ? 100 : 0) + (eq2 ? 1 : 0);
+    }
+
+    public String testWasiFileWriteAndRead() {
+        WASI.writeString("/hello.txt", "Hello WASI VFS");
+        return WASI.readString("/hello.txt");
+    }
+
+    public boolean testWasiFileExists(String path) {
+        return WASI.fileExists(path);
+    }
+
+    public int testWasiFileLength(String path) {
+        return WASI.fileLength(path);
+    }
+
+    public String testWasiFileAppend() {
+        WASI.writeString("/append.txt", "Part1");
+        WASI.appendString("/append.txt", "Part2");
+        return WASI.readString("/append.txt");
+    }
+
+    public boolean testWasiFileDelete() {
+        WASI.writeString("/to_delete.txt", "temp data");
+        boolean existsBefore = WASI.fileExists("/to_delete.txt");
+        boolean deleted = WASI.deleteFile("/to_delete.txt");
+        boolean existsAfter = WASI.fileExists("/to_delete.txt");
+        return existsBefore && deleted && !existsAfter;
+    }
+
+    public boolean testWasiTimeAndRandom() {
+        double time = WASI.currentTimeMillis();
+        int rand = WASI.randomInt();
+        return time > 0.0;
+    }
+
+    public String testWasiFileObject() {
+        WASIFile file = new WASIFile("/app/data.txt");
+        file.writeString("Config=42");
+        file.appendString(";Active=true");
+        return file.readString();
+    }
+
+    public boolean testWasiFileObjectOps() {
+        WASIFile file = new WASIFile("/app/temp.log");
+        file.writeString("12345");
+        int len = file.length();
+        boolean exists = file.exists();
+        boolean deleted = file.delete();
+        boolean existsAfter = file.exists();
+        return len == 5 && exists && deleted && !existsAfter;
     }
 }
 

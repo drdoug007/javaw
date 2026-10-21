@@ -51,6 +51,21 @@
   (import "dom" "thread_hardware_concurrency" (func $dom_thread_hardware_concurrency (result i32)))
   ;; --- WASI Host Imports (wasi_snapshot_preview1) ---
   (import "wasi_snapshot_preview1" "fd_write" (func $__wasi_fd_write (param i32 i32 i32 i32) (result i32)))
+  (import "wasi_snapshot_preview1" "fd_read" (func $__wasi_fd_read (param i32 i32 i32 i32) (result i32)))
+  (import "wasi_snapshot_preview1" "proc_exit" (func $__wasi_proc_exit (param i32)))
+  (import "wasi_snapshot_preview1" "args_sizes_get" (func $__wasi_args_sizes_get (param i32 i32) (result i32)))
+  (import "wasi_snapshot_preview1" "args_get" (func $__wasi_args_get (param i32 i32) (result i32)))
+  (import "wasi_snapshot_preview1" "environ_sizes_get" (func $__wasi_environ_sizes_get (param i32 i32) (result i32)))
+  (import "wasi_snapshot_preview1" "environ_get" (func $__wasi_environ_get (param i32 i32) (result i32)))
+  (import "wasi_snapshot_preview1" "clock_time_get" (func $__wasi_clock_time_get (param i32 i64 i32) (result i32)))
+  (import "wasi_snapshot_preview1" "random_get" (func $__wasi_random_get (param i32 i32) (result i32)))
+  (import "wasi_snapshot_preview1" "path_open" (func $__wasi_path_open (param i32 i32 i32 i32 i32 i64 i64 i32 i32) (result i32)))
+  (import "wasi_snapshot_preview1" "fd_close" (func $__wasi_fd_close (param i32) (result i32)))
+  (import "wasi_snapshot_preview1" "fd_seek" (func $__wasi_fd_seek (param i32 i64 i32 i32) (result i32)))
+  (import "wasi_snapshot_preview1" "fd_filestat_get" (func $__wasi_fd_filestat_get (param i32 i32) (result i32)))
+  (import "wasi_snapshot_preview1" "path_filestat_get" (func $__wasi_path_filestat_get (param i32 i32 i32 i32 i32) (result i32)))
+  (import "wasi_snapshot_preview1" "path_create_directory" (func $__wasi_path_create_directory (param i32 i32 i32) (result i32)))
+  (import "wasi_snapshot_preview1" "path_unlink_file" (func $__wasi_path_unlink_file (param i32 i32 i32) (result i32)))
   (tag $Exception (export "Exception") (param i32))
   (memory (export "memory") 2 20 shared)
   (global $asyncCounter (mut i32) (i32.const 0))
@@ -100,6 +115,18 @@
   (data (i32.const 4551) "Bad arg\00")
   (data (i32.const 4559) "Generic error\00")
   (data (i32.const 4573) "Inner error\00")
+  (data (i32.const 4585) "/hello.txt\00")
+  (data (i32.const 4596) "Hello WASI VFS\00")
+  (data (i32.const 4611) "/append.txt\00")
+  (data (i32.const 4623) "Part1\00")
+  (data (i32.const 4629) "Part2\00")
+  (data (i32.const 4635) "/to_delete.txt\00")
+  (data (i32.const 4650) "temp data\00")
+  (data (i32.const 4660) "/app/data.txt\00")
+  (data (i32.const 4674) "Config=42\00")
+  (data (i32.const 4684) ";Active=true\00")
+  (data (i32.const 4697) "/app/temp.log\00")
+  (data (i32.const 4711) "12345\00")
   (global $__heap_ptr (mut i32) (i32.const 65536))
   ;; --- WebAssembly Function Type Signatures ---
   (type $t_sig_1 (func (param i32) (result i32)))
@@ -1275,6 +1302,11 @@
     local.get $this
     call $RuntimeException_getMessage
   )
+  (func $WASIFile__init (export "WASIFile__init") (param $this i32) (param $path i32)
+    local.get $this
+    local.get $path
+    i32.store offset=4
+  )
   ;; --- WASI Runtime Helpers ---
   (func $__wasi_print_str (export "__wasi_print_str") (param $fd i32) (param $str_ptr i32) (param $str_len i32) (param $newline i32)
     (local $num_iovs i32)
@@ -1360,6 +1392,234 @@
     i32.const 0
     i32.const 1
     call $__wasi_print_str
+  )
+  (func $__wasi_path_open_helper (export "__wasi_path_open_helper") (param $path_ptr i32) (param $oflags i32) (result i32)
+    (local $len i32)
+    (local $res i32)
+    local.get $path_ptr
+    call $__str_length
+    local.set $len
+    i32.const 3
+    i32.const 0
+    local.get $path_ptr
+    local.get $len
+    local.get $oflags
+    i64.const -1
+    i64.const -1
+    i32.const 0
+    i32.const 28
+    call $__wasi_path_open
+    local.set $res
+    local.get $res
+    i32.eqz
+    if (result i32)
+      i32.const 28
+      i32.load
+    else
+      i32.const -1
+    end
+  )
+  (func $__wasi_read_file_str (export "__wasi_read_file_str") (param $path_ptr i32) (result i32)
+    (local $fd i32)
+    (local $size i32)
+    (local $res i32)
+    (local $nread i32)
+    local.get $path_ptr
+    i32.const 0
+    call $__wasi_path_open_helper
+    local.set $fd
+    local.get $fd
+    i32.const 0
+    i32.lt_s
+    if
+      i32.const 0
+      call $__str_alloc
+      return
+    end
+    local.get $fd
+    i32.const 32
+    call $__wasi_fd_filestat_get
+    drop
+    i32.const 64
+    i32.load
+    local.set $size
+    local.get $size
+    i32.const 0
+    i32.le_s
+    if
+      i32.const 4096
+      local.set $size
+    end
+    local.get $size
+    call $__str_alloc
+    local.set $res
+    i32.const 8
+    local.get $res
+    i32.store
+    i32.const 12
+    local.get $size
+    i32.store
+    local.get $fd
+    i32.const 8
+    i32.const 1
+    i32.const 24
+    call $__wasi_fd_read
+    drop
+    i32.const 24
+    i32.load
+    local.set $nread
+    local.get $res
+    local.get $nread
+    i32.add
+    i32.const 0
+    i32.store8
+    local.get $fd
+    call $__wasi_fd_close
+    drop
+    local.get $res
+  )
+  (func $__wasi_write_file_str (export "__wasi_write_file_str") (param $path_ptr i32) (param $str_ptr i32) (param $append i32) (result i32)
+    (local $fd i32)
+    (local $str_len i32)
+    (local $oflags i32)
+    local.get $append
+    if (result i32)
+      i32.const 17
+    else
+      i32.const 9
+    end
+    local.set $oflags
+    local.get $path_ptr
+    local.get $oflags
+    call $__wasi_path_open_helper
+    local.set $fd
+    local.get $fd
+    i32.const 0
+    i32.lt_s
+    if
+      i32.const 0
+      return
+    end
+    local.get $str_ptr
+    call $__str_length
+    local.set $str_len
+    local.get $append
+    if
+      local.get $fd
+      i64.const 0
+      i32.const 2
+      i32.const 24
+      call $__wasi_fd_seek
+      drop
+    end
+    i32.const 8
+    local.get $str_ptr
+    i32.store
+    i32.const 12
+    local.get $str_len
+    i32.store
+    local.get $fd
+    i32.const 8
+    i32.const 1
+    i32.const 24
+    call $__wasi_fd_write
+    drop
+    local.get $fd
+    call $__wasi_fd_close
+    drop
+    i32.const 1
+  )
+  (func $__wasi_file_exists (export "__wasi_file_exists") (param $path_ptr i32) (result i32)
+    (local $fd i32)
+    local.get $path_ptr
+    i32.const 0
+    call $__wasi_path_open_helper
+    local.set $fd
+    local.get $fd
+    i32.const 0
+    i32.lt_s
+    if
+      i32.const 0
+      return
+    end
+    local.get $fd
+    call $__wasi_fd_close
+    drop
+    i32.const 1
+  )
+  (func $__wasi_file_length (export "__wasi_file_length") (param $path_ptr i32) (result i32)
+    (local $fd i32)
+    (local $len i32)
+    local.get $path_ptr
+    i32.const 0
+    call $__wasi_path_open_helper
+    local.set $fd
+    local.get $fd
+    i32.const 0
+    i32.lt_s
+    if
+      i32.const 0
+      return
+    end
+    local.get $fd
+    i32.const 32
+    call $__wasi_fd_filestat_get
+    drop
+    i32.const 64
+    i32.load
+    local.set $len
+    local.get $fd
+    call $__wasi_fd_close
+    drop
+    local.get $len
+  )
+  (func $__wasi_file_delete (export "__wasi_file_delete") (param $path_ptr i32) (result i32)
+    (local $len i32)
+    (local $res i32)
+    local.get $path_ptr
+    call $__str_length
+    local.set $len
+    i32.const 3
+    local.get $path_ptr
+    local.get $len
+    call $__wasi_path_unlink_file
+    local.set $res
+    local.get $res
+    i32.eqz
+  )
+  (func $__wasi_create_dir (export "__wasi_create_dir") (param $path_ptr i32) (result i32)
+    (local $len i32)
+    (local $res i32)
+    local.get $path_ptr
+    call $__str_length
+    local.set $len
+    i32.const 3
+    local.get $path_ptr
+    local.get $len
+    call $__wasi_path_create_directory
+    local.set $res
+    local.get $res
+    i32.eqz
+  )
+  (func $__wasi_clock_time_ms (export "__wasi_clock_time_ms") (result f64)
+    i32.const 0
+    i64.const 1000000
+    i32.const 32
+    call $__wasi_clock_time_get
+    drop
+    i32.const 32
+    i64.load
+    f64.convert_i64_u
+    f64.const 1000000.0
+    f64.div
+  )
+  (func $__wasi_random_int (export "__wasi_random_int") (result i32)
+    i32.const 32
+    i32.const 4
+    call $__wasi_random_get
+    drop
+    i32.const 32
+    i32.load
   )
   ;; Class/Interface: TestClass
   (func $onTimerTick (export "onTimerTick")
@@ -4739,6 +4999,250 @@
     i32.const 0
     end
     i32.add
+    return
+  )
+  (func $testWasiFileWriteAndRead (export "testWasiFileWriteAndRead") (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__caught_exc i32)
+    i32.const 4585
+    i32.const 4596
+    i32.const 0
+    call $__wasi_write_file_str
+    drop
+    i32.const 4585
+    call $__wasi_read_file_str
+    return
+  )
+  (func $testWasiFileExists (export "testWasiFileExists") (param $path i32) (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__caught_exc i32)
+    local.get $path
+    call $__wasi_file_exists
+    return
+  )
+  (func $testWasiFileLength (export "testWasiFileLength") (param $path i32) (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__caught_exc i32)
+    local.get $path
+    call $__wasi_file_length
+    return
+  )
+  (func $testWasiFileAppend (export "testWasiFileAppend") (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__caught_exc i32)
+    i32.const 4611
+    i32.const 4623
+    i32.const 0
+    call $__wasi_write_file_str
+    drop
+    i32.const 4611
+    i32.const 4629
+    i32.const 1
+    call $__wasi_write_file_str
+    drop
+    i32.const 4611
+    call $__wasi_read_file_str
+    return
+  )
+  (func $testWasiFileDelete (export "testWasiFileDelete") (result i32)
+    (local $existsBefore i32)
+    (local $deleted i32)
+    (local $existsAfter i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__caught_exc i32)
+    i32.const 4635
+    i32.const 4650
+    i32.const 0
+    call $__wasi_write_file_str
+    drop
+    i32.const 4635
+    call $__wasi_file_exists
+    local.set $existsBefore
+    i32.const 4635
+    call $__wasi_file_delete
+    local.set $deleted
+    i32.const 4635
+    call $__wasi_file_exists
+    local.set $existsAfter
+    local.get $existsBefore
+    local.get $deleted
+    i32.and
+    local.get $existsAfter
+    i32.eqz
+    i32.and
+    return
+  )
+  (func $testWasiTimeAndRandom (export "testWasiTimeAndRandom") (result i32)
+    (local $time f64)
+    (local $rand i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__caught_exc i32)
+    call $__wasi_clock_time_ms
+    local.set $time
+    call $__wasi_random_int
+    local.set $rand
+    local.get $time
+    f64.const 0.0
+    f64.gt
+    return
+  )
+  (func $testWasiFileObject (export "testWasiFileObject") (result i32)
+    (local $file i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__caught_exc i32)
+    i32.const 8
+    call $__heap_alloc
+    local.set $__obj_alloc_ptr
+    local.get $__obj_alloc_ptr
+    i32.const 4660
+    call $WASIFile__init
+    local.get $__obj_alloc_ptr
+    local.set $file
+    local.get $file
+    i32.load offset=4
+    i32.const 4674
+    i32.const 0
+    call $__wasi_write_file_str
+    drop
+    local.get $file
+    i32.load offset=4
+    i32.const 4684
+    i32.const 1
+    call $__wasi_write_file_str
+    drop
+    local.get $file
+    i32.load offset=4
+    call $__wasi_read_file_str
+    return
+  )
+  (func $testWasiFileObjectOps (export "testWasiFileObjectOps") (result i32)
+    (local $file i32)
+    (local $len i32)
+    (local $exists i32)
+    (local $deleted i32)
+    (local $existsAfter i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__caught_exc i32)
+    i32.const 8
+    call $__heap_alloc
+    local.set $__obj_alloc_ptr
+    local.get $__obj_alloc_ptr
+    i32.const 4697
+    call $WASIFile__init
+    local.get $__obj_alloc_ptr
+    local.set $file
+    local.get $file
+    i32.load offset=4
+    i32.const 4711
+    i32.const 0
+    call $__wasi_write_file_str
+    drop
+    local.get $file
+    i32.load offset=4
+    call $__wasi_file_length
+    local.set $len
+    local.get $file
+    i32.load offset=4
+    call $__wasi_file_exists
+    local.set $exists
+    local.get $file
+    i32.load offset=4
+    call $__wasi_file_delete
+    local.set $deleted
+    local.get $file
+    i32.load offset=4
+    call $__wasi_file_exists
+    local.set $existsAfter
+    local.get $len
+    i32.const 5
+    i32.eq
+    local.get $exists
+    i32.and
+    local.get $deleted
+    i32.and
+    local.get $existsAfter
+    i32.eqz
+    i32.and
     return
   )
   ;; Record: Pair

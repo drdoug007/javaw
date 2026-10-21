@@ -171,6 +171,16 @@ public class ClassRegistry {
             }
         }
 
+        // Pre-register WASIFile class
+        if (!classes.containsKey("WASIFile")) {
+            ClassModel cm = new ClassModel("WASIFile", null, false, classIdCounter++);
+            cm.addField(new FieldModel("path", "String", "i32", 4, 4, false));
+            MethodModel init = new MethodModel("<init>", "WASIFile", "$WASIFile__init", "void", null,
+                    Collections.singletonList("path"), Collections.singletonList("String"), Collections.singletonList("i32"), false, true);
+            cm.addConstructor(init);
+            classes.put("WASIFile", cm);
+        }
+
         // Phase 2: Compute Field Layouts & Struct Sizes in inheritance order
         for (ClassModel cm : getClassesInHierarchyOrder()) {
             int currentOffset = 4; // Offset 0 is reserved for vtable/classId header (4 bytes)

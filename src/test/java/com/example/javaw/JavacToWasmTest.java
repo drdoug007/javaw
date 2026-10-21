@@ -691,4 +691,63 @@ public class JavacToWasmTest {
         assertTrue(wat.contains("(func $__array_copyOfRange_i32"));
         assertTrue(wat.contains("(func $__array_equals_i32"));
     }
+
+    @Test
+    public void testExtendedWasiAndVfsWatGeneration() {
+        String javaSource = "package com.example.javaw;\n" +
+                "import com.example.javaw.wasi.WASI;\n" +
+                "import com.example.javaw.wasi.WASIFile;\n" +
+                "public class WasiVfsApp {\n" +
+                "    public void testFiles() {\n" +
+                "        WASI.writeString(\"/test.txt\", \"Hello VFS\");\n" +
+                "        String content = WASI.readString(\"/test.txt\");\n" +
+                "        boolean exists = WASI.fileExists(\"/test.txt\");\n" +
+                "        int len = WASI.fileLength(\"/test.txt\");\n" +
+                "        WASI.deleteFile(\"/test.txt\");\n" +
+                "        WASI.createDirectory(\"/data\");\n" +
+                "        double time = WASI.currentTimeMillis();\n" +
+                "        int rand = WASI.randomInt();\n" +
+                "        \n" +
+                "        WASIFile file = new WASIFile(\"/file.txt\");\n" +
+                "        file.writeString(\"Content\");\n" +
+                "        String read = file.readString();\n" +
+                "        boolean fileExists = file.exists();\n" +
+                "        int fileLen = file.length();\n" +
+                "        file.delete();\n" +
+                "    }\n" +
+                "}\n";
+
+        CompilationUnit cu = StaticJavaParser.parse(javaSource);
+        String wat = JavacToWasm.generateWat(cu);
+
+        assertTrue(wat.contains("call $__wasi_write_file_str"));
+        assertTrue(wat.contains("call $__wasi_read_file_str"));
+        assertTrue(wat.contains("call $__wasi_file_exists"));
+        assertTrue(wat.contains("call $__wasi_file_length"));
+        assertTrue(wat.contains("call $__wasi_file_delete"));
+        assertTrue(wat.contains("call $__wasi_create_dir"));
+        assertTrue(wat.contains("call $__wasi_clock_time_ms"));
+        assertTrue(wat.contains("call $__wasi_random_int"));
+        assertTrue(wat.contains("(func $__wasi_write_file_str"));
+        assertTrue(wat.contains("(func $__wasi_read_file_str"));
+        assertTrue(wat.contains("(func $__wasi_file_exists"));
+        assertTrue(wat.contains("(func $__wasi_file_length"));
+        assertTrue(wat.contains("(func $__wasi_file_delete"));
+        assertTrue(wat.contains("(func $__wasi_create_dir"));
+        assertTrue(wat.contains("(func $__wasi_clock_time_ms"));
+        assertTrue(wat.contains("(func $__wasi_random_int"));
+    }
+
+    @Test
+    public void testInMemoryCompilerApi() {
+        String javaSource = "package com.example.javaw;\n" +
+                "public class DynamicApp {\n" +
+                "    public int multiply(int a, int b) { return a * b; }\n" +
+                "}\n";
+
+        JavacToWasm.CompilationResult result = JavacToWasm.compile(javaSource);
+        assertTrue(result.getWat().contains("(func $multiply"));
+        assertTrue(result.isWasmGenerated());
+        assertTrue(result.getWasm().length > 0);
+    }
 }
