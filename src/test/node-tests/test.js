@@ -519,7 +519,16 @@ async function runTest() {
                 console.log('✓ Multi-Value Returns and Record support assertions passed.');
             }
 
-            console.log('✓ TestClass execution assertions passed (including for loops, for-each loops, arrays, switches, labeled break/continue, compound assignments, dynamic strings, OOP, Canvas 2D, WebGL, JSObject, WASI, Threads/Atomics, Exceptions, and Multi-Value Returns).');
+            // Test Bulk Memory Operations (System.arraycopy, Arrays.fill, Arrays.copyOf, Arrays.copyOfRange, Arrays.equals)
+            if (typeof instance.exports.testArrayCopyInt === 'function') {
+                assert.strictEqual(instance.exports.testArrayCopyInt(), 90, 'testArrayCopyInt() should return 90');
+                assert.strictEqual(instance.exports.testArrayCopyDouble(), 7.5, 'testArrayCopyDouble() should return 7.5');
+                assert.strictEqual(instance.exports.testArraysFillInt(), 76, 'testArraysFillInt() should return 76');
+                assert.strictEqual(instance.exports.testArraysCopyOf(), 111, 'testArraysCopyOf() should return 111');
+                console.log('✓ Bulk Memory Operations (memory.copy, memory.fill, System.arraycopy, Arrays.*) assertions passed.');
+            }
+
+            console.log('✓ TestClass execution assertions passed (including for loops, for-each loops, arrays, switches, labeled break/continue, compound assignments, dynamic strings, OOP, Canvas 2D, WebGL, JSObject, WASI, Threads/Atomics, Exceptions, Multi-Value Returns, and Bulk Memory).');
         }
 
         // ==========================================

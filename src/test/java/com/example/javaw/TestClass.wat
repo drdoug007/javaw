@@ -124,26 +124,10 @@
     local.get $aligned_size
     i32.add
     global.set $__heap_ptr
+    local.get $ptr
     i32.const 0
-    local.set $i
-    (block $break_zero
-      (loop $loop_zero
-        local.get $i
-        local.get $aligned_size
-        i32.ge_s
-        br_if $break_zero
-        local.get $ptr
-        local.get $i
-        i32.add
-        i32.const 0
-        i32.store8
-        local.get $i
-        i32.const 1
-        i32.add
-        local.set $i
-        br $loop_zero
-      )
-    )
+    local.get $aligned_size
+    memory.fill
     local.get $ptr
   )
   ;; --- String Runtime Functions ---
@@ -202,7 +186,6 @@
     (local $len1 i32)
     (local $len2 i32)
     (local $res i32)
-    (local $i i32)
     local.get $s1
     i32.eqz
     if
@@ -226,54 +209,16 @@
     i32.add
     call $__str_alloc
     local.set $res
-    i32.const 0
-    local.set $i
-    (block $break_copy1
-      (loop $loop_copy1
-        local.get $i
-        local.get $len1
-        i32.ge_s
-        br_if $break_copy1
-        local.get $res
-        local.get $i
-        i32.add
-        local.get $s1
-        local.get $i
-        i32.add
-        i32.load8_u
-        i32.store8
-        local.get $i
-        i32.const 1
-        i32.add
-        local.set $i
-        br $loop_copy1
-      )
-    )
-    i32.const 0
-    local.set $i
-    (block $break_copy2
-      (loop $loop_copy2
-        local.get $i
-        local.get $len2
-        i32.ge_s
-        br_if $break_copy2
-        local.get $res
-        local.get $len1
-        i32.add
-        local.get $i
-        i32.add
-        local.get $s2
-        local.get $i
-        i32.add
-        i32.load8_u
-        i32.store8
-        local.get $i
-        i32.const 1
-        i32.add
-        local.set $i
-        br $loop_copy2
-      )
-    )
+    local.get $res
+    local.get $s1
+    local.get $len1
+    memory.copy
+    local.get $res
+    local.get $len1
+    i32.add
+    local.get $s2
+    local.get $len2
+    memory.copy
     local.get $res
     local.get $len1
     i32.add
@@ -492,7 +437,6 @@
   (func $__str_substring (export "__str_substring") (param $s i32) (param $start i32) (param $end i32) (result i32)
     (local $subLen i32)
     (local $res i32)
-    (local $i i32)
     local.get $end
     local.get $start
     i32.sub
@@ -508,31 +452,12 @@
     local.get $subLen
     call $__str_alloc
     local.set $res
-    i32.const 0
-    local.set $i
-    (block $break_sub
-      (loop $loop_sub
-        local.get $i
-        local.get $subLen
-        i32.ge_s
-        br_if $break_sub
-        local.get $res
-        local.get $i
-        i32.add
-        local.get $s
-        local.get $start
-        i32.add
-        local.get $i
-        i32.add
-        i32.load8_u
-        i32.store8
-        local.get $i
-        i32.const 1
-        i32.add
-        local.set $i
-        br $loop_sub
-      )
-    )
+    local.get $res
+    local.get $s
+    local.get $start
+    i32.add
+    local.get $subLen
+    memory.copy
     local.get $res
     local.get $subLen
     i32.add
@@ -733,7 +658,6 @@
   (func $__sb_append_str (export "__sb_append_str") (param $sb i32) (param $str i32) (result i32)
     (local $cur_len i32)
     (local $str_len i32)
-    (local $i i32)
     local.get $str
     i32.eqz
     if
@@ -748,33 +672,14 @@
     local.get $str
     call $__str_length
     local.set $str_len
-    i32.const 0
-    local.set $i
-    (block $break_sb_copy
-      (loop $loop_sb_copy
-        local.get $i
-        local.get $str_len
-        i32.ge_s
-        br_if $break_sb_copy
-        local.get $sb
-        i32.const 8
-        i32.add
-        local.get $cur_len
-        i32.add
-        local.get $i
-        i32.add
-        local.get $str
-        local.get $i
-        i32.add
-        i32.load8_u
-        i32.store8
-        local.get $i
-        i32.const 1
-        i32.add
-        local.set $i
-        br $loop_sb_copy
-      )
-    )
+    local.get $sb
+    i32.const 8
+    i32.add
+    local.get $cur_len
+    i32.add
+    local.get $str
+    local.get $str_len
+    memory.copy
     local.get $sb
     i32.const 4
     i32.add
@@ -814,7 +719,6 @@
   (func $__sb_toString (export "__sb_toString") (param $sb i32) (result i32)
     (local $cur_len i32)
     (local $res i32)
-    (local $i i32)
     local.get $sb
     i32.const 4
     i32.add
@@ -823,31 +727,12 @@
     local.get $cur_len
     call $__str_alloc
     local.set $res
-    i32.const 0
-    local.set $i
-    (block $break_sb_tostr
-      (loop $loop_sb_tostr
-        local.get $i
-        local.get $cur_len
-        i32.ge_s
-        br_if $break_sb_tostr
-        local.get $res
-        local.get $i
-        i32.add
-        local.get $sb
-        i32.const 8
-        i32.add
-        local.get $i
-        i32.add
-        i32.load8_u
-        i32.store8
-        local.get $i
-        i32.const 1
-        i32.add
-        local.set $i
-        br $loop_sb_tostr
-      )
-    )
+    local.get $res
+    local.get $sb
+    i32.const 8
+    i32.add
+    local.get $cur_len
+    memory.copy
     local.get $res
     local.get $cur_len
     i32.add
@@ -877,6 +762,438 @@
     i32.add
     local.get $c
     i32.store8
+  )
+  ;; --- Array Runtime Functions (Bulk Memory) ---
+  (func $__array_fill_i32 (export "__array_fill_i32") (param $arr i32) (param $from i32) (param $to i32) (param $val i32)
+    (local $i i32)
+    local.get $arr
+    i32.eqz
+    if return end
+    local.get $val
+    i32.eqz
+    if
+      local.get $arr
+      i32.const 4
+      i32.add
+      local.get $from
+      i32.const 2
+      i32.shl
+      i32.add
+      i32.const 0
+      local.get $to
+      local.get $from
+      i32.sub
+      i32.const 2
+      i32.shl
+      memory.fill
+      return
+    end
+    local.get $from
+    local.set $i
+    (block $break_fill_i32
+      (loop $loop_fill_i32
+        local.get $i
+        local.get $to
+        i32.ge_s
+        br_if $break_fill_i32
+        local.get $arr
+        i32.const 4
+        i32.add
+        local.get $i
+        i32.const 2
+        i32.shl
+        i32.add
+        local.get $val
+        i32.store
+        local.get $i
+        i32.const 1
+        i32.add
+        local.set $i
+        br $loop_fill_i32
+      )
+    )
+  )
+  (func $__array_fill_f64 (export "__array_fill_f64") (param $arr i32) (param $from i32) (param $to i32) (param $val f64)
+    (local $i i32)
+    local.get $arr
+    i32.eqz
+    if return end
+    local.get $val
+    f64.const 0.0
+    f64.eq
+    if
+      local.get $arr
+      i32.const 8
+      i32.add
+      local.get $from
+      i32.const 3
+      i32.shl
+      i32.add
+      i32.const 0
+      local.get $to
+      local.get $from
+      i32.sub
+      i32.const 3
+      i32.shl
+      memory.fill
+      return
+    end
+    local.get $from
+    local.set $i
+    (block $break_fill_f64
+      (loop $loop_fill_f64
+        local.get $i
+        local.get $to
+        i32.ge_s
+        br_if $break_fill_f64
+        local.get $arr
+        i32.const 8
+        i32.add
+        local.get $i
+        i32.const 3
+        i32.shl
+        i32.add
+        local.get $val
+        f64.store
+        local.get $i
+        i32.const 1
+        i32.add
+        local.set $i
+        br $loop_fill_f64
+      )
+    )
+  )
+  (func $__array_copyOf_i32 (export "__array_copyOf_i32") (param $arr i32) (param $newLen i32) (result i32)
+    (local $newArr i32)
+    (local $oldLen i32)
+    (local $copyLen i32)
+    (local $totalBytes i32)
+    local.get $newLen
+    i32.const 2
+    i32.shl
+    i32.const 4
+    i32.add
+    local.set $totalBytes
+    local.get $totalBytes
+    call $__heap_alloc
+    local.set $newArr
+    local.get $newArr
+    local.get $newLen
+    i32.store
+    local.get $arr
+    if
+      local.get $arr
+      i32.load
+      local.set $oldLen
+      local.get $oldLen
+      local.get $newLen
+      i32.lt_s
+      if (result i32)
+        local.get $oldLen
+      else
+        local.get $newLen
+      end
+      local.set $copyLen
+      local.get $copyLen
+      i32.const 0
+      i32.gt_s
+      if
+        local.get $newArr
+        i32.const 4
+        i32.add
+        local.get $arr
+        i32.const 4
+        i32.add
+        local.get $copyLen
+        i32.const 2
+        i32.shl
+        memory.copy
+      end
+    end
+    local.get $newArr
+  )
+  (func $__array_copyOf_f64 (export "__array_copyOf_f64") (param $arr i32) (param $newLen i32) (result i32)
+    (local $newArr i32)
+    (local $oldLen i32)
+    (local $copyLen i32)
+    (local $totalBytes i32)
+    local.get $newLen
+    i32.const 3
+    i32.shl
+    i32.const 8
+    i32.add
+    local.set $totalBytes
+    local.get $totalBytes
+    call $__heap_alloc
+    local.set $newArr
+    local.get $newArr
+    local.get $newLen
+    i32.store
+    local.get $arr
+    if
+      local.get $arr
+      i32.load
+      local.set $oldLen
+      local.get $oldLen
+      local.get $newLen
+      i32.lt_s
+      if (result i32)
+        local.get $oldLen
+      else
+        local.get $newLen
+      end
+      local.set $copyLen
+      local.get $copyLen
+      i32.const 0
+      i32.gt_s
+      if
+        local.get $newArr
+        i32.const 8
+        i32.add
+        local.get $arr
+        i32.const 8
+        i32.add
+        local.get $copyLen
+        i32.const 3
+        i32.shl
+        memory.copy
+      end
+    end
+    local.get $newArr
+  )
+  (func $__array_copyOfRange_i32 (export "__array_copyOfRange_i32") (param $arr i32) (param $from i32) (param $to i32) (result i32)
+    (local $newLen i32)
+    (local $newArr i32)
+    local.get $to
+    local.get $from
+    i32.sub
+    local.set $newLen
+    local.get $newLen
+    i32.const 0
+    i32.lt_s
+    if
+      i32.const 0
+      local.set $newLen
+    end
+    local.get $newLen
+    i32.const 2
+    i32.shl
+    i32.const 4
+    i32.add
+    call $__heap_alloc
+    local.set $newArr
+    local.get $newArr
+    local.get $newLen
+    i32.store
+    local.get $arr
+    if
+      local.get $newLen
+      i32.const 0
+      i32.gt_s
+      if
+        local.get $newArr
+        i32.const 4
+        i32.add
+        local.get $arr
+        i32.const 4
+        i32.add
+        local.get $from
+        i32.const 2
+        i32.shl
+        i32.add
+        local.get $newLen
+        i32.const 2
+        i32.shl
+        memory.copy
+      end
+    end
+    local.get $newArr
+  )
+  (func $__array_copyOfRange_f64 (export "__array_copyOfRange_f64") (param $arr i32) (param $from i32) (param $to i32) (result i32)
+    (local $newLen i32)
+    (local $newArr i32)
+    local.get $to
+    local.get $from
+    i32.sub
+    local.set $newLen
+    local.get $newLen
+    i32.const 0
+    i32.lt_s
+    if
+      i32.const 0
+      local.set $newLen
+    end
+    local.get $newLen
+    i32.const 3
+    i32.shl
+    i32.const 8
+    i32.add
+    call $__heap_alloc
+    local.set $newArr
+    local.get $newArr
+    local.get $newLen
+    i32.store
+    local.get $arr
+    if
+      local.get $newLen
+      i32.const 0
+      i32.gt_s
+      if
+        local.get $newArr
+        i32.const 8
+        i32.add
+        local.get $arr
+        i32.const 8
+        i32.add
+        local.get $from
+        i32.const 3
+        i32.shl
+        i32.add
+        local.get $newLen
+        i32.const 3
+        i32.shl
+        memory.copy
+      end
+    end
+    local.get $newArr
+  )
+  (func $__array_equals_i32 (export "__array_equals_i32") (param $a i32) (param $b i32) (result i32)
+    (local $len i32)
+    (local $i i32)
+    local.get $a
+    local.get $b
+    i32.eq
+    if
+      i32.const 1
+      return
+    end
+    local.get $a
+    i32.eqz
+    local.get $b
+    i32.eqz
+    i32.or
+    if
+      i32.const 0
+      return
+    end
+    local.get $a
+    i32.load
+    local.get $b
+    i32.load
+    i32.ne
+    if
+      i32.const 0
+      return
+    end
+    local.get $a
+    i32.load
+    local.set $len
+    i32.const 0
+    local.set $i
+    (block $break_eq
+      (loop $loop_eq
+        local.get $i
+        local.get $len
+        i32.ge_s
+        br_if $break_eq
+        local.get $a
+        i32.const 4
+        i32.add
+        local.get $i
+        i32.const 2
+        i32.shl
+        i32.add
+        i32.load
+        local.get $b
+        i32.const 4
+        i32.add
+        local.get $i
+        i32.const 2
+        i32.shl
+        i32.add
+        i32.load
+        i32.ne
+        if
+          i32.const 0
+          return
+        end
+        local.get $i
+        i32.const 1
+        i32.add
+        local.set $i
+        br $loop_eq
+      )
+    )
+    i32.const 1
+  )
+  (func $__array_equals_f64 (export "__array_equals_f64") (param $a i32) (param $b i32) (result i32)
+    (local $len i32)
+    (local $i i32)
+    local.get $a
+    local.get $b
+    i32.eq
+    if
+      i32.const 1
+      return
+    end
+    local.get $a
+    i32.eqz
+    local.get $b
+    i32.eqz
+    i32.or
+    if
+      i32.const 0
+      return
+    end
+    local.get $a
+    i32.load
+    local.get $b
+    i32.load
+    i32.ne
+    if
+      i32.const 0
+      return
+    end
+    local.get $a
+    i32.load
+    local.set $len
+    i32.const 0
+    local.set $i
+    (block $break_eq_f64
+      (loop $loop_eq_f64
+        local.get $i
+        local.get $len
+        i32.ge_s
+        br_if $break_eq_f64
+        local.get $a
+        i32.const 8
+        i32.add
+        local.get $i
+        i32.const 3
+        i32.shl
+        i32.add
+        f64.load
+        local.get $b
+        i32.const 8
+        i32.add
+        local.get $i
+        i32.const 3
+        i32.shl
+        i32.add
+        f64.load
+        f64.ne
+        if
+          i32.const 0
+          return
+        end
+        local.get $i
+        i32.const 1
+        i32.add
+        local.set $i
+        br $loop_eq_f64
+      )
+    )
+    i32.const 1
   )
   ;; --- Exception Runtime Functions ---
   (func $Throwable__init (export "Throwable__init") (param $this i32)
@@ -3893,6 +4210,535 @@
     local.get $b$z
     f64.mul
     f64.add
+    return
+  )
+  (func $testArrayCopyInt (export "testArrayCopyInt") (result i32)
+    (local $src i32)
+    (local $dest i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__caught_exc i32)
+    global.get $__heap_ptr
+    local.set $__arr_alloc_ptr
+    global.get $__heap_ptr
+    i32.const 24
+    i32.add
+    global.set $__heap_ptr
+    local.get $__arr_alloc_ptr
+    i32.const 5
+    i32.store
+    local.get $__arr_alloc_ptr
+    i32.const 10
+    i32.store offset=4
+    local.get $__arr_alloc_ptr
+    i32.const 20
+    i32.store offset=8
+    local.get $__arr_alloc_ptr
+    i32.const 30
+    i32.store offset=12
+    local.get $__arr_alloc_ptr
+    i32.const 40
+    i32.store offset=16
+    local.get $__arr_alloc_ptr
+    i32.const 50
+    i32.store offset=20
+    local.get $__arr_alloc_ptr
+    local.set $src
+    i32.const 5
+    local.set $__arr_alloc_len
+    global.get $__heap_ptr
+    local.set $__arr_alloc_ptr
+    local.get $__arr_alloc_ptr
+    local.get $__arr_alloc_len
+    i32.store
+    global.get $__heap_ptr
+    i32.const 11
+    local.get $__arr_alloc_len
+    i32.const 4
+    i32.mul
+    i32.add
+    i32.const -8
+    i32.and
+    i32.add
+    global.set $__heap_ptr
+    local.get $__arr_alloc_ptr
+    local.set $dest
+    local.get $dest
+    i32.const 4
+    i32.add
+    i32.const 2
+    i32.const 2
+    i32.shl
+    i32.add
+    local.get $src
+    i32.const 4
+    i32.add
+    i32.const 1
+    i32.const 2
+    i32.shl
+    i32.add
+    i32.const 3
+    i32.const 2
+    i32.shl
+    memory.copy
+    local.get $dest
+    i32.const 0
+    i32.const 4
+    i32.mul
+    i32.add
+    i32.load offset=4
+    local.get $dest
+    i32.const 1
+    i32.const 4
+    i32.mul
+    i32.add
+    i32.load offset=4
+    i32.add
+    local.get $dest
+    i32.const 2
+    i32.const 4
+    i32.mul
+    i32.add
+    i32.load offset=4
+    i32.add
+    local.get $dest
+    i32.const 3
+    i32.const 4
+    i32.mul
+    i32.add
+    i32.load offset=4
+    i32.add
+    local.get $dest
+    i32.const 4
+    i32.const 4
+    i32.mul
+    i32.add
+    i32.load offset=4
+    i32.add
+    return
+  )
+  (func $testArrayCopyDouble (export "testArrayCopyDouble") (result f64)
+    (local $src i32)
+    (local $dest i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__caught_exc i32)
+    global.get $__heap_ptr
+    local.set $__arr_alloc_ptr
+    global.get $__heap_ptr
+    i32.const 40
+    i32.add
+    global.set $__heap_ptr
+    local.get $__arr_alloc_ptr
+    i32.const 4
+    i32.store
+    local.get $__arr_alloc_ptr
+    f64.const 1.5
+    f64.store offset=8
+    local.get $__arr_alloc_ptr
+    f64.const 2.5
+    f64.store offset=16
+    local.get $__arr_alloc_ptr
+    f64.const 3.5
+    f64.store offset=24
+    local.get $__arr_alloc_ptr
+    f64.const 4.5
+    f64.store offset=32
+    local.get $__arr_alloc_ptr
+    local.set $src
+    i32.const 4
+    local.set $__arr_alloc_len
+    global.get $__heap_ptr
+    local.set $__arr_alloc_ptr
+    local.get $__arr_alloc_ptr
+    local.get $__arr_alloc_len
+    i32.store
+    global.get $__heap_ptr
+    i32.const 15
+    local.get $__arr_alloc_len
+    i32.const 8
+    i32.mul
+    i32.add
+    i32.const -8
+    i32.and
+    i32.add
+    global.set $__heap_ptr
+    local.get $__arr_alloc_ptr
+    local.set $dest
+    local.get $dest
+    i32.const 8
+    i32.add
+    i32.const 1
+    i32.const 3
+    i32.shl
+    i32.add
+    local.get $src
+    i32.const 8
+    i32.add
+    i32.const 0
+    i32.const 3
+    i32.shl
+    i32.add
+    i32.const 3
+    i32.const 3
+    i32.shl
+    memory.copy
+    local.get $dest
+    i32.const 0
+    i32.const 8
+    i32.mul
+    i32.add
+    f64.load offset=8
+    local.get $dest
+    i32.const 1
+    i32.const 8
+    i32.mul
+    i32.add
+    f64.load offset=8
+    f64.add
+    local.get $dest
+    i32.const 2
+    i32.const 8
+    i32.mul
+    i32.add
+    f64.load offset=8
+    f64.add
+    local.get $dest
+    i32.const 3
+    i32.const 8
+    i32.mul
+    i32.add
+    f64.load offset=8
+    f64.add
+    return
+  )
+  (func $testArraysFillInt (export "testArraysFillInt") (result i32)
+    (local $arr i32)
+    (local $sum1 i32)
+    (local $sum2 i32)
+    (local $sum3 i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__caught_exc i32)
+    i32.const 5
+    local.set $__arr_alloc_len
+    global.get $__heap_ptr
+    local.set $__arr_alloc_ptr
+    local.get $__arr_alloc_ptr
+    local.get $__arr_alloc_len
+    i32.store
+    global.get $__heap_ptr
+    i32.const 11
+    local.get $__arr_alloc_len
+    i32.const 4
+    i32.mul
+    i32.add
+    i32.const -8
+    i32.and
+    i32.add
+    global.set $__heap_ptr
+    local.get $__arr_alloc_ptr
+    local.set $arr
+    local.get $arr
+    i32.const 0
+    local.get $arr
+    i32.load
+    i32.const 7
+    call $__array_fill_i32
+    local.get $arr
+    i32.const 0
+    i32.const 4
+    i32.mul
+    i32.add
+    i32.load offset=4
+    local.get $arr
+    i32.const 1
+    i32.const 4
+    i32.mul
+    i32.add
+    i32.load offset=4
+    i32.add
+    local.get $arr
+    i32.const 2
+    i32.const 4
+    i32.mul
+    i32.add
+    i32.load offset=4
+    i32.add
+    local.get $arr
+    i32.const 3
+    i32.const 4
+    i32.mul
+    i32.add
+    i32.load offset=4
+    i32.add
+    local.get $arr
+    i32.const 4
+    i32.const 4
+    i32.mul
+    i32.add
+    i32.load offset=4
+    i32.add
+    local.set $sum1
+    local.get $arr
+    i32.const 1
+    i32.const 4
+    i32.const 9
+    call $__array_fill_i32
+    local.get $arr
+    i32.const 0
+    i32.const 4
+    i32.mul
+    i32.add
+    i32.load offset=4
+    local.get $arr
+    i32.const 1
+    i32.const 4
+    i32.mul
+    i32.add
+    i32.load offset=4
+    i32.add
+    local.get $arr
+    i32.const 2
+    i32.const 4
+    i32.mul
+    i32.add
+    i32.load offset=4
+    i32.add
+    local.get $arr
+    i32.const 3
+    i32.const 4
+    i32.mul
+    i32.add
+    i32.load offset=4
+    i32.add
+    local.get $arr
+    i32.const 4
+    i32.const 4
+    i32.mul
+    i32.add
+    i32.load offset=4
+    i32.add
+    local.set $sum2
+    local.get $arr
+    i32.const 0
+    local.get $arr
+    i32.load
+    i32.const 0
+    call $__array_fill_i32
+    local.get $arr
+    i32.const 0
+    i32.const 4
+    i32.mul
+    i32.add
+    i32.load offset=4
+    local.get $arr
+    i32.const 1
+    i32.const 4
+    i32.mul
+    i32.add
+    i32.load offset=4
+    i32.add
+    local.get $arr
+    i32.const 2
+    i32.const 4
+    i32.mul
+    i32.add
+    i32.load offset=4
+    i32.add
+    local.get $arr
+    i32.const 3
+    i32.const 4
+    i32.mul
+    i32.add
+    i32.load offset=4
+    i32.add
+    local.get $arr
+    i32.const 4
+    i32.const 4
+    i32.mul
+    i32.add
+    i32.load offset=4
+    i32.add
+    local.set $sum3
+    local.get $sum1
+    local.get $sum2
+    i32.add
+    local.get $sum3
+    i32.add
+    return
+  )
+  (func $testArraysCopyOf (export "testArraysCopyOf") (result i32)
+    (local $src i32)
+    (local $copy1 i32)
+    (local $sum1 i32)
+    (local $copy2 i32)
+    (local $sum2 i32)
+    (local $eq1 i32)
+    (local $src2 i32)
+    (local $eq2 i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__caught_exc i32)
+    global.get $__heap_ptr
+    local.set $__arr_alloc_ptr
+    global.get $__heap_ptr
+    i32.const 16
+    i32.add
+    global.set $__heap_ptr
+    local.get $__arr_alloc_ptr
+    i32.const 3
+    i32.store
+    local.get $__arr_alloc_ptr
+    i32.const 10
+    i32.store offset=4
+    local.get $__arr_alloc_ptr
+    i32.const 20
+    i32.store offset=8
+    local.get $__arr_alloc_ptr
+    i32.const 30
+    i32.store offset=12
+    local.get $__arr_alloc_ptr
+    local.set $src
+    local.get $src
+    i32.const 5
+    call $__array_copyOf_i32
+    local.set $copy1
+    local.get $copy1
+    i32.const 0
+    i32.const 4
+    i32.mul
+    i32.add
+    i32.load offset=4
+    local.get $copy1
+    i32.const 1
+    i32.const 4
+    i32.mul
+    i32.add
+    i32.load offset=4
+    i32.add
+    local.get $copy1
+    i32.const 2
+    i32.const 4
+    i32.mul
+    i32.add
+    i32.load offset=4
+    i32.add
+    local.get $copy1
+    i32.const 3
+    i32.const 4
+    i32.mul
+    i32.add
+    i32.load offset=4
+    i32.add
+    local.get $copy1
+    i32.const 4
+    i32.const 4
+    i32.mul
+    i32.add
+    i32.load offset=4
+    i32.add
+    local.set $sum1
+    local.get $src
+    i32.const 1
+    i32.const 3
+    call $__array_copyOfRange_i32
+    local.set $copy2
+    local.get $copy2
+    i32.const 0
+    i32.const 4
+    i32.mul
+    i32.add
+    i32.load offset=4
+    local.get $copy2
+    i32.const 1
+    i32.const 4
+    i32.mul
+    i32.add
+    i32.load offset=4
+    i32.add
+    local.set $sum2
+    local.get $src
+    local.get $copy1
+    call $__array_equals_i32
+    local.set $eq1
+    global.get $__heap_ptr
+    local.set $__arr_alloc_ptr
+    global.get $__heap_ptr
+    i32.const 16
+    i32.add
+    global.set $__heap_ptr
+    local.get $__arr_alloc_ptr
+    i32.const 3
+    i32.store
+    local.get $__arr_alloc_ptr
+    i32.const 10
+    i32.store offset=4
+    local.get $__arr_alloc_ptr
+    i32.const 20
+    i32.store offset=8
+    local.get $__arr_alloc_ptr
+    i32.const 30
+    i32.store offset=12
+    local.get $__arr_alloc_ptr
+    local.set $src2
+    local.get $src
+    local.get $src2
+    call $__array_equals_i32
+    local.set $eq2
+    local.get $sum1
+    local.get $sum2
+    i32.add
+    local.get $eq1
+    if (result i32)
+    i32.const 100
+    else
+    i32.const 0
+    end
+    i32.add
+    local.get $eq2
+    if (result i32)
+    i32.const 1
+    else
+    i32.const 0
+    end
+    i32.add
     return
   )
   ;; Record: Pair

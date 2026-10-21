@@ -658,4 +658,37 @@ public class JavacToWasmTest {
 
         assertTrue(wat.contains("(func $DivResult_divide (export \"DivResult_divide\") (param $a i32) (param $b i32) (result i32 i32)"));
     }
+
+    @Test
+    public void testBulkMemoryOperationsSystemArrayCopyAndArrays() {
+        String javaSource = "package com.example.javaw;\n" +
+                "import com.example.javaw.util.Arrays;\n" +
+                "public class BulkMemoryApp {\n" +
+                "    public void copyData(int[] src, int[] dest, int len) {\n" +
+                "        System.arraycopy(src, 0, dest, 0, len);\n" +
+                "    }\n" +
+                "    public void fillData(int[] arr) {\n" +
+                "        Arrays.fill(arr, 42);\n" +
+                "        Arrays.fill(arr, 0);\n" +
+                "    }\n" +
+                "    public int[] copyArray(int[] arr, int newLen) {\n" +
+                "        return Arrays.copyOf(arr, newLen);\n" +
+                "    }\n" +
+                "    public boolean compareArrays(int[] a, int[] b) {\n" +
+                "        return Arrays.equals(a, b);\n" +
+                "    }\n" +
+                "}\n";
+
+        CompilationUnit cu = StaticJavaParser.parse(javaSource);
+        String wat = JavacToWasm.generateWat(cu);
+
+        assertTrue(wat.contains("memory.copy"));
+        assertTrue(wat.contains("call $__array_fill_i32"));
+        assertTrue(wat.contains("call $__array_copyOf_i32"));
+        assertTrue(wat.contains("call $__array_equals_i32"));
+        assertTrue(wat.contains("(func $__array_fill_i32"));
+        assertTrue(wat.contains("(func $__array_copyOf_i32"));
+        assertTrue(wat.contains("(func $__array_copyOfRange_i32"));
+        assertTrue(wat.contains("(func $__array_equals_i32"));
+    }
 }

@@ -24,8 +24,12 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
   - Leverages WebAssembly multi-value return capability (`(result i32 i32 ...)`) to return multiple values on the evaluation stack without heap allocation overhead.
   - Full AST lowering for Java `record` declarations (`RecordDeclaration`), component accessor methods (`p.x()`, `p.first()`), instance/static record methods, and constructor/parameter passing.
   - Multi-value stack packing for record instantiations (`new Point(x, y)`), returns (`return new Point(...)`), and multi-value local variable unpacking (`Point p = makePoint(...)`).
+- **Bulk Memory Operations & Fast Array Utilities (`memory.copy`, `memory.fill`)**:
+  - Direct translation of `System.arraycopy(...)` and `Arrays.fill(...)` to WebAssembly `memory.copy` and `memory.fill` instructions for high-throughput block data movement and initialization.
+  - Strongly-typed array utility facade (`com.example.javaw.util.Arrays`) supporting `fill`, `copyOf`, `copyOfRange`, and `equals` for both `int[]` and `double[]`.
+  - Accelerated dynamic heap zeroing (`$__heap_alloc`), dynamic string concatenation (`$__str_concat`), substring slicing (`$__str_substring`), and `StringBuilder` buffer expansion using zero-overhead memory copies.
 - **Binaryen Optimization Pipeline (`wasm-opt`)**:
-  - Integrates automated `wasm-opt -O3 --enable-threads --enable-exception-handling --enable-multivalue` optimization passes directly into the build pipeline for dead-code elimination, inlining, and binary size reduction.
+  - Integrates automated `wasm-opt -O3 --enable-threads --enable-exception-handling --enable-multivalue --enable-bulk-memory` optimization passes directly into the build pipeline for dead-code elimination, inlining, and binary size reduction.
   - Supports `--no-opt` / `-O0` flags to bypass optimization passes during development.
 - **WebAssembly Exception Handling (`try-catch-finally`, `throw`)**:
   - Direct translation of Java `try`, `catch`, `finally`, and `throw` statements to standard WebAssembly exception handling instructions (`(tag $Exception ...)`, `(try ... (catch $Exception ...) (catch_all ...))`, `throw $Exception`, `rethrow`).
@@ -145,6 +149,7 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
 │   │   │   │   ├── Window.java        # Browser Window, timers & async fetch facade
 │   │   │   │   └── JSObject.java      # Generic dynamic JavaScript interop facade
 │   │   │   ├── util
+│   │   │   │   ├── Arrays.java        # High-performance array utilities & bulk memory operations
 │   │   │   │   └── StringBuilder.java # Dynamic string builder facade
 │   │   │   └── wasi
 │   │   │       └── WASI.java          # WASI snapshot preview 1 system facade
@@ -568,6 +573,38 @@ public class RecordDemo {
 
         DivisionResult div = divide(50, 6);
         return sum + div.total(); // 40 + (8 + 2) = 50
+    }
+}
+```
+
+---
+
+#### Example K: Bulk Memory Operations & Fast Array Utilities (`System.arraycopy`, `Arrays.*`)
+
+```java
+package com.example.javaw;
+
+import java.util.Arrays;
+
+public class BulkMemoryDemo {
+    public static int processArrays() {
+        int[] src = new int[]{10, 20, 30, 40, 50};
+        int[] dest = new int[5];
+
+        // Direct lowering to WebAssembly memory.copy
+        System.arraycopy(src, 1, dest, 2, 3); // dest: [0, 0, 20, 30, 40]
+
+        // Fast block fills lowered to memory.fill
+        int[] buffer = new int[10];
+        Arrays.fill(buffer, 7);         // [7, 7, 7, ...]
+        Arrays.fill(buffer, 2, 6, 99);   // Sub-range fill
+
+        // Zero-allocation array cloning & sub-arrays
+        int[] copy = Arrays.copyOf(src, 8); // [10, 20, 30, 40, 50, 0, 0, 0]
+        int[] slice = Arrays.copyOfRange(src, 1, 4); // [20, 30, 40]
+
+        boolean identical = Arrays.equals(slice, new int[]{20, 30, 40});
+        return identical ? dest[2] + copy[0] : 0; // 20 + 10 = 30
     }
 }
 ```

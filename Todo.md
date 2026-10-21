@@ -39,9 +39,10 @@ This roadmap organizes planned features by their utility and return on investmen
   - Array instantiation (`new int[n]`, `new int[]{...}`), element loading (`i32.load`, `f64.load`), element storing (`i32.store`, `f64.store`).
 - [x] **Array Length Property (`arr.length`)**
   - Read array length directly from array header in linear memory.
-- [ ] **Bulk Memory Operations (`memory.copy`, `memory.fill`)**
+- [x] **Bulk Memory Operations (`memory.copy`, `memory.fill`)**
   - Lower `System.arraycopy(...)` and `Arrays.fill(...)` directly to WebAssembly `memory.copy` and `memory.fill` instructions for high-throughput block data transfers.
-  - Accelerate dynamic string concatenation and `StringBuilder` buffer expansions with block memory copies.
+  - Implemented strongly-typed array utilities facade (`com.example.javaw.util.Arrays`) with `fill`, `copyOf`, `copyOfRange`, and `equals`.
+  - Accelerated dynamic linear memory allocation (`$__heap_alloc`), dynamic string concatenation (`$__str_concat`), substring extraction (`$__str_substring`), and `StringBuilder` buffer expansions with block memory copies and fills.
 - [ ] **Multi-Memory Segregation & Isolation**
   - Leverage WebAssembly Multi-Memory proposal to segregate memory into discrete spaces: read-only static string pool (`$strings`), dynamic heap (`$heap`), and thread stack (`$stack`).
 

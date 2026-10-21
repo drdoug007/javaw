@@ -6,6 +6,7 @@ import com.example.javaw.dom.CanvasRenderingContext2D;
 import com.example.javaw.dom.WebGLRenderingContext;
 import com.example.javaw.dom.Window;
 import com.example.javaw.dom.JSObject;
+import java.util.Arrays;
 
 public class TestClass {
     public static int asyncCounter = 0;
@@ -564,6 +565,46 @@ public class TestClass {
 
     public double dotProductPoint3D(Point3D a, Point3D b) {
         return (a.x() * b.x()) + (a.y() * b.y()) + (a.z() * b.z());
+    }
+
+    public int testArrayCopyInt() {
+        int[] src = new int[]{10, 20, 30, 40, 50};
+        int[] dest = new int[5];
+        System.arraycopy(src, 1, dest, 2, 3);
+        return dest[0] + dest[1] + dest[2] + dest[3] + dest[4];
+    }
+
+    public double testArrayCopyDouble() {
+        double[] src = new double[]{1.5, 2.5, 3.5, 4.5};
+        double[] dest = new double[4];
+        System.arraycopy(src, 0, dest, 1, 3);
+        return dest[0] + dest[1] + dest[2] + dest[3];
+    }
+
+    public int testArraysFillInt() {
+        int[] arr = new int[5];
+        Arrays.fill(arr, 7);
+        int sum1 = arr[0] + arr[1] + arr[2] + arr[3] + arr[4];
+        Arrays.fill(arr, 1, 4, 9);
+        int sum2 = arr[0] + arr[1] + arr[2] + arr[3] + arr[4];
+        Arrays.fill(arr, 0);
+        int sum3 = arr[0] + arr[1] + arr[2] + arr[3] + arr[4];
+        return sum1 + sum2 + sum3;
+    }
+
+    public int testArraysCopyOf() {
+        int[] src = new int[]{10, 20, 30};
+        int[] copy1 = Arrays.copyOf(src, 5);
+        int sum1 = copy1[0] + copy1[1] + copy1[2] + copy1[3] + copy1[4];
+
+        int[] copy2 = Arrays.copyOfRange(src, 1, 3);
+        int sum2 = copy2[0] + copy2[1];
+
+        boolean eq1 = Arrays.equals(src, copy1);
+        int[] src2 = new int[]{10, 20, 30};
+        boolean eq2 = Arrays.equals(src, src2);
+
+        return sum1 + sum2 + (eq1 ? 100 : 0) + (eq2 ? 1 : 0);
     }
 }
 

@@ -891,6 +891,16 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             }
         } else if (expr.isNullLiteralExpr()) {
             collector.append("    i32.const 0\n");
+        } else if (expr.isConditionalExpr()) {
+            ConditionalExpr cond = expr.asConditionalExpr();
+            String resType = inferType(cond.getThenExpr(), localTypes, localElementTypes, localJavaTypes, expectedType);
+            if (resType == null) resType = "i32";
+            translateExpression(cond.getCondition(), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    if (result ").append(resType).append(")\n");
+            translateExpression(cond.getThenExpr(), collector, localTypes, localElementTypes, localJavaTypes, resType);
+            collector.append("    else\n");
+            translateExpression(cond.getElseExpr(), collector, localTypes, localElementTypes, localJavaTypes, resType);
+            collector.append("    end\n");
         } else if (expr.isThisExpr() || expr.isSuperExpr()) {
             collector.append("    local.get $this\n");
         } else if (expr.isCastExpr()) {
@@ -1382,6 +1392,10 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             String mName = call.getNameAsString();
             if (isSystemOrWasiCall(call)) {
                 translateSystemOrWasiCall(call, collector, localTypes, localElementTypes, localJavaTypes);
+            } else if (isArrayUtilsCall(call)) {
+                translateArrayUtilsCall(call, collector, localTypes, localElementTypes, localJavaTypes);
+            } else if (isMathCall(call)) {
+                translateMathCall(call, collector, localTypes, localElementTypes, localJavaTypes);
             } else if (call.getScope().isPresent()) {
                 Expression scope = call.getScope().get();
                 String scopeStr = scope.toString();
@@ -1867,7 +1881,10 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     mName.equals("getAndAnd") || mName.equals("getAndOr") || mName.equals("getAndXor") ||
                     mName.equals("load") || mName.equals("exchange") || mName.equals("compareExchange") ||
                     mName.equals("wait") || mName.equals("notify") || mName.equals("spawn") ||
-                    mName.equals("currentThreadId") || mName.equals("hardwareConcurrency")) {
+                    mName.equals("currentThreadId") || mName.equals("hardwareConcurrency") ||
+                    mName.equals("copyOf") || mName.equals("copyOfRange") ||
+                    mName.equals("min") || mName.equals("max") || mName.equals("abs") ||
+                    mName.equals("sqrt") || mName.equals("floor") || mName.equals("ceil")) {
                 return true;
             }
             if (call.getScope().isPresent()) {
@@ -2009,6 +2026,197 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
             collector.append("    i32.const ").append(isNewline ? 1 : 0).append("\n");
             collector.append("    call $__wasi_print_int\n");
+        }
+    }
+
+    private boolean isArrayUtilsCall(MethodCallExpr call) {
+        if (!call.getScope().isPresent()) return false;
+        String scopeStr = call.getScope().get().toString();
+        String mName = call.getNameAsString();
+        if ((scopeStr.equals("System") || scopeStr.endsWith(".System")) && mName.equals("arraycopy")) {
+            return true;
+        }
+        if (scopeStr.equals("Arrays") || scopeStr.endsWith(".Arrays") || scopeStr.equals("java.util.Arrays")) {
+            return mName.equals("fill") || mName.equals("copyOf") || mName.equals("copyOfRange") || mName.equals("equals");
+        }
+        return false;
+    }
+
+    private void translateArrayUtilsCall(MethodCallExpr call, StringBuilder collector, Map<String, String> localTypes, Map<String, String> localElementTypes, Map<String, String> localJavaTypes) {
+        String mName = call.getNameAsString();
+        if (mName.equals("arraycopy")) {
+            Expression src = call.getArgument(0);
+            Expression srcPos = call.getArgument(1);
+            Expression dest = call.getArgument(2);
+            Expression destPos = call.getArgument(3);
+            Expression length = call.getArgument(4);
+
+            String srcElem = getArrayElementType(src, localElementTypes, localJavaTypes);
+            String destElem = getArrayElementType(dest, localElementTypes, localJavaTypes);
+            boolean isF64 = "f64".equals(srcElem) || "f64".equals(destElem) || "double".equals(srcElem) || "double".equals(destElem);
+
+            int headerOffset = isF64 ? 8 : 4;
+            int elemShift = isF64 ? 3 : 2;
+
+            // 1. dest address
+            translateExpression(dest, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    i32.const ").append(headerOffset).append("\n    i32.add\n");
+            translateExpression(destPos, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    i32.const ").append(elemShift).append("\n    i32.shl\n    i32.add\n");
+
+            // 2. src address
+            translateExpression(src, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    i32.const ").append(headerOffset).append("\n    i32.add\n");
+            translateExpression(srcPos, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    i32.const ").append(elemShift).append("\n    i32.shl\n    i32.add\n");
+
+            // 3. byte count
+            translateExpression(length, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    i32.const ").append(elemShift).append("\n    i32.shl\n");
+
+            // memory.copy instruction
+            collector.append("    memory.copy\n");
+            return;
+        }
+
+        if (mName.equals("fill")) {
+            Expression arr = call.getArgument(0);
+            String arrElem = getArrayElementType(arr, localElementTypes, localJavaTypes);
+            boolean isF64 = "f64".equals(arrElem) || "double".equals(arrElem);
+
+            if (call.getArguments().size() == 2) {
+                Expression val = call.getArgument(1);
+                translateExpression(arr, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                collector.append("    i32.const 0\n");
+                translateExpression(arr, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                collector.append("    i32.load\n");
+                translateExpression(val, collector, localTypes, localElementTypes, localJavaTypes, isF64 ? "f64" : "i32");
+                collector.append("    call ").append(isF64 ? "$__array_fill_f64" : "$__array_fill_i32").append("\n");
+            } else if (call.getArguments().size() == 4) {
+                Expression from = call.getArgument(1);
+                Expression to = call.getArgument(2);
+                Expression val = call.getArgument(3);
+                translateExpression(arr, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                translateExpression(from, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                translateExpression(to, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                translateExpression(val, collector, localTypes, localElementTypes, localJavaTypes, isF64 ? "f64" : "i32");
+                collector.append("    call ").append(isF64 ? "$__array_fill_f64" : "$__array_fill_i32").append("\n");
+            }
+            return;
+        }
+
+        if (mName.equals("copyOf")) {
+            Expression arr = call.getArgument(0);
+            Expression newLen = call.getArgument(1);
+            String arrElem = getArrayElementType(arr, localElementTypes, localJavaTypes);
+            boolean isF64 = "f64".equals(arrElem) || "double".equals(arrElem);
+
+            translateExpression(arr, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            translateExpression(newLen, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    call ").append(isF64 ? "$__array_copyOf_f64" : "$__array_copyOf_i32").append("\n");
+            return;
+        }
+
+        if (mName.equals("copyOfRange")) {
+            Expression arr = call.getArgument(0);
+            Expression from = call.getArgument(1);
+            Expression to = call.getArgument(2);
+            String arrElem = getArrayElementType(arr, localElementTypes, localJavaTypes);
+            boolean isF64 = "f64".equals(arrElem) || "double".equals(arrElem);
+
+            translateExpression(arr, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            translateExpression(from, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            translateExpression(to, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    call ").append(isF64 ? "$__array_copyOfRange_f64" : "$__array_copyOfRange_i32").append("\n");
+            return;
+        }
+
+        if (mName.equals("equals")) {
+            Expression a = call.getArgument(0);
+            Expression b = call.getArgument(1);
+            String aElem = getArrayElementType(a, localElementTypes, localJavaTypes);
+            boolean isF64 = "f64".equals(aElem) || "double".equals(aElem);
+
+            translateExpression(a, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            translateExpression(b, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    call ").append(isF64 ? "$__array_equals_f64" : "$__array_equals_i32").append("\n");
+            return;
+        }
+    }
+
+    private String getArrayElementType(Expression expr, Map<String, String> localElementTypes, Map<String, String> localJavaTypes) {
+        if (expr.isNameExpr()) {
+            String name = expr.asNameExpr().getNameAsString();
+            if (localElementTypes.containsKey(name)) {
+                return localElementTypes.get(name);
+            }
+            String javaType = localJavaTypes.get(name);
+            if (javaType != null && (javaType.contains("double") || javaType.contains("Double"))) {
+                return "f64";
+            }
+        }
+        return "i32";
+    }
+
+    private boolean isMathCall(MethodCallExpr call) {
+        if (!call.getScope().isPresent()) return false;
+        String scopeStr = call.getScope().get().toString();
+        return scopeStr.equals("Math") || scopeStr.equals("java.lang.Math");
+    }
+
+    private void translateMathCall(MethodCallExpr call, StringBuilder collector, Map<String, String> localTypes, Map<String, String> localElementTypes, Map<String, String> localJavaTypes) {
+        String mName = call.getNameAsString();
+        if (mName.equals("min") || mName.equals("max")) {
+            Expression arg0 = call.getArgument(0);
+            Expression arg1 = call.getArgument(1);
+            String type0 = inferType(arg0, localTypes, localElementTypes, localJavaTypes, null);
+            String type1 = inferType(arg1, localTypes, localElementTypes, localJavaTypes, null);
+            boolean isF64 = "f64".equals(type0) || "f64".equals(type1) || arg0.isDoubleLiteralExpr() || arg1.isDoubleLiteralExpr();
+            if (isF64) {
+                translateExpression(arg0, collector, localTypes, localElementTypes, localJavaTypes, "f64");
+                translateExpression(arg1, collector, localTypes, localElementTypes, localJavaTypes, "f64");
+                collector.append("    f64.").append(mName).append("\n");
+            } else {
+                translateExpression(arg0, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                collector.append("    local.set $__str_arg_ptr\n");
+                translateExpression(arg1, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                collector.append("    local.set $__str_sub_start\n");
+                collector.append("    local.get $__str_arg_ptr\n");
+                collector.append("    local.get $__str_sub_start\n");
+                collector.append("    local.get $__str_arg_ptr\n");
+                collector.append("    local.get $__str_sub_start\n");
+                if (mName.equals("min")) {
+                    collector.append("    i32.lt_s\n    select\n");
+                } else {
+                    collector.append("    i32.gt_s\n    select\n");
+                }
+            }
+            return;
+        }
+        if (mName.equals("abs")) {
+            Expression arg0 = call.getArgument(0);
+            String type0 = inferType(arg0, localTypes, localElementTypes, localJavaTypes, null);
+            if ("f64".equals(type0) || arg0.isDoubleLiteralExpr()) {
+                translateExpression(arg0, collector, localTypes, localElementTypes, localJavaTypes, "f64");
+                collector.append("    f64.abs\n");
+            } else {
+                translateExpression(arg0, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                collector.append("    local.set $__str_arg_ptr\n");
+                collector.append("    i32.const 0\n");
+                collector.append("    local.get $__str_arg_ptr\n");
+                collector.append("    i32.sub\n");
+                collector.append("    local.get $__str_arg_ptr\n");
+                collector.append("    local.get $__str_arg_ptr\n");
+                collector.append("    i32.const 0\n");
+                collector.append("    i32.lt_s\n");
+                collector.append("    select\n");
+            }
+            return;
+        }
+        if (mName.equals("sqrt") || mName.equals("floor") || mName.equals("ceil")) {
+            translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "f64");
+            collector.append("    f64.").append(mName).append("\n");
+            return;
         }
     }
 
@@ -2415,6 +2623,9 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     private String inferType(Expression expr, Map<String, String> localTypes, Map<String, String> localElementTypes, Map<String, String> localJavaTypes, String fallback) {
         if (expr.isEnclosedExpr()) {
             return inferType(expr.asEnclosedExpr().getInner(), localTypes, localElementTypes, localJavaTypes, fallback);
+        }
+        if (expr.isConditionalExpr()) {
+            return inferType(expr.asConditionalExpr().getThenExpr(), localTypes, localElementTypes, localJavaTypes, fallback);
         }
         if (expr.isDoubleLiteralExpr()) return "f64";
         if (expr.isLongLiteralExpr()) return "i64";
