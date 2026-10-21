@@ -50,11 +50,15 @@
   (import "dom" "thread_sleep" (func $dom_thread_sleep (param i32)))
   (import "dom" "thread_current_id" (func $dom_thread_current_id (result i32)))
   (import "dom" "thread_hardware_concurrency" (func $dom_thread_hardware_concurrency (result i32)))
-  (@custom "javaw_js_snippets" "[{\22className\22:\22TestClass\22,\22methodName\22:\22jsHypot\22,\22importName\22:\22js_inline_TestClass_jsHypot\22,\22jsCode\22:\22return Math.hypot(a, b);\22,\22returnType\22:\22double\22,\22returnWasmType\22:\22f64\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22a\22,\22javaType\22:\22double\22,\22wasmType\22:\22f64\22,\22coerced\22:false},{\22name\22:\22b\22,\22javaType\22:\22double\22,\22wasmType\22:\22f64\22,\22coerced\22:false}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsGreet\22,\22importName\22:\22js_inline_TestClass_jsGreet\22,\22jsCode\22:\22return 'Hello ' + name + '!';\22,\22returnType\22:\22String\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22name\22,\22javaType\22:\22String\22,\22wasmType\22:\22i32\22,\22coerced\22:false}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsMultiplyAndAdd\22,\22importName\22:\22js_inline_TestClass_jsMultiplyAndAdd\22,\22jsCode\22:\22return a * b + 10;\22,\22returnType\22:\22int\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22a\22,\22javaType\22:\22int\22,\22wasmType\22:\22i32\22,\22coerced\22:false},{\22name\22:\22b\22,\22javaType\22:\22int\22,\22wasmType\22:\22i32\22,\22coerced\22:false}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsIsGreaterThan100\22,\22importName\22:\22js_inline_TestClass_jsIsGreaterThan100\22,\22jsCode\22:\22return x > 100;\22,\22returnType\22:\22boolean\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22x\22,\22javaType\22:\22int\22,\22wasmType\22:\22i32\22,\22coerced\22:false}]}]")
+  (@custom "javaw_js_snippets" "[{\22className\22:\22TestClass\22,\22methodName\22:\22jsHypot\22,\22importName\22:\22js_inline_TestClass_jsHypot\22,\22jsCode\22:\22return Math.hypot(a, b);\22,\22returnType\22:\22double\22,\22returnWasmType\22:\22f64\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22a\22,\22javaType\22:\22double\22,\22wasmType\22:\22f64\22,\22coerced\22:false},{\22name\22:\22b\22,\22javaType\22:\22double\22,\22wasmType\22:\22f64\22,\22coerced\22:false}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsGreet\22,\22importName\22:\22js_inline_TestClass_jsGreet\22,\22jsCode\22:\22return 'Hello ' + name + '!';\22,\22returnType\22:\22String\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22name\22,\22javaType\22:\22String\22,\22wasmType\22:\22i32\22,\22coerced\22:false}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsMultiplyAndAdd\22,\22importName\22:\22js_inline_TestClass_jsMultiplyAndAdd\22,\22jsCode\22:\22return a * b + 10;\22,\22returnType\22:\22int\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22a\22,\22javaType\22:\22int\22,\22wasmType\22:\22i32\22,\22coerced\22:false},{\22name\22:\22b\22,\22javaType\22:\22int\22,\22wasmType\22:\22i32\22,\22coerced\22:false}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsIsGreaterThan100\22,\22importName\22:\22js_inline_TestClass_jsIsGreaterThan100\22,\22jsCode\22:\22return x > 100;\22,\22returnType\22:\22boolean\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22x\22,\22javaType\22:\22int\22,\22wasmType\22:\22i32\22,\22coerced\22:false}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsSumArray\22,\22importName\22:\22js_inline_TestClass_jsSumArray\22,\22jsCode\22:\22return arr.reduce((acc, x) => acc + x, 0);\22,\22returnType\22:\22int\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22arr\22,\22javaType\22:\22int[]\22,\22wasmType\22:\22i32\22,\22coerced\22:true}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsDoubleArray\22,\22importName\22:\22js_inline_TestClass_jsDoubleArray\22,\22jsCode\22:\22return arr.map(x => x * 2);\22,\22returnType\22:\22int[]\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:true,\22parameters\22:[{\22name\22:\22arr\22,\22javaType\22:\22int[]\22,\22wasmType\22:\22i32\22,\22coerced\22:true}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsJoinStrings\22,\22importName\22:\22js_inline_TestClass_jsJoinStrings\22,\22jsCode\22:\22return items.join(', ');\22,\22returnType\22:\22String\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22items\22,\22javaType\22:\22String[]\22,\22wasmType\22:\22i32\22,\22coerced\22:true}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsGetBookJson\22,\22importName\22:\22js_inline_TestClass_jsGetBookJson\22,\22jsCode\22:\22return { title: 'WASM in Action', year: 2026 };\22,\22returnType\22:\22String\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:true,\22parameters\22:[]}]")
   (import "dom" "js_inline_TestClass_jsHypot" (func $dom_js_inline_TestClass_jsHypot (param f64 f64) (result f64)))
   (import "dom" "js_inline_TestClass_jsGreet" (func $dom_js_inline_TestClass_jsGreet (param i32 i32) (result i32)))
   (import "dom" "js_inline_TestClass_jsMultiplyAndAdd" (func $dom_js_inline_TestClass_jsMultiplyAndAdd (param i32 i32) (result i32)))
   (import "dom" "js_inline_TestClass_jsIsGreaterThan100" (func $dom_js_inline_TestClass_jsIsGreaterThan100 (param i32) (result i32)))
+  (import "dom" "js_inline_TestClass_jsSumArray" (func $dom_js_inline_TestClass_jsSumArray (param i32) (result i32)))
+  (import "dom" "js_inline_TestClass_jsDoubleArray" (func $dom_js_inline_TestClass_jsDoubleArray (param i32) (result i32)))
+  (import "dom" "js_inline_TestClass_jsJoinStrings" (func $dom_js_inline_TestClass_jsJoinStrings (param i32) (result i32)))
+  (import "dom" "js_inline_TestClass_jsGetBookJson" (func $dom_js_inline_TestClass_jsGetBookJson (result i32)))
   ;; --- WASI Host Imports (wasi_snapshot_preview1) ---
   (import "wasi_snapshot_preview1" "fd_write" (func $__wasi_fd_write (param i32 i32 i32 i32) (result i32)))
   (import "wasi_snapshot_preview1" "fd_read" (func $__wasi_fd_read (param i32 i32 i32 i32) (result i32)))
@@ -143,6 +147,10 @@
   (data (memory $strings) (i32.const 4742) "return 'Hello ' + name + '!';\00")
   (data (memory $strings) (i32.const 4772) "return a * b + 10;\00")
   (data (memory $strings) (i32.const 4791) "return x > 100;\00")
+  (data (memory $strings) (i32.const 4807) "return arr.reduce((acc, x) => acc + x, 0);\00")
+  (data (memory $strings) (i32.const 4850) "return arr.map(x => x * 2);\00")
+  (data (memory $strings) (i32.const 4878) "return items.join(', ');\00")
+  (data (memory $strings) (i32.const 4903) "return { title: 'WASM in Action', year: 2026 };\00")
   (global $__heap_ptr (mut i32) (i32.const 0))
   ;; --- WebAssembly Function Type Signatures ---
   (type $t_sig_1 (func (param i32) (result i32)))
@@ -5727,6 +5735,148 @@
   (func $jsIsGreaterThan100 (export "jsIsGreaterThan100") (param $x i32) (result i32)
     local.get $x
     call $dom_js_inline_TestClass_jsIsGreaterThan100
+  )
+  (func $jsSumArray (export "jsSumArray") (param $arr i32) (result i32)
+    local.get $arr
+    call $dom_js_inline_TestClass_jsSumArray
+  )
+  (func $jsDoubleArray (export "jsDoubleArray") (param $arr i32) (result i32)
+    local.get $arr
+    call $dom_js_inline_TestClass_jsDoubleArray
+  )
+  (func $jsJoinStrings (export "jsJoinStrings") (param $items i32) (result i32)
+    local.get $items
+    call $dom_js_inline_TestClass_jsJoinStrings
+  )
+  (func $jsGetBookJson (export "jsGetBookJson") (result i32)
+    call $dom_js_inline_TestClass_jsGetBookJson
+  )
+  (func $testJsCoerceArraySum (export "testJsCoerceArraySum") (result i32)
+    (local $numbers i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__caught_exc i32)
+    global.get $__heap_ptr
+    local.set $__arr_alloc_ptr
+    global.get $__heap_ptr
+    i32.const 24
+    i32.add
+    global.set $__heap_ptr
+    local.get $__arr_alloc_ptr
+    i32.const 4
+    i32.store
+    local.get $__arr_alloc_ptr
+    i32.const 10
+    i32.store offset=4
+    local.get $__arr_alloc_ptr
+    i32.const 20
+    i32.store offset=8
+    local.get $__arr_alloc_ptr
+    i32.const 30
+    i32.store offset=12
+    local.get $__arr_alloc_ptr
+    i32.const 40
+    i32.store offset=16
+    local.get $__arr_alloc_ptr
+    local.set $numbers
+    local.get $numbers
+    call $jsSumArray
+    return
+  )
+  (func $testJsCoerceArrayMap (export "testJsCoerceArrayMap") (result i32)
+    (local $numbers i32)
+    (local $doubled i32)
+    (local $total i32)
+    (local $v i32)
+    (local $__arr_ptr_1 i32)
+    (local $__arr_len_1 i32)
+    (local $__arr_idx_1 i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__caught_exc i32)
+    global.get $__heap_ptr
+    local.set $__arr_alloc_ptr
+    global.get $__heap_ptr
+    i32.const 24
+    i32.add
+    global.set $__heap_ptr
+    local.get $__arr_alloc_ptr
+    i32.const 4
+    i32.store
+    local.get $__arr_alloc_ptr
+    i32.const 1
+    i32.store offset=4
+    local.get $__arr_alloc_ptr
+    i32.const 2
+    i32.store offset=8
+    local.get $__arr_alloc_ptr
+    i32.const 3
+    i32.store offset=12
+    local.get $__arr_alloc_ptr
+    i32.const 4
+    i32.store offset=16
+    local.get $__arr_alloc_ptr
+    local.set $numbers
+    local.get $numbers
+    call $jsDoubleArray
+    local.set $doubled
+    i32.const 0
+    local.set $total
+    local.get $doubled
+    local.set $__arr_ptr_1
+    local.get $__arr_ptr_1
+    i32.load
+    local.set $__arr_len_1
+    i32.const 0
+    local.set $__arr_idx_1
+    (block $break_foreach_21
+      (loop $loop_foreach_21
+        local.get $__arr_idx_1
+        local.get $__arr_len_1
+        i32.ge_s
+        br_if $break_foreach_21
+        local.get $__arr_ptr_1
+        local.get $__arr_idx_1
+        i32.const 4
+        i32.mul
+        i32.add
+        i32.load offset=4
+        local.set $v
+        (block $continue_foreach_21
+    local.get $total
+    local.get $v
+    i32.add
+    local.set $total
+        )
+        local.get $__arr_idx_1
+        i32.const 1
+        i32.add
+        local.set $__arr_idx_1
+        br $loop_foreach_21
+      )
+    )
+    local.get $total
+    return
   )
   ;; Record: Pair
   ;; Record: Point3D

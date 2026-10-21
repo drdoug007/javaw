@@ -155,8 +155,10 @@ This roadmap organizes planned features by their utility and return on investmen
   - Allow Java methods (declared `native`) to define their implementation using inline JavaScript snippets via `@JS("console.log(message);")` or `@JS("return a + b;")`.
   - Automatically extract snippet code during AST traversal and synthesize host bridge functions in `javaw-runtime.js` without manual glue code.
   - Custom section `javaw_js_snippets` metadata serialization in WebAssembly modules (`.wat` and `.wasm`) with automated runtime instantiation and binding.
-- [ ] **Automatic Type Coercion (`@JS.Coerce`)**
+- [x] **Automatic Type Coercion (`@JS.Coerce`)**
   - Automatically marshal primitive and reference types across the WASM-JS boundary (Java `int`, `double`, `boolean`, `String` &harr; JavaScript `number`, `boolean`, `string`) when annotated with `@JS.Coerce`.
+  - Automatic conversion for array types (`int[]`, `double[]`, `String[]`) into native JavaScript `Array` instances for parameters and reconstruction from returned JS arrays.
+  - Automatic JSON serialization when returning JavaScript objects to Java `String`.
 - [ ] **JavaScript Value Hierarchy Facades (`JSValue`, `JSNumber`, `JSBoolean`, `JSString`, `JSBigInt`, `JSSymbol`, `JSUndefined`, `JSError`)**
   - Introduce explicit typed wrappers for JavaScript runtime types allowing fine-grained control over JS value manipulation, prototype access, and type checks (`typeof`, `instanceof`).
 - [ ] **Global JavaScript Class & Object Binding (`@JS.Import`)**

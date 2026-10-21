@@ -738,6 +738,35 @@ public class TestClass {
 
     @JS("return x > 100;")
     public static native boolean jsIsGreaterThan100(int x);
+
+    @JS("return arr.reduce((acc, x) => acc + x, 0);")
+    public static native int jsSumArray(@JS.Coerce int[] arr);
+
+    @JS("return arr.map(x => x * 2);")
+    @JS.Coerce
+    public static native int[] jsDoubleArray(@JS.Coerce int[] arr);
+
+    @JS("return items.join(', ');")
+    public static native String jsJoinStrings(@JS.Coerce String[] items);
+
+    @JS("return { title: 'WASM in Action', year: 2026 };")
+    @JS.Coerce
+    public static native String jsGetBookJson();
+
+    public int testJsCoerceArraySum() {
+        int[] numbers = new int[]{10, 20, 30, 40};
+        return jsSumArray(numbers);
+    }
+
+    public int testJsCoerceArrayMap() {
+        int[] numbers = new int[]{1, 2, 3, 4};
+        int[] doubled = jsDoubleArray(numbers);
+        int total = 0;
+        for (int v : doubled) {
+            total += v;
+        }
+        return total;
+    }
 }
 
 record Pair(int first, int second) {}

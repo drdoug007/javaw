@@ -619,6 +619,23 @@ async function runTest() {
 
                     console.log('✓ @JS Inline JavaScript Annotations & Host Snippet execution assertions passed.');
                 }
+
+                if (typeof instance.exports.testJsCoerceArraySum === 'function') {
+                    const coercedSum = instance.exports.testJsCoerceArraySum();
+                    assert.strictEqual(coercedSum, 100, `testJsCoerceArraySum() expected 100, got ${coercedSum}`);
+
+                    const coercedMap = instance.exports.testJsCoerceArrayMap();
+                    assert.strictEqual(coercedMap, 20, `testJsCoerceArrayMap() expected 20, got ${coercedMap}`);
+
+                    if (typeof instance.exports.jsGetBookJson === 'function') {
+                        const bookJsonPtr = instance.exports.jsGetBookJson();
+                        const bookJson = readWasmString(instance.exports.memory.buffer, bookJsonPtr);
+                        assert.ok(bookJson.includes('WASM in Action'), `jsGetBookJson expected 'WASM in Action', got ${bookJson}`);
+                        assert.ok(bookJson.includes('2026'), `jsGetBookJson expected '2026', got ${bookJson}`);
+                    }
+
+                    console.log('✓ @JS.Coerce Automatic Type Coercion (arrays, map, reduce, JSON serialization) assertions passed.');
+                }
             }
 
             console.log('✓ TestClass execution assertions passed (including for loops, for-each loops, arrays, switches, labeled break/continue, compound assignments, dynamic strings, OOP, Canvas 2D, WebGL, JSObject, WASI VFS, Threads/Atomics, Exceptions, Multi-Value Returns, Bulk Memory, Fixed-Width SIMD, and Multi-Memory Segregation).');

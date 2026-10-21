@@ -14,8 +14,9 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
 
 ## Features
 
-- **`@JS` Inline JavaScript Annotations & Code Generation**:
+- **`@JS` Inline JavaScript Annotations & Host Code Generation**:
   - Allows Java methods (declared `native`) to define inline JavaScript logic directly using `@JS("return Math.hypot(a, b);")`, `@JS("console.log(message);")`, or `@JS("return 'Hello ' + name;")`.
+  - Automatic type marshalling and coercion via `@JS.Coerce` for Java primitives, strings, and arrays (`int[]`, `double[]`, `String[]` &harr; JavaScript `Array`) and automatic JSON serialization for JavaScript objects.
   - Automatically extracts snippet code during AST analysis, emits corresponding host import signatures (`(import "dom" "js_inline_..." ...)`), and serializes metadata into WebAssembly custom sections (`(@custom "javaw_js_snippets" ...)` and binary `.wasm` sections).
   - The runtime bridge (`javaw-runtime.js`) automatically deserializes inline snippets and synthesizes callable host functions with zero-copy string decoding and argument conversions.
 - **AST-Based Lowering & Modular Compiler Architecture**:
@@ -833,7 +834,7 @@ public class SourceMapDemo {
 
 #### Example Q: @JS Inline JavaScript Annotations & Host Bridge
 
-Use `@JS` annotations to execute inline JavaScript expressions directly from Java `native` methods across the WebAssembly-to-JavaScript boundary:
+Use `@JS` and `@JS.Coerce` annotations to execute inline JavaScript expressions directly from Java `native` methods across the WebAssembly-to-JavaScript boundary:
 
 ```java
 package com.example.javaw;
@@ -854,6 +855,18 @@ public class InlineJsDemo {
     @JS("return window.innerWidth > 768;")
     public static native boolean isDesktopViewport();
 
+    // Automatic type coercion for arrays and JSON data
+    @JS("return arr.reduce((acc, x) => acc + x, 0);")
+    public static native int sumArray(@JS.Coerce int[] arr);
+
+    @JS("return arr.map(x => x * 2);")
+    @JS.Coerce
+    public static native int[] doubleArray(@JS.Coerce int[] arr);
+
+    @JS("return { title: 'WASM in Action', year: 2026 };")
+    @JS.Coerce
+    public static native String getBookMetadataJson();
+
     public static void run() {
         logToConsole("Initializing application...");
         double dist = calculateHypotenuse(3.0, 4.0); // Returns 5.0
@@ -862,6 +875,11 @@ public class InlineJsDemo {
         if (isDesktopViewport()) {
             logToConsole(greeting + " (Hypotenuse: " + dist + ")");
         }
+
+        int[] nums = new int[]{10, 20, 30};
+        int total = sumArray(nums); // Returns 60
+        int[] doubled = doubleArray(nums); // Returns [20, 40, 60]
+        String json = getBookMetadataJson(); // Returns JSON string
     }
 }
 ```

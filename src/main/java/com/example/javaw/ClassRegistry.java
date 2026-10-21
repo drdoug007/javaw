@@ -89,7 +89,7 @@ public class ClassRegistry {
 
                 String funcName;
                 if (isStatic) {
-                    funcName = "$" + className + "_" + mName;
+                    funcName = "$" + mName;
                 } else if (!cm.isOopClass()) {
                     funcName = "$" + mName;
                 } else {

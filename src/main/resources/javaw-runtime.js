@@ -47,6 +47,7 @@
             const params = def.parameters || [];
             const jsCode = def.jsCode || '';
             const returnType = def.returnType || 'void';
+            const isMethodCoerced = Boolean(def.isCoerced);
 
             const userParamNames = params.map(p => p.name);
             let userFn;
@@ -66,6 +67,8 @@
                 let argIdx = 0;
                 for (const p of params) {
                     const pType = p.javaType;
+                    const isParamCoerced = isMethodCoerced || Boolean(p.coerced);
+
                     if (pType === 'String' || pType === 'java.lang.String') {
                         const ptr = args[argIdx++];
                         const len = args[argIdx++];
@@ -73,6 +76,27 @@
                     } else if (pType === 'boolean') {
                         const val = args[argIdx++];
                         userArgs.push(Boolean(val));
+                    } else if (pType === 'int[]' || pType === 'Integer[]') {
+                        const ptr = args[argIdx++];
+                        if (isParamCoerced) {
+                            userArgs.push(runtime.readIntArray(ptr));
+                        } else {
+                            userArgs.push(ptr);
+                        }
+                    } else if (pType === 'double[]' || pType === 'Double[]' || pType === 'float[]' || pType === 'Float[]') {
+                        const ptr = args[argIdx++];
+                        if (isParamCoerced) {
+                            userArgs.push(runtime.readDoubleArray(ptr));
+                        } else {
+                            userArgs.push(ptr);
+                        }
+                    } else if (pType === 'String[]' || pType === 'java.lang.String[]') {
+                        const ptr = args[argIdx++];
+                        if (isParamCoerced) {
+                            userArgs.push(runtime.readStringArray(ptr));
+                        } else {
+                            userArgs.push(ptr);
+                        }
                     } else if (pType === 'JSObject' || pType === 'Element' || (pType && (pType.endsWith('.JSObject') || pType.endsWith('.Element')))) {
                         const handle = args[argIdx++];
                         userArgs.push(runtime.getElement(handle));
@@ -96,7 +120,13 @@
                 if (returnType === 'void') {
                     return;
                 } else if (returnType === 'String' || returnType === 'java.lang.String') {
-                    return runtime.writeString(result != null ? String(result) : '');
+                    if (result === null || result === undefined) {
+                        return runtime.writeString('');
+                    }
+                    if (typeof result === 'object') {
+                        return runtime.writeString(JSON.stringify(result));
+                    }
+                    return runtime.writeString(String(result));
                 } else if (returnType === 'boolean') {
                     return result ? 1 : 0;
                 } else if (returnType === 'int' || returnType === 'short' || returnType === 'byte' || returnType === 'char') {
@@ -105,12 +135,133 @@
                     return Number(result);
                 } else if (returnType === 'long') {
                     return typeof BigInt !== 'undefined' ? BigInt(result) : Math.trunc(Number(result));
+                } else if (returnType === 'int[]' || returnType === 'Integer[]') {
+                    if (Array.isArray(result) || (result && typeof result[Symbol.iterator] === 'function')) {
+                        return runtime.writeIntArray(Array.from(result));
+                    }
+                    return typeof result === 'number' ? result : 0;
+                } else if (returnType === 'double[]' || returnType === 'Double[]' || returnType === 'float[]') {
+                    if (Array.isArray(result) || (result && typeof result[Symbol.iterator] === 'function')) {
+                        return runtime.writeDoubleArray(Array.from(result));
+                    }
+                    return typeof result === 'number' ? result : 0;
+                } else if (returnType === 'String[]' || returnType === 'java.lang.String[]') {
+                    if (Array.isArray(result) || (result && typeof result[Symbol.iterator] === 'function')) {
+                        return runtime.writeStringArray(Array.from(result));
+                    }
+                    return typeof result === 'number' ? result : 0;
                 } else if (returnType === 'JSObject' || returnType === 'Element' || (returnType && (returnType.endsWith('.JSObject') || returnType.endsWith('.Element')))) {
                     return runtime.getOrCreateHandle(result);
                 } else {
                     return typeof result === 'number' ? result : runtime.getOrCreateHandle(result);
                 }
             };
+        }
+
+        readIntArray(ptr) {
+            if (!ptr || ptr <= 0) return [];
+            const memory = this.getMemory();
+            if (!memory || !memory.buffer) return [];
+            const view = new DataView(memory.buffer);
+            const len = view.getInt32(ptr, true);
+            const arr = [];
+            for (let i = 0; i < len; i++) {
+                arr.push(view.getInt32(ptr + 4 + i * 4, true));
+            }
+            return arr;
+        }
+
+        readDoubleArray(ptr) {
+            if (!ptr || ptr <= 0) return [];
+            const memory = this.getMemory();
+            if (!memory || !memory.buffer) return [];
+            const view = new DataView(memory.buffer);
+            const len = view.getInt32(ptr, true);
+            const arr = [];
+            for (let i = 0; i < len; i++) {
+                arr.push(view.getFloat64(ptr + 8 + i * 8, true));
+            }
+            return arr;
+        }
+
+        readStringArray(ptr) {
+            if (!ptr || ptr <= 0) return [];
+            const memory = this.getMemory();
+            if (!memory || !memory.buffer) return [];
+            const view = new DataView(memory.buffer);
+            const len = view.getInt32(ptr, true);
+            const arr = [];
+            for (let i = 0; i < len; i++) {
+                const strPtr = view.getInt32(ptr + 4 + i * 4, true);
+                arr.push(this.readWasmStringFromPtr(strPtr));
+            }
+            return arr;
+        }
+
+        readWasmStringFromPtr(ptr) {
+            if (!ptr || ptr <= 0) return '';
+            let memory = this.getMemory('strings');
+            if (!memory || !memory.buffer) memory = this.getMemory();
+            if (!memory || !memory.buffer) return '';
+            const u8 = new Uint8Array(memory.buffer, ptr);
+            let len = 0;
+            while (ptr + len < memory.buffer.byteLength && u8[len] !== 0) len++;
+            return textDecoder.decode(u8.subarray(0, len));
+        }
+
+        writeIntArray(arr) {
+            if (!arr) return 0;
+            const len = arr.length;
+            const byteSize = 4 + len * 4;
+            let ptr = 0;
+            if (this.instance && typeof this.instance.exports.__heap_alloc === 'function') {
+                ptr = this.instance.exports.__heap_alloc(byteSize);
+            }
+            if (ptr > 0) {
+                const view = new DataView(this.getMemory().buffer);
+                view.setInt32(ptr, len, true);
+                for (let i = 0; i < len; i++) {
+                    view.setInt32(ptr + 4 + i * 4, Math.trunc(Number(arr[i])) | 0, true);
+                }
+            }
+            return ptr;
+        }
+
+        writeDoubleArray(arr) {
+            if (!arr) return 0;
+            const len = arr.length;
+            const byteSize = 8 + len * 8;
+            let ptr = 0;
+            if (this.instance && typeof this.instance.exports.__heap_alloc === 'function') {
+                ptr = this.instance.exports.__heap_alloc(byteSize);
+            }
+            if (ptr > 0) {
+                const view = new DataView(this.getMemory().buffer);
+                view.setInt32(ptr, len, true);
+                for (let i = 0; i < len; i++) {
+                    view.setFloat64(ptr + 8 + i * 8, Number(arr[i]), true);
+                }
+            }
+            return ptr;
+        }
+
+        writeStringArray(arr) {
+            if (!arr) return 0;
+            const len = arr.length;
+            const byteSize = 4 + len * 4;
+            let ptr = 0;
+            if (this.instance && typeof this.instance.exports.__heap_alloc === 'function') {
+                ptr = this.instance.exports.__heap_alloc(byteSize);
+            }
+            if (ptr > 0) {
+                const view = new DataView(this.getMemory().buffer);
+                view.setInt32(ptr, len, true);
+                for (let i = 0; i < len; i++) {
+                    const strPtr = this.writeString(arr[i] != null ? String(arr[i]) : '');
+                    view.setInt32(ptr + 4 + i * 4, strPtr, true);
+                }
+            }
+            return ptr;
         }
 
         loadCustomSections(module) {

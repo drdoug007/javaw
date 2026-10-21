@@ -950,4 +950,51 @@ public class JavacToWasmTest {
         org.junit.jupiter.api.Assertions.assertEquals(4, result.getJsSnippets().size());
         org.junit.jupiter.api.Assertions.assertTrue(result.getJsSnippetsJson().contains("Math.hypot"));
     }
+
+    @Test
+    public void testJsCoerceAnnotationAndSnippetModels() {
+        String javaSource = "package com.example.javaw;\n" +
+                "import com.example.javaw.js.JS;\n" +
+                "public class CoerceApp {\n" +
+                "    @JS(\"return arr.reduce((a, b) => a + b, 0);\")\n" +
+                "    public static native int sumArray(@JS.Coerce int[] arr);\n" +
+                "\n" +
+                "    @JS(\"return arr.map(x => x * 2);\")\n" +
+                "    @JS.Coerce\n" +
+                "    public static native int[] doubleArray(@JS.Coerce int[] arr);\n" +
+                "\n" +
+                "    @JS(\"return items.join(', ');\")\n" +
+                "    public static native String joinStrings(@JS.Coerce String[] items);\n" +
+                "\n" +
+                "    @JS(\"return { ok: true, count: 42 };\")\n" +
+                "    @JS.Coerce\n" +
+                "    public static native String getJson();\n" +
+                "}\n";
+
+        CompilationUnit cu = StaticJavaParser.parse(javaSource);
+        String wat = JavacToWasm.generateWat(cu);
+
+        assertTrue(wat.contains("(import \"dom\" \"js_inline_CoerceApp_sumArray\" (func $dom_js_inline_CoerceApp_sumArray (param i32) (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_inline_CoerceApp_doubleArray\" (func $dom_js_inline_CoerceApp_doubleArray (param i32) (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_inline_CoerceApp_joinStrings\" (func $dom_js_inline_CoerceApp_joinStrings (param i32) (result i32)))"));
+        assertTrue(wat.contains("(import \"dom\" \"js_inline_CoerceApp_getJson\" (func $dom_js_inline_CoerceApp_getJson (result i32)))"));
+
+        JavacToWasm.CompilationResult result = JavacToWasm.compile("CoerceApp.java", javaSource, true);
+        org.junit.jupiter.api.Assertions.assertNotNull(result.getJsSnippets());
+        var snippets = result.getJsSnippets();
+        org.junit.jupiter.api.Assertions.assertEquals(4, snippets.size());
+
+        var sumModel = snippets.get("js_inline_CoerceApp_sumArray");
+        org.junit.jupiter.api.Assertions.assertNotNull(sumModel);
+        org.junit.jupiter.api.Assertions.assertTrue(sumModel.getParameters().get(0).isCoerced());
+
+        var doubleModel = snippets.get("js_inline_CoerceApp_doubleArray");
+        org.junit.jupiter.api.Assertions.assertNotNull(doubleModel);
+        org.junit.jupiter.api.Assertions.assertTrue(doubleModel.isCoerced());
+        org.junit.jupiter.api.Assertions.assertTrue(doubleModel.getParameters().get(0).isCoerced());
+
+        String json = result.getJsSnippetsJson();
+        org.junit.jupiter.api.Assertions.assertTrue(json.contains("\"isCoerced\":true"));
+        org.junit.jupiter.api.Assertions.assertTrue(json.contains("\"coerced\":true"));
+    }
 }
