@@ -33,7 +33,13 @@ public class WasiHelper {
                 } else if (scopeStr.equals("WASI") || scopeStr.endsWith(".WASI") ||
                            scopeStr.equals("WASIFile") || scopeStr.endsWith(".WASIFile") ||
                            scopeStr.equals("WASITerminal") || scopeStr.endsWith(".WASITerminal") ||
-                           scopeStr.equals("Terminal") || scopeStr.endsWith(".Terminal")) {
+                           scopeStr.equals("Terminal") || scopeStr.endsWith(".Terminal") ||
+                           scopeStr.equals("LogManager") || scopeStr.endsWith(".LogManager") ||
+                           scopeStr.equals("Logger") || scopeStr.endsWith(".Logger") ||
+                           scopeStr.equals("SimpleLogger") || scopeStr.endsWith(".SimpleLogger") ||
+                           scopeStr.equals("ThreadContext") || scopeStr.endsWith(".ThreadContext") ||
+                           scopeStr.equals("Level") || scopeStr.endsWith(".Level") ||
+                           scopeStr.toLowerCase().contains("logger") || scopeStr.toLowerCase().contains("log")) {
                     imports.add("wasi_all");
                 }
             }

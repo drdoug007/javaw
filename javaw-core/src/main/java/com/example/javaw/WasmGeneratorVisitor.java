@@ -1650,6 +1650,19 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     default -> 0;
                 };
                 collector.append("    i32.const ").append(val).append("\n");
+            } else if (fae.getScope().isNameExpr() && (fae.getScope().asNameExpr().getNameAsString().equals("Level") || fae.getScope().asNameExpr().getNameAsString().endsWith(".Level"))) {
+                int val = switch (fName) {
+                    case "OFF" -> 0;
+                    case "FATAL" -> 100;
+                    case "ERROR" -> 200;
+                    case "WARN" -> 300;
+                    case "INFO" -> 400;
+                    case "DEBUG" -> 500;
+                    case "TRACE" -> 600;
+                    case "ALL" -> Integer.MAX_VALUE;
+                    default -> 400;
+                };
+                collector.append("    i32.const ").append(val).append("\n");
             } else if (fae.getScope().isNameExpr() && (fae.getScope().asNameExpr().getNameAsString().equals("WASITerminal") || fae.getScope().asNameExpr().getNameAsString().endsWith(".WASITerminal") || fae.getScope().asNameExpr().getNameAsString().equals("Terminal") || fae.getScope().asNameExpr().getNameAsString().endsWith(".Terminal"))) {
                 String ansi = switch (fName) {
                     case "RESET" -> "\u001B[0m";
@@ -1936,6 +1949,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             String mName = call.getNameAsString();
             if (isSystemOrWasiCall(call, localJavaTypes)) {
                 translateSystemOrWasiCall(call, collector, localTypes, localElementTypes, localJavaTypes, expectedType);
+            } else if (isLog4jCall(call, localJavaTypes)) {
+                translateLog4jCall(call, collector, localTypes, localElementTypes, localJavaTypes, expectedType);
             } else if (isArrayUtilsCall(call)) {
                 translateArrayUtilsCall(call, collector, localTypes, localElementTypes, localJavaTypes);
             } else if (isMathCall(call)) {
@@ -3133,6 +3148,205 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         } else {
             translateExpression(expr, collector, localTypes, localElementTypes, localJavaTypes, "i32");
             collector.append("    call $__str_from_i32\n");
+        }
+    }
+
+    private boolean isLog4jCall(MethodCallExpr call, Map<String, String> localJavaTypes) {
+        if (!call.getScope().isPresent()) return false;
+        String scopeStr = call.getScope().get().toString();
+        String mName = call.getNameAsString();
+        if (scopeStr.equals("LogManager") || scopeStr.endsWith(".LogManager")) {
+            return true;
+        }
+        if (scopeStr.equals("ThreadContext") || scopeStr.endsWith(".ThreadContext")) {
+            return true;
+        }
+        if (scopeStr.equals("Level") || scopeStr.endsWith(".Level")) {
+            return mName.equals("getLevel") || mName.equals("valueOf") || mName.equals("name") || mName.equals("intLevel");
+        }
+        if (scopeStr.equals("SimpleLogger") || scopeStr.endsWith(".SimpleLogger")) {
+            return true;
+        }
+        String scopeJavaType = getExpressionJavaType(call.getScope().get(), localJavaTypes);
+        if ("Logger".equals(scopeJavaType) || "SimpleLogger".equals(scopeJavaType) || (scopeJavaType != null && scopeJavaType.endsWith(".Logger")) ||
+            scopeStr.toLowerCase().contains("logger") || scopeStr.toLowerCase().contains("log")) {
+            return true;
+        }
+        return false;
+    }
+
+    private void translateLog4jCall(MethodCallExpr call, StringBuilder collector, Map<String, String> localTypes, Map<String, String> localElementTypes, Map<String, String> localJavaTypes, String expectedType) {
+        String mName = call.getNameAsString();
+        Expression scope = call.getScope().orElse(null);
+        String scopeStr = scope != null ? scope.toString() : "";
+
+        if (scopeStr.equals("LogManager") || scopeStr.endsWith(".LogManager")) {
+            if (mName.equals("getLogger") || mName.equals("getRootLogger") || mName.equals("getFormatterLogger")) {
+                if (call.getArguments().size() > 0) {
+                    translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
+                } else {
+                    collector.append("    i32.const 0\n");
+                }
+                return;
+            }
+            if (mName.equals("getRootLevel")) {
+                collector.append("    i32.const 400\n");
+                return;
+            }
+            if (mName.equals("setRootLevel")) {
+                return;
+            }
+        }
+
+        if (scopeStr.equals("ThreadContext") || scopeStr.endsWith(".ThreadContext")) {
+            if (mName.equals("get") || mName.equals("containsKey") || mName.equals("formatContext")) {
+                collector.append("    i32.const 0\n");
+                return;
+            }
+            return;
+        }
+
+        if (scopeStr.equals("SimpleLogger") || scopeStr.endsWith(".SimpleLogger")) {
+            if (mName.equals("clearHistory") || mName.equals("addListener") || mName.equals("removeListener")) {
+                return;
+            }
+            if (mName.equals("getLogHistory")) {
+                collector.append("    i32.const 0\n");
+                return;
+            }
+        }
+
+        if (scopeStr.equals("Level") || scopeStr.endsWith(".Level")) {
+            if (mName.equals("intLevel")) {
+                collector.append("    i32.const 400\n");
+                return;
+            }
+            if (mName.equals("name") || mName.equals("toString")) {
+                translateDomStringArg(new com.github.javaparser.ast.expr.StringLiteralExpr("INFO"), collector, localTypes, localElementTypes, localJavaTypes);
+                return;
+            }
+            if (mName.equals("getLevel") || mName.equals("valueOf")) {
+                collector.append("    i32.const 400\n");
+                return;
+            }
+        }
+
+        if (mName.equals("isInfoEnabled") || mName.equals("isDebugEnabled") || mName.equals("isWarnEnabled") ||
+            mName.equals("isErrorEnabled") || mName.equals("isTraceEnabled") || mName.equals("isFatalEnabled") ||
+            mName.equals("isEnabled")) {
+            collector.append("    i32.const 1\n");
+            return;
+        }
+
+        if (mName.equals("getName")) {
+            translateDomStringArg(new com.github.javaparser.ast.expr.StringLiteralExpr("logger"), collector, localTypes, localElementTypes, localJavaTypes);
+            return;
+        }
+
+        if (mName.equals("getLevel")) {
+            collector.append("    i32.const 400\n");
+            return;
+        }
+
+        if (mName.equals("setLevel")) {
+            return;
+        }
+
+        if (mName.equals("info") || mName.equals("warn") || mName.equals("error") ||
+            mName.equals("debug") || mName.equals("trace") || mName.equals("fatal") || mName.equals("log")) {
+
+            String levelName = mName.toUpperCase();
+            int startArg = 0;
+            if (mName.equals("log") && call.getArguments().size() > 0) {
+                startArg = 1;
+                levelName = "LOG";
+            }
+            int fd = (mName.equals("error") || mName.equals("fatal")) ? 2 : 1;
+
+            collector.append("    i32.const ").append(fd).append("\n");
+            translateDomStringArg(new com.github.javaparser.ast.expr.StringLiteralExpr("[" + levelName + "] "), collector, localTypes, localElementTypes, localJavaTypes);
+            collector.append("    i32.const 0\n");
+            collector.append("    call $__wasi_print_str\n");
+
+            int numArgs = call.getArguments().size();
+            if (numArgs <= startArg) {
+                collector.append("    i32.const ").append(fd).append("\n");
+                collector.append("    i32.const 0\n");
+                collector.append("    i32.const 1\n");
+                collector.append("    call $__wasi_print_str\n");
+                return;
+            }
+
+            if (numArgs == startArg + 1) {
+                translateWasiPrintArgument(call.getArgument(startArg), fd, true, collector, localTypes, localElementTypes, localJavaTypes);
+            } else if (call.getArgument(startArg).isStringLiteralExpr() && call.getArgument(startArg).asStringLiteralExpr().getValue().contains("{}")) {
+                String pattern = call.getArgument(startArg).asStringLiteralExpr().getValue();
+                String[] pieces = pattern.split("\\{\\}", -1);
+                int argIndex = startArg + 1;
+                for (int i = 0; i < pieces.length; i++) {
+                    if (!pieces[i].isEmpty()) {
+                        collector.append("    i32.const ").append(fd).append("\n");
+                        translateDomStringArg(new com.github.javaparser.ast.expr.StringLiteralExpr(pieces[i]), collector, localTypes, localElementTypes, localJavaTypes);
+                        boolean isEnd = (i == pieces.length - 1 && argIndex >= numArgs);
+                        collector.append("    i32.const ").append(isEnd ? 1 : 0).append("\n");
+                        collector.append("    call $__wasi_print_str\n");
+                    }
+                    if (argIndex < numArgs && i < pieces.length - 1) {
+                        Expression nextArg = call.getArgument(argIndex++);
+                        boolean isEnd = (i == pieces.length - 2 && pieces[pieces.length - 1].isEmpty() && argIndex >= numArgs);
+                        translateWasiPrintArgument(nextArg, fd, isEnd, collector, localTypes, localElementTypes, localJavaTypes);
+                    }
+                }
+                while (argIndex < numArgs) {
+                    collector.append("    i32.const ").append(fd).append("\n");
+                    translateDomStringArg(new com.github.javaparser.ast.expr.StringLiteralExpr(" "), collector, localTypes, localElementTypes, localJavaTypes);
+                    collector.append("    i32.const 0\n");
+                    collector.append("    call $__wasi_print_str\n");
+
+                    boolean isEnd = (argIndex == numArgs - 1);
+                    translateWasiPrintArgument(call.getArgument(argIndex++), fd, isEnd, collector, localTypes, localElementTypes, localJavaTypes);
+                }
+            } else {
+                translateWasiPrintArgument(call.getArgument(startArg), fd, false, collector, localTypes, localElementTypes, localJavaTypes);
+
+                for (int i = startArg + 1; i < numArgs; i++) {
+                    collector.append("    i32.const ").append(fd).append("\n");
+                    translateDomStringArg(new com.github.javaparser.ast.expr.StringLiteralExpr(" "), collector, localTypes, localElementTypes, localJavaTypes);
+                    collector.append("    i32.const 0\n");
+                    collector.append("    call $__wasi_print_str\n");
+
+                    translateWasiPrintArgument(call.getArgument(i), fd, (i == numArgs - 1), collector, localTypes, localElementTypes, localJavaTypes);
+                }
+            }
+            return;
+        }
+    }
+
+    private void translateWasiPrintArgument(Expression arg, int fd, boolean isNewline, StringBuilder collector, Map<String, String> localTypes, Map<String, String> localElementTypes, Map<String, String> localJavaTypes) {
+        String argType = inferType(arg, localTypes, localElementTypes, localJavaTypes, null);
+        String argJavaType = getExpressionJavaType(arg, localJavaTypes);
+
+        collector.append("    i32.const ").append(fd).append("\n");
+        if (isStringType(arg, localJavaTypes) || "String".equals(argJavaType) || "String".equals(argType)) {
+            translateDomStringArg(arg, collector, localTypes, localElementTypes, localJavaTypes);
+            collector.append("    i32.const ").append(isNewline ? 1 : 0).append("\n");
+            collector.append("    call $__wasi_print_str\n");
+        } else if ("f64".equals(argType) || "double".equals(argJavaType) || "float".equals(argJavaType) || arg.isDoubleLiteralExpr()) {
+            translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "f64");
+            collector.append("    i32.const ").append(isNewline ? 1 : 0).append("\n");
+            collector.append("    call $__wasi_print_double\n");
+        } else if ("boolean".equals(argJavaType) || (arg.isBooleanLiteralExpr())) {
+            translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    i32.const ").append(isNewline ? 1 : 0).append("\n");
+            collector.append("    call $__wasi_print_bool\n");
+        } else if ("char".equals(argJavaType) || (arg.isCharLiteralExpr())) {
+            translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    i32.const ").append(isNewline ? 1 : 0).append("\n");
+            collector.append("    call $__wasi_print_char\n");
+        } else {
+            translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    i32.const ").append(isNewline ? 1 : 0).append("\n");
+            collector.append("    call $__wasi_print_int\n");
         }
     }
 

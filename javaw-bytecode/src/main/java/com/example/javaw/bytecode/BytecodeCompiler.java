@@ -75,4 +75,48 @@ public class BytecodeCompiler {
             return compileJar(fis);
         }
     }
+
+    public static void main(String[] args) {
+        if (args.length == 0 || "--help".equals(args[0]) || "-h".equals(args[0])) {
+            System.out.println("Usage: java com.example.javaw.bytecode.BytecodeCompiler <jar-or-class-file> [output-wat-file]");
+            return;
+        }
+        try {
+            String path = args[0];
+            if (path.startsWith("~" + File.separator) || path.equals("~")) {
+                path = System.getProperty("user.home") + path.substring(1);
+            }
+            File file = new File(path);
+            if (!file.exists()) {
+                System.err.println("File not found: " + file.getAbsolutePath());
+                System.exit(1);
+            }
+            String wat;
+            if (file.getName().endsWith(".jar")) {
+                wat = compileJar(file);
+            } else if (file.getName().endsWith(".class")) {
+                try (FileInputStream fis = new FileInputStream(file)) {
+                    wat = compileClass(fis);
+                }
+            } else {
+                System.err.println("Unsupported file type: " + file.getName());
+                System.exit(1);
+                return;
+            }
+            if (args.length > 1) {
+                String outPath = args[1];
+                if (outPath.startsWith("~" + File.separator) || outPath.equals("~")) {
+                    outPath = System.getProperty("user.home") + outPath.substring(1);
+                }
+                File outFile = new File(outPath);
+                java.nio.file.Files.write(outFile.toPath(), wat.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                System.out.println("Wrote compiled WAT to " + outFile.getAbsolutePath());
+            } else {
+                System.out.println(wat);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.exit(1);
+        }
+    }
 }

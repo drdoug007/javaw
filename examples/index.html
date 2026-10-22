@@ -126,6 +126,7 @@
         <button class="tab-btn" onclick="switchTab('jsinterop')">4. JavaScript Interop & @JS</button>
         <button class="tab-btn" onclick="switchTab('terminal')">5. WASI Terminal & VFS</button>
         <button class="tab-btn" onclick="switchTab('bytecode')">6. Bytecode & Relooper</button>
+        <button class="tab-btn" onclick="switchTab('log4j')">7. Log4j2 Logging</button>
     </div>
 
     <!-- Panel 1: Todo App -->
@@ -206,8 +207,43 @@ public static int gcd(int a, int b) {
 }</div>
     </div>
 
+    <!-- Panel 7: Log4j2 Enterprise Logging -->
+    <div id="panel-log4j" class="content-panel">
+        <div class="panel-description">
+            <strong>Demonstrates:</strong> Enterprise <code>org.apache.logging.log4j</code> logging in WebAssembly with multi-logger management (<code>LogManager</code>), ThreadContext MDC diagnostics, parameterized formatting, and real-time UI log streaming.
+        </div>
+        <div id="log4j-app"></div>
+        <div class="code-preview">// Java Log4j2 Logging Source (Log4j2Demo.java)
+private static final Logger logger = LogManager.getLogger(Log4j2Demo.class);
+ThreadContext.put("traceId", "req-8f4b-101");
+logger.info("User session established for userId: {}", "usr_49201");
+logger.warn("Payment response delayed (latency: {} ms)", 480);
+logger.error("Query timeout on partition: {}", "sh_europe_04");</div>
+    </div>
+
     <script src="../src/main/resources/javaw-runtime.js"></script>
     <script>
+        let log4jWasmExports = null;
+
+        window.runLog4jSimulation = () => {
+            if (log4jWasmExports && log4jWasmExports.runSimulation) log4jWasmExports.runSimulation();
+        };
+        window.simulateAuthEvent = () => {
+            if (log4jWasmExports && log4jWasmExports.simulateAuth) log4jWasmExports.simulateAuth();
+        };
+        window.simulateDbEvent = () => {
+            if (log4jWasmExports && log4jWasmExports.simulateDatabase) log4jWasmExports.simulateDatabase();
+        };
+        window.simulateWarnEvent = () => {
+            if (log4jWasmExports && log4jWasmExports.simulateWarning) log4jWasmExports.simulateWarning();
+        };
+        window.simulateErrEvent = () => {
+            if (log4jWasmExports && log4jWasmExports.simulateError) log4jWasmExports.simulateError();
+        };
+        window.clearLogConsole = () => {
+            if (log4jWasmExports && log4jWasmExports.clearConsole) log4jWasmExports.clearConsole();
+        };
+
         function switchTab(name) {
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll('.content-panel').forEach(panel => panel.classList.remove('active'));
@@ -221,6 +257,25 @@ public static int gcd(int a, int b) {
             }
             if (name === 'bytecode') {
                 initBytecodeApp();
+            } else if (name === 'log4j') {
+                initLog4jApp();
+            }
+        }
+
+        async function initLog4jApp() {
+            try {
+                const response = await fetch('log4j/Log4j2Demo.wasm');
+                if (!response.ok) return;
+                const wasmBytes = await response.arrayBuffer();
+                const { exports } = await Javaw.instantiateJavaw(wasmBytes, {}, document);
+                log4jWasmExports = exports;
+                if (exports.start) {
+                    exports.start();
+                } else if (exports.main) {
+                    exports.main();
+                }
+            } catch (err) {
+                console.error("Failed to initialize Log4j2Demo:", err);
             }
         }
 

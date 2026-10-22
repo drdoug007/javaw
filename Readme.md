@@ -21,6 +21,12 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
   - Local `.m2` repository cache manager (`LocalM2CacheManager`) storing precompiled WebAssembly artifacts (`${artifactId}-${version}-javaw.wasm` and `.javaw-metadata.json`) directly in `~/.m2/repository/` for near-instantaneous $O(1)$ cache hits on subsequent builds.
   - Deterministic SHA-256 content hashing (`JarHashUtil`) verifying JAR checksums before cache reuse, guaranteeing reliable cache invalidation for updated release or SNAPSHOT dependencies.
   - Seamless Maven build integration: `javaw-maven-plugin:compile` inspects project dependencies, compiles external JAR dependencies on cache miss, caches them in `.m2`, and statically links dependency functions and exports into the application bundle via `WasmLinker`.
+- **Log4j2 Enterprise Logging Engine (`org.apache.logging.log4j`)**:
+  - Standard Log4j2 API compatibility (`Level`, `Logger`, `LogManager`, `ThreadContext`, `SimpleLogger`) compiling directly into WebAssembly without heavy server-side dependency overhead.
+  - Multi-logger category management via `LogManager.getLogger(...)` with runtime level thresholding (`FATAL`, `ERROR`, `WARN`, `INFO`, `DEBUG`, `TRACE`).
+  - ThreadContext (Mapped Diagnostic Context / MDC) diagnostics for request correlation, tracing metadata, and structured log context.
+  - Parameterized message formatting with `{}` placeholder substitution lowered directly to high-throughput WebAssembly string and stream output.
+  - Pluggable log listener architecture (`SimpleLogger.addListener(...)`) allowing WebAssembly UI dashboards, DOM streams, and WASI output consoles to capture and render log streams in real-time.
 - **Maven Multi-Module Architecture & Build Tooling (`javaw-maven-plugin`)**:
   - Modular reactor architecture comprising `javaw-core` (embeddable compiler engine, runtime helpers, facades, and AST visitors), `javaw-bytecode` (bytecode parser, Relooper CFG engine, stack lowering, linker, and `.m2` cache manager), `javaw-maven-plugin` (dedicated Maven Mojo automating WebAssembly compilation and dependency linking), and `examples` (interactive consumer module).
   - Dedicated Maven Mojo `javaw:compile` bound to the `process-classes` lifecycle phase with full parameter configuration (`sourceDirectory`, `outputDirectory`, `optimizationLevel`, `generateSourceMaps`, `enableThreads`, `copyRuntimeScript`, `batchMode`, `moduleName`, `includes`, `excludes`).
@@ -1454,12 +1460,56 @@ public class StandardLibraryDemo {
 
 ---
 
+#### Example X: Log4j2 Enterprise Logging & Diagnostic Context (`org.apache.logging.log4j`)
+
+Use standard Apache Log4j2 APIs for category-based logging, dynamic severity thresholding, ThreadContext (MDC) tracing, and parameterized message formatting in WebAssembly:
+
+```java
+package com.example.javaw;
+
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.ThreadContext;
+
+public class Log4j2App {
+
+    private static final Logger authLogger = LogManager.getLogger("AuthService");
+    private static final Logger dbLogger = LogManager.getLogger("DatabasePool");
+
+    public static void runLoggingDemo() {
+        // 1. ThreadContext (MDC) Request Correlation
+        ThreadContext.put("env", "production");
+        ThreadContext.put("traceId", "req-98214");
+
+        // 2. Standard Category Logging with Parameterized Formatting
+        authLogger.info("User {} authenticated successfully with roles {}", "doug_admin", "[ADMIN, OPERATOR]");
+
+        // 3. Dynamic Level Adjustment & Conditional Filtering
+        dbLogger.setLevel(Level.DEBUG);
+        dbLogger.debug("Allocated connection handle: {}", "conn-42");
+
+        // 4. Warning & Error Diagnostics
+        if (dbLogger.isWarnEnabled()) {
+            dbLogger.warn("Query latency high: {} ms for query [{}]", 480, "SELECT * FROM orders");
+        }
+        dbLogger.error("Connection reset by peer on node {}", "cluster-eu-01");
+
+        // 5. Cleanup Diagnostic Context
+        ThreadContext.clearMap();
+    }
+}
+```
+
+---
+
 ### 3. Example Applications Suite (`examples/`)
 
 The repository includes a suite of standalone, fully functional example applications in the `examples/` directory showcasing each major capability of `javaw`:
 
 | Example Application | Directory / File | Key Features Demonstrated |
 | :--- | :--- | :--- |
+| **Log4j2 Enterprise Logging** | `examples/log4j/Log4j2Demo.java` | Standard Log4j2 API (`LogManager`, `Logger`, `Level`, `ThreadContext` MDC), parameter formatting, live UI log streaming |
 | **Bytecode & Relooper Algorithms** | `examples/bytecode/BytecodeAlgorithmsDemo.java` | Complex control flow structuring (Euclidean GCD, Fibonacci, Collatz, Prime Sieve, State Machine Lexer) |
 | **Interactive Todo MVC** | `examples/todo/TodoApp.java` | DOM tree creation, `Element.appendChild`, `removeChild`, input forms, event listeners, dynamic strings, active item counts |
 | **Conway's Game of Life** | `examples/canvas/GameOfLife.java` | HTML5 Canvas 2D (`CanvasRenderingContext2D`), grid state in linear memory, animation loops, color styling |

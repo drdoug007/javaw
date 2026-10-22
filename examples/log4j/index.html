@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log4j2 Enterprise Logging WebAssembly Demo</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            padding: 40px 20px;
+            display: flex;
+            justify-content: center;
+        }
+        #log4j-app {
+            max-width: 720px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+<div id="log4j-app"></div>
+
+<script src="../../javaw-core/src/main/resources/javaw-runtime.js"></script>
+<script>
+    let wasmExports = null;
+
+    window.runLog4jSimulation = () => {
+        if (wasmExports && wasmExports.runSimulation) wasmExports.runSimulation();
+    };
+    window.simulateAuthEvent = () => {
+        if (wasmExports && wasmExports.simulateAuth) wasmExports.simulateAuth();
+    };
+    window.simulateDbEvent = () => {
+        if (wasmExports && wasmExports.simulateDatabase) wasmExports.simulateDatabase();
+    };
+    window.simulateWarnEvent = () => {
+        if (wasmExports && wasmExports.simulateWarning) wasmExports.simulateWarning();
+    };
+    window.simulateErrEvent = () => {
+        if (wasmExports && wasmExports.simulateError) wasmExports.simulateError();
+    };
+    window.clearLogConsole = () => {
+        if (wasmExports && wasmExports.clearConsole) wasmExports.clearConsole();
+    };
+
+    async function run() {
+        try {
+            const response = await fetch('Log4j2Demo.wasm');
+            const wasmBytes = await response.arrayBuffer();
+            const { exports } = await Javaw.instantiateJavaw(wasmBytes, {}, document);
+            wasmExports = exports;
+
+            if (exports.start) {
+                exports.start();
+            } else if (exports.main) {
+                exports.main();
+            }
+        } catch (err) {
+            console.error("Failed to run Log4j2Demo:", err);
+        }
+    }
+    window.addEventListener('DOMContentLoaded', run);
+</script>
+</body>
+</html>
