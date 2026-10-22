@@ -6,7 +6,9 @@
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
-        <module name="javaw" />
+        <module name="examples" />
+        <module name="javaw-core" />
+        <module name="javaw-maven-plugin" />
       </profile>
     </annotationProcessing>
   </component>

@@ -189,11 +189,11 @@ This roadmap organizes planned features by their utility and return on investmen
 
 ## 9. Maven Multi-Module Architecture & Build Tooling
 
-- [ ] **Multi-Module Project Architecture (`javaw-core`, `javaw-maven-plugin`, `examples`)**
+- [x] **Multi-Module Project Architecture (`javaw-core`, `javaw-maven-plugin`, `examples`)**
   - Convert root project into an aggregator parent POM (`pom.xml` with `<packaging>pom</packaging>`) and centralized `<dependencyManagement>`.
   - Extract compiler engine, AST lowering visitors, runtime generator, source maps, and standard facades into `javaw-core`.
   - Isolate Maven plugin dependencies (`maven-plugin-api`, `maven-plugin-annotations`, `plexus-utils`) from the core compiler library.
-- [ ] **`javaw-maven-plugin` Mojo Implementation**
+- [x] **`javaw-maven-plugin` Mojo Implementation**
   - Implement `CompileMojo` bound to the standard lifecycle (`compile` / `process-classes` phase, goal: `javaw:compile`).
   - Expose configurable Mojo parameters:
     - `sourceDirectory`: Java source folder for WebAssembly compilation (defaults to `src/main/java` or `src/main/javaw`).
@@ -203,6 +203,6 @@ This roadmap organizes planned features by their utility and return on investmen
     - `enableThreads`: Boolean flag to enable shared memory and WebAssembly thread atomics.
     - `copyRuntimeScript`: Automatically copy `javaw-runtime.js` alongside compiled WASM artifacts.
   - Automate `.wat`, `.wasm`, and `.wasm.map` compilation without manual CLI invocation.
-- [ ] **Examples Child Module & Lifecycle Dogfooding**
+- [x] **Examples Child Module & Lifecycle Dogfooding**
   - Convert `examples/` directory into a child module (`examples/pom.xml`) that consumes `javaw-core` and executes `javaw-maven-plugin` during build lifecycle.
   - Validate all interactive demo applications (Todo, Canvas Game of Life, SIMD Particles, JS Interop, WASI Terminal, Records, Atomics) compile and pass tests automatically during standard `mvn clean package`.

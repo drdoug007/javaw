@@ -435,6 +435,12 @@ public class AppBrowserTest {
                 path = path.substring(1);
             }
             Path filePath = Paths.get(path).toAbsolutePath().normalize();
+            if (!Files.exists(filePath)) {
+                Path parentCheck = Paths.get("..", path).toAbsolutePath().normalize();
+                if (Files.exists(parentCheck)) {
+                    filePath = parentCheck;
+                }
+            }
 
             if (!Files.exists(filePath) || Files.isDirectory(filePath)) {
                 exchange.sendResponseHeaders(404, -1);

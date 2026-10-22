@@ -14,6 +14,10 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
 
 ## Features
 
+- **Maven Multi-Module Architecture & Build Tooling (`javaw-maven-plugin`)**:
+  - Modular reactor architecture comprising `javaw-core` (embeddable compiler engine, runtime helpers, facades, and AST visitors), `javaw-maven-plugin` (dedicated Maven Mojo automating WebAssembly compilation in the standard build lifecycle), and `examples` (interactive consumer module).
+  - Dedicated Maven Mojo `javaw:compile` bound to the `process-classes` lifecycle phase with full parameter configuration (`sourceDirectory`, `outputDirectory`, `optimizationLevel`, `generateSourceMaps`, `enableThreads`, `copyRuntimeScript`, `batchMode`, `moduleName`, `includes`, `excludes`).
+  - Automated compilation of `.wat`, `.wasm`, `.wasm.map`, and runtime scripts (`javaw-runtime.js`) during standard `mvn compile` or `mvn package`.
 - **Interactive In-Browser WASI Terminal & REPL Integration (WASI & ANSI)**:
   - Strongly-typed Java facades `com.example.javaw.wasi.WASITerminal` and `com.example.javaw.terminal.Terminal` providing standard ANSI color palette constants (`BLACK`, `RED`, `GREEN`, `YELLOW`, `BLUE`, `MAGENTA`, `CYAN`, `WHITE`, and `BRIGHT_*` variants), text attributes (`BOLD`, `DIM`, `ITALIC`, `UNDERLINE`, `REVERSE`), cursor positioning (`setCursor`), screen clearing (`clear`), and dimensions (`getColumns`, `getRows`).
   - Interactive line and character reading (`readLine()`, `readLine(prompt)`, `readChar()`) wired directly to WASI standard input (`fd 0` stdin queue) with linear memory string decoding.
@@ -162,108 +166,119 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
 
 ```
 .
+├── pom.xml                                # Aggregator parent POM with centralized dependencyManagement
+├── Readme.md                              # Project documentation
+├── Todo.md                                # Feature roadmap and implementation progress
 ├── demo
-│   └── index.html                     # Browser demo harness running compiled Java WASM
-├── pom.xml                            # Maven project configuration and shade packaging
-├── Readme.md                          # Project documentation
-├── Todo.md                            # Feature roadmap and implementation progress
-├── src
-│   ├── main
-│   │   ├── java/com/example/javaw
-│   │   │   ├── JavacToWasm.java       # Compiler CLI coordinator and entry point
-│   │   │   ├── WasmGeneratorVisitor.java # AST visitor lowering Java statements & expressions
-│   │   │   ├── WasmRuntime.java       # WebAssembly linear memory runtime routines (heap, strings, arrays)
-│   │   │   ├── DomHelper.java         # DOM API import collector and emitter
-│   │   │   ├── WasiHelper.java        # WASI snapshot preview 1 import collector and emitter
-│   │   │   ├── TypeMapper.java        # Java to WebAssembly type mapping
-│   │   │   ├── ClassRegistry.java     # Class layout, vtable calculation & dispatch manager
-│   │   │   ├── ClassModel.java        # Class metadata model
-│   │   │   ├── RecordModel.java       # Record components & multi-value signature model
-│   │   │   ├── FieldModel.java        # Field layout & byte offset model
-│   │   │   ├── MethodModel.java       # Method signature & vtable slot model
-│   │   │   ├── StringConstant.java    # String literal pool model
-│   │   │   ├── GlobalVar.java         # Global field variable model
-│   │   │   ├── LoopContext.java       # Loop label and jump context tracker
-│   │   │   ├── concurrent
-│   │   │   │   ├── AtomicInteger.java # WebAssembly atomic integer facade
-│   │   │   │   ├── Atomics.java       # Low-level array atomics and wait/notify facade
-│   │   │   │   └── WasmThread.java    # Web Worker thread management facade
-│   │   │   ├── dom
-│   │   │   │   ├── DOM.java           # Java DOM API facade
-│   │   │   │   ├── Element.java       # Java DOM Element facade
-│   │   │   │   ├── ClassList.java     # Java DOM ClassList facade
-│   │   │   │   ├── CanvasRenderingContext2D.java # HTML5 Canvas 2D graphics facade
-│   │   │   │   ├── WebGLRenderingContext.java    # HTML5 WebGL graphics facade
-│   │   │   │   ├── Window.java        # Browser Window, timers & async fetch facade
-│   │   │   │   ├── JSObject.java      # Generic dynamic JavaScript interop facade
-│   │   │   │   ├── JSValue.java       # Base JavaScript value representation
-│   │   │   │   ├── JSNumber.java      # JavaScript Number wrapper
-│   │   │   │   ├── JSBoolean.java     # JavaScript Boolean wrapper
-│   │   │   │   ├── JSString.java      # JavaScript String wrapper
-│   │   │   │   ├── JSBigInt.java      # JavaScript BigInt wrapper
-│   │   │   │   ├── JSSymbol.java      # JavaScript Symbol wrapper
-│   │   │   │   ├── JSUndefined.java   # JavaScript Undefined wrapper
-│   │   │   │   ├── JSError.java       # JavaScript Error hierarchy wrapper
-│   │   │   │   └── JSNull.java        # JavaScript Null wrapper
-│   │   │   ├── js
-│   │   │   │   ├── JS.java                # @JS annotation and sub-annotation definitions
-│   │   │   │   ├── JSResource.java        # Static asset & embedded resource facade (@JS.Resource)
-│   │   │   │   ├── JSDate.java            # Standard JavaScript Date facade (@JS.Import)
-│   │   │   │   ├── JSMath.java            # Standard JavaScript Math facade (@JS.Import)
-│   │   │   │   ├── JSJSON.java            # Standard JavaScript JSON facade (@JS.Import)
-│   │   │   │   ├── JSConsole.java         # Standard JavaScript console facade (@JS.Import)
-│   │   │   │   ├── JSStorage.java         # Standard JavaScript Web Storage facade (@JS.Import)
-│   │   │   │   ├── JsSnippetModel.java    # Model for extracted @JS inline JavaScript snippets
-│   │   │   │   ├── JsExportModel.java     # Model for exported Java classes (@JS.Export)
-│   │   │   │   └── JsAnnotationHelper.java # AST visitor and annotation discovery helper
-│   │   │   ├── memory
-│   │   │   │   └── Memory.java        # WebAssembly Multi-Memory segregation & operations facade
-│   │   │   ├── simd
-│   │   │   │   ├── Float32x4.java     # 128-bit float vector facade (f32x4)
-│   │   │   │   ├── Int32x4.java       # 128-bit integer vector facade (i32x4)
-│   │   │   │   └── Vector128.java     # 128-bit SIMD constants and utilities
-│   │   │   ├── sourcemap
-│   │   │   │   ├── Base64VLQ.java     # Base64 Variable-Length Quantity (VLQ) encoder/decoder
-│   │   │   │   ├── MappingEntry.java  # Generated to original source coordinate mapping model
-│   │   │   │   ├── SourceMap.java     # Source Map v3 parser and consumer
-│   │   │   │   ├── SourceMapGenerator.java # Source Map v3 generator and custom section injector
-│   │   │   │   └── SourceMapTracker.java   # AST source position tracking visitor helper
-│   │   │   ├── terminal
-│   │   │   │   └── Terminal.java      # Terminal facade for interactive console & ANSI styling
-│   │   │   ├── util
-│   │   │   │   ├── Arrays.java        # High-performance array utilities & bulk memory operations
-│   │   │   │   └── StringBuilder.java # Dynamic string builder facade
-│   │   │   └── wasi
-│   │   │       ├── WASI.java          # WASI snapshot preview 1 system & VFS facade
-│   │   │       ├── WASIFile.java      # Object-oriented WASI Virtual File System abstraction
-│   │   │       └── WASITerminal.java  # Interactive WASI terminal, ANSI palette & stdin stream facade
-│   │   └── resources
-│   │       └── javaw-runtime.js       # JavaScript WebAssembly host runtime bridge
-│   ├── test
-│   │   ├── java/com/example/javaw
-│   │   │   ├── App.java               # Java DOM & interactive event demo application
-│   │   │   ├── AppBrowserTest.java    # Playwright headless browser integration test suite
-│   │   │   ├── JavacToWasmTest.java   # JUnit 5 compiler unit test suite
-│   │   │   └── TestClass.java         # Comprehensive Java test suite (loops, arrays, OOP, WASI, threads)
-│   │   └── node-tests
-│   │       ├── package.json           # Node.js test configuration
-│   │       └── test.js                # End-to-end WebAssembly execution & DOM test suite
-├── examples
-│   ├── canvas
-│   │   └── GameOfLife.java            # Conway's Game of Life on HTML5 Canvas 2D
-│   ├── jsinterop
-│   │   └── JsInteropShowcase.java     # @JS inline JS, @JS.Coerce, JSDate/JSMath/JSJSON, @JS.Export
-│   ├── records
-│   │   └── RecordMathEngine.java      # Java 17 records, multi-value returns & custom exceptions
-│   ├── simd
-│   │   └── SimdParticles.java         # 128-bit SIMD vector physics simulation (Float32x4)
-│   ├── terminal
-│   │   └── WasiShellDemo.java         # Interactive WASI terminal & virtual file system shell
-│   ├── threads
-│   │   └── WorkerAtomicsDemo.java     # WebAssembly shared memory & atomic operations
-│   ├── todo
-│   │   └── TodoApp.java               # Interactive Todo MVC DOM application
-│   └── index.html                     # Multi-tab interactive browser feature showcase
+│   └── index.html                         # Browser demo harness running compiled Java WASM
+├── javaw-core                             # Core compiler engine, AST visitors, runtime & facades
+│   ├── pom.xml                            # Core module POM (shaded standalone CLI executable)
+│   ├── src
+│   │   ├── main
+│   │   │   ├── java/com/example/javaw
+│   │   │   │   ├── JavacToWasm.java       # Compiler coordinator & programmatic compilation API
+│   │   │   │   ├── WasmGeneratorVisitor.java # AST visitor lowering Java statements & expressions
+│   │   │   │   ├── WasmRuntime.java       # WebAssembly linear memory runtime routines (heap, strings, arrays)
+│   │   │   │   ├── DomHelper.java         # DOM API import collector and emitter
+│   │   │   │   ├── WasiHelper.java        # WASI snapshot preview 1 import collector and emitter
+│   │   │   │   ├── TypeMapper.java        # Java to WebAssembly type mapping
+│   │   │   │   ├── ClassRegistry.java     # Class layout, vtable calculation & dispatch manager
+│   │   │   │   ├── ClassModel.java        # Class metadata model
+│   │   │   │   ├── RecordModel.java       # Record components & multi-value signature model
+│   │   │   │   ├── FieldModel.java        # Field layout & byte offset model
+│   │   │   │   ├── MethodModel.java       # Method signature & vtable slot model
+│   │   │   │   ├── StringConstant.java    # String literal pool model
+│   │   │   │   ├── GlobalVar.java         # Global field variable model
+│   │   │   │   ├── LoopContext.java       # Loop label and jump context tracker
+│   │   │   │   ├── concurrent
+│   │   │   │   │   ├── AtomicInteger.java # WebAssembly atomic integer facade
+│   │   │   │   │   ├── Atomics.java       # Low-level array atomics and wait/notify facade
+│   │   │   │   │   └── WasmThread.java    # Web Worker thread management facade
+│   │   │   │   ├── dom
+│   │   │   │   │   ├── DOM.java           # Java DOM API facade
+│   │   │   │   │   ├── Element.java       # Java DOM Element facade
+│   │   │   │   │   ├── ClassList.java     # Java DOM ClassList facade
+│   │   │   │   │   ├── CanvasRenderingContext2D.java # HTML5 Canvas 2D graphics facade
+│   │   │   │   │   ├── WebGLRenderingContext.java    # HTML5 WebGL graphics facade
+│   │   │   │   │   ├── Window.java        # Browser Window, timers & async fetch facade
+│   │   │   │   │   ├── JSObject.java      # Generic dynamic JavaScript interop facade
+│   │   │   │   │   ├── JSValue.java       # Base JavaScript value representation
+│   │   │   │   │   ├── JSNumber.java      # JavaScript Number wrapper
+│   │   │   │   │   ├── JSBoolean.java     # JavaScript Boolean wrapper
+│   │   │   │   │   ├── JSString.java      # JavaScript String wrapper
+│   │   │   │   │   ├── JSBigInt.java      # JavaScript BigInt wrapper
+│   │   │   │   │   ├── JSSymbol.java      # JavaScript Symbol wrapper
+│   │   │   │   │   ├── JSUndefined.java   # JavaScript Undefined wrapper
+│   │   │   │   │   ├── JSError.java       # JavaScript Error hierarchy wrapper
+│   │   │   │   │   └── JSNull.java        # JavaScript Null wrapper
+│   │   │   │   ├── js
+│   │   │   │   │   ├── JS.java                # @JS annotation and sub-annotation definitions
+│   │   │   │   │   ├── JSResource.java        # Static asset & embedded resource facade (@JS.Resource)
+│   │   │   │   │   ├── JSDate.java            # Standard JavaScript Date facade (@JS.Import)
+│   │   │   │   │   ├── JSMath.java            # Standard JavaScript Math facade (@JS.Import)
+│   │   │   │   │   ├── JSJSON.java            # Standard JavaScript JSON facade (@JS.Import)
+│   │   │   │   │   ├── JSConsole.java         # Standard JavaScript console facade (@JS.Import)
+│   │   │   │   │   ├── JSStorage.java         # Standard JavaScript Web Storage facade (@JS.Import)
+│   │   │   │   │   ├── JsSnippetModel.java    # Model for extracted @JS inline JavaScript snippets
+│   │   │   │   │   ├── JsExportModel.java     # Model for exported Java classes (@JS.Export)
+│   │   │   │   │   └── JsAnnotationHelper.java # AST visitor and annotation discovery helper
+│   │   │   │   ├── memory
+│   │   │   │   │   └── Memory.java        # WebAssembly Multi-Memory segregation & operations facade
+│   │   │   │   ├── simd
+│   │   │   │   │   ├── Float32x4.java     # 128-bit float vector facade (f32x4)
+│   │   │   │   │   ├── Int32x4.java       # 128-bit integer vector facade (i32x4)
+│   │   │   │   │   └── Vector128.java     # 128-bit SIMD constants and utilities
+│   │   │   │   ├── sourcemap
+│   │   │   │   │   ├── Base64VLQ.java     # Base64 Variable-Length Quantity (VLQ) encoder/decoder
+│   │   │   │   │   ├── MappingEntry.java  # Generated to original source coordinate mapping model
+│   │   │   │   │   ├── SourceMap.java     # Source Map v3 parser and consumer
+│   │   │   │   │   ├── SourceMapGenerator.java # Source Map v3 generator and custom section injector
+│   │   │   │   │   └── SourceMapTracker.java   # AST source position tracking visitor helper
+│   │   │   │   ├── terminal
+│   │   │   │   │   └── Terminal.java      # Terminal facade for interactive console & ANSI styling
+│   │   │   │   ├── util
+│   │   │   │   │   ├── Arrays.java        # High-performance array utilities & bulk memory operations
+│   │   │   │   │   └── StringBuilder.java # Dynamic string builder facade
+│   │   │   │   └── wasi
+│   │   │   │       ├── WASI.java          # WASI snapshot preview 1 system & VFS facade
+│   │   │   │       ├── WASIFile.java      # Object-oriented WASI Virtual File System abstraction
+│   │   │   │       └── WASITerminal.java  # Interactive WASI terminal, ANSI palette & stdin stream facade
+│   │   │   └── resources
+│   │   │       └── javaw-runtime.js       # JavaScript WebAssembly host runtime bridge
+│   │   └── test
+│   │       ├── java/com/example/javaw
+│   │       │   ├── App.java               # Java DOM & interactive event demo application
+│   │       │   ├── AppBrowserTest.java    # Playwright headless browser integration test suite
+│   │       │   ├── JavacToWasmTest.java   # JUnit 5 compiler unit test suite
+│   │       │   └── TestClass.java         # Comprehensive Java test suite (loops, arrays, OOP, WASI, threads)
+│   │       └── node-tests
+│   │           ├── package.json           # Node.js test configuration
+│   │           └── test.js                # End-to-end WebAssembly execution & DOM test suite
+├── javaw-maven-plugin                     # Maven Plugin module automating Java-to-WASM compilation
+│   ├── pom.xml                            # Plugin packaging and maven-plugin-tools descriptor configuration
+│   └── src
+│       ├── main/java/com/example/javaw/plugin
+│       │   └── CompileMojo.java           # Mojo for goal javaw:compile (process-classes phase)
+│       └── test/java/com/example/javaw/plugin
+│           └── CompileMojoTest.java       # Unit tests for Mojo configuration and defaults
+└── examples                               # Interactive demo child module built via javaw-maven-plugin
+    ├── pom.xml                            # Examples POM consuming javaw-core and running javaw-maven-plugin
+    ├── canvas
+    │   └── GameOfLife.java                # Conway's Game of Life on HTML5 Canvas 2D
+    ├── jsinterop
+    │   └── JsInteropShowcase.java         # @JS inline JS, @JS.Coerce, JSDate/JSMath/JSJSON, @JS.Export
+    ├── records
+    │   └── RecordMathEngine.java          # Java 17 records, multi-value returns & custom exceptions
+    ├── simd
+    │   └── SimdParticles.java             # 128-bit SIMD vector physics simulation (Float32x4)
+    ├── terminal
+    │   └── WasiShellDemo.java             # Interactive WASI terminal & virtual file system shell
+    ├── threads
+    │   └── WorkerAtomicsDemo.java         # WebAssembly shared memory & atomic operations
+    ├── todo
+    │   ├── TodoApp.java                   # Interactive Todo MVC DOM application
+    │   └── index.html                     # Standalone Todo application web runner
+    └── index.html                         # Multi-tab interactive browser feature showcase
 ```
 
 ---
@@ -272,36 +287,100 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
 
 - **Java Development Kit (JDK)**: Version 17 or higher
 - **Apache Maven**: Version 3.6 or higher
-- **WABT (`wat2wasm`)** (optional): For compiling `.wat` text to `.wasm` binary modules directly from the CLI
+- **WABT (`wat2wasm`)** (optional): For compiling `.wat` text to `.wasm` binary modules directly from the CLI or Maven plugin
 - **Binaryen (`wasm-opt`)** (optional): For optimizing `.wasm` binary size and execution speed with `-O3`
 - **Node.js** (optional): For executing the automated end-to-end test suite
 
 ---
 
-## Building the Compiler
+## Building the Project
 
-Build the standalone executable JAR using Maven:
+Build all reactor modules (`javaw-core`, `javaw-maven-plugin`, and `examples`) using Maven:
 
 ```bash
 mvn clean package
 ```
 
-The resulting shaded executable JAR is located at:
-```
-target/javaw-1.0-SNAPSHOT.jar
-```
+The resulting artifacts:
+- **Standalone Fat JAR**: `javaw-core/target/javaw-core-1.0-SNAPSHOT.jar`
+- **Maven Plugin**: `javaw-maven-plugin/target/javaw-maven-plugin-1.0-SNAPSHOT.jar`
+- **Compiled WebAssembly Examples**: `examples/target/generated-wasm/`
 
 ---
 
-## Usage
+## Maven Plugin Integration (`javaw-maven-plugin`)
 
-### 1. Compiling Java to WebAssembly
+The `javaw-maven-plugin` enables zero-friction, automated compilation of Java source code to WebAssembly directly within standard Maven workflows.
+
+### 1. Add Plugin to `pom.xml`
+
+```xml
+<project>
+    ...
+    <dependencies>
+        <!-- Dependency for Java DOM, JS interop, WASI, and SIMD facades -->
+        <dependency>
+            <groupId>com.example</groupId>
+            <artifactId>javaw-core</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>com.example</groupId>
+                <artifactId>javaw-maven-plugin</artifactId>
+                <version>1.0-SNAPSHOT</version>
+                <executions>
+                    <execution>
+                        <id>compile-wasm</id>
+                        <phase>process-classes</phase>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                        <configuration>
+                            <sourceDirectory>${project.basedir}/src/main/java</sourceDirectory>
+                            <outputDirectory>${project.build.directory}/generated-wasm</outputDirectory>
+                            <optimizationLevel>-O3</optimizationLevel>
+                            <generateSourceMaps>true</generateSourceMaps>
+                            <enableThreads>true</enableThreads>
+                            <copyRuntimeScript>true</copyRuntimeScript>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
+```
+
+### 2. Plugin Configuration Parameters
+
+| Parameter | Type | Default Value | Description |
+| :--- | :--- | :--- | :--- |
+| `sourceDirectory` | `File` | `${project.basedir}/src/main/java` | Source folder containing Java files to compile to WebAssembly |
+| `outputDirectory` | `File` | `${project.build.directory}/generated-wasm` | Destination folder for emitted `.wat`, `.wasm`, `.wasm.map`, and runtime assets |
+| `optimizationLevel` | `String` | `-O3` | Binaryen `wasm-opt` optimization flag (`-O0`, `-O1`, `-O2`, `-O3`, `-Oz`, or `--no-opt`) |
+| `generateSourceMaps` | `boolean` | `true` | Enables generation of Source Map v3 (`.wasm.map` and `.wat.map`) debugging sections |
+| `enableThreads` | `boolean` | `true` | Enables shared memory and WebAssembly atomic instruction lowering |
+| `copyRuntimeScript` | `boolean` | `true` | Automatically copies `javaw-runtime.js` into `outputDirectory` for immediate browser serving |
+| `batchMode` | `boolean` | `false` | If `true`, compiles all matching Java source files into a single unified WASM module |
+| `moduleName` | `String` | `${project.artifactId}` | Custom module stem name when compiling in `batchMode` |
+| `includes` | `List<String>` | `null` | Glob patterns for source files to include (e.g. `**/*.java`) |
+| `excludes` | `List<String>` | `null` | Glob patterns for source files to exclude |
+
+---
+
+## CLI Usage
+
+### 1. Compiling Java to WebAssembly via CLI
 
 #### Single File Compilation
-Run the compiler against any Java source file:
+Run the standalone compiler against any Java source file:
 
 ```bash
-java -jar target/javaw-1.0-SNAPSHOT.jar <path-to-java-file.java>
+java -jar javaw-core/target/javaw-core-1.0-SNAPSHOT.jar <path-to-java-file.java>
 ```
 
 #### Multi-File and Directory Compilation
@@ -309,24 +388,24 @@ Compile multiple Java source files or an entire directory into a unified WebAsse
 
 ```bash
 # Multiple explicit files
-java -jar target/javaw-1.0-SNAPSHOT.jar ServiceA.java ServiceB.java App.java
+java -jar javaw-core/target/javaw-core-1.0-SNAPSHOT.jar ServiceA.java ServiceB.java App.java
 
 # Entire source directory
-java -jar target/javaw-1.0-SNAPSHOT.jar src/main/java/com/example/app
+java -jar javaw-core/target/javaw-core-1.0-SNAPSHOT.jar src/main/java/com/example/app
 ```
 
 #### Disabling Optimization
 To skip the `wasm-opt` optimization pass during development:
 
 ```bash
-java -jar target/javaw-1.0-SNAPSHOT.jar --no-opt src/test/java/com/example/javaw/App.java
+java -jar javaw-core/target/javaw-core-1.0-SNAPSHOT.jar --no-opt src/test/java/com/example/javaw/App.java
 ```
 
 #### Generating Source Maps
 To generate standard Source Map v3 files (`.wat.map` and `.wasm.map`) with embedded source locations for DevTools step-through debugging:
 
 ```bash
-java -jar target/javaw-1.0-SNAPSHOT.jar --source-map src/test/java/com/example/javaw/App.java
+java -jar javaw-core/target/javaw-core-1.0-SNAPSHOT.jar --source-map src/test/java/com/example/javaw/App.java
 ```
 
 This generates:
@@ -1229,11 +1308,14 @@ The repository includes a suite of standalone, fully functional example applicat
 
 #### Running the Interactive Feature Showcase
 
-An interactive multi-tab web showcase is provided at `examples/index.html`. You can serve and view the showcase locally using any web server:
+An interactive multi-tab web showcase is provided at `examples/index.html`. You can compile all examples and run the showcase locally using Maven and any local HTTP server:
 
 ```bash
-# Compile any example file to WebAssembly
-java -jar target/javaw-1.0-SNAPSHOT.jar examples/todo/TodoApp.java
+# Option 1: Compile all examples automatically via Maven Multi-Module build
+mvn clean package
+
+# Option 2: Compile a single example explicitly using the standalone compiler CLI
+java -jar javaw-core/target/javaw-core-1.0-SNAPSHOT.jar examples/todo/TodoApp.java
 
 # Open the showcase in your browser
 python3 -m http.server 8000
@@ -1256,10 +1338,10 @@ Include `javaw-runtime.js` and instantiate the WebAssembly module:
 <body>
     <div id="app"></div>
 
-    <script src="src/main/resources/javaw-runtime.js"></script>
+    <script src="javaw-core/src/main/resources/javaw-runtime.js"></script>
     <script>
         async function run() {
-            const response = await fetch('src/test/java/com/example/javaw/App.wasm');
+            const response = await fetch('javaw-core/src/test/java/com/example/javaw/App.wasm');
             const wasmBytes = await response.arrayBuffer();
             const { exports } = await Javaw.instantiateJavaw(wasmBytes);
             
@@ -1280,7 +1362,7 @@ Include `javaw-runtime.js` and instantiate the WebAssembly module:
 
 ### Java Unit & Playwright Browser Tests (JUnit 5 + Playwright)
 
-Run the full Java test suite, including compiler AST unit tests and headless Chromium browser tests:
+Run the full Java test suite across all modules, including compiler AST unit tests, Mojo plugin tests, and headless Chromium browser tests:
 
 ```bash
 mvn test
@@ -1293,5 +1375,5 @@ The browser test suite (`AppBrowserTest.java`) launches a headless browser using
 Run the Node.js test suite to verify binary execution, string decoding, threads/atomics, WebAssembly exception handling, dynamic JavaScript interop, WASI streams, and interactive DOM mutations:
 
 ```bash
-npm test --prefix src/test/node-tests
+npm test --prefix javaw-core/src/test/node-tests
 ```

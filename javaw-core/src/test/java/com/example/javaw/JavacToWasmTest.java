@@ -1186,21 +1186,23 @@ public class JavacToWasmTest {
 
     @Test
     public void testCompileAllExampleApplications() throws Exception {
-        java.nio.file.Path examplesDir = java.nio.file.Paths.get("examples");
+        java.nio.file.Path examplesDir = java.nio.file.Files.exists(java.nio.file.Paths.get("examples"))
+                ? java.nio.file.Paths.get("examples")
+                : java.nio.file.Paths.get("../examples");
         org.junit.jupiter.api.Assertions.assertTrue(java.nio.file.Files.exists(examplesDir), "examples directory must exist");
 
         String[] exampleFiles = new String[]{
-                "examples/todo/TodoApp.java",
-                "examples/canvas/GameOfLife.java",
-                "examples/simd/SimdParticles.java",
-                "examples/jsinterop/JsInteropShowcase.java",
-                "examples/terminal/WasiShellDemo.java",
-                "examples/records/RecordMathEngine.java",
-                "examples/threads/WorkerAtomicsDemo.java"
+                "todo/TodoApp.java",
+                "canvas/GameOfLife.java",
+                "simd/SimdParticles.java",
+                "jsinterop/JsInteropShowcase.java",
+                "terminal/WasiShellDemo.java",
+                "records/RecordMathEngine.java",
+                "threads/WorkerAtomicsDemo.java"
         };
 
         for (String fileStr : exampleFiles) {
-            java.nio.file.Path p = java.nio.file.Paths.get(fileStr);
+            java.nio.file.Path p = examplesDir.resolve(fileStr);
             org.junit.jupiter.api.Assertions.assertTrue(java.nio.file.Files.exists(p), "Example file missing: " + fileStr);
             String content = java.nio.file.Files.readString(p);
             CompilationUnit cu = StaticJavaParser.parse(content);

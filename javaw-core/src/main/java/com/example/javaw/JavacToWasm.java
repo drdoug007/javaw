@@ -81,9 +81,22 @@ public class JavacToWasm {
         Path watMapFilePath = firstPath.getParent().resolve(stem + ".wat.map");
         Path wasmMapFilePath = firstPath.getParent().resolve(stem + ".wasm.map");
 
+        String optLevel = optimize ? "-O3" : "-O0";
+        boolean success = compileFiles(javaFiles, watFilePath, wasmFilePath, watMapFilePath, wasmMapFilePath, optLevel, generateSourceMap, true);
+        if (!success) {
+            System.exit(1);
+        }
+    }
+
+    public static boolean compileFiles(List<Path> javaFiles, Path watFilePath, Path wasmFilePath, Path watMapFilePath, Path wasmMapFilePath, String optimizationLevel, boolean generateSourceMap, boolean enableThreads) {
+        if (javaFiles == null || javaFiles.isEmpty()) {
+            return false;
+        }
+
         try {
             System.out.println("Compiling " + javaFiles.size() + " Java source file(s)...");
             List<CompilationUnit> cus = new ArrayList<>();
+            String stem = watFilePath.getFileName().toString().replace(".wat", "");
             SourceMapGenerator sourceMapGen = generateSourceMap ? new SourceMapGenerator(stem + ".wat") : null;
 
             for (Path path : javaFiles) {
@@ -100,6 +113,9 @@ public class JavacToWasm {
             }
 
             String watContent = generateWat(cus, sourceMapGen);
+            if (watFilePath.getParent() != null) {
+                Files.createDirectories(watFilePath.getParent());
+            }
             try (FileWriter writer = new FileWriter(watFilePath.toFile())) {
                 writer.write(watContent);
             }
@@ -107,63 +123,103 @@ public class JavacToWasm {
 
             if (sourceMapGen != null) {
                 String sourceMapJson = sourceMapGen.generateJson();
-                Files.writeString(watMapFilePath, sourceMapJson);
-                Files.writeString(wasmMapFilePath, sourceMapJson);
-                System.out.println("Source Map generated: " + wasmMapFilePath);
+                if (watMapFilePath != null) {
+                    if (watMapFilePath.getParent() != null) Files.createDirectories(watMapFilePath.getParent());
+                    Files.writeString(watMapFilePath, sourceMapJson);
+                }
+                if (wasmMapFilePath != null) {
+                    if (wasmMapFilePath.getParent() != null) Files.createDirectories(wasmMapFilePath.getParent());
+                    Files.writeString(wasmMapFilePath, sourceMapJson);
+                    System.out.println("Source Map generated: " + wasmMapFilePath);
+                }
             }
 
             // Attempt to compile to binary WASM if wat2wasm is available
             boolean wasmGenerated = false;
-            try {
-                Process process = new ProcessBuilder("wat2wasm", "--enable-threads", "--enable-exceptions", "--enable-multi-memory", "--enable-annotations", watFilePath.toString(), "-o", wasmFilePath.toString())
-                        .redirectErrorStream(true)
-                        .start();
-                int exitCode = process.waitFor();
-                if (exitCode == 0) {
-                    System.out.println("Binary WASM generated: " + wasmFilePath);
-                    wasmGenerated = true;
-
-                    // Ensure sourceMappingURL is embedded in the binary
-                    if (generateSourceMap) {
-                        byte[] wasmBytes = Files.readAllBytes(wasmFilePath);
-                        byte[] embedded = SourceMapGenerator.embedSourceMapInWasm(wasmBytes, stem + ".wasm.map");
-                        if (embedded.length != wasmBytes.length) {
-                            Files.write(wasmFilePath, embedded);
-                        }
-                    }
-                } else {
-                    String procOut = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-                    System.err.println("wat2wasm compilation exited with code: " + exitCode);
-                    if (!procOut.isBlank()) {
-                        System.err.println(procOut);
-                    }
-                    System.exit(exitCode);
+            if (wasmFilePath != null) {
+                if (wasmFilePath.getParent() != null) {
+                    Files.createDirectories(wasmFilePath.getParent());
                 }
-            } catch (IOException e) {
-                // wat2wasm not installed or not in PATH
-                System.out.println("wat2wasm not available in PATH; skipping binary .wasm compilation.");
-            }
+                List<String> wat2wasmCmd = new ArrayList<>();
+                wat2wasmCmd.add("wat2wasm");
+                if (enableThreads) {
+                    wat2wasmCmd.add("--enable-threads");
+                }
+                wat2wasmCmd.add("--enable-exceptions");
+                wat2wasmCmd.add("--enable-multi-memory");
+                wat2wasmCmd.add("--enable-annotations");
+                wat2wasmCmd.add(watFilePath.toString());
+                wat2wasmCmd.add("-o");
+                wat2wasmCmd.add(wasmFilePath.toString());
 
-            // Attempt to optimize with wasm-opt if available
-            if (wasmGenerated && optimize) {
                 try {
-                    Process optProcess = new ProcessBuilder("wasm-opt", "-O3", "--enable-simd", "--enable-threads", "--enable-exception-handling", "--enable-multivalue", "--enable-bulk-memory", "--enable-multimemory", wasmFilePath.toString(), "-o", wasmFilePath.toString())
+                    Process process = new ProcessBuilder(wat2wasmCmd)
                             .redirectErrorStream(true)
                             .start();
-                    int optExit = optProcess.waitFor();
-                    if (optExit == 0) {
-                        System.out.println("Binary WASM optimized with wasm-opt (-O3): " + wasmFilePath);
+                    int exitCode = process.waitFor();
+                    if (exitCode == 0) {
+                        System.out.println("Binary WASM generated: " + wasmFilePath);
+                        wasmGenerated = true;
+
+                        // Ensure sourceMappingURL is embedded in the binary
+                        if (generateSourceMap && wasmMapFilePath != null) {
+                            byte[] wasmBytes = Files.readAllBytes(wasmFilePath);
+                            byte[] embedded = SourceMapGenerator.embedSourceMapInWasm(wasmBytes, wasmMapFilePath.getFileName().toString());
+                            if (embedded.length != wasmBytes.length) {
+                                Files.write(wasmFilePath, embedded);
+                            }
+                        }
+                    } else {
+                        String procOut = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+                        System.err.println("wat2wasm compilation exited with code: " + exitCode);
+                        if (!procOut.isBlank()) {
+                            System.err.println(procOut);
+                        }
+                        return false;
                     }
                 } catch (IOException e) {
-                    // wasm-opt not installed, skipping optimization
+                    // wat2wasm not installed or not in PATH
+                    System.out.println("wat2wasm not available in PATH; skipping binary .wasm compilation.");
+                }
+
+                // Attempt to optimize with wasm-opt if available
+                boolean shouldOptimize = optimizationLevel != null && !optimizationLevel.equals("-O0") && !optimizationLevel.equals("--no-opt");
+                if (wasmGenerated && shouldOptimize) {
+                    try {
+                        List<String> optCmd = new ArrayList<>();
+                        optCmd.add("wasm-opt");
+                        optCmd.add(optimizationLevel);
+                        optCmd.add("--enable-simd");
+                        if (enableThreads) {
+                            optCmd.add("--enable-threads");
+                        }
+                        optCmd.add("--enable-exception-handling");
+                        optCmd.add("--enable-multivalue");
+                        optCmd.add("--enable-bulk-memory");
+                        optCmd.add("--enable-multimemory");
+                        optCmd.add(wasmFilePath.toString());
+                        optCmd.add("-o");
+                        optCmd.add(wasmFilePath.toString());
+
+                        Process optProcess = new ProcessBuilder(optCmd)
+                                .redirectErrorStream(true)
+                                .start();
+                        int optExit = optProcess.waitFor();
+                        if (optExit == 0) {
+                            System.out.println("Binary WASM optimized with wasm-opt (" + optimizationLevel + "): " + wasmFilePath);
+                        }
+                    } catch (IOException e) {
+                        // wasm-opt not installed, skipping optimization
+                    }
                 }
             }
 
             System.out.println("Compilation successful.");
+            return true;
         } catch (Exception e) {
             System.err.println("Error during compilation: " + e.getMessage());
             e.printStackTrace();
-            System.exit(1);
+            return false;
         }
     }
 

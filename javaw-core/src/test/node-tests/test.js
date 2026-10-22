@@ -24,7 +24,13 @@ function writeWasmString(instance, str) {
 }
 
 // Configuration
-const JAR_PATH = path.resolve(__dirname, '../../../target/javaw-1.0-SNAPSHOT.jar');
+const POSSIBLE_JAR_PATHS = [
+    path.resolve(__dirname, '../../../target/javaw-core-1.0-SNAPSHOT.jar'),
+    path.resolve(__dirname, '../../../target/javaw-1.0-SNAPSHOT.jar'),
+    path.resolve(__dirname, '../../../../target/javaw-1.0-SNAPSHOT.jar'),
+    path.resolve(__dirname, '../../../../javaw-core/target/javaw-core-1.0-SNAPSHOT.jar')
+];
+let JAR_PATH = POSSIBLE_JAR_PATHS.find(p => fs.existsSync(p)) || POSSIBLE_JAR_PATHS[0];
 const TESTCLASS_JAVA = path.resolve(__dirname, '../java/com/example/javaw/TestClass.java');
 const TESTCLASS_WAT = path.resolve(__dirname, '../java/com/example/javaw/TestClass.wat');
 const TESTCLASS_WASM = path.resolve(__dirname, '../java/com/example/javaw/TestClass.wasm');
