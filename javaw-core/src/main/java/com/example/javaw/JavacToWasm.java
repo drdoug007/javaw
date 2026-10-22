@@ -272,13 +272,74 @@ public class JavacToWasm {
         return val;
     }
 
+    public static String unescapeString(String val) {
+        if (val == null || !val.contains("\\")) return val;
+        StringBuilder sb = new StringBuilder();
+        int len = val.length();
+        for (int i = 0; i < len; i++) {
+            char c = val.charAt(i);
+            if (c == '\\' && i + 1 < len) {
+                char next = val.charAt(i + 1);
+                switch (next) {
+                    case 'n' -> { sb.append('\n'); i++; }
+                    case 't' -> { sb.append('\t'); i++; }
+                    case 'r' -> { sb.append('\r'); i++; }
+                    case 'b' -> { sb.append('\b'); i++; }
+                    case 'f' -> { sb.append('\f'); i++; }
+                    case '"' -> { sb.append('"'); i++; }
+                    case '\'' -> { sb.append('\''); i++; }
+                    case '\\' -> { sb.append('\\'); i++; }
+                    case '0' -> { sb.append('\0'); i++; }
+                    case 'u' -> {
+                        if (i + 5 < len) {
+                            try {
+                                int unicode = Integer.parseInt(val.substring(i + 2, i + 6), 16);
+                                sb.append((char) unicode);
+                                i += 5;
+                            } catch (NumberFormatException e) {
+                                sb.append(c);
+                            }
+                        } else {
+                            sb.append(c);
+                        }
+                    }
+                    default -> sb.append(c);
+                }
+            } else {
+                sb.append(c);
+            }
+        }
+        return sb.toString();
+    }
+
+    public static int unescapeChar(String val) {
+        if (val == null || val.isEmpty()) return 0;
+        if (val.startsWith("\\") && val.length() >= 2) {
+            char next = val.charAt(1);
+            return switch (next) {
+                case 'n' -> '\n';
+                case 't' -> '\t';
+                case 'r' -> '\r';
+                case 'b' -> '\b';
+                case 'f' -> '\f';
+                case '\'' -> '\'';
+                case '"' -> '"';
+                case '\\' -> '\\';
+                case '0' -> 0;
+                case 'u' -> val.length() >= 6 ? Integer.parseInt(val.substring(2, 6), 16) : val.charAt(0);
+                default -> next;
+            };
+        }
+        return val.charAt(0);
+    }
+
     public static Map<String, StringConstant> collectStringLiterals(CompilationUnit cu) {
         Map<String, StringConstant> pool = new LinkedHashMap<>();
         int currentOffset = 4096; // 0x1000
 
         List<StringLiteralExpr> literals = cu.findAll(StringLiteralExpr.class);
         for (StringLiteralExpr lit : literals) {
-            String val = lit.getValue();
+            String val = unescapeString(lit.getValue());
             if (!pool.containsKey(val)) {
                 byte[] bytes = val.getBytes(StandardCharsets.UTF_8);
                 pool.put(val, new StringConstant(currentOffset, bytes.length, bytes));

@@ -717,6 +717,23 @@
             return this.getMemory('stack');
         }
 
+        getEnvVariables() {
+            if (typeof process !== 'undefined' && process.env) {
+                return {
+                    ...process.env,
+                    ...(this.options?.env || {})
+                };
+            }
+            return {
+                "PATH": "/usr/bin",
+                "USER": "wasm",
+                "HOME": "/home/wasm",
+                "LANG": "en_US.UTF-8",
+                ...(typeof globalThis !== 'undefined' && globalThis.JAVAW_ENV ? globalThis.JAVAW_ENV : {}),
+                ...(this.options?.env || {})
+            };
+        }
+
         getExportedFunction(name) {
             if (!this.instance || !this.instance.exports) return null;
             if (typeof this.instance.exports[name] === 'function') {
@@ -2440,17 +2457,51 @@
                         const memory = this.getMemory();
                         if (memory && memory.buffer) {
                             const view = new DataView(memory.buffer);
-                            view.setUint32(env_count_ptr, 0, true);
-                            view.setUint32(env_buf_size_ptr, 0, true);
+                            const envs = this.getEnvVariables();
+                            const keys = Object.keys(envs);
+                            let totalBufSize = 0;
+                            const encoder = new TextEncoder();
+                            for (const k of keys) {
+                                const entry = `${k}=${envs[k]}`;
+                                totalBufSize += encoder.encode(entry).length + 1;
+                            }
+                            view.setUint32(env_count_ptr, keys.length, true);
+                            view.setUint32(env_buf_size_ptr, totalBufSize, true);
                         }
                         return 0;
                     },
-                    environ_get: (environ_ptr, environ_buf_ptr) => 0,
+                    environ_get: (environ_ptr, environ_buf_ptr) => {
+                        const memory = this.getMemory();
+                        if (memory && memory.buffer) {
+                            const view = new DataView(memory.buffer);
+                            const uint8 = new Uint8Array(memory.buffer);
+                            const envs = this.getEnvVariables();
+                            const keys = Object.keys(envs);
+                            const encoder = new TextEncoder();
+                            let currentBufOffset = environ_buf_ptr;
+                            for (let i = 0; i < keys.length; i++) {
+                                const k = keys[i];
+                                const entry = `${k}=${envs[k]}`;
+                                const bytes = encoder.encode(entry);
+                                view.setUint32(environ_ptr + i * 4, currentBufOffset, true);
+                                uint8.set(bytes, currentBufOffset);
+                                uint8[currentBufOffset + bytes.length] = 0;
+                                currentBufOffset += bytes.length + 1;
+                            }
+                        }
+                        return 0;
+                    },
                     clock_time_get: (id, precision, time_ptr) => {
                         const memory = this.getMemory();
                         if (memory && memory.buffer) {
                             const view = new DataView(memory.buffer);
-                            const nowNs = BigInt(Date.now()) * 1000000n;
+                            let nowNs;
+                            if (typeof performance !== 'undefined' && performance.now && performance.timeOrigin) {
+                                const nowMs = performance.timeOrigin + performance.now();
+                                nowNs = BigInt(Math.floor(nowMs * 1000000));
+                            } else {
+                                nowNs = BigInt(Date.now()) * 1000000n;
+                            }
                             view.setBigUint64(time_ptr, nowNs, true);
                         }
                         return 0;

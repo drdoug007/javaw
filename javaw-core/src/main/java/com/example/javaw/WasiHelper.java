@@ -23,9 +23,12 @@ public class WasiHelper {
                     if (mName.equals("println") || mName.equals("print")) {
                         imports.add("fd_write");
                     }
-                } else if (scopeStr.equals("System")) {
+                } else if (scopeStr.equals("System") || scopeStr.equals("java.lang.System")) {
                     if (mName.equals("exit")) {
                         imports.add("proc_exit");
+                    } else if (mName.equals("currentTimeMillis") || mName.equals("nanoTime") ||
+                               mName.equals("getenv") || mName.equals("getProperty")) {
+                        imports.add("wasi_all");
                     }
                 } else if (scopeStr.equals("WASI") || scopeStr.endsWith(".WASI") ||
                            scopeStr.equals("WASIFile") || scopeStr.endsWith(".WASIFile") ||

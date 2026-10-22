@@ -943,20 +943,27 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             } else if ("i64".equals(leftType) || "i64".equals(rightType) || "i64".equals(opType)) {
                 opType = "i64";
             }
+            boolean isComparison = bin.getOperator() == BinaryExpr.Operator.EQUALS ||
+                    bin.getOperator() == BinaryExpr.Operator.NOT_EQUALS ||
+                    bin.getOperator() == BinaryExpr.Operator.LESS ||
+                    bin.getOperator() == BinaryExpr.Operator.LESS_EQUALS ||
+                    bin.getOperator() == BinaryExpr.Operator.GREATER ||
+                    bin.getOperator() == BinaryExpr.Operator.GREATER_EQUALS;
+            String resultType = isComparison ? "i32" : opType;
             translateExpression(bin.getLeft(), collector, localTypes, localElementTypes, localJavaTypes, opType);
             translateExpression(bin.getRight(), collector, localTypes, localElementTypes, localJavaTypes, opType);
             collector.append("    ").append(getWasmBinaryOp(bin.getOperator(), opType)).append("\n");
-            if ("f64".equals(expectedType) && "f32".equals(opType)) {
+            if ("f64".equals(expectedType) && "f32".equals(resultType)) {
                 collector.append("    f64.promote_f32\n");
-            } else if ("f32".equals(expectedType) && "f64".equals(opType)) {
+            } else if ("f32".equals(expectedType) && "f64".equals(resultType)) {
                 collector.append("    f32.demote_f64\n");
-            } else if ("f64".equals(expectedType) && "i32".equals(opType)) {
+            } else if ("f64".equals(expectedType) && "i32".equals(resultType)) {
                 collector.append("    f64.convert_i32_s\n");
-            } else if ("f32".equals(expectedType) && "i32".equals(opType)) {
+            } else if ("f32".equals(expectedType) && "i32".equals(resultType)) {
                 collector.append("    f32.convert_i32_s\n");
-            } else if ("i64".equals(expectedType) && "i32".equals(opType)) {
+            } else if ("i64".equals(expectedType) && "i32".equals(resultType)) {
                 collector.append("    i64.extend_i32_s\n");
-            } else if ("i32".equals(expectedType) && "i64".equals(opType)) {
+            } else if ("i32".equals(expectedType) && "i64".equals(resultType)) {
                 collector.append("    i32.wrap_i64\n");
             }
         } else if (expr.isUnaryExpr()) {
@@ -1078,6 +1085,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 String val = expr.asIntegerLiteralExpr().getValue();
                 if (!val.contains(".")) val += ".0";
                 collector.append("    f32.const ").append(val).append("\n");
+            } else if ("i64".equals(expectedType)) {
+                collector.append("    i64.const ").append(expr.asIntegerLiteralExpr().getValue()).append("\n");
             } else {
                 collector.append("    i32.const ").append(expr.asIntegerLiteralExpr().getValue()).append("\n");
             }
@@ -1097,9 +1106,9 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         } else if (expr.isBooleanLiteralExpr()) {
             collector.append("    i32.const ").append(expr.asBooleanLiteralExpr().getValue() ? "1" : "0").append("\n");
         } else if (expr.isCharLiteralExpr()) {
-            collector.append("    i32.const ").append((int) expr.asCharLiteralExpr().getValue().charAt(0)).append("\n");
+            collector.append("    i32.const ").append(JavacToWasm.unescapeChar(expr.asCharLiteralExpr().getValue())).append("\n");
         } else if (expr.isStringLiteralExpr()) {
-            String val = expr.asStringLiteralExpr().getValue();
+            String val = JavacToWasm.unescapeString(expr.asStringLiteralExpr().getValue());
             StringConstant sc = stringPool != null ? stringPool.get(val) : null;
             if (sc != null) {
                 collector.append("    i32.const ").append(sc.offset).append("\n");
@@ -1111,7 +1120,9 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         } else if (expr.isConditionalExpr()) {
             ConditionalExpr cond = expr.asConditionalExpr();
             String resType = inferType(cond.getThenExpr(), localTypes, localElementTypes, localJavaTypes, expectedType);
-            if (resType == null) resType = "i32";
+            if (resType == null || (!resType.equals("i64") && !resType.equals("f32") && !resType.equals("f64") && !resType.equals("v128"))) {
+                resType = "i32";
+            }
             translateExpression(cond.getCondition(), collector, localTypes, localElementTypes, localJavaTypes, "i32");
             collector.append("    if (result ").append(resType).append(")\n");
             translateExpression(cond.getThenExpr(), collector, localTypes, localElementTypes, localJavaTypes, resType);
@@ -1792,7 +1803,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             MethodCallExpr call = expr.asMethodCallExpr();
             String mName = call.getNameAsString();
             if (isSystemOrWasiCall(call, localJavaTypes)) {
-                translateSystemOrWasiCall(call, collector, localTypes, localElementTypes, localJavaTypes);
+                translateSystemOrWasiCall(call, collector, localTypes, localElementTypes, localJavaTypes, expectedType);
             } else if (isArrayUtilsCall(call)) {
                 translateArrayUtilsCall(call, collector, localTypes, localElementTypes, localJavaTypes);
             } else if (isMathCall(call)) {
@@ -1958,7 +1969,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     if ("JSObject".equals(scopeJType) || "JSString".equals(scopeJType) || "JSValue".equals(scopeJType)) {
                         translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
                         collector.append("    call $dom_js_length\n");
-                    } else if (scope.isNameExpr() && localJavaTypes.containsKey(scope.asNameExpr().getNameAsString()) && (localJavaTypes.get(scope.asNameExpr().getNameAsString()).equals("StringBuilder") || localJavaTypes.get(scope.asNameExpr().getNameAsString()).endsWith(".StringBuilder"))) {
+                    } else if (isStringBuilderType(scope, localJavaTypes)) {
                         translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
                         collector.append("    call $__sb_length\n");
                     } else if (scope.isNameExpr() && localElementTypes.containsKey(scope.asNameExpr().getNameAsString())) {
@@ -1969,7 +1980,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                         collector.append("    call $__str_length\n");
                     }
                 } else if (mName.equals("charAt")) {
-                    if (scope.isNameExpr() && localJavaTypes.containsKey(scope.asNameExpr().getNameAsString()) && (localJavaTypes.get(scope.asNameExpr().getNameAsString()).equals("StringBuilder") || localJavaTypes.get(scope.asNameExpr().getNameAsString()).endsWith(".StringBuilder"))) {
+                    if (isStringBuilderType(scope, localJavaTypes)) {
                         translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
                         translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
                         collector.append("    call $__sb_charAt\n");
@@ -1983,40 +1994,85 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
                     translateExpression(call.getArgument(1), collector, localTypes, localElementTypes, localJavaTypes, "i32");
                     collector.append("    call $__sb_setCharAt\n");
-                } else if (mName.equals("substring")) {
-                    translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "String");
-                    translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
-                    if (call.getArguments().size() > 1) {
-                        translateExpression(call.getArgument(1), collector, localTypes, localElementTypes, localJavaTypes, "i32");
-                        collector.append("    call $__str_substring\n");
+                } else if (mName.equals("substring") || mName.equals("subSequence")) {
+                    if (isStringBuilderType(scope, localJavaTypes)) {
+                        translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                        translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                        if (call.getArguments().size() > 1) {
+                            translateExpression(call.getArgument(1), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                        } else {
+                            collector.append("    local.set $__str_sub_start\n");
+                            translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                            collector.append("    local.set $__sb_tmp\n");
+                            collector.append("    local.get $__sb_tmp\n");
+                            collector.append("    local.get $__str_sub_start\n");
+                            collector.append("    local.get $__sb_tmp\n");
+                            collector.append("    call $__sb_length\n");
+                        }
+                        collector.append("    call $__sb_substring\n");
                     } else {
-                        collector.append("    local.set $__str_sub_start\n");
                         translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "String");
-                        collector.append("    local.set $__str_tmp\n");
-                        collector.append("    local.get $__str_tmp\n");
-                        collector.append("    local.get $__str_sub_start\n");
-                        collector.append("    local.get $__str_tmp\n");
-                        collector.append("    call $__str_length\n");
-                        collector.append("    call $__str_substring\n");
+                        translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                        if (call.getArguments().size() > 1) {
+                            translateExpression(call.getArgument(1), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                            collector.append("    call $__str_substring\n");
+                        } else {
+                            collector.append("    local.set $__str_sub_start\n");
+                            translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "String");
+                            collector.append("    local.set $__str_tmp\n");
+                            collector.append("    local.get $__str_tmp\n");
+                            collector.append("    local.get $__str_sub_start\n");
+                            collector.append("    local.get $__str_tmp\n");
+                            collector.append("    call $__str_length\n");
+                            collector.append("    call $__str_substring\n");
+                        }
                     }
                 } else if (mName.equals("equals") && isStringType(scope, localJavaTypes)) {
                     translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "String");
                     translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "String");
                     collector.append("    call $__str_equals\n");
+                } else if (mName.equals("equalsIgnoreCase")) {
+                    translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "String");
+                    translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "String");
+                    collector.append("    call $__str_equalsIgnoreCase\n");
+                } else if (mName.equals("compareTo") && isStringType(scope, localJavaTypes)) {
+                    translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "String");
+                    translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "String");
+                    collector.append("    call $__str_compareTo\n");
+                } else if (mName.equals("compareToIgnoreCase")) {
+                    translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "String");
+                    collector.append("    call $__str_toLowerCase\n");
+                    translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "String");
+                    collector.append("    call $__str_toLowerCase\n");
+                    collector.append("    call $__str_compareTo\n");
                 } else if (mName.equals("startsWith")) {
                     translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "String");
                     translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "String");
                     collector.append("    call $__str_startsWith\n");
-                } else if (mName.equals("indexOf")) {
+                } else if (mName.equals("endsWith")) {
                     translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "String");
-                    Expression arg = call.getArgument(0);
-                    if (isStringType(arg, localJavaTypes)) {
-                        translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "String");
+                    translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "String");
+                    collector.append("    call $__str_endsWith\n");
+                } else if (mName.equals("contains")) {
+                    translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "String");
+                    translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "String");
+                    collector.append("    call $__str_contains\n");
+                } else if (mName.equals("indexOf")) {
+                    if (isStringBuilderType(scope, localJavaTypes)) {
+                        translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                        translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "String");
+                        collector.append("    call $__sb_indexOf\n");
                     } else {
-                        translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
-                        collector.append("    call $__str_from_char\n");
+                        translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "String");
+                        Expression arg = call.getArgument(0);
+                        if (isStringType(arg, localJavaTypes)) {
+                            translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "String");
+                        } else {
+                            translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                            collector.append("    call $__str_from_char\n");
+                        }
+                        collector.append("    call $__str_indexOf\n");
                     }
-                    collector.append("    call $__str_indexOf\n");
                 } else if (mName.equals("concat")) {
                     translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "String");
                     translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "String");
@@ -2025,6 +2081,86 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "String");
                     collector.append("    call $__str_length\n");
                     collector.append("    i32.eqz\n");
+                } else if (mName.equals("isBlank")) {
+                    translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "String");
+                    collector.append("    call $__str_trim\n");
+                    collector.append("    call $__str_length\n");
+                    collector.append("    i32.eqz\n");
+                } else if (mName.equals("trim")) {
+                    translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "String");
+                    collector.append("    call $__str_trim\n");
+                } else if (mName.equals("strip") || mName.equals("stripLeading") || mName.equals("stripTrailing")) {
+                    translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "String");
+                    collector.append("    call $__str_strip\n");
+                } else if (mName.equals("toLowerCase")) {
+                    translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "String");
+                    collector.append("    call $__str_toLowerCase\n");
+                } else if (mName.equals("toUpperCase")) {
+                    translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "String");
+                    collector.append("    call $__str_toUpperCase\n");
+                } else if (mName.equals("toCharArray")) {
+                    translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "String");
+                    collector.append("    call $__str_toCharArray\n");
+                } else if (mName.equals("getBytes")) {
+                    translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "String");
+                    collector.append("    call $__str_getBytes\n");
+                } else if (mName.equals("repeat")) {
+                    translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "String");
+                    translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                    collector.append("    call $__str_repeat\n");
+                } else if (mName.equals("replace")) {
+                    if (isStringBuilderType(scope, localJavaTypes)) {
+                        translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                        translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                        translateExpression(call.getArgument(1), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                        translateExpression(call.getArgument(2), collector, localTypes, localElementTypes, localJavaTypes, "String");
+                        collector.append("    call $__sb_replace\n");
+                    } else {
+                        translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "String");
+                        Expression arg0 = call.getArgument(0);
+                        Expression arg1 = call.getArgument(1);
+                        if (arg0.isCharLiteralExpr() || (arg0.isNameExpr() && "char".equals(localJavaTypes.get(arg0.asNameExpr().getNameAsString())))) {
+                            translateExpression(arg0, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                            translateExpression(arg1, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                            collector.append("    call $__str_replace_char\n");
+                        } else {
+                            translateExpression(arg0, collector, localTypes, localElementTypes, localJavaTypes, "String");
+                            translateExpression(arg1, collector, localTypes, localElementTypes, localJavaTypes, "String");
+                            collector.append("    call $__str_replace_str\n");
+                        }
+                    }
+                } else if (mName.equals("insert") && isStringBuilderType(scope, localJavaTypes)) {
+                    translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                    translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                    Expression arg = call.getArgument(1);
+                    if (isStringType(arg, localJavaTypes)) {
+                        translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "String");
+                        collector.append("    call $__sb_insert_str\n");
+                    } else if (arg.isCharLiteralExpr() || (arg.isNameExpr() && "char".equals(localJavaTypes.get(arg.asNameExpr().getNameAsString())))) {
+                        translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                        collector.append("    call $__sb_insert_char\n");
+                    } else if (arg.isBooleanLiteralExpr() || (arg.isNameExpr() && "boolean".equals(localJavaTypes.get(arg.asNameExpr().getNameAsString())))) {
+                        translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                        collector.append("    call $__sb_insert_bool\n");
+                    } else if (arg.isDoubleLiteralExpr() || (arg.isNameExpr() && ("double".equals(localJavaTypes.get(arg.asNameExpr().getNameAsString())) || "float".equals(localJavaTypes.get(arg.asNameExpr().getNameAsString()))))) {
+                        translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "f64");
+                        collector.append("    call $__sb_insert_f64\n");
+                    } else {
+                        translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                        collector.append("    call $__sb_insert_i32\n");
+                    }
+                } else if (mName.equals("delete") && isStringBuilderType(scope, localJavaTypes)) {
+                    translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                    translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                    translateExpression(call.getArgument(1), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                    collector.append("    call $__sb_delete\n");
+                } else if (mName.equals("deleteCharAt") && isStringBuilderType(scope, localJavaTypes)) {
+                    translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                    translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                    collector.append("    call $__sb_deleteCharAt\n");
+                } else if (mName.equals("reverse") && isStringBuilderType(scope, localJavaTypes)) {
+                    translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                    collector.append("    call $__sb_reverse\n");
                 } else if (mName.equals("append")) {
                     translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
                     Expression arg = call.getArgument(0);
@@ -2037,6 +2173,9 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     } else if (arg.isBooleanLiteralExpr() || (arg.isNameExpr() && "boolean".equals(localJavaTypes.get(arg.asNameExpr().getNameAsString())))) {
                         translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
                         collector.append("    call $__sb_append_bool\n");
+                    } else if (arg.isDoubleLiteralExpr() || (arg.isNameExpr() && ("double".equals(localJavaTypes.get(arg.asNameExpr().getNameAsString())) || "float".equals(localJavaTypes.get(arg.asNameExpr().getNameAsString()))))) {
+                        translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "f64");
+                        collector.append("    call $__sb_append_f64\n");
                     } else {
                         translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
                         collector.append("    call $__sb_append_i32\n");
@@ -2044,6 +2183,37 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 } else if (mName.equals("toString") && isStringBuilderType(scope, localJavaTypes)) {
                     translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
                     collector.append("    call $__sb_toString\n");
+                } else if (mName.equals("toString") && isStringType(scope, localJavaTypes)) {
+                    translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "String");
+                } else if (mName.equals("valueOf") && scope.isNameExpr() && ("String".equals(scope.asNameExpr().getNameAsString()) || "java.lang.String".equals(scope.asNameExpr().getNameAsString()))) {
+                    Expression arg0 = call.getArgument(0);
+                    String argType = getExpressionJavaType(arg0, localJavaTypes);
+                    if (isStringType(arg0, localJavaTypes)) {
+                        translateExpression(arg0, collector, localTypes, localElementTypes, localJavaTypes, "String");
+                    } else if ("char[]".equals(argType) || (arg0.isArrayCreationExpr() && "char".equals(arg0.asArrayCreationExpr().getElementType().asString()))) {
+                        translateExpression(arg0, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                        collector.append("    call $__str_from_char_array\n");
+                    } else if (arg0.isCharLiteralExpr() || "char".equals(argType)) {
+                        translateExpression(arg0, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                        collector.append("    call $__str_from_char\n");
+                    } else if (arg0.isBooleanLiteralExpr() || "boolean".equals(argType)) {
+                        translateExpression(arg0, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                        collector.append("    call $__str_from_bool\n");
+                    } else if (arg0.isDoubleLiteralExpr() || "double".equals(argType) || "float".equals(argType)) {
+                        translateExpression(arg0, collector, localTypes, localElementTypes, localJavaTypes, "f64");
+                        collector.append("    call $__str_from_f64\n");
+                    } else if (arg0.isIntegerLiteralExpr() || "int".equals(argType) || "byte".equals(argType) || "short".equals(argType) || "long".equals(argType)) {
+                        translateExpression(arg0, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                        collector.append("    call $__str_from_i32\n");
+                    } else {
+                        // Object toString via vtable slot 0
+                        translateExpression(arg0, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                        collector.append("    local.set $__obj_tmp\n");
+                        collector.append("    local.get $__obj_tmp\n");
+                        collector.append("    local.get $__obj_tmp\n");
+                        collector.append("    i32.load offset=0\n");
+                        collector.append("    call_indirect (type $t_sig_i32_to_i32)\n");
+                    }
                 } else if (mName.equals("clone")) {
                     String targetType = getExpressionJavaType(scope, localJavaTypes);
                     ClassModel targetCm = (targetType != null && classRegistry != null) ? classRegistry.getClass(targetType) : null;
@@ -2325,6 +2495,34 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 }
                 return "int";
             }
+            if (isStringBuilderType(call.getScope().orElse(null), localJavaTypes)) {
+                if (mName.equals("append") || mName.equals("insert") || mName.equals("delete") ||
+                    mName.equals("deleteCharAt") || mName.equals("reverse") || mName.equals("replace")) {
+                    return "StringBuilder";
+                }
+                if (mName.equals("length") || mName.equals("indexOf")) return "int";
+                if (mName.equals("charAt")) return "char";
+                if (mName.equals("subSequence")) return "CharSequence";
+                if (mName.equals("substring") || mName.equals("toString")) return "String";
+            }
+            if (isStringType(call.getScope().orElse(null), localJavaTypes)) {
+                if (mName.equals("toString") || mName.equals("substring") || mName.equals("concat") ||
+                    mName.equals("trim") || mName.equals("strip") || mName.equals("stripLeading") || mName.equals("stripTrailing") ||
+                    mName.equals("toLowerCase") || mName.equals("toUpperCase") || mName.equals("repeat") || mName.equals("replace") ||
+                    mName.equals("valueOf")) return "String";
+                if (mName.equals("toCharArray")) return "char[]";
+                if (mName.equals("getBytes")) return "byte[]";
+                if (mName.equals("subSequence")) return "CharSequence";
+                if (mName.equals("compareTo") || mName.equals("compareToIgnoreCase") || mName.equals("indexOf") || mName.equals("length")) return "int";
+                if (mName.equals("contains") || mName.equals("startsWith") || mName.equals("endsWith") || mName.equals("equalsIgnoreCase") || mName.equals("isEmpty") || mName.equals("isBlank") || mName.equals("equals")) return "boolean";
+                if (mName.equals("charAt")) return "char";
+            }
+            if (call.getScope().isPresent() && call.getScope().get().isNameExpr()) {
+                String scName = call.getScope().get().asNameExpr().getNameAsString();
+                if ("String".equals(scName) || "java.lang.String".equals(scName)) {
+                    if (mName.equals("valueOf") || mName.equals("join") || mName.equals("format")) return "String";
+                }
+            }
             if (mName.equals("getElementById") || mName.equals("createElement") || mName.equals("getBody") ||
                     mName.equals("querySelector") || mName.equals("getParent")) {
                 return "Element";
@@ -2402,15 +2600,27 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     mName.equals("getInt") || mName.equals("callInt") || mName.equals("asInt") ||
                     mName.equals("fileLength") || mName.equals("fileSize") || mName.equals("open") || mName.equals("close") ||
                     mName.equals("seek") || mName.equals("randomInt") || mName.equals("randomGet") || mName.equals("getLength") ||
-                    mName.equals("readChar") || mName.equals("getColumns") || mName.equals("getRows")) {
+                    mName.equals("readChar") || mName.equals("getColumns") || mName.equals("getRows") || mName.equals("identityHashCode")) {
                 return "int";
+            }
+            if (mName.equals("nanoTime")) {
+                return "long";
+            }
+            if (mName.equals("currentTimeMillis")) {
+                if (call.getScope().isPresent()) {
+                    String scopeStr = call.getScope().get().toString();
+                    if (scopeStr.equals("WASI") || scopeStr.endsWith(".WASI")) {
+                        return "double";
+                    }
+                }
+                return "long";
             }
             if (mName.equals("getLineWidth") || mName.equals("getGlobalAlpha") ||
                     mName.equals("getDouble") || mName.equals("callDouble") || mName.equals("asDouble") ||
-                    mName.equals("currentTimeMillis") || mName.equals("clockTimeGet")) {
+                    mName.equals("clockTimeGet")) {
                 return "double";
             }
-            if (mName.equals("prompt")) {
+            if (mName.equals("prompt") || mName.equals("lineSeparator") || mName.equals("getenv") || mName.equals("getProperty")) {
                 return "String";
             }
             if (mName.equals("isChecked") || mName.equals("hasClass") || mName.equals("contains") ||
@@ -2670,13 +2880,14 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     }
 
     private boolean isStringType(Expression expr, Map<String, String> localJavaTypes) {
+        if (expr == null) return false;
         String jType = getExpressionJavaType(expr, localJavaTypes);
-        if ("String".equals(jType) || "java.lang.String".equals(jType)) return true;
+        if ("String".equals(jType) || "java.lang.String".equals(jType) || "CharSequence".equals(jType) || "java.lang.CharSequence".equals(jType)) return true;
         if (expr.isStringLiteralExpr()) return true;
         if (expr.isNameExpr()) {
             String name = expr.asNameExpr().getNameAsString();
-            String jt = localJavaTypes.get(name);
-            if ("String".equals(jt) || "java.lang.String".equals(jt)) return true;
+            String jt = localJavaTypes != null ? localJavaTypes.get(name) : null;
+            if ("String".equals(jt) || "java.lang.String".equals(jt) || "CharSequence".equals(jt) || "java.lang.CharSequence".equals(jt)) return true;
         }
         if (expr.isBinaryExpr()) {
             BinaryExpr b = expr.asBinaryExpr();
@@ -2688,13 +2899,15 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             MethodCallExpr m = expr.asMethodCallExpr();
             String mName = m.getNameAsString();
             if (mName.equals("toString") || mName.equals("substring") || mName.equals("concat") ||
+                    mName.equals("trim") || mName.equals("strip") || mName.equals("stripLeading") || mName.equals("stripTrailing") ||
+                    mName.equals("toLowerCase") || mName.equals("toUpperCase") || mName.equals("repeat") || mName.equals("replace") ||
                     mName.equals("name") ||
                     mName.equals("getInnerText") || mName.equals("getAttribute") ||
                     mName.equals("getValue") || mName.equals("getStyle") ||
                     mName.equals("getFillStyle") || mName.equals("getStrokeStyle") ||
                     mName.equals("getFont") || mName.equals("getTextAlign") ||
                     mName.equals("getString") || mName.equals("callString") || mName.equals("asString") ||
-                    mName.equals("readLine") ||
+                    mName.equals("readLine") || mName.equals("lineSeparator") || mName.equals("getenv") || mName.equals("getProperty") ||
                     mName.equals("prompt") || "String".equals(getExpressionJavaType(expr, localJavaTypes))) return true;
         }
         if (expr.isFieldAccessExpr()) {
@@ -2711,16 +2924,27 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     }
 
     private boolean isStringBuilderType(Expression expr, Map<String, String> localJavaTypes) {
+        if (expr == null) return false;
         if (expr.isObjectCreationExpr()) {
             String t = expr.asObjectCreationExpr().getTypeAsString();
             return t.equals("StringBuilder") || t.endsWith(".StringBuilder");
         }
         if (expr.isNameExpr()) {
             String var = expr.asNameExpr().getNameAsString();
-            String type = localJavaTypes.get(var);
+            String type = localJavaTypes != null ? localJavaTypes.get(var) : null;
             return "StringBuilder".equals(type) || (type != null && type.endsWith(".StringBuilder"));
         }
-        return false;
+        if (expr.isMethodCallExpr()) {
+            MethodCallExpr call = expr.asMethodCallExpr();
+            String mName = call.getNameAsString();
+            if (mName.equals("append") || mName.equals("insert") || mName.equals("delete") ||
+                mName.equals("deleteCharAt") || mName.equals("reverse") || mName.equals("replace")) {
+                Expression scope = call.getScope().orElse(null);
+                if (scope != null && isStringBuilderType(scope, localJavaTypes)) return true;
+            }
+        }
+        String type = getExpressionJavaType(expr, localJavaTypes);
+        return "StringBuilder".equals(type) || (type != null && type.endsWith(".StringBuilder"));
     }
 
     private void translateStringToStack(Expression expr, StringBuilder collector, Map<String, String> localTypes, Map<String, String> localElementTypes, Map<String, String> localJavaTypes) {
@@ -2753,8 +2977,10 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         if (scopeStr.equals("System.out") || scopeStr.equals("System.err")) {
             return mName.equals("println") || mName.equals("print");
         }
-        if (scopeStr.equals("System")) {
-            return mName.equals("exit");
+        if (scopeStr.equals("System") || scopeStr.equals("java.lang.System")) {
+            return mName.equals("exit") || mName.equals("currentTimeMillis") || mName.equals("nanoTime") ||
+                    mName.equals("identityHashCode") || mName.equals("lineSeparator") ||
+                    mName.equals("getenv") || mName.equals("getProperty");
         }
         if (scopeStr.equals("WASI") || scopeStr.endsWith(".WASI") ||
             scopeStr.equals("WASIFile") || scopeStr.endsWith(".WASIFile") ||
@@ -2769,7 +2995,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         return false;
     }
 
-    private void translateSystemOrWasiCall(MethodCallExpr call, StringBuilder collector, Map<String, String> localTypes, Map<String, String> localElementTypes, Map<String, String> localJavaTypes) {
+    private void translateSystemOrWasiCall(MethodCallExpr call, StringBuilder collector, Map<String, String> localTypes, Map<String, String> localElementTypes, Map<String, String> localJavaTypes, String expectedType) {
         String mName = call.getNameAsString();
         Expression scope = call.getScope().orElse(null);
         String scopeStr = scope != null ? scope.toString() : "";
@@ -2783,6 +3009,45 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 collector.append("    i32.const 0\n");
             }
             collector.append("    call $__wasi_proc_exit\n");
+            return;
+        }
+
+        if (mName.equals("identityHashCode")) {
+            if (call.getArguments().size() > 0) {
+                translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            } else {
+                collector.append("    i32.const 0\n");
+            }
+            collector.append("    call $__system_identity_hash_code\n");
+            return;
+        }
+
+        if (mName.equals("lineSeparator")) {
+            collector.append("    call $__system_line_separator\n");
+            return;
+        }
+
+        if (mName.equals("getenv")) {
+            if (call.getArguments().size() > 0) {
+                translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "String");
+                collector.append("    call $__system_getenv\n");
+            } else {
+                collector.append("    i32.const 0\n");
+            }
+            return;
+        }
+
+        if (mName.equals("getProperty")) {
+            if (call.getArguments().size() == 1) {
+                translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "String");
+                collector.append("    call $__system_get_property\n");
+            } else if (call.getArguments().size() >= 2) {
+                translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "String");
+                translateExpression(call.getArgument(1), collector, localTypes, localElementTypes, localJavaTypes, "String");
+                collector.append("    call $__system_get_property_default\n");
+            } else {
+                collector.append("    i32.const 0\n");
+            }
             return;
         }
 
@@ -2883,8 +3148,22 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             return;
         }
 
-        if (mName.equals("currentTimeMillis") || mName.equals("clockTimeGet")) {
+        if (mName.equals("currentTimeMillis")) {
+            if ("f64".equals(expectedType) || "double".equals(expectedType) || scopeStr.equals("WASI") || scopeStr.endsWith(".WASI")) {
+                collector.append("    call $__wasi_clock_time_ms\n");
+            } else {
+                collector.append("    call $__wasi_clock_time_ms_i64\n");
+            }
+            return;
+        }
+
+        if (mName.equals("clockTimeGet")) {
             collector.append("    call $__wasi_clock_time_ms\n");
+            return;
+        }
+
+        if (mName.equals("nanoTime")) {
+            collector.append("    call $__wasi_clock_time_ns\n");
             return;
         }
 

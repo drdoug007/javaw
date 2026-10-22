@@ -283,6 +283,20 @@ public class ClassRegistry {
             classes.put("WASIFile", cm);
         }
 
+        // Pre-register CharSequence and StringBuilder
+        if (!classes.containsKey("CharSequence")) {
+            ClassModel cm = new ClassModel("CharSequence", null, true, classIdCounter++);
+            classes.put("CharSequence", cm);
+            classes.put("java.lang.CharSequence", cm);
+        }
+        if (!classes.containsKey("StringBuilder")) {
+            ClassModel cm = new ClassModel("StringBuilder", null, false, classIdCounter++);
+            classes.put("StringBuilder", cm);
+            classes.put("java.lang.StringBuilder", cm);
+            classes.put("com.example.javaw.util.StringBuilder", cm);
+            classes.put("com.example.javaw.lang.StringBuilder", cm);
+        }
+
         // Phase 2: Compute Field Layouts & Struct Sizes in inheritance order
         for (ClassModel cm : getClassesInHierarchyOrder()) {
             int currentOffset = 4; // Offset 0 is reserved for vtable/classId header (4 bytes)

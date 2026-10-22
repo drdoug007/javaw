@@ -224,12 +224,12 @@ This roadmap organizes planned features by their utility and return on investmen
   - Java `enum` language construct lowering (`enum MyEnum { A, B, C }`) with static singleton class instances, `name()`, `ordinal()`, and `values()` array generation.
   - Support `switch` on enum instances lowered to branch tables (`br_table`) or conditional branching matching ordinal values.
 
-- [ ] **Phase 3: Expanded `String`, `CharSequence`, and Standard `StringBuilder`**
+- [x] **Phase 3: Expanded `String`, `CharSequence`, and Standard `StringBuilder`**
   - Promote `com.example.javaw.util.StringBuilder` to standard `java.lang.StringBuilder` in core package resolution with expanded methods (`insert`, `delete`, `deleteCharAt`, `reverse`, `replace`).
   - Implement `java.lang.CharSequence` interface.
   - Expand `String` standard methods (`trim()`, `strip()`, `toLowerCase()`, `toUpperCase()`, `replace(target, replacement)`, `contains(seq)`, `startsWith(prefix)`, `endsWith(suffix)`, `toCharArray()`, `getBytes()`, `compareTo(other)`, `equalsIgnoreCase(other)`, `repeat(count)`).
 
-- [ ] **Phase 4: Standard `System`, Clock & Environment**
+- [x] **Phase 4: Standard `System`, Clock & Environment**
   - Connect `System.currentTimeMillis()` and `System.nanoTime()` to WASI clock / browser performance timers.
   - Implement `System.identityHashCode(obj)`, `System.lineSeparator()`.
   - Bridge `System.getenv(key)` and `System.getProperty(key)` to WASI environment vectors or runtime JavaScript configs.

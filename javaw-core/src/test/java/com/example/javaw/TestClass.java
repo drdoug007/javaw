@@ -1111,6 +1111,83 @@ public class TestClass {
         Person p2 = p1.clonePerson();
         return p2.age == 30 && p2.name.equals("Alice") && p1 != p2;
     }
+
+    public String testStringTrim(String s) {
+        return s.trim();
+    }
+
+    public String testStringCase(String s, boolean upper) {
+        return upper ? s.toUpperCase() : s.toLowerCase();
+    }
+
+    public String testStringReplace(String s, String target, String rep) {
+        return s.replace(target, rep);
+    }
+
+    public String testStringRepeat(String s, int count) {
+        return s.repeat(count);
+    }
+
+    public boolean testStringContainsAndEnds(String s, String sub, String suffix) {
+        return s.contains(sub) && s.endsWith(suffix) && s.startsWith("Java");
+    }
+
+    public int testStringCompare(String s1, String s2, boolean ignoreCase) {
+        return ignoreCase ? (s1.equalsIgnoreCase(s2) ? 1 : 0) : s1.compareTo(s2);
+    }
+
+    public int testStringToCharArray(String s) {
+        char[] chars = s.toCharArray();
+        return chars.length;
+    }
+
+    public String testStringBuilderOps() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Web");
+        sb.append("Assembly");
+        sb.insert(3, "-Based ");
+        sb.delete(0, 4);
+        sb.deleteCharAt(5);
+        sb.replace(0, 5, "Java");
+        sb.reverse();
+        return sb.toString();
+    }
+
+    public String testStringValueOf(int n) {
+        return String.valueOf(n);
+    }
+
+    public boolean testSystemTimeAndClock() {
+        long ms = System.currentTimeMillis();
+        long ns = System.nanoTime();
+        return ms > 0 && ns > 0;
+    }
+
+    public boolean testSystemIdentityHashCode() {
+        Point p = new Point(10, 20);
+        int hash = System.identityHashCode(p);
+        int nullHash = System.identityHashCode(null);
+        return hash > 0 && nullHash == 0;
+    }
+
+    public boolean testSystemLineSeparator() {
+        String sep = System.lineSeparator();
+        return sep.equals("\n");
+    }
+
+    public boolean testSystemProperties() {
+        String lineSep = System.getProperty("line.separator");
+        String fileSep = System.getProperty("file.separator");
+        String osName = System.getProperty("os.name");
+        String osArch = System.getProperty("os.arch");
+        String defVal = System.getProperty("custom.unknown.property", "fallback");
+        return lineSep.equals("\n") && fileSep.equals("/") && osName.equals("WebAssembly") && osArch.equals("wasm32") && defVal.equals("fallback");
+    }
+
+    public boolean testSystemGetenv() {
+        String path = System.getenv("PATH");
+        return path != null && path.length() > 0;
+    }
 }
 
 enum Status {

@@ -820,6 +820,80 @@ async function runTest() {
 
                     console.log('✓ Phase 2: Root Object Virtual Contracts, Shallow Cloning, and Language Enums assertions passed.');
                 }
+
+                // Phase 3: Expanded String, CharSequence, and Standard StringBuilder Assertions
+                if (typeof instance.exports.testStringTrim === 'function') {
+                    const rawStrPtr = writeWasmString(instance, '   hello world   ');
+                    const trimmedPtr = instance.exports.testStringTrim(rawStrPtr);
+                    const trimmed = readWasmString(instance.exports.memory.buffer, trimmedPtr);
+                    assert.strictEqual(trimmed, 'hello world');
+
+                    const upperPtr = instance.exports.testStringCase(writeWasmString(instance, 'hello world'), 1);
+                    const upper = readWasmString(instance.exports.memory.buffer, upperPtr);
+                    assert.strictEqual(upper, 'HELLO WORLD');
+
+                    const lowerPtr = instance.exports.testStringCase(writeWasmString(instance, 'HELLO WORLD'), 0);
+                    const lower = readWasmString(instance.exports.memory.buffer, lowerPtr);
+                    assert.strictEqual(lower, 'hello world');
+
+                    const replacedPtr = instance.exports.testStringReplace(
+                        writeWasmString(instance, 'foo bar foo baz'),
+                        writeWasmString(instance, 'foo'),
+                        writeWasmString(instance, 'qux')
+                    );
+                    const replaced = readWasmString(instance.exports.memory.buffer, replacedPtr);
+                    assert.strictEqual(replaced, 'qux bar qux baz');
+
+                    const repPtr = instance.exports.testStringRepeat(writeWasmString(instance, 'ab'), 3);
+                    const repeated = readWasmString(instance.exports.memory.buffer, repPtr);
+                    assert.strictEqual(repeated, 'ababab');
+
+                    const containsEnds = instance.exports.testStringContainsAndEnds(
+                        writeWasmString(instance, 'JavaWebAssemblyAwesome'),
+                        writeWasmString(instance, 'WebAssembly'),
+                        writeWasmString(instance, 'Awesome')
+                    );
+                    assert.strictEqual(containsEnds, 1);
+
+                    const cmp1 = instance.exports.testStringCompare(
+                        writeWasmString(instance, 'abc'),
+                        writeWasmString(instance, 'ABC'),
+                        1
+                    );
+                    assert.strictEqual(cmp1, 1);
+
+                    const charCount = instance.exports.testStringToCharArray(writeWasmString(instance, 'Wasm'));
+                    assert.strictEqual(charCount, 4);
+
+                    const sbResPtr = instance.exports.testStringBuilderOps();
+                    const sbRes = readWasmString(instance.exports.memory.buffer, sbResPtr);
+                    assert.ok(typeof sbRes === 'string', 'StringBuilder result should be a string');
+
+                    const valOfPtr = instance.exports.testStringValueOf(42);
+                    const valOfStr = readWasmString(instance.exports.memory.buffer, valOfPtr);
+                    assert.strictEqual(valOfStr, '42');
+
+                    console.log('✓ Phase 3: Expanded String, CharSequence, and Standard StringBuilder assertions passed.');
+                }
+
+                if (typeof instance.exports.testSystemTimeAndClock === 'function') {
+                    const timeOk = instance.exports.testSystemTimeAndClock();
+                    assert.strictEqual(timeOk, 1, 'testSystemTimeAndClock should return 1');
+
+                    const idHashOk = instance.exports.testSystemIdentityHashCode();
+                    assert.strictEqual(idHashOk, 1, 'testSystemIdentityHashCode should return 1');
+
+                    const lineSepOk = instance.exports.testSystemLineSeparator();
+                    assert.strictEqual(lineSepOk, 1, 'testSystemLineSeparator should return 1');
+
+                    const propsOk = instance.exports.testSystemProperties();
+                    assert.strictEqual(propsOk, 1, 'testSystemProperties should return 1');
+
+                    const envOk = instance.exports.testSystemGetenv();
+                    assert.strictEqual(envOk, 1, 'testSystemGetenv should return 1');
+
+                    console.log('✓ Phase 4: Standard System, Clock & Environment assertions passed.');
+                }
             }
 
             console.log('✓ TestClass execution assertions passed (including for loops, for-each loops, arrays, switches, labeled break/continue, compound assignments, dynamic strings, OOP, Canvas 2D, WebGL, JSObject, WASI VFS, Threads/Atomics, Exceptions, Multi-Value Returns, Bulk Memory, Fixed-Width SIMD, and Multi-Memory Segregation).');

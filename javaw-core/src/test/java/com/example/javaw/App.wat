@@ -1,4 +1,5 @@
 (module
+  (@custom "sourceMappingURL" "\0cApp.wasm.map")
   (import "dom" "getElementById" (func $dom_getElementById (param i32 i32) (result i32)))
   (import "dom" "createElement" (func $dom_createElement (param i32 i32) (result i32)))
   (import "dom" "querySelector" (func $dom_querySelector (param i32 i32) (result i32)))
@@ -351,6 +352,57 @@
     i32.store8
     local.get $res
   )
+  (func $__str_from_char_array (export "__str_from_char_array") (param $arr i32) (result i32)
+    (local $len i32)
+    (local $res i32)
+    (local $i i32)
+    local.get $arr
+    i32.eqz
+    if
+      i32.const 0
+      call $__str_alloc
+      return
+    end
+    local.get $arr
+    i32.load
+    local.set $len
+    local.get $len
+    call $__str_alloc
+    local.set $res
+    i32.const 0
+    local.set $i
+    (block $break_fca
+      (loop $loop_fca
+        local.get $i
+        local.get $len
+        i32.ge_s
+        br_if $break_fca
+        local.get $res
+        local.get $i
+        i32.add
+        local.get $arr
+        i32.const 4
+        i32.add
+        local.get $i
+        i32.const 4
+        i32.mul
+        i32.add
+        i32.load
+        i32.store8
+        local.get $i
+        i32.const 1
+        i32.add
+        local.set $i
+        br $loop_fca
+      )
+    )
+    local.get $res
+    local.get $len
+    i32.add
+    i32.const 0
+    i32.store8
+    local.get $res
+  )
   (func $__str_from_bool (export "__str_from_bool") (param $b i32) (result i32)
     local.get $b
     if (result i32)
@@ -676,6 +728,783 @@
     )
     i32.const -1
   )
+  (func $__str_trim (export "__str_trim") (param $s i32) (result i32)
+    (local $len i32)
+    (local $start i32)
+    (local $end i32)
+    (local $subLen i32)
+    (local $res i32)
+    local.get $s
+    i32.eqz
+    if
+      i32.const 0
+      return
+    end
+    local.get $s
+    call $__str_length
+    local.set $len
+    local.get $len
+    i32.eqz
+    if
+      i32.const 0
+      call $__str_alloc
+      return
+    end
+    i32.const 0
+    local.set $start
+    (block $break_trim_start
+      (loop $loop_trim_start
+        local.get $start
+        local.get $len
+        i32.ge_s
+        br_if $break_trim_start
+        local.get $s
+        local.get $start
+        i32.add
+        i32.load8_u
+        i32.const 32
+        i32.gt_u
+        br_if $break_trim_start
+        local.get $start
+        i32.const 1
+        i32.add
+        local.set $start
+        br $loop_trim_start
+      )
+    )
+    local.get $start
+    local.get $len
+    i32.ge_s
+    if
+      i32.const 0
+      call $__str_alloc
+      return
+    end
+    local.get $len
+    i32.const 1
+    i32.sub
+    local.set $end
+    (block $break_trim_end
+      (loop $loop_trim_end
+        local.get $end
+        local.get $start
+        i32.lt_s
+        br_if $break_trim_end
+        local.get $s
+        local.get $end
+        i32.add
+        i32.load8_u
+        i32.const 32
+        i32.gt_u
+        br_if $break_trim_end
+        local.get $end
+        i32.const 1
+        i32.sub
+        local.set $end
+        br $loop_trim_end
+      )
+    )
+    local.get $end
+    local.get $start
+    i32.sub
+    i32.const 1
+    i32.add
+    local.set $subLen
+    local.get $subLen
+    call $__str_alloc
+    local.set $res
+    local.get $res
+    local.get $s
+    local.get $start
+    i32.add
+    local.get $subLen
+    memory.copy
+    local.get $res
+    local.get $subLen
+    i32.add
+    i32.const 0
+    i32.store8
+    local.get $res
+  )
+  (func $__str_strip (export "__str_strip") (param $s i32) (result i32)
+    local.get $s
+    call $__str_trim
+  )
+  (func $__str_toLowerCase (export "__str_toLowerCase") (param $s i32) (result i32)
+    (local $len i32)
+    (local $res i32)
+    (local $i i32)
+    (local $c i32)
+    local.get $s
+    i32.eqz
+    if
+      i32.const 0
+      return
+    end
+    local.get $s
+    call $__str_length
+    local.set $len
+    local.get $len
+    call $__str_alloc
+    local.set $res
+    i32.const 0
+    local.set $i
+    (block $break_lc
+      (loop $loop_lc
+        local.get $i
+        local.get $len
+        i32.ge_s
+        br_if $break_lc
+        local.get $s
+        local.get $i
+        i32.add
+        i32.load8_u
+        local.set $c
+        local.get $c
+        i32.const 65
+        i32.ge_s
+        local.get $c
+        i32.const 90
+        i32.le_s
+        i32.and
+        if
+          local.get $c
+          i32.const 32
+          i32.add
+          local.set $c
+        end
+        local.get $res
+        local.get $i
+        i32.add
+        local.get $c
+        i32.store8
+        local.get $i
+        i32.const 1
+        i32.add
+        local.set $i
+        br $loop_lc
+      )
+    )
+    local.get $res
+    local.get $len
+    i32.add
+    i32.const 0
+    i32.store8
+    local.get $res
+  )
+  (func $__str_toUpperCase (export "__str_toUpperCase") (param $s i32) (result i32)
+    (local $len i32)
+    (local $res i32)
+    (local $i i32)
+    (local $c i32)
+    local.get $s
+    i32.eqz
+    if
+      i32.const 0
+      return
+    end
+    local.get $s
+    call $__str_length
+    local.set $len
+    local.get $len
+    call $__str_alloc
+    local.set $res
+    i32.const 0
+    local.set $i
+    (block $break_uc
+      (loop $loop_uc
+        local.get $i
+        local.get $len
+        i32.ge_s
+        br_if $break_uc
+        local.get $s
+        local.get $i
+        i32.add
+        i32.load8_u
+        local.set $c
+        local.get $c
+        i32.const 97
+        i32.ge_s
+        local.get $c
+        i32.const 122
+        i32.le_s
+        i32.and
+        if
+          local.get $c
+          i32.const 32
+          i32.sub
+          local.set $c
+        end
+        local.get $res
+        local.get $i
+        i32.add
+        local.get $c
+        i32.store8
+        local.get $i
+        i32.const 1
+        i32.add
+        local.set $i
+        br $loop_uc
+      )
+    )
+    local.get $res
+    local.get $len
+    i32.add
+    i32.const 0
+    i32.store8
+    local.get $res
+  )
+  (func $__str_contains (export "__str_contains") (param $s i32) (param $sub i32) (result i32)
+    local.get $s
+    local.get $sub
+    call $__str_indexOf
+    i32.const -1
+    i32.ne
+  )
+  (func $__str_endsWith (export "__str_endsWith") (param $s i32) (param $suffix i32) (result i32)
+    (local $lenS i32)
+    (local $lenP i32)
+    (local $offset i32)
+    (local $i i32)
+    (local $cS i32)
+    (local $cP i32)
+    local.get $suffix
+    i32.eqz
+    if
+      i32.const 1
+      return
+    end
+    local.get $s
+    i32.eqz
+    if
+      i32.const 0
+      return
+    end
+    local.get $s
+    call $__str_length
+    local.set $lenS
+    local.get $suffix
+    call $__str_length
+    local.set $lenP
+    local.get $lenS
+    local.get $lenP
+    i32.lt_s
+    if
+      i32.const 0
+      return
+    end
+    local.get $lenS
+    local.get $lenP
+    i32.sub
+    local.set $offset
+    i32.const 0
+    local.set $i
+    (block $break_ew
+      (loop $loop_ew
+        local.get $i
+        local.get $lenP
+        i32.ge_s
+        br_if $break_ew
+        local.get $s
+        local.get $offset
+        i32.add
+        local.get $i
+        i32.add
+        i32.load8_u
+        local.set $cS
+        local.get $suffix
+        local.get $i
+        i32.add
+        i32.load8_u
+        local.set $cP
+        local.get $cS
+        local.get $cP
+        i32.ne
+        if
+          i32.const 0
+          return
+        end
+        local.get $i
+        i32.const 1
+        i32.add
+        local.set $i
+        br $loop_ew
+      )
+    )
+    i32.const 1
+  )
+  (func $__str_compareTo (export "__str_compareTo") (param $s1 i32) (param $s2 i32) (result i32)
+    (local $len1 i32)
+    (local $len2 i32)
+    (local $lim i32)
+    (local $k i32)
+    (local $c1 i32)
+    (local $c2 i32)
+    local.get $s1
+    local.get $s2
+    i32.eq
+    if
+      i32.const 0
+      return
+    end
+    local.get $s1
+    i32.eqz
+    if
+      i32.const -1
+      return
+    end
+    local.get $s2
+    i32.eqz
+    if
+      i32.const 1
+      return
+    end
+    local.get $s1
+    call $__str_length
+    local.set $len1
+    local.get $s2
+    call $__str_length
+    local.set $len2
+    local.get $len1
+    local.get $len2
+    local.get $len1
+    local.get $len2
+    i32.lt_s
+    select
+    local.set $lim
+    i32.const 0
+    local.set $k
+    (block $break_cmp
+      (loop $loop_cmp
+        local.get $k
+        local.get $lim
+        i32.ge_s
+        br_if $break_cmp
+        local.get $s1
+        local.get $k
+        i32.add
+        i32.load8_u
+        local.set $c1
+        local.get $s2
+        local.get $k
+        i32.add
+        i32.load8_u
+        local.set $c2
+        local.get $c1
+        local.get $c2
+        i32.ne
+        if
+          local.get $c1
+          local.get $c2
+          i32.sub
+          return
+        end
+        local.get $k
+        i32.const 1
+        i32.add
+        local.set $k
+        br $loop_cmp
+      )
+    )
+    local.get $len1
+    local.get $len2
+    i32.sub
+  )
+  (func $__str_equalsIgnoreCase (export "__str_equalsIgnoreCase") (param $s1 i32) (param $s2 i32) (result i32)
+    (local $len1 i32)
+    (local $len2 i32)
+    (local $k i32)
+    (local $c1 i32)
+    (local $c2 i32)
+    local.get $s1
+    local.get $s2
+    i32.eq
+    if
+      i32.const 1
+      return
+    end
+    local.get $s1
+    i32.eqz
+    local.get $s2
+    i32.eqz
+    i32.or
+    if
+      i32.const 0
+      return
+    end
+    local.get $s1
+    call $__str_length
+    local.set $len1
+    local.get $s2
+    call $__str_length
+    local.set $len2
+    local.get $len1
+    local.get $len2
+    i32.ne
+    if
+      i32.const 0
+      return
+    end
+    i32.const 0
+    local.set $k
+    (block $break_eqic
+      (loop $loop_eqic
+        local.get $k
+        local.get $len1
+        i32.ge_s
+        br_if $break_eqic
+        local.get $s1
+        local.get $k
+        i32.add
+        i32.load8_u
+        local.set $c1
+        local.get $s2
+        local.get $k
+        i32.add
+        i32.load8_u
+        local.set $c2
+        local.get $c1
+        i32.const 65
+        i32.ge_s
+        local.get $c1
+        i32.const 90
+        i32.le_s
+        i32.and
+        if
+          local.get $c1
+          i32.const 32
+          i32.add
+          local.set $c1
+        end
+        local.get $c2
+        i32.const 65
+        i32.ge_s
+        local.get $c2
+        i32.const 90
+        i32.le_s
+        i32.and
+        if
+          local.get $c2
+          i32.const 32
+          i32.add
+          local.set $c2
+        end
+        local.get $c1
+        local.get $c2
+        i32.ne
+        if
+          i32.const 0
+          return
+        end
+        local.get $k
+        i32.const 1
+        i32.add
+        local.set $k
+        br $loop_eqic
+      )
+    )
+    i32.const 1
+  )
+  (func $__str_repeat (export "__str_repeat") (param $s i32) (param $count i32) (result i32)
+    (local $len i32)
+    (local $totalLen i32)
+    (local $res i32)
+    (local $k i32)
+    local.get $count
+    i32.const 0
+    i32.le_s
+    if
+      i32.const 0
+      call $__str_alloc
+      return
+    end
+    local.get $s
+    i32.eqz
+    if
+      i32.const 0
+      call $__str_alloc
+      return
+    end
+    local.get $s
+    call $__str_length
+    local.set $len
+    local.get $len
+    i32.eqz
+    if
+      i32.const 0
+      call $__str_alloc
+      return
+    end
+    local.get $len
+    local.get $count
+    i32.mul
+    local.set $totalLen
+    local.get $totalLen
+    call $__str_alloc
+    local.set $res
+    i32.const 0
+    local.set $k
+    (block $break_rep
+      (loop $loop_rep
+        local.get $k
+        local.get $count
+        i32.ge_s
+        br_if $break_rep
+        local.get $res
+        local.get $k
+        local.get $len
+        i32.mul
+        i32.add
+        local.get $s
+        local.get $len
+        memory.copy
+        local.get $k
+        i32.const 1
+        i32.add
+        local.set $k
+        br $loop_rep
+      )
+    )
+    local.get $res
+    local.get $totalLen
+    i32.add
+    i32.const 0
+    i32.store8
+    local.get $res
+  )
+  (func $__str_toCharArray (export "__str_toCharArray") (param $s i32) (result i32)
+    (local $len i32)
+    (local $arr i32)
+    (local $i i32)
+    local.get $s
+    i32.eqz
+    if
+      i32.const 0
+      local.set $len
+    else
+      local.get $s
+      call $__str_length
+      local.set $len
+    end
+    local.get $len
+    i32.const 4
+    i32.mul
+    i32.const 4
+    i32.add
+    call $__heap_alloc
+    local.set $arr
+    local.get $arr
+    local.get $len
+    i32.store
+    i32.const 0
+    local.set $i
+    (block $break_tca
+      (loop $loop_tca
+        local.get $i
+        local.get $len
+        i32.ge_s
+        br_if $break_tca
+        local.get $arr
+        i32.const 4
+        i32.add
+        local.get $i
+        i32.const 4
+        i32.mul
+        i32.add
+        local.get $s
+        local.get $i
+        i32.add
+        i32.load8_u
+        i32.store
+        local.get $i
+        i32.const 1
+        i32.add
+        local.set $i
+        br $loop_tca
+      )
+    )
+    local.get $arr
+  )
+  (func $__str_getBytes (export "__str_getBytes") (param $s i32) (result i32)
+    local.get $s
+    call $__str_toCharArray
+  )
+  (func $__str_replace_char (export "__str_replace_char") (param $s i32) (param $oldC i32) (param $newC i32) (result i32)
+    (local $len i32)
+    (local $res i32)
+    (local $i i32)
+    (local $c i32)
+    local.get $s
+    i32.eqz
+    if
+      i32.const 0
+      return
+    end
+    local.get $s
+    call $__str_length
+    local.set $len
+    local.get $len
+    call $__str_alloc
+    local.set $res
+    i32.const 0
+    local.set $i
+    (block $break_rc
+      (loop $loop_rc
+        local.get $i
+        local.get $len
+        i32.ge_s
+        br_if $break_rc
+        local.get $s
+        local.get $i
+        i32.add
+        i32.load8_u
+        local.set $c
+        local.get $c
+        local.get $oldC
+        i32.eq
+        if
+          local.get $newC
+          local.set $c
+        end
+        local.get $res
+        local.get $i
+        i32.add
+        local.get $c
+        i32.store8
+        local.get $i
+        i32.const 1
+        i32.add
+        local.set $i
+        br $loop_rc
+      )
+    )
+    local.get $res
+    local.get $len
+    i32.add
+    i32.const 0
+    i32.store8
+    local.get $res
+  )
+  (func $__str_replace_str (export "__str_replace_str") (param $s i32) (param $target i32) (param $replacement i32) (result i32)
+    (local $lenS i32)
+    (local $lenT i32)
+    (local $lenR i32)
+    (local $sb i32)
+    (local $i i32)
+    (local $match i32)
+    (local $j i32)
+    local.get $s
+    i32.eqz
+    if
+      i32.const 0
+      return
+    end
+    local.get $target
+    i32.eqz
+    if
+      local.get $s
+      return
+    end
+    local.get $target
+    call $__str_length
+    local.set $lenT
+    local.get $lenT
+    i32.eqz
+    if
+      local.get $s
+      return
+    end
+    local.get $s
+    call $__str_length
+    local.set $lenS
+    local.get $replacement
+    if (result i32)
+      local.get $replacement
+      call $__str_length
+    else
+      i32.const 0
+    end
+    local.set $lenR
+    i32.const 1024
+    call $__sb_new
+    local.set $sb
+    i32.const 0
+    local.set $i
+    (block $break_rep_str
+      (loop $loop_rep_str
+        local.get $i
+        local.get $lenS
+        i32.ge_s
+        br_if $break_rep_str
+        local.get $i
+        local.get $lenT
+        i32.add
+        local.get $lenS
+        i32.le_s
+        if
+          i32.const 1
+          local.set $match
+          i32.const 0
+          local.set $j
+          (block $break_chk
+            (loop $loop_chk
+              local.get $j
+              local.get $lenT
+              i32.ge_s
+              br_if $break_chk
+              local.get $s
+              local.get $i
+              i32.add
+              local.get $j
+              i32.add
+              i32.load8_u
+              local.get $target
+              local.get $j
+              i32.add
+              i32.load8_u
+              i32.ne
+              if
+                i32.const 0
+                local.set $match
+                br $break_chk
+              end
+              local.get $j
+              i32.const 1
+              i32.add
+              local.set $j
+              br $loop_chk
+            )
+          )
+          local.get $match
+          if
+            local.get $sb
+            local.get $replacement
+            call $__sb_append_str
+            drop
+            local.get $i
+            local.get $lenT
+            i32.add
+            local.set $i
+            br $loop_rep_str
+          end
+        end
+        local.get $sb
+        local.get $s
+        local.get $i
+        i32.add
+        i32.load8_u
+        call $__sb_append_char
+        drop
+        local.get $i
+        i32.const 1
+        i32.add
+        local.set $i
+        br $loop_rep_str
+      )
+    )
+    local.get $sb
+    call $__sb_toString
+  )
   ;; --- StringBuilder Runtime Functions ---
   (func $__sb_new (export "__sb_new") (param $initial_cap i32) (result i32)
     (local $sb i32)
@@ -779,6 +1608,387 @@
     local.get $b
     call $__str_from_bool
     call $__sb_append_str
+  )
+  (func $__sb_append_f64 (export "__sb_append_f64") (param $sb i32) (param $val f64) (result i32)
+    local.get $sb
+    local.get $val
+    call $__str_from_f64
+    call $__sb_append_str
+  )
+  (func $__sb_insert_str (export "__sb_insert_str") (param $sb i32) (param $offset i32) (param $str i32) (result i32)
+    (local $cur_len i32)
+    (local $str_len i32)
+    (local $off i32)
+    local.get $sb
+    i32.eqz
+    if
+      i32.const 0
+      return
+    end
+    local.get $str
+    i32.eqz
+    if
+      local.get $sb
+      return
+    end
+    local.get $str
+    call $__str_length
+    local.set $str_len
+    local.get $str_len
+    i32.eqz
+    if
+      local.get $sb
+      return
+    end
+    local.get $sb
+    i32.const 4
+    i32.add
+    i32.load
+    local.set $cur_len
+    local.get $offset
+    local.set $off
+    local.get $off
+    i32.const 0
+    i32.lt_s
+    if
+      i32.const 0
+      local.set $off
+    end
+    local.get $off
+    local.get $cur_len
+    i32.gt_s
+    if
+      local.get $cur_len
+      local.set $off
+    end
+    local.get $sb
+    i32.const 8
+    i32.add
+    local.get $off
+    i32.add
+    local.get $str_len
+    i32.add
+    local.get $sb
+    i32.const 8
+    i32.add
+    local.get $off
+    i32.add
+    local.get $cur_len
+    local.get $off
+    i32.sub
+    memory.copy
+    local.get $sb
+    i32.const 8
+    i32.add
+    local.get $off
+    i32.add
+    local.get $str
+    local.get $str_len
+    memory.copy
+    local.get $sb
+    i32.const 4
+    i32.add
+    local.get $cur_len
+    local.get $str_len
+    i32.add
+    i32.store
+    local.get $sb
+    i32.const 8
+    i32.add
+    local.get $cur_len
+    local.get $str_len
+    i32.add
+    i32.add
+    i32.const 0
+    i32.store8
+    local.get $sb
+  )
+  (func $__sb_insert_i32 (export "__sb_insert_i32") (param $sb i32) (param $offset i32) (param $val i32) (result i32)
+    local.get $sb
+    local.get $offset
+    local.get $val
+    call $__str_from_i32
+    call $__sb_insert_str
+  )
+  (func $__sb_insert_char (export "__sb_insert_char") (param $sb i32) (param $offset i32) (param $c i32) (result i32)
+    local.get $sb
+    local.get $offset
+    local.get $c
+    call $__str_from_char
+    call $__sb_insert_str
+  )
+  (func $__sb_insert_bool (export "__sb_insert_bool") (param $sb i32) (param $offset i32) (param $b i32) (result i32)
+    local.get $sb
+    local.get $offset
+    local.get $b
+    call $__str_from_bool
+    call $__sb_insert_str
+  )
+  (func $__sb_insert_f64 (export "__sb_insert_f64") (param $sb i32) (param $offset i32) (param $d f64) (result i32)
+    local.get $sb
+    local.get $offset
+    local.get $d
+    call $__str_from_f64
+    call $__sb_insert_str
+  )
+  (func $__sb_delete (export "__sb_delete") (param $sb i32) (param $start i32) (param $end i32) (result i32)
+    (local $cur_len i32)
+    (local $s i32)
+    (local $e i32)
+    (local $del_len i32)
+    local.get $sb
+    i32.eqz
+    if
+      i32.const 0
+      return
+    end
+    local.get $sb
+    i32.const 4
+    i32.add
+    i32.load
+    local.set $cur_len
+    local.get $start
+    local.set $s
+    local.get $s
+    i32.const 0
+    i32.lt_s
+    if
+      i32.const 0
+      local.set $s
+    end
+    local.get $s
+    local.get $cur_len
+    i32.gt_s
+    if
+      local.get $cur_len
+      local.set $s
+    end
+    local.get $end
+    local.set $e
+    local.get $e
+    local.get $cur_len
+    i32.gt_s
+    if
+      local.get $cur_len
+      local.set $e
+    end
+    local.get $s
+    local.get $e
+    i32.ge_s
+    if
+      local.get $sb
+      return
+    end
+    local.get $e
+    local.get $s
+    i32.sub
+    local.set $del_len
+    local.get $sb
+    i32.const 8
+    i32.add
+    local.get $s
+    i32.add
+    local.get $sb
+    i32.const 8
+    i32.add
+    local.get $e
+    i32.add
+    local.get $cur_len
+    local.get $e
+    i32.sub
+    memory.copy
+    local.get $sb
+    i32.const 4
+    i32.add
+    local.get $cur_len
+    local.get $del_len
+    i32.sub
+    i32.store
+    local.get $sb
+    i32.const 8
+    i32.add
+    local.get $cur_len
+    local.get $del_len
+    i32.sub
+    i32.add
+    i32.const 0
+    i32.store8
+    local.get $sb
+  )
+  (func $__sb_deleteCharAt (export "__sb_deleteCharAt") (param $sb i32) (param $idx i32) (result i32)
+    local.get $sb
+    local.get $idx
+    local.get $idx
+    i32.const 1
+    i32.add
+    call $__sb_delete
+  )
+  (func $__sb_reverse (export "__sb_reverse") (param $sb i32) (result i32)
+    (local $cur_len i32)
+    (local $i i32)
+    (local $j i32)
+    (local $ci i32)
+    (local $cj i32)
+    local.get $sb
+    i32.eqz
+    if
+      i32.const 0
+      return
+    end
+    local.get $sb
+    i32.const 4
+    i32.add
+    i32.load
+    local.set $cur_len
+    local.get $cur_len
+    i32.const 1
+    i32.le_s
+    if
+      local.get $sb
+      return
+    end
+    i32.const 0
+    local.set $i
+    local.get $cur_len
+    i32.const 1
+    i32.sub
+    local.set $j
+    (block $break_rev
+      (loop $loop_rev
+        local.get $i
+        local.get $j
+        i32.ge_s
+        br_if $break_rev
+        local.get $sb
+        i32.const 8
+        i32.add
+        local.get $i
+        i32.add
+        i32.load8_u
+        local.set $ci
+        local.get $sb
+        i32.const 8
+        i32.add
+        local.get $j
+        i32.add
+        i32.load8_u
+        local.set $cj
+        local.get $sb
+        i32.const 8
+        i32.add
+        local.get $i
+        i32.add
+        local.get $cj
+        i32.store8
+        local.get $sb
+        i32.const 8
+        i32.add
+        local.get $j
+        i32.add
+        local.get $ci
+        i32.store8
+        local.get $i
+        i32.const 1
+        i32.add
+        local.set $i
+        local.get $j
+        i32.const 1
+        i32.sub
+        local.set $j
+        br $loop_rev
+      )
+    )
+    local.get $sb
+  )
+  (func $__sb_replace (export "__sb_replace") (param $sb i32) (param $start i32) (param $end i32) (param $str i32) (result i32)
+    local.get $sb
+    local.get $start
+    local.get $end
+    call $__sb_delete
+    local.set $sb
+    local.get $sb
+    local.get $start
+    local.get $str
+    call $__sb_insert_str
+  )
+  (func $__sb_substring (export "__sb_substring") (param $sb i32) (param $start i32) (param $end i32) (result i32)
+    (local $cur_len i32)
+    (local $s i32)
+    (local $e i32)
+    (local $subLen i32)
+    (local $res i32)
+    local.get $sb
+    i32.eqz
+    if
+      i32.const 0
+      call $__str_alloc
+      return
+    end
+    local.get $sb
+    i32.const 4
+    i32.add
+    i32.load
+    local.set $cur_len
+    local.get $start
+    local.set $s
+    local.get $s
+    i32.const 0
+    i32.lt_s
+    if
+      i32.const 0
+      local.set $s
+    end
+    local.get $end
+    local.set $e
+    local.get $e
+    local.get $cur_len
+    i32.gt_s
+    if
+      local.get $cur_len
+      local.set $e
+    end
+    local.get $s
+    local.get $e
+    i32.ge_s
+    if
+      i32.const 0
+      call $__str_alloc
+      return
+    end
+    local.get $e
+    local.get $s
+    i32.sub
+    local.set $subLen
+    local.get $subLen
+    call $__str_alloc
+    local.set $res
+    local.get $res
+    local.get $sb
+    i32.const 8
+    i32.add
+    local.get $s
+    i32.add
+    local.get $subLen
+    memory.copy
+    local.get $res
+    local.get $subLen
+    i32.add
+    i32.const 0
+    i32.store8
+    local.get $res
+  )
+  (func $__sb_indexOf (export "__sb_indexOf") (param $sb i32) (param $str i32) (result i32)
+    local.get $sb
+    i32.eqz
+    if
+      i32.const -1
+      return
+    end
+    local.get $sb
+    i32.const 8
+    i32.add
+    local.get $str
+    call $__str_indexOf
   )
   (func $__sb_toString (export "__sb_toString") (param $sb i32) (result i32)
     (local $cur_len i32)
@@ -2862,6 +4072,457 @@
       local.get $d
       i32.add
     end
+  )
+  ;; --- System Utility & Environment Functions ---
+  (func $__system_identity_hash_code (export "__system_identity_hash_code") (param $obj i32) (result i32)
+    local.get $obj
+  )
+  (func $__system_line_separator (export "__system_line_separator") (result i32)
+    (local $res i32)
+    i32.const 1
+    call $__str_alloc
+    local.set $res
+    local.get $res
+    i32.const 10
+    i32.store8
+    local.get $res
+    i32.const 1
+    i32.add
+    i32.const 0
+    i32.store8
+    local.get $res
+  )
+  (func $__system_get_property (export "__system_get_property") (param $key i32) (result i32)
+    (local $klen i32)
+    (local $res i32)
+    local.get $key
+    i32.eqz
+    if
+      i32.const 0
+      return
+    end
+    local.get $key
+    call $__str_length
+    local.set $klen
+    local.get $klen
+    i32.const 14
+    i32.eq
+    if
+      local.get $key
+      i32.load8_u
+      i32.const 108
+      i32.eq
+      if
+        local.get $key
+        i32.const 13
+        i32.add
+        i32.load8_u
+        i32.const 114
+        i32.eq
+        if
+          call $__system_line_separator
+          return
+        end
+      end
+      local.get $key
+      i32.load8_u
+      i32.const 102
+      i32.eq
+      if
+        local.get $key
+        i32.const 13
+        i32.add
+        i32.load8_u
+        i32.const 114
+        i32.eq
+        if
+          i32.const 47
+          call $__str_from_char
+          return
+        end
+      end
+      local.get $key
+      i32.load8_u
+      i32.const 112
+      i32.eq
+      if
+        i32.const 58
+        call $__str_from_char
+        return
+      end
+    end
+    local.get $klen
+    i32.const 12
+    i32.eq
+    if
+      local.get $key
+      i32.load8_u
+      i32.const 106
+      i32.eq
+      if
+        i32.const 17
+        call $__str_from_i32
+        return
+      end
+    end
+    local.get $klen
+    i32.const 11
+    i32.eq
+    if
+      local.get $key
+      i32.load8_u
+      i32.const 106
+      i32.eq
+      if
+        i32.const 5
+        call $__str_alloc
+        local.set $res
+        local.get $res
+        i32.const 0
+        i32.add
+        i32.const 106
+        i32.store8
+        local.get $res
+        i32.const 1
+        i32.add
+        i32.const 97
+        i32.store8
+        local.get $res
+        i32.const 2
+        i32.add
+        i32.const 118
+        i32.store8
+        local.get $res
+        i32.const 3
+        i32.add
+        i32.const 97
+        i32.store8
+        local.get $res
+        i32.const 4
+        i32.add
+        i32.const 119
+        i32.store8
+        local.get $res
+        i32.const 5
+        i32.add
+        i32.const 0
+        i32.store8
+        local.get $res
+        return
+      end
+    end
+    local.get $klen
+    i32.const 7
+    i32.eq
+    if
+      local.get $key
+      i32.load8_u
+      i32.const 111
+      i32.eq
+      if
+        local.get $key
+        i32.const 3
+        i32.add
+        i32.load8_u
+        i32.const 110
+        i32.eq
+        if
+          i32.const 11
+          call $__str_alloc
+          local.set $res
+          local.get $res
+          i32.const 0
+          i32.add
+          i32.const 87
+          i32.store8
+          local.get $res
+          i32.const 1
+          i32.add
+          i32.const 101
+          i32.store8
+          local.get $res
+          i32.const 2
+          i32.add
+          i32.const 98
+          i32.store8
+          local.get $res
+          i32.const 3
+          i32.add
+          i32.const 65
+          i32.store8
+          local.get $res
+          i32.const 4
+          i32.add
+          i32.const 115
+          i32.store8
+          local.get $res
+          i32.const 5
+          i32.add
+          i32.const 115
+          i32.store8
+          local.get $res
+          i32.const 6
+          i32.add
+          i32.const 101
+          i32.store8
+          local.get $res
+          i32.const 7
+          i32.add
+          i32.const 109
+          i32.store8
+          local.get $res
+          i32.const 8
+          i32.add
+          i32.const 98
+          i32.store8
+          local.get $res
+          i32.const 9
+          i32.add
+          i32.const 108
+          i32.store8
+          local.get $res
+          i32.const 10
+          i32.add
+          i32.const 121
+          i32.store8
+          local.get $res
+          i32.const 11
+          i32.add
+          i32.const 0
+          i32.store8
+          local.get $res
+          return
+        end
+        local.get $key
+        i32.const 3
+        i32.add
+        i32.load8_u
+        i32.const 97
+        i32.eq
+        if
+          i32.const 6
+          call $__str_alloc
+          local.set $res
+          local.get $res
+          i32.const 0
+          i32.add
+          i32.const 119
+          i32.store8
+          local.get $res
+          i32.const 1
+          i32.add
+          i32.const 97
+          i32.store8
+          local.get $res
+          i32.const 2
+          i32.add
+          i32.const 115
+          i32.store8
+          local.get $res
+          i32.const 3
+          i32.add
+          i32.const 109
+          i32.store8
+          local.get $res
+          i32.const 4
+          i32.add
+          i32.const 51
+          i32.store8
+          local.get $res
+          i32.const 5
+          i32.add
+          i32.const 50
+          i32.store8
+          local.get $res
+          i32.const 6
+          i32.add
+          i32.const 0
+          i32.store8
+          local.get $res
+          return
+        end
+      end
+    end
+    local.get $klen
+    i32.const 13
+    i32.eq
+    if
+      local.get $key
+      i32.load8_u
+      i32.const 102
+      i32.eq
+      if
+        i32.const 5
+        call $__str_alloc
+        local.set $res
+        local.get $res
+        i32.const 0
+        i32.add
+        i32.const 85
+        i32.store8
+        local.get $res
+        i32.const 1
+        i32.add
+        i32.const 84
+        i32.store8
+        local.get $res
+        i32.const 2
+        i32.add
+        i32.const 70
+        i32.store8
+        local.get $res
+        i32.const 3
+        i32.add
+        i32.const 45
+        i32.store8
+        local.get $res
+        i32.const 4
+        i32.add
+        i32.const 56
+        i32.store8
+        local.get $res
+        i32.const 5
+        i32.add
+        i32.const 0
+        i32.store8
+        local.get $res
+        return
+      end
+    end
+    local.get $klen
+    i32.const 8
+    i32.eq
+    if
+      local.get $key
+      i32.load8_u
+      i32.const 117
+      i32.eq
+      if
+        local.get $key
+        i32.const 5
+        i32.add
+        i32.load8_u
+        i32.const 100
+        i32.eq
+        if
+          i32.const 47
+          call $__str_from_char
+          return
+        end
+      end
+    end
+    local.get $klen
+    i32.const 9
+    i32.eq
+    if
+      local.get $key
+      i32.load8_u
+      i32.const 117
+      i32.eq
+      if
+        local.get $key
+        i32.const 5
+        i32.add
+        i32.load8_u
+        i32.const 104
+        i32.eq
+        if
+          i32.const 5
+          call $__str_alloc
+          local.set $res
+          local.get $res
+          i32.const 0
+          i32.add
+          i32.const 47
+          i32.store8
+          local.get $res
+          i32.const 1
+          i32.add
+          i32.const 104
+          i32.store8
+          local.get $res
+          i32.const 2
+          i32.add
+          i32.const 111
+          i32.store8
+          local.get $res
+          i32.const 3
+          i32.add
+          i32.const 109
+          i32.store8
+          local.get $res
+          i32.const 4
+          i32.add
+          i32.const 101
+          i32.store8
+          local.get $res
+          i32.const 5
+          i32.add
+          i32.const 0
+          i32.store8
+          local.get $res
+          return
+        end
+        local.get $key
+        i32.const 5
+        i32.add
+        i32.load8_u
+        i32.const 110
+        i32.eq
+        if
+          i32.const 4
+          call $__str_alloc
+          local.set $res
+          local.get $res
+          i32.const 0
+          i32.add
+          i32.const 119
+          i32.store8
+          local.get $res
+          i32.const 1
+          i32.add
+          i32.const 97
+          i32.store8
+          local.get $res
+          i32.const 2
+          i32.add
+          i32.const 115
+          i32.store8
+          local.get $res
+          i32.const 3
+          i32.add
+          i32.const 109
+          i32.store8
+          local.get $res
+          i32.const 4
+          i32.add
+          i32.const 0
+          i32.store8
+          local.get $res
+          return
+        end
+      end
+    end
+    local.get $key
+    call $__system_getenv
+    local.set $res
+    local.get $res
+  )
+  (func $__system_get_property_default (export "__system_get_property_default") (param $key i32) (param $def i32) (result i32)
+    (local $res i32)
+    local.get $key
+    call $__system_get_property
+    local.set $res
+    local.get $res
+    i32.eqz
+    if
+      local.get $def
+      return
+    end
+    local.get $res
+  )
+  (func $__system_getenv (export "__system_getenv") (param $key i32) (result i32)
+    i32.const 0
   )
   ;; Class/Interface: App
   (func $start (export "start")

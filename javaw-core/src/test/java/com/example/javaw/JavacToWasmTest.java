@@ -1347,4 +1347,112 @@ public class JavacToWasmTest {
         org.junit.jupiter.api.Assertions.assertNotNull(res);
         org.junit.jupiter.api.Assertions.assertNotNull(res.getWat());
     }
+
+    @Test
+    public void testStringAndStringBuilderPhase3() {
+        String javaSource = "package com.example.javaw;\n" +
+                "public class StringPhase3App {\n" +
+                "    public static String testStringOperations(String s) {\n" +
+                "        String trimmed = s.trim();\n" +
+                "        String stripped = s.strip();\n" +
+                "        String lower = s.toLowerCase();\n" +
+                "        String upper = s.toUpperCase();\n" +
+                "        String replaced = s.replace(\"old\", \"new\");\n" +
+                "        String repeated = s.repeat(3);\n" +
+                "        char[] chars = s.toCharArray();\n" +
+                "        byte[] bytes = s.getBytes();\n" +
+                "        boolean contains = s.contains(\"target\");\n" +
+                "        boolean starts = s.startsWith(\"pre\");\n" +
+                "        boolean ends = s.endsWith(\"post\");\n" +
+                "        boolean eqIc = s.equalsIgnoreCase(\"OTHER\");\n" +
+                "        int cmp = s.compareTo(\"abc\");\n" +
+                "        String valOf = String.valueOf(123);\n" +
+                "        return trimmed + lower + upper + replaced + repeated + valOf;\n" +
+                "    }\n" +
+                "    public static String testStringBuilderOperations() {\n" +
+                "        StringBuilder sb = new StringBuilder();\n" +
+                "        sb.append(\"Hello\");\n" +
+                "        sb.append(' ');\n" +
+                "        sb.append(123);\n" +
+                "        sb.append(true);\n" +
+                "        sb.insert(5, \", World\");\n" +
+                "        sb.delete(0, 5);\n" +
+                "        sb.deleteCharAt(0);\n" +
+                "        sb.reverse();\n" +
+                "        sb.replace(0, 3, \"XYZ\");\n" +
+                "        String sub = sb.substring(1);\n" +
+                "        int idx = sb.indexOf(\"XYZ\");\n" +
+                "        return sb.toString();\n" +
+                "    }\n" +
+                "}\n";
+
+        CompilationUnit cu = StaticJavaParser.parse(javaSource);
+        String wat = JavacToWasm.generateWat(cu);
+
+        assertTrue(wat.contains("call $__str_trim"));
+        assertTrue(wat.contains("call $__str_strip"));
+        assertTrue(wat.contains("call $__str_toLowerCase"));
+        assertTrue(wat.contains("call $__str_toUpperCase"));
+        assertTrue(wat.contains("call $__str_replace_str"));
+        assertTrue(wat.contains("call $__str_repeat"));
+        assertTrue(wat.contains("call $__str_toCharArray"));
+        assertTrue(wat.contains("call $__str_getBytes"));
+        assertTrue(wat.contains("call $__str_contains"));
+        assertTrue(wat.contains("call $__str_startsWith"));
+        assertTrue(wat.contains("call $__str_endsWith"));
+        assertTrue(wat.contains("call $__str_equalsIgnoreCase"));
+        assertTrue(wat.contains("call $__str_compareTo"));
+        assertTrue(wat.contains("call $__sb_new"));
+        assertTrue(wat.contains("call $__sb_append_str"));
+        assertTrue(wat.contains("call $__sb_insert_str"));
+        assertTrue(wat.contains("call $__sb_delete"));
+        assertTrue(wat.contains("call $__sb_deleteCharAt"));
+        assertTrue(wat.contains("call $__sb_reverse"));
+        assertTrue(wat.contains("call $__sb_replace"));
+        assertTrue(wat.contains("call $__sb_substring"));
+        assertTrue(wat.contains("call $__sb_indexOf"));
+        assertTrue(wat.contains("call $__sb_toString"));
+
+        JavacToWasm.CompilationResult res = JavacToWasm.compile("StringPhase3App.java", javaSource, true);
+        org.junit.jupiter.api.Assertions.assertNotNull(res);
+        org.junit.jupiter.api.Assertions.assertNotNull(res.getWat());
+    }
+
+    @Test
+    public void testSystemStandardLibraryPhase4() {
+        String javaSource = "package com.example.javaw;\n" +
+                "public class SystemPhase4App {\n" +
+                "    public static class Sample {\n" +
+                "        public int val;\n" +
+                "        public Sample(int val) { this.val = val; }\n" +
+                "    }\n" +
+                "    public static boolean testSystemMethods() {\n" +
+                "        long ms = System.currentTimeMillis();\n" +
+                "        long ns = System.nanoTime();\n" +
+                "        Sample obj = new Sample(42);\n" +
+                "        int hash = System.identityHashCode(obj);\n" +
+                "        String sep = System.lineSeparator();\n" +
+                "        String path = System.getenv(\"PATH\");\n" +
+                "        String os = System.getProperty(\"os.name\");\n" +
+                "        String custom = System.getProperty(\"custom.prop\", \"default\");\n" +
+                "        return ms > 0 && ns > 0 && hash > 0 && sep.equals(\"\\n\") && os.equals(\"WebAssembly\") && custom.equals(\"default\");\n" +
+                "    }\n" +
+                "}\n";
+
+        CompilationUnit cu = StaticJavaParser.parse(javaSource);
+        String wat = JavacToWasm.generateWat(cu);
+
+        assertTrue(wat.contains("call $__wasi_clock_time_ms_i64"));
+        assertTrue(wat.contains("call $__wasi_clock_time_ns"));
+        assertTrue(wat.contains("call $__system_identity_hash_code"));
+        assertTrue(wat.contains("call $__system_line_separator"));
+        assertTrue(wat.contains("call $__system_getenv"));
+        assertTrue(wat.contains("call $__system_get_property"));
+        assertTrue(wat.contains("call $__system_get_property_default"));
+
+        JavacToWasm.CompilationResult res = JavacToWasm.compile("SystemPhase4App.java", javaSource, true);
+        org.junit.jupiter.api.Assertions.assertNotNull(res);
+        org.junit.jupiter.api.Assertions.assertNotNull(res.getWat());
+        assertTrue(res.isWasmGenerated());
+    }
 }
