@@ -1455,4 +1455,86 @@ public class JavacToWasmTest {
         org.junit.jupiter.api.Assertions.assertNotNull(res.getWat());
         assertTrue(res.isWasmGenerated());
     }
+
+    @Test
+    public void testResourceManagementAndCoreInterfacesPhase5() {
+        String javaSource = "package com.example.javaw;\n" +
+                "import com.example.javaw.lang.AutoCloseable;\n" +
+                "import com.example.javaw.lang.Comparable;\n" +
+                "import com.example.javaw.lang.Iterable;\n" +
+                "import com.example.javaw.util.Iterator;\n" +
+                "public class Phase5App {\n" +
+                "    public static class SimpleResource implements AutoCloseable {\n" +
+                "        public boolean closed = false;\n" +
+                "        public void close() throws Exception {\n" +
+                "            this.closed = true;\n" +
+                "        }\n" +
+                "    }\n" +
+                "    public static class NumberBox implements Comparable<NumberBox> {\n" +
+                "        public int value;\n" +
+                "        public NumberBox(int val) { this.value = val; }\n" +
+                "        public int compareTo(NumberBox other) {\n" +
+                "            return this.value - other.value;\n" +
+                "        }\n" +
+                "    }\n" +
+                "    public static class RangeIterator implements Iterator<NumberBox> {\n" +
+                "        public int current;\n" +
+                "        public int max;\n" +
+                "        public RangeIterator(int start, int end) { this.current = start; this.max = end; }\n" +
+                "        public boolean hasNext() { return this.current < this.max; }\n" +
+                "        public NumberBox next() {\n" +
+                "            this.current += 1;\n" +
+                "            return new NumberBox(this.current);\n" +
+                "        }\n" +
+                "    }\n" +
+                "    public static class Range implements Iterable<NumberBox> {\n" +
+                "        public int count;\n" +
+                "        public Range(int c) { this.count = c; }\n" +
+                "        public Iterator<NumberBox> iterator() {\n" +
+                "            return new RangeIterator(0, this.count);\n" +
+                "        }\n" +
+                "    }\n" +
+                "    public static boolean testTryWithResources() {\n" +
+                "        boolean success = false;\n" +
+                "        try (SimpleResource r = new SimpleResource()) {\n" +
+                "            success = true;\n" +
+                "        } catch (Exception e) {\n" +
+                "            success = false;\n" +
+                "        }\n" +
+                "        return success;\n" +
+                "    }\n" +
+                "    public static int testComparableAndIterable() {\n" +
+                "        NumberBox b1 = new NumberBox(10);\n" +
+                "        NumberBox b2 = new NumberBox(20);\n" +
+                "        int cmp = b1.compareTo(b2);\n" +
+                "        boolean isAuto = b1 instanceof AutoCloseable;\n" +
+                "        boolean isComp = b1 instanceof Comparable;\n" +
+                "        Range r = new Range(5);\n" +
+                "        boolean isIter = r instanceof Iterable;\n" +
+                "        Iterator<NumberBox> it = r.iterator();\n" +
+                "        int total = 0;\n" +
+                "        while (it.hasNext()) {\n" +
+                "            NumberBox nb = it.next();\n" +
+                "            total += nb.value;\n" +
+                "        }\n" +
+                "        return cmp + total;\n" +
+                "    }\n" +
+                "}\n";
+
+        CompilationUnit cu = StaticJavaParser.parse(javaSource);
+        String wat = JavacToWasm.generateWat(cu);
+
+        assertTrue(wat.contains("(catch_all"));
+        assertTrue(wat.contains("call_indirect"));
+        assertTrue(wat.contains("$SimpleResource_close"));
+        assertTrue(wat.contains("$NumberBox_compareTo"));
+        assertTrue(wat.contains("$Range_iterator"));
+        assertTrue(wat.contains("$RangeIterator_hasNext"));
+        assertTrue(wat.contains("$RangeIterator_next"));
+
+        JavacToWasm.CompilationResult res = JavacToWasm.compile("Phase5App.java", javaSource, true);
+        org.junit.jupiter.api.Assertions.assertNotNull(res);
+        org.junit.jupiter.api.Assertions.assertNotNull(res.getWat());
+        assertTrue(res.isWasmGenerated());
+    }
 }

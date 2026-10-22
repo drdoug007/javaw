@@ -186,6 +186,57 @@ public class TestClass {
         return p1 + z1 + t1 + p2 + z2 + t2;
     }
 
+    public int testTryWithResourcesNormal(int id) {
+        int result = 0;
+        try (ClosableSession s = new ClosableSession(id)) {
+            result = s.doWork();
+        } catch (Exception e) {
+            result = -1;
+        }
+        return result;
+    }
+
+    public int testTryWithResourcesException(int id) {
+        int result = 0;
+        try (ClosableSession s = new ClosableSession(id)) {
+            result = s.doWork();
+            if (id < 0) {
+                throw new IllegalArgumentException("negative id");
+            }
+        } catch (Exception e) {
+            result = -100;
+        }
+        return result;
+    }
+
+    public int testComparableAndIterablePhase5(int w1, int w2, int rangeLimit) {
+        BoxItem b1 = new BoxItem(w1);
+        BoxItem b2 = new BoxItem(w2);
+        int cmp = b1.compareTo(b2);
+        IntRange range = new IntRange(rangeLimit);
+        java.util.Iterator<BoxItem> it = range.iterator();
+        int sum = 0;
+        while (it.hasNext()) {
+            BoxItem item = it.next();
+            sum += item.weight;
+        }
+        return cmp + sum;
+    }
+
+    public int testInterfacesInstanceOf(int type) {
+        if (type == 1) {
+            ClosableSession s = new ClosableSession(1);
+            return (s instanceof AutoCloseable) ? 10 : 0;
+        } else if (type == 2) {
+            BoxItem b = new BoxItem(5);
+            return (b instanceof Comparable) ? 20 : 0;
+        } else if (type == 3) {
+            IntRange r = new IntRange(3);
+            return (r instanceof Iterable) ? 30 : 0;
+        }
+        return 0;
+    }
+
     public void sayHello() {
         // This is a comment
     }
@@ -1369,5 +1420,66 @@ class ExportedCounter {
 
     public String describe(String label) {
         return label + ": " + this.count;
+    }
+}
+
+class ClosableSession implements AutoCloseable {
+    public int activeId;
+    public int closedCount;
+
+    public ClosableSession(int id) {
+        this.activeId = id;
+        this.closedCount = 0;
+    }
+
+    public int doWork() {
+        return this.activeId * 2;
+    }
+
+    public void close() throws Exception {
+        this.closedCount++;
+    }
+}
+
+class BoxItem implements Comparable<BoxItem> {
+    public int weight;
+
+    public BoxItem(int w) {
+        this.weight = w;
+    }
+
+    public int compareTo(BoxItem other) {
+        return this.weight - other.weight;
+    }
+}
+
+class IntRangeIterator implements java.util.Iterator<BoxItem> {
+    public int curr;
+    public int end;
+
+    public IntRangeIterator(int start, int end) {
+        this.curr = start;
+        this.end = end;
+    }
+
+    public boolean hasNext() {
+        return this.curr < this.end;
+    }
+
+    public BoxItem next() {
+        this.curr++;
+        return new BoxItem(this.curr);
+    }
+}
+
+class IntRange implements Iterable<BoxItem> {
+    public int limit;
+
+    public IntRange(int limit) {
+        this.limit = limit;
+    }
+
+    public java.util.Iterator<BoxItem> iterator() {
+        return new IntRangeIterator(0, this.limit);
     }
 }

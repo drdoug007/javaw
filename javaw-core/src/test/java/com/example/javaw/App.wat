@@ -1,5 +1,4 @@
 (module
-  (@custom "sourceMappingURL" "\0cApp.wasm.map")
   (import "dom" "getElementById" (func $dom_getElementById (param i32 i32) (result i32)))
   (import "dom" "createElement" (func $dom_createElement (param i32 i32) (result i32)))
   (import "dom" "querySelector" (func $dom_querySelector (param i32 i32) (result i32)))
@@ -61,9 +60,10 @@
   ;; --- WebAssembly Function Type Signatures ---
   (type $t_sig_1 (func (param i32) (result i32)))
   (type $t_sig_2 (func (param i32 i32) (result i32)))
+  (type $t_sig_3 (func (param i32)))
   ;; --- WebAssembly Function Table (VTable) ---
-  (table (export "__vtable") 27 funcref)
-  (elem (i32.const 0) $Throwable_toString $Throwable_equals $Throwable_hashCode $Throwable_getMessage $Throwable_toString $Throwable_equals $Throwable_hashCode $Exception_getMessage $Throwable_toString $Throwable_equals $Throwable_hashCode $RuntimeException_getMessage $Throwable_toString $Throwable_equals $Throwable_hashCode $IllegalArgumentException_getMessage $Throwable_toString $Throwable_equals $Throwable_hashCode $IllegalStateException_getMessage $Throwable_toString $Throwable_equals $Throwable_hashCode $NullPointerException_getMessage $WASIFile_toString $WASIFile_equals $WASIFile_hashCode)
+  (table (export "__vtable") 62 funcref)
+  (elem (i32.const 0) $Throwable_toString $Throwable_equals $Throwable_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Throwable_getMessage $Throwable_toString $Throwable_equals $Throwable_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Exception_getMessage $Throwable_toString $Throwable_equals $Throwable_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $RuntimeException_getMessage $Throwable_toString $Throwable_equals $Throwable_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $IllegalArgumentException_getMessage $Throwable_toString $Throwable_equals $Throwable_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $IllegalStateException_getMessage $Throwable_toString $Throwable_equals $Throwable_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $NullPointerException_getMessage $WASIFile_toString $WASIFile_equals $WASIFile_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next)
   ;; --- Heap Allocation Functions ---
   (func $__heap_alloc (export "__heap_alloc") (param $size i32) (result i32)
     (local $ptr i32)
@@ -129,6 +129,23 @@
     local.get $other
     i32.load offset=8
     i32.sub
+  )
+  ;; --- Standard Interface Functions ---
+  (func $AutoCloseable_close (export "AutoCloseable_close") (param $this i32)
+  )
+  (func $Comparable_compareTo (export "Comparable_compareTo") (param $this i32) (param $other i32) (result i32)
+    local.get $this
+    local.get $other
+    i32.sub
+  )
+  (func $Iterable_iterator (export "Iterable_iterator") (param $this i32) (result i32)
+    i32.const 0
+  )
+  (func $Iterator_hasNext (export "Iterator_hasNext") (param $this i32) (result i32)
+    i32.const 0
+  )
+  (func $Iterator_next (export "Iterator_next") (param $this i32) (result i32)
+    i32.const 0
   )
   ;; --- String Runtime Functions ---
   (func $__str_alloc (export "__str_alloc") (param $len i32) (result i32)

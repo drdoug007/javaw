@@ -894,6 +894,30 @@ async function runTest() {
 
                     console.log('✓ Phase 4: Standard System, Clock & Environment assertions passed.');
                 }
+
+                // Phase 5: Resource Management & Core Interfaces Assertions
+                if (typeof instance.exports.testTryWithResourcesNormal === 'function') {
+                    const normRes = instance.exports.testTryWithResourcesNormal(25);
+                    assert.strictEqual(normRes, 50, 'testTryWithResourcesNormal should return 50 (25 * 2)');
+
+                    const excRes = instance.exports.testTryWithResourcesException(-5);
+                    assert.strictEqual(excRes, -100, 'testTryWithResourcesException should catch and return -100');
+
+                    // w1=10, w2=25 -> cmp = -15; limit=4 -> items 1,2,3,4 sum = 10; total = -15 + 10 = -5
+                    const compIterRes = instance.exports.testComparableAndIterablePhase5(10, 25, 4);
+                    assert.strictEqual(compIterRes, -5, 'testComparableAndIterablePhase5 should return -5');
+
+                    const instAuto = instance.exports.testInterfacesInstanceOf(1);
+                    assert.strictEqual(instAuto, 10, 'instanceof AutoCloseable should succeed');
+
+                    const instComp = instance.exports.testInterfacesInstanceOf(2);
+                    assert.strictEqual(instComp, 20, 'instanceof Comparable should succeed');
+
+                    const instIter = instance.exports.testInterfacesInstanceOf(3);
+                    assert.strictEqual(instIter, 30, 'instanceof Iterable should succeed');
+
+                    console.log('✓ Phase 5: Resource Management (try-with-resources) & Core Interfaces (AutoCloseable, Comparable, Iterable, Iterator) assertions passed.');
+                }
             }
 
             console.log('✓ TestClass execution assertions passed (including for loops, for-each loops, arrays, switches, labeled break/continue, compound assignments, dynamic strings, OOP, Canvas 2D, WebGL, JSObject, WASI VFS, Threads/Atomics, Exceptions, Multi-Value Returns, Bulk Memory, Fixed-Width SIMD, and Multi-Memory Segregation).');

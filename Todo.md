@@ -234,7 +234,7 @@ This roadmap organizes planned features by their utility and return on investmen
   - Implement `System.identityHashCode(obj)`, `System.lineSeparator()`.
   - Bridge `System.getenv(key)` and `System.getProperty(key)` to WASI environment vectors or runtime JavaScript configs.
 
-- [ ] **Phase 5: Resource Management & Core Interfaces**
+- [x] **Phase 5: Resource Management & Core Interfaces**
   - Implement `java.lang.AutoCloseable` interface.
   - Lower `try-with-resources` statements (`try (AutoCloseable res = ...) { ... }`) to WebAssembly `try-catch_all` blocks with guaranteed `.close()` cleanup.
   - Support standard interface dispatch for `java.lang.Comparable<T>` and `java.lang.Iterable<T>` in polymorphic call sites.

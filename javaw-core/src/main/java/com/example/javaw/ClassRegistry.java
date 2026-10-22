@@ -38,6 +38,9 @@ public class ClassRegistry {
             if (com.example.javaw.js.JsAnnotationHelper.getClassExportAnnotation(cd).isPresent()) {
                 cm.setExported(true);
             }
+            for (com.github.javaparser.ast.type.ClassOrInterfaceType it : cd.getImplementedTypes()) {
+                cm.addImplementedInterface(it.getNameAsString());
+            }
             classes.put(className, cm);
 
             // Collect static and instance fields
@@ -297,6 +300,52 @@ public class ClassRegistry {
             classes.put("com.example.javaw.lang.StringBuilder", cm);
         }
 
+        // Pre-register AutoCloseable, Comparable, Iterable, Iterator
+        if (!classes.containsKey("AutoCloseable")) {
+            ClassModel cm = new ClassModel("AutoCloseable", null, true, classIdCounter++);
+            MethodModel mm = new MethodModel("close", "AutoCloseable", "$AutoCloseable_close", "void", null,
+                    Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), false, false);
+            mm.setVirtualSlotIndex(3);
+            cm.addMethod(mm);
+            classes.put("AutoCloseable", cm);
+            classes.put("java.lang.AutoCloseable", cm);
+            classes.put("com.example.javaw.lang.AutoCloseable", cm);
+        }
+        if (!classes.containsKey("Comparable")) {
+            ClassModel cm = new ClassModel("Comparable", null, true, classIdCounter++);
+            MethodModel mm = new MethodModel("compareTo", "Comparable", "$Comparable_compareTo", "int", "i32",
+                    Collections.singletonList("other"), Collections.singletonList("Object"), Collections.singletonList("i32"), false, false);
+            mm.setVirtualSlotIndex(4);
+            cm.addMethod(mm);
+            classes.put("Comparable", cm);
+            classes.put("java.lang.Comparable", cm);
+            classes.put("com.example.javaw.lang.Comparable", cm);
+        }
+        if (!classes.containsKey("Iterable")) {
+            ClassModel cm = new ClassModel("Iterable", null, true, classIdCounter++);
+            MethodModel mm = new MethodModel("iterator", "Iterable", "$Iterable_iterator", "Iterator", "i32",
+                    Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), false, false);
+            mm.setVirtualSlotIndex(5);
+            cm.addMethod(mm);
+            classes.put("Iterable", cm);
+            classes.put("java.lang.Iterable", cm);
+            classes.put("com.example.javaw.lang.Iterable", cm);
+        }
+        if (!classes.containsKey("Iterator")) {
+            ClassModel cm = new ClassModel("Iterator", null, true, classIdCounter++);
+            MethodModel mm1 = new MethodModel("hasNext", "Iterator", "$Iterator_hasNext", "boolean", "i32",
+                    Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), false, false);
+            mm1.setVirtualSlotIndex(6);
+            cm.addMethod(mm1);
+            MethodModel mm2 = new MethodModel("next", "Iterator", "$Iterator_next", "Object", "i32",
+                    Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), false, false);
+            mm2.setVirtualSlotIndex(7);
+            cm.addMethod(mm2);
+            classes.put("Iterator", cm);
+            classes.put("java.util.Iterator", cm);
+            classes.put("com.example.javaw.util.Iterator", cm);
+        }
+
         // Phase 2: Compute Field Layouts & Struct Sizes in inheritance order
         for (ClassModel cm : getClassesInHierarchyOrder()) {
             int currentOffset = 4; // Offset 0 is reserved for vtable/classId header (4 bytes)
@@ -384,6 +433,76 @@ public class ClassRegistry {
                     slots.add(defHashCode);
                     cm.addMethod(defHashCode);
                 }
+
+                // Slot 3: close()
+                MethodModel closeMm = cm.getMethodByName("close");
+                if (closeMm != null && closeMm.getParamNames().isEmpty() && !closeMm.isStatic()) {
+                    closeMm.setVirtualSlotIndex(3);
+                    slots.add(closeMm);
+                } else {
+                    MethodModel defClose = new MethodModel("close", cm.getName(), "$AutoCloseable_close", "void", null,
+                            Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), false, false);
+                    defClose.setVirtualSlotIndex(3);
+                    defClose.setSynthetic(true);
+                    slots.add(defClose);
+                    cm.addMethod(defClose);
+                }
+
+                // Slot 4: compareTo(Object)
+                MethodModel compareToMm = cm.getMethodByName("compareTo");
+                if (compareToMm != null && compareToMm.getParamNames().size() == 1 && !compareToMm.isStatic()) {
+                    compareToMm.setVirtualSlotIndex(4);
+                    slots.add(compareToMm);
+                } else {
+                    MethodModel defCompareTo = new MethodModel("compareTo", cm.getName(), "$Comparable_compareTo", "int", "i32",
+                            Collections.singletonList("other"), Collections.singletonList("Object"), Collections.singletonList("i32"), false, false);
+                    defCompareTo.setVirtualSlotIndex(4);
+                    defCompareTo.setSynthetic(true);
+                    slots.add(defCompareTo);
+                    cm.addMethod(defCompareTo);
+                }
+
+                // Slot 5: iterator()
+                MethodModel iteratorMm = cm.getMethodByName("iterator");
+                if (iteratorMm != null && iteratorMm.getParamNames().isEmpty() && !iteratorMm.isStatic()) {
+                    iteratorMm.setVirtualSlotIndex(5);
+                    slots.add(iteratorMm);
+                } else {
+                    MethodModel defIterator = new MethodModel("iterator", cm.getName(), "$Iterable_iterator", "Iterator", "i32",
+                            Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), false, false);
+                    defIterator.setVirtualSlotIndex(5);
+                    defIterator.setSynthetic(true);
+                    slots.add(defIterator);
+                    cm.addMethod(defIterator);
+                }
+
+                // Slot 6: hasNext()
+                MethodModel hasNextMm = cm.getMethodByName("hasNext");
+                if (hasNextMm != null && hasNextMm.getParamNames().isEmpty() && !hasNextMm.isStatic()) {
+                    hasNextMm.setVirtualSlotIndex(6);
+                    slots.add(hasNextMm);
+                } else {
+                    MethodModel defHasNext = new MethodModel("hasNext", cm.getName(), "$Iterator_hasNext", "boolean", "i32",
+                            Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), false, false);
+                    defHasNext.setVirtualSlotIndex(6);
+                    defHasNext.setSynthetic(true);
+                    slots.add(defHasNext);
+                    cm.addMethod(defHasNext);
+                }
+
+                // Slot 7: next()
+                MethodModel nextMm = cm.getMethodByName("next");
+                if (nextMm != null && nextMm.getParamNames().isEmpty() && !nextMm.isStatic()) {
+                    nextMm.setVirtualSlotIndex(7);
+                    slots.add(nextMm);
+                } else {
+                    MethodModel defNext = new MethodModel("next", cm.getName(), "$Iterator_next", "Object", "i32",
+                            Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), false, false);
+                    defNext.setVirtualSlotIndex(7);
+                    defNext.setSynthetic(true);
+                    slots.add(defNext);
+                    cm.addMethod(defNext);
+                }
             }
 
             for (MethodModel mm : cm.getMethods().values()) {
@@ -455,24 +574,62 @@ public class ClassRegistry {
     }
 
     public MethodModel findMethod(String className, String methodName) {
-        if ("Object".equals(className)) {
+        if ("Object".equals(className) || "java.lang.Object".equals(className)) {
             if ("toString".equals(methodName)) {
                 MethodModel mm = new MethodModel("toString", "Object", "$Object_toString", "String", "i32",
                         Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), false, false);
                 mm.setVirtualSlotIndex(0);
-                mm.setTypeSignatureName(typeSignatures.get("(func (param i32) (result i32))"));
+                mm.setTypeSignatureName(getOrCreateTypeSignature("(func (param i32) (result i32))"));
                 return mm;
             } else if ("equals".equals(methodName)) {
                 MethodModel mm = new MethodModel("equals", "Object", "$Object_equals", "boolean", "i32",
                         Collections.singletonList("other"), Collections.singletonList("Object"), Collections.singletonList("i32"), false, false);
                 mm.setVirtualSlotIndex(1);
-                mm.setTypeSignatureName(typeSignatures.get("(func (param i32 i32) (result i32))"));
+                mm.setTypeSignatureName(getOrCreateTypeSignature("(func (param i32 i32) (result i32))"));
                 return mm;
             } else if ("hashCode".equals(methodName)) {
                 MethodModel mm = new MethodModel("hashCode", "Object", "$Object_hashCode", "int", "i32",
                         Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), false, false);
                 mm.setVirtualSlotIndex(2);
-                mm.setTypeSignatureName(typeSignatures.get("(func (param i32) (result i32))"));
+                mm.setTypeSignatureName(getOrCreateTypeSignature("(func (param i32) (result i32))"));
+                return mm;
+            }
+        } else if ("AutoCloseable".equals(className) || "java.lang.AutoCloseable".equals(className) || "com.example.javaw.lang.AutoCloseable".equals(className)) {
+            if ("close".equals(methodName)) {
+                MethodModel mm = new MethodModel("close", "AutoCloseable", "$AutoCloseable_close", "void", null,
+                        Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), false, false);
+                mm.setVirtualSlotIndex(3);
+                mm.setTypeSignatureName(getOrCreateTypeSignature("(func (param i32))"));
+                return mm;
+            }
+        } else if ("Comparable".equals(className) || "java.lang.Comparable".equals(className) || "com.example.javaw.lang.Comparable".equals(className)) {
+            if ("compareTo".equals(methodName)) {
+                MethodModel mm = new MethodModel("compareTo", "Comparable", "$Comparable_compareTo", "int", "i32",
+                        Collections.singletonList("other"), Collections.singletonList("Object"), Collections.singletonList("i32"), false, false);
+                mm.setVirtualSlotIndex(4);
+                mm.setTypeSignatureName(getOrCreateTypeSignature("(func (param i32 i32) (result i32))"));
+                return mm;
+            }
+        } else if ("Iterable".equals(className) || "java.lang.Iterable".equals(className) || "com.example.javaw.lang.Iterable".equals(className)) {
+            if ("iterator".equals(methodName)) {
+                MethodModel mm = new MethodModel("iterator", "Iterable", "$Iterable_iterator", "Iterator", "i32",
+                        Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), false, false);
+                mm.setVirtualSlotIndex(5);
+                mm.setTypeSignatureName(getOrCreateTypeSignature("(func (param i32) (result i32))"));
+                return mm;
+            }
+        } else if ("Iterator".equals(className) || "java.util.Iterator".equals(className) || "com.example.javaw.util.Iterator".equals(className)) {
+            if ("hasNext".equals(methodName)) {
+                MethodModel mm = new MethodModel("hasNext", "Iterator", "$Iterator_hasNext", "boolean", "i32",
+                        Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), false, false);
+                mm.setVirtualSlotIndex(6);
+                mm.setTypeSignatureName(getOrCreateTypeSignature("(func (param i32) (result i32))"));
+                return mm;
+            } else if ("next".equals(methodName)) {
+                MethodModel mm = new MethodModel("next", "Iterator", "$Iterator_next", "Object", "i32",
+                        Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), false, false);
+                mm.setVirtualSlotIndex(7);
+                mm.setTypeSignatureName(getOrCreateTypeSignature("(func (param i32) (result i32))"));
                 return mm;
             }
         }
@@ -489,8 +646,26 @@ public class ClassRegistry {
             return findMethod("Object", "equals");
         } else if ("hashCode".equals(methodName)) {
             return findMethod("Object", "hashCode");
+        } else if ("close".equals(methodName)) {
+            return findMethod("AutoCloseable", "close");
+        } else if ("compareTo".equals(methodName)) {
+            return findMethod("Comparable", "compareTo");
+        } else if ("iterator".equals(methodName)) {
+            return findMethod("Iterable", "iterator");
+        } else if ("hasNext".equals(methodName)) {
+            return findMethod("Iterator", "hasNext");
+        } else if ("next".equals(methodName)) {
+            return findMethod("Iterator", "next");
         }
         return null;
+    }
+
+    public String getOrCreateTypeSignature(String sig) {
+        if (!typeSignatures.containsKey(sig)) {
+            String sigName = "$t_sig_" + (++typeSigCounter);
+            typeSignatures.put(sig, sigName);
+        }
+        return typeSignatures.get(sig);
     }
 
     public List<String> getTableFunctions() {
@@ -516,14 +691,20 @@ public class ClassRegistry {
     public boolean isSubclassOf(String subClass, String superClass) {
         if (subClass == null || superClass == null) return false;
         if (subClass.equals(superClass)) return true;
-        if ("Object".equals(superClass)) return true;
+        if ("Object".equals(superClass) || "java.lang.Object".equals(superClass)) return true;
         ClassModel cm = classes.get(subClass);
-        if (cm != null && cm.isEnum() && "Enum".equals(superClass)) return true;
-        while (cm != null && cm.getSuperClassName() != null) {
-            if (cm.getSuperClassName().equals(superClass)) {
+        if (cm != null && cm.isEnum() && ("Enum".equals(superClass) || "java.lang.Enum".equals(superClass))) return true;
+        while (cm != null) {
+            for (String iface : cm.getImplementedInterfaces()) {
+                if (iface.equals(superClass) || iface.endsWith("." + superClass) || superClass.endsWith("." + iface)) {
+                    return true;
+                }
+            }
+            if (cm.getSuperClassName() != null && (cm.getSuperClassName().equals(superClass) ||
+                    cm.getSuperClassName().endsWith("." + superClass) || superClass.endsWith("." + cm.getSuperClassName()))) {
                 return true;
             }
-            cm = classes.get(cm.getSuperClassName());
+            cm = cm.getSuperClassName() != null ? classes.get(cm.getSuperClassName()) : null;
         }
         return false;
     }

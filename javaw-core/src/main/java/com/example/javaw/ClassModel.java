@@ -14,6 +14,7 @@ public class ClassModel {
     private final List<MethodModel> constructors = new ArrayList<>();
     private final Map<String, MethodModel> methods = new LinkedHashMap<>(); // signatureKey -> MethodModel
     private final List<MethodModel> vtableSlots = new ArrayList<>();
+    private final List<String> implementedInterfaces = new ArrayList<>();
     private int structSize = 8;
     private int vtableBase = 0;
     private boolean isExported = false;
@@ -91,6 +92,14 @@ public class ClassModel {
 
     public List<MethodModel> getVtableSlots() {
         return vtableSlots;
+    }
+
+    public List<String> getImplementedInterfaces() {
+        return implementedInterfaces;
+    }
+
+    public void addImplementedInterface(String iface) {
+        implementedInterfaces.add(iface);
     }
 
     public int getStructSize() {
