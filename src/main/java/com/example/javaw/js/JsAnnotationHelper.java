@@ -266,7 +266,13 @@ public class JsAnnotationHelper {
                 else if (mName.equals("PI")) addMathSnippet(snippets, "PI", "return Math.PI;", "double", "f64", true);
                 else if (mName.equals("E")) addMathSnippet(snippets, "E", "return Math.E;", "double", "f64", true);
             } else if ("JSDate".equals(shortTarget) || "JSDate".equals(inferredType)) {
-                if (mName.equals("create")) addDateSnippet(snippets, "create", "return new Date(ms);", "JSDate", "i32", true, "ms", "double", "f64");
+                if (mName.equals("create")) {
+                    if (call.getArguments().isEmpty()) {
+                        addDateSnippet(snippets, "create", "return new Date();", "JSDate", "i32", true);
+                    } else {
+                        addDateSnippet(snippets, "create", "return new Date(ms);", "JSDate", "i32", true, "ms", "double", "f64");
+                    }
+                }
                 else if (mName.equals("now")) addDateSnippet(snippets, "now", "return Date.now();", "double", "f64", true);
                 else if (mName.equals("getTime")) addDateSnippet(snippets, "getTime", "return this.getTime();", "double", "f64", false);
                 else if (mName.equals("getFullYear")) addDateSnippet(snippets, "getFullYear", "return this.getFullYear();", "int", "i32", false);

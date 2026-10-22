@@ -49,6 +49,10 @@ public class ClassModel {
         fields.put(field.getName(), field);
     }
 
+    public boolean hasField(String fieldName) {
+        return fields.containsKey(fieldName);
+    }
+
     public FieldModel getField(String fieldName) {
         return fields.get(fieldName);
     }

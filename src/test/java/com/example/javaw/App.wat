@@ -472,6 +472,71 @@
     )
     i32.const 1
   )
+  (func $__str_startsWith (export "__str_startsWith") (param $s i32) (param $prefix i32) (result i32)
+    (local $lenS i32)
+    (local $lenP i32)
+    (local $i i32)
+    (local $cS i32)
+    (local $cP i32)
+    local.get $prefix
+    i32.eqz
+    if
+      i32.const 1
+      return
+    end
+    local.get $s
+    i32.eqz
+    if
+      i32.const 0
+      return
+    end
+    local.get $s
+    call $__str_length
+    local.set $lenS
+    local.get $prefix
+    call $__str_length
+    local.set $lenP
+    local.get $lenS
+    local.get $lenP
+    i32.lt_s
+    if
+      i32.const 0
+      return
+    end
+    i32.const 0
+    local.set $i
+    (block $break_sw
+      (loop $loop_sw
+        local.get $i
+        local.get $lenP
+        i32.ge_s
+        br_if $break_sw
+        local.get $s
+        local.get $i
+        i32.add
+        i32.load8_u
+        local.set $cS
+        local.get $prefix
+        local.get $i
+        i32.add
+        i32.load8_u
+        local.set $cP
+        local.get $cS
+        local.get $cP
+        i32.ne
+        if
+          i32.const 0
+          return
+        end
+        local.get $i
+        i32.const 1
+        i32.add
+        local.set $i
+        br $loop_sw
+      )
+    )
+    i32.const 1
+  )
   (func $__str_indexOf (export "__str_indexOf") (param $s i32) (param $sub i32) (result i32)
     (local $len1 i32)
     (local $len2 i32)

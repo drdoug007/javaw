@@ -28,6 +28,10 @@ public class FieldModel {
         return typeName;
     }
 
+    public String getJavaType() {
+        return typeName;
+    }
+
     public String getWasmType() {
         return wasmType;
     }

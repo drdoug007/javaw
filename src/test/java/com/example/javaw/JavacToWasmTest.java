@@ -1183,4 +1183,35 @@ public class JavacToWasmTest {
         assertTrue(wat.contains("call $__wasi_read_line"));
         assertTrue(wat.contains("call $__wasi_read_char"));
     }
+
+    @Test
+    public void testCompileAllExampleApplications() throws Exception {
+        java.nio.file.Path examplesDir = java.nio.file.Paths.get("examples");
+        org.junit.jupiter.api.Assertions.assertTrue(java.nio.file.Files.exists(examplesDir), "examples directory must exist");
+
+        String[] exampleFiles = new String[]{
+                "examples/todo/TodoApp.java",
+                "examples/canvas/GameOfLife.java",
+                "examples/simd/SimdParticles.java",
+                "examples/jsinterop/JsInteropShowcase.java",
+                "examples/terminal/WasiShellDemo.java",
+                "examples/records/RecordMathEngine.java",
+                "examples/threads/WorkerAtomicsDemo.java"
+        };
+
+        for (String fileStr : exampleFiles) {
+            java.nio.file.Path p = java.nio.file.Paths.get(fileStr);
+            org.junit.jupiter.api.Assertions.assertTrue(java.nio.file.Files.exists(p), "Example file missing: " + fileStr);
+            String content = java.nio.file.Files.readString(p);
+            CompilationUnit cu = StaticJavaParser.parse(content);
+            String wat = JavacToWasm.generateWat(cu);
+            org.junit.jupiter.api.Assertions.assertNotNull(wat);
+            org.junit.jupiter.api.Assertions.assertTrue(wat.contains("(module"), "WAT must contain module declaration for " + fileStr);
+
+            JavacToWasm.CompilationResult res = JavacToWasm.compile(p.getFileName().toString(), content, true);
+            org.junit.jupiter.api.Assertions.assertNotNull(res);
+            org.junit.jupiter.api.Assertions.assertNotNull(res.getWat());
+            org.junit.jupiter.api.Assertions.assertTrue(res.getWat().length() > 0);
+        }
+    }
 }

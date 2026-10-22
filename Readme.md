@@ -239,15 +239,31 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
 │   │   │       └── WASITerminal.java  # Interactive WASI terminal, ANSI palette & stdin stream facade
 │   │   └── resources
 │   │       └── javaw-runtime.js       # JavaScript WebAssembly host runtime bridge
-│   └── test
-│       ├── java/com/example/javaw
-│       │   ├── App.java               # Java DOM & interactive event demo application
-│       │   ├── AppBrowserTest.java    # Playwright headless browser integration test suite
-│       │   ├── JavacToWasmTest.java   # JUnit 5 compiler unit test suite
-│       │   └── TestClass.java         # Comprehensive Java test suite (loops, arrays, OOP, WASI, threads)
-│       └── node-tests
-│           ├── package.json           # Node.js test configuration
-│           └── test.js                # End-to-end WebAssembly execution & DOM test suite
+│   ├── test
+│   │   ├── java/com/example/javaw
+│   │   │   ├── App.java               # Java DOM & interactive event demo application
+│   │   │   ├── AppBrowserTest.java    # Playwright headless browser integration test suite
+│   │   │   ├── JavacToWasmTest.java   # JUnit 5 compiler unit test suite
+│   │   │   └── TestClass.java         # Comprehensive Java test suite (loops, arrays, OOP, WASI, threads)
+│   │   └── node-tests
+│   │       ├── package.json           # Node.js test configuration
+│   │       └── test.js                # End-to-end WebAssembly execution & DOM test suite
+├── examples
+│   ├── canvas
+│   │   └── GameOfLife.java            # Conway's Game of Life on HTML5 Canvas 2D
+│   ├── jsinterop
+│   │   └── JsInteropShowcase.java     # @JS inline JS, @JS.Coerce, JSDate/JSMath/JSJSON, @JS.Export
+│   ├── records
+│   │   └── RecordMathEngine.java      # Java 17 records, multi-value returns & custom exceptions
+│   ├── simd
+│   │   └── SimdParticles.java         # 128-bit SIMD vector physics simulation (Float32x4)
+│   ├── terminal
+│   │   └── WasiShellDemo.java         # Interactive WASI terminal & virtual file system shell
+│   ├── threads
+│   │   └── WorkerAtomicsDemo.java     # WebAssembly shared memory & atomic operations
+│   ├── todo
+│   │   └── TodoApp.java               # Interactive Todo MVC DOM application
+│   └── index.html                     # Multi-tab interactive browser feature showcase
 ```
 
 ---
@@ -1197,7 +1213,36 @@ runtime.instance.exports.runShell();
 
 ---
 
-### 3. Running in the Browser
+### 3. Example Applications Suite (`examples/`)
+
+The repository includes a suite of standalone, fully functional example applications in the `examples/` directory showcasing each major capability of `javaw`:
+
+| Example Application | Directory / File | Key Features Demonstrated |
+| :--- | :--- | :--- |
+| **Interactive Todo MVC** | `examples/todo/TodoApp.java` | DOM tree creation, `Element.appendChild`, `removeChild`, input forms, event listeners, dynamic strings, active item counts |
+| **Conway's Game of Life** | `examples/canvas/GameOfLife.java` | HTML5 Canvas 2D (`CanvasRenderingContext2D`), grid state in linear memory, animation loops, color styling |
+| **128-Bit SIMD Physics** | `examples/simd/SimdParticles.java` | Fixed-width SIMD (`Float32x4`, `Vector128`), parallel coordinate integration (`v128`), boundary reflection |
+| **JavaScript Interop Showcase** | `examples/jsinterop/JsInteropShowcase.java` | `@JS` inline JavaScript snippets, `@JS.Coerce` conversions, `JSDate`, `JSMath`, `JSJSON`, `JSStorage`, `@JS.Export` |
+| **WASI Terminal & Shell** | `examples/terminal/WasiShellDemo.java` | In-browser `WASITerminal` / `Terminal`, ANSI 16-color styling, interactive `readLine` prompt, `WASIFile` virtual file system |
+| **Record Math Engine** | `examples/records/RecordMathEngine.java` | Java 17 `record` types, zero-overhead multi-value stack returns, custom exception hierarchies, multi-catch dispatch |
+| **Shared Memory Atomics** | `examples/threads/WorkerAtomicsDemo.java` | WebAssembly shared memory (`shared`), `AtomicInteger`, `Atomics` array operations, hardware concurrency detection |
+
+#### Running the Interactive Feature Showcase
+
+An interactive multi-tab web showcase is provided at `examples/index.html`. You can serve and view the showcase locally using any web server:
+
+```bash
+# Compile any example file to WebAssembly
+java -jar target/javaw-1.0-SNAPSHOT.jar examples/todo/TodoApp.java
+
+# Open the showcase in your browser
+python3 -m http.server 8000
+# Navigate to: http://localhost:8000/examples/index.html
+```
+
+---
+
+### 4. Running in the Browser
 
 Include `javaw-runtime.js` and instantiate the WebAssembly module:
 

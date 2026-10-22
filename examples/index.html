@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Java to WebAssembly (javaw) - Feature Showcase & Interactive Demos</title>
+    <style>
+        :root {
+            --bg-primary: #0f172a;
+            --bg-card: #1e293b;
+            --border-color: #334155;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent-blue: #38bdf8;
+            --accent-green: #34d399;
+            --accent-purple: #c084fc;
+            --accent-amber: #fbbf24;
+        }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-main);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .header {
+            text-align: center;
+            max-width: 900px;
+            margin-bottom: 24px;
+        }
+        .header h1 {
+            font-size: 32px;
+            color: #ffffff;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #38bdf8, #818cf8, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .header p {
+            color: var(--text-muted);
+            font-size: 16px;
+        }
+        .nav-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 24px;
+            background: #020617;
+            padding: 6px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+        }
+        .tab-btn {
+            background: transparent;
+            color: var(--text-muted);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .tab-btn:hover {
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.05);
+        }
+        .tab-btn.active {
+            background: #2563eb;
+            color: #ffffff;
+            box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);
+        }
+        .content-panel {
+            display: none;
+            width: 100%;
+            max-width: 850px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+        }
+        .content-panel.active {
+            display: block;
+        }
+        .panel-description {
+            color: var(--text-muted);
+            font-size: 14px;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .code-preview {
+            background: #020617;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 13px;
+            color: #a5b4fc;
+            overflow-x: auto;
+            margin-top: 16px;
+            white-space: pre;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Java to WebAssembly (javaw) Showcase</h1>
+        <p>Explore native browser DOM manipulation, 2D canvas simulations, 128-bit SIMD math, WASI interactive terminal, and GraalVM-style JavaScript interop authored entirely in Java.</p>
+    </div>
+
+    <div class="nav-tabs">
+        <button class="tab-btn active" onclick="switchTab('todo')">1. Todo DOM App</button>
+        <button class="tab-btn" onclick="switchTab('canvas')">2. Canvas Game of Life</button>
+        <button class="tab-btn" onclick="switchTab('simd')">3. 128-Bit SIMD Physics</button>
+        <button class="tab-btn" onclick="switchTab('jsinterop')">4. JavaScript Interop & @JS</button>
+        <button class="tab-btn" onclick="switchTab('terminal')">5. WASI Terminal & VFS</button>
+    </div>
+
+    <!-- Panel 1: Todo App -->
+    <div id="panel-todo" class="content-panel active">
+        <div class="panel-description">
+            <strong>Demonstrates:</strong> Strongly-typed Java DOM facades (<code>DOM</code>, <code>Element</code>), dynamic string concatenation, array queries, and interactive DOM event handlers compiled to WebAssembly.
+        </div>
+        <div id="todo-app"></div>
+        <div class="code-preview">// Java DOM Source (TodoApp.java)
+Element root = DOM.getElementById("todo-app");
+Element btn = DOM.createElement("button");
+btn.setInnerText("Add Task");
+btn.addEventListener("click", "addTodo");
+root.appendChild(btn);</div>
+    </div>
+
+    <!-- Panel 2: Canvas Game of Life -->
+    <div id="panel-canvas" class="content-panel">
+        <div class="panel-description">
+            <strong>Demonstrates:</strong> HTML5 Canvas 2D hardware-accelerated drawing primitives (<code>CanvasRenderingContext2D</code>), linear memory grid state buffers, and dynamic rendering loops.
+        </div>
+        <div id="game-container"></div>
+        <div class="code-preview">// Java Canvas 2D Source (GameOfLife.java)
+CanvasRenderingContext2D ctx = DOM.getCanvasContext2D("life-canvas");
+ctx.setFillStyle("#10b981");
+ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);</div>
+    </div>
+
+    <!-- Panel 3: SIMD Particles -->
+    <div id="panel-simd" class="content-panel">
+        <div class="panel-description">
+            <strong>Demonstrates:</strong> Fixed-width 128-bit SIMD vectorization facades (<code>Float32x4</code>), integrating 4 parallel coordinates simultaneously using native WebAssembly <code>v128</code> instructions.
+        </div>
+        <div id="simd-container"></div>
+        <div class="code-preview">// Java SIMD Source (SimdParticles.java)
+Float32x4 posX = Float32x4.of(50.0f, 120.0f, 200.0f, 320.0f);
+Float32x4 velX = Float32x4.of(2.5f, -3.0f, 1.8f, -2.2f);
+posX = posX.add(velX); // Emits f32x4.add WebAssembly vector instruction</div>
+    </div>
+
+    <!-- Panel 4: JS Interop -->
+    <div id="panel-jsinterop" class="content-panel">
+        <div class="panel-description">
+            <strong>Demonstrates:</strong> GraalVM Web Image-style <code>@JS</code> inline JavaScript snippet evaluation, automatic type coercion (<code>@JS.Coerce</code>), and standard JavaScript global facades (<code>JSDate</code>, <code>JSMath</code>, <code>JSJSON</code>, <code>JSStorage</code>).
+        </div>
+        <div id="js-interop-app"></div>
+        <div class="code-preview">// Java @JS Annotation Source (JsInteropShowcase.java)
+@JS("return Math.hypot(a, b);")
+public static native double calculateHypotenuse(@JS.Coerce double a, @JS.Coerce double b);</div>
+    </div>
+
+    <!-- Panel 5: WASI Terminal -->
+    <div id="panel-terminal" class="content-panel">
+        <div class="panel-description">
+            <strong>Demonstrates:</strong> Interactive in-browser WASI Terminal (<code>WASITerminal</code>, <code>Terminal</code>), ANSI 16-color styling, interactive standard input stream reading, and Virtual File System (<code>WASIFile</code>).
+        </div>
+        <div id="terminal-container" style="width: 100%;"></div>
+        <div class="code-preview">// Java WASI Terminal Source (WasiShellDemo.java)
+Terminal.println(Terminal.BRIGHT_CYAN + "=== Javaw Interactive Shell ===" + Terminal.RESET);
+String cmd = Terminal.readLine("wasi-sh> ");
+WASIFile file = new WASIFile("welcome.txt");</div>
+    </div>
+
+    <script src="../src/main/resources/javaw-runtime.js"></script>
+    <script>
+        function switchTab(name) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.content-panel').forEach(panel => panel.classList.remove('active'));
+
+            if (event && event.target) {
+                event.target.classList.add('active');
+            }
+            const targetPanel = document.getElementById('panel-' + name);
+            if (targetPanel) {
+                targetPanel.classList.add('active');
+            }
+        }
+
+        async function initTodoApp() {
+            try {
+                const response = await fetch('todo/TodoApp.wasm');
+                if (!response.ok) {
+                    console.warn('TodoApp.wasm not found at todo/TodoApp.wasm, status: ' + response.status);
+                    return;
+                }
+                const wasmBytes = await response.arrayBuffer();
+                const { exports } = await Javaw.instantiateJavaw(wasmBytes, {}, document);
+                if (exports.start) {
+                    exports.start();
+                } else if (exports.main) {
+                    exports.main();
+                }
+            } catch (err) {
+                console.error("Failed to initialize TodoApp WebAssembly module:", err);
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', initTodoApp);
+    </script>
+</body>
+</html>

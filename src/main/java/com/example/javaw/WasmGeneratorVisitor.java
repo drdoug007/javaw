@@ -236,6 +236,9 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
 
     @Override
     public void visit(MethodDeclaration n, StringBuilder collector) {
+        if (n.getParentNode().isPresent() && n.getParentNode().get() instanceof RecordDeclaration) {
+            return;
+        }
         String methodName = n.getNameAsString();
         String returnWasmType = TypeMapper.mapType(n.getType());
         String returnTypeName = n.getType().asString();
@@ -876,7 +879,16 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 collector.append("    call $__str_concat\n");
                 return;
             }
+            String leftType = inferType(bin.getLeft(), localTypes, localElementTypes, localJavaTypes, null);
+            String rightType = inferType(bin.getRight(), localTypes, localElementTypes, localJavaTypes, null);
             String opType = inferType(bin, localTypes, localElementTypes, localJavaTypes, expectedType);
+            if (bin.getOperator() == BinaryExpr.Operator.AND || bin.getOperator() == BinaryExpr.Operator.OR) {
+                opType = "i32";
+            } else if ("f64".equals(leftType) || "f64".equals(rightType) || "f64".equals(opType) || ("f32".equals(leftType) && ("f64".equals(rightType) || bin.getRight().isDoubleLiteralExpr())) || ("f32".equals(rightType) && ("f64".equals(leftType) || bin.getLeft().isDoubleLiteralExpr()))) {
+                opType = "f64";
+            } else if ("f32".equals(leftType) || "f32".equals(rightType)) {
+                opType = "f32";
+            }
             translateExpression(bin.getLeft(), collector, localTypes, localElementTypes, localJavaTypes, opType);
             translateExpression(bin.getRight(), collector, localTypes, localElementTypes, localJavaTypes, opType);
             collector.append("    ").append(getWasmBinaryOp(bin.getOperator(), opType)).append("\n");
@@ -884,6 +896,10 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 collector.append("    f64.promote_f32\n");
             } else if ("f32".equals(expectedType) && "f64".equals(opType)) {
                 collector.append("    f32.demote_f64\n");
+            } else if ("f64".equals(expectedType) && "i32".equals(opType)) {
+                collector.append("    f64.convert_i32_s\n");
+            } else if ("f32".equals(expectedType) && "i32".equals(opType)) {
+                collector.append("    f32.convert_i32_s\n");
             }
         } else if (expr.isUnaryExpr()) {
             UnaryExpr u = expr.asUnaryExpr();
@@ -997,9 +1013,13 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             }
         } else if (expr.isIntegerLiteralExpr()) {
             if ("f64".equals(expectedType)) {
-                collector.append("    f64.const ").append(expr.asIntegerLiteralExpr().getValue()).append("\n");
+                String val = expr.asIntegerLiteralExpr().getValue();
+                if (!val.contains(".")) val += ".0";
+                collector.append("    f64.const ").append(val).append("\n");
             } else if ("f32".equals(expectedType)) {
-                collector.append("    f32.const ").append(expr.asIntegerLiteralExpr().getValue()).append(".0\n");
+                String val = expr.asIntegerLiteralExpr().getValue();
+                if (!val.contains(".")) val += ".0";
+                collector.append("    f32.const ").append(val).append("\n");
             } else {
                 collector.append("    i32.const ").append(expr.asIntegerLiteralExpr().getValue()).append("\n");
             }
@@ -1007,8 +1027,11 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             String val = expr.asLongLiteralExpr().getValue().replaceAll("[lL]", "");
             collector.append("    i64.const ").append(val).append("\n");
         } else if (expr.isDoubleLiteralExpr()) {
-            String dVal = expr.asDoubleLiteralExpr().getValue().replaceAll("[fFdD]", "");
-            if ("f32".equals(expectedType)) {
+            String raw = expr.asDoubleLiteralExpr().getValue();
+            boolean isExplicitFloat = raw.endsWith("f") || raw.endsWith("F");
+            String dVal = raw.replaceAll("[fFdD]", "");
+            if (!dVal.contains(".")) dVal += ".0";
+            if ("f32".equals(expectedType) || (isExplicitFloat && expectedType == null)) {
                 collector.append("    f32.const ").append(dVal).append("\n");
             } else {
                 collector.append("    f64.const ").append(dVal).append("\n");
@@ -1040,7 +1063,44 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         } else if (expr.isThisExpr() || expr.isSuperExpr()) {
             collector.append("    local.get $this\n");
         } else if (expr.isCastExpr()) {
-            translateExpression(expr.asCastExpr().getExpression(), collector, localTypes, localElementTypes, localJavaTypes, expectedType);
+            CastExpr ce = expr.asCastExpr();
+            String castTarget = TypeMapper.mapType(ce.getType());
+            String innerType = inferType(ce.getExpression(), localTypes, localElementTypes, localJavaTypes, null);
+            translateExpression(ce.getExpression(), collector, localTypes, localElementTypes, localJavaTypes, castTarget);
+            if ("i32".equals(castTarget)) {
+                if ("f64".equals(innerType)) {
+                    collector.append("    i32.trunc_f64_s\n");
+                } else if ("f32".equals(innerType)) {
+                    collector.append("    i32.trunc_f32_s\n");
+                }
+            } else if ("f64".equals(castTarget)) {
+                if ("i32".equals(innerType)) {
+                    collector.append("    f64.convert_i32_s\n");
+                } else if ("f32".equals(innerType)) {
+                    collector.append("    f64.promote_f32\n");
+                }
+            } else if ("f32".equals(castTarget)) {
+                if ("i32".equals(innerType)) {
+                    collector.append("    f32.convert_i32_s\n");
+                } else if ("f64".equals(innerType)) {
+                    collector.append("    f32.demote_f64\n");
+                }
+            }
+            if (expectedType != null && !expectedType.equals(castTarget)) {
+                if ("f64".equals(expectedType) && "i32".equals(castTarget)) {
+                    collector.append("    f64.convert_i32_s\n");
+                } else if ("f64".equals(expectedType) && "f32".equals(castTarget)) {
+                    collector.append("    f64.promote_f32\n");
+                } else if ("f32".equals(expectedType) && "i32".equals(castTarget)) {
+                    collector.append("    f32.convert_i32_s\n");
+                } else if ("f32".equals(expectedType) && "f64".equals(castTarget)) {
+                    collector.append("    f32.demote_f64\n");
+                } else if ("i32".equals(expectedType) && "f64".equals(castTarget)) {
+                    collector.append("    i32.trunc_f64_s\n");
+                } else if ("i32".equals(expectedType) && "f32".equals(castTarget)) {
+                    collector.append("    i32.trunc_f32_s\n");
+                }
+            }
         } else if (expr.isInstanceOfExpr()) {
             InstanceOfExpr ioe = expr.asInstanceOfExpr();
             String targetClassName = ioe.getType().asString();
@@ -1087,6 +1147,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 collector.append("    local.get $").append(var).append("\n");
                 if ("f64".equals(expectedType) && "i32".equals(localTypes.get(var))) {
                     collector.append("    f64.convert_i32_s\n");
+                } else if ("f64".equals(expectedType) && "f32".equals(localTypes.get(var))) {
+                    collector.append("    f64.promote_f32\n");
                 } else if ("f32".equals(expectedType) && "f64".equals(localTypes.get(var))) {
                     collector.append("    f32.demote_f64\n");
                 } else if ("f32".equals(expectedType) && "i32".equals(localTypes.get(var))) {
@@ -1096,6 +1158,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 collector.append("    local.get $this$").append(var).append("\n");
                 if ("f64".equals(expectedType) && "i32".equals(localTypes.get("this$" + var))) {
                     collector.append("    f64.convert_i32_s\n");
+                } else if ("f64".equals(expectedType) && "f32".equals(localTypes.get("this$" + var))) {
+                    collector.append("    f64.promote_f32\n");
                 } else if ("f32".equals(expectedType) && "f64".equals(localTypes.get("this$" + var))) {
                     collector.append("    f32.demote_f64\n");
                 } else if ("f32".equals(expectedType) && "i32".equals(localTypes.get("this$" + var))) {
@@ -1107,6 +1171,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 collector.append("    ").append(getLoadInstruction(fm.getWasmType())).append(" offset=").append(fm.getOffset()).append("\n");
                 if ("f64".equals(expectedType) && "i32".equals(fm.getWasmType())) {
                     collector.append("    f64.convert_i32_s\n");
+                } else if ("f64".equals(expectedType) && "f32".equals(fm.getWasmType())) {
+                    collector.append("    f64.promote_f32\n");
                 } else if ("f32".equals(expectedType) && "f64".equals(fm.getWasmType())) {
                     collector.append("    f32.demote_f64\n");
                 } else if ("f32".equals(expectedType) && "i32".equals(fm.getWasmType())) {
@@ -1116,6 +1182,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 collector.append("    global.get $").append(var).append("\n");
                 if ("f64".equals(expectedType) && "i32".equals(globalVars.get(var).type)) {
                     collector.append("    f64.convert_i32_s\n");
+                } else if ("f64".equals(expectedType) && "f32".equals(globalVars.get(var).type)) {
+                    collector.append("    f64.promote_f32\n");
                 } else if ("f32".equals(expectedType) && "f64".equals(globalVars.get(var).type)) {
                     collector.append("    f32.demote_f64\n");
                 } else if ("f32".equals(expectedType) && "i32".equals(globalVars.get(var).type)) {
@@ -1788,6 +1856,10 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "String");
                     translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "String");
                     collector.append("    call $__str_equals\n");
+                } else if (mName.equals("startsWith")) {
+                    translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "String");
+                    translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "String");
+                    collector.append("    call $__str_startsWith\n");
                 } else if (mName.equals("indexOf")) {
                     translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "String");
                     Expression arg = call.getArgument(0);
@@ -1878,7 +1950,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                         return;
                     }
                     ClassModel targetCm = (targetType != null && classRegistry != null) ? classRegistry.getClass(targetType) : null;
-                    MethodModel targetMm = targetCm != null ? targetCm.getMethodByName(mName) : null;
+                    MethodModel targetMm = (targetType != null && classRegistry != null) ? classRegistry.findMethod(targetType, mName) : (targetCm != null ? targetCm.getMethodByName(mName) : null);
 
                     if (targetMm != null && targetMm.isVirtual() && targetCm != null && targetCm.isOopClass()) {
                         // Dynamic dispatch via vtable and call_indirect
@@ -1983,10 +2055,22 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
 
     private String getExpressionJavaType(Expression expr, Map<String, String> localJavaTypes) {
         if (expr.isNameExpr()) {
-            return localJavaTypes.get(expr.asNameExpr().getNameAsString());
+            String name = expr.asNameExpr().getNameAsString();
+            if (localJavaTypes != null && localJavaTypes.containsKey(name)) {
+                return localJavaTypes.get(name);
+            }
+            if (globalVars != null && globalVars.containsKey(name)) {
+                return globalVars.get(name).getJavaType();
+            }
+            if (currentClass != null && currentClass.hasField(name)) {
+                return currentClass.getField(name).getJavaType();
+            }
+            return null;
         }
         if (expr.isThisExpr()) {
-            return currentClass != null ? currentClass.getName() : (currentRecord != null ? currentRecord.getName() : null);
+            if (currentRecord != null) return currentRecord.getName();
+            if (localJavaTypes != null && localJavaTypes.containsKey("this")) return localJavaTypes.get("this");
+            return currentClass != null ? currentClass.getName() : null;
         }
         if (expr.isObjectCreationExpr()) {
             return expr.asObjectCreationExpr().getTypeAsString();
@@ -2377,8 +2461,16 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     }
 
     private void translateStringToStack(Expression expr, StringBuilder collector, Map<String, String> localTypes, Map<String, String> localElementTypes, Map<String, String> localJavaTypes) {
+        String exprType = inferType(expr, localTypes, localElementTypes, localJavaTypes, null);
         if (isStringType(expr, localJavaTypes)) {
             translateExpression(expr, collector, localTypes, localElementTypes, localJavaTypes, "String");
+        } else if ("f64".equals(exprType) || expr.isDoubleLiteralExpr()) {
+            translateExpression(expr, collector, localTypes, localElementTypes, localJavaTypes, "f64");
+            collector.append("    call $__str_from_f64\n");
+        } else if ("f32".equals(exprType)) {
+            translateExpression(expr, collector, localTypes, localElementTypes, localJavaTypes, "f32");
+            collector.append("    f64.promote_f32\n");
+            collector.append("    call $__str_from_f64\n");
         } else if (expr.isCharLiteralExpr() || (expr.isNameExpr() && "char".equals(localJavaTypes.get(expr.asNameExpr().getNameAsString())))) {
             translateExpression(expr, collector, localTypes, localElementTypes, localJavaTypes, "i32");
             collector.append("    call $__str_from_char\n");

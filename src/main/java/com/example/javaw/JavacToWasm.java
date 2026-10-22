@@ -132,7 +132,12 @@ public class JavacToWasm {
                         }
                     }
                 } else {
+                    String procOut = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
                     System.err.println("wat2wasm compilation exited with code: " + exitCode);
+                    if (!procOut.isBlank()) {
+                        System.err.println(procOut);
+                    }
+                    System.exit(exitCode);
                 }
             } catch (IOException e) {
                 // wat2wasm not installed or not in PATH
@@ -177,15 +182,29 @@ public class JavacToWasm {
                     if (initExpr.isIntegerLiteralExpr()) {
                         initVal = initExpr.asIntegerLiteralExpr().getValue();
                     } else if (initExpr.isDoubleLiteralExpr()) {
-                        initVal = initExpr.asDoubleLiteralExpr().getValue();
+                        initVal = cleanFloatStr(initExpr.asDoubleLiteralExpr().getValue());
                     } else if (initExpr.isBooleanLiteralExpr()) {
                         initVal = initExpr.asBooleanLiteralExpr().getValue() ? "1" : "0";
+                    } else {
+                        initVal = vType.equals("f64") || vType.equals("f32") ? "0.0" : "0";
                     }
                 }
-                globals.put(vName, new GlobalVar(vName, vType, initVal));
+                globals.put(vName, new GlobalVar(vName, vType, initVal, vd.getTypeAsString()));
             }
         }
         return globals;
+    }
+
+    public static String cleanFloatStr(String val) {
+        if (val == null) return "0.0";
+        val = val.trim();
+        while (val.endsWith("f") || val.endsWith("F") || val.endsWith("d") || val.endsWith("D")) {
+            val = val.substring(0, val.length() - 1);
+        }
+        if (!val.contains(".")) {
+            val += ".0";
+        }
+        return val;
     }
 
     public static Map<String, StringConstant> collectStringLiterals(CompilationUnit cu) {
@@ -387,8 +406,15 @@ public class JavacToWasm {
 
         Map<String, GlobalVar> globalVars = collectGlobalVars(cu);
         for (GlobalVar gv : globalVars.values()) {
-            watOutput.append("  (global $").append(gv.name).append(" (mut ").append(gv.type).append(") (")
-                    .append(gv.type).append(".const ").append(gv.initVal).append("))\n");
+            String initInstruction = switch (gv.type) {
+                case "v128" -> "(v128.const i32x4 0 0 0 0)";
+                case "f64" -> "(f64.const " + cleanFloatStr(gv.initVal) + ")";
+                case "f32" -> "(f32.const " + cleanFloatStr(gv.initVal) + ")";
+                case "i64" -> "(i64.const " + gv.initVal + ")";
+                default -> "(i32.const " + gv.initVal + ")";
+            };
+            watOutput.append("  (global $").append(gv.name).append(" (mut ").append(gv.type).append(") ")
+                    .append(initInstruction).append(")\n");
         }
 
         Map<String, StringConstant> stringPool = collectStringLiterals(cu);

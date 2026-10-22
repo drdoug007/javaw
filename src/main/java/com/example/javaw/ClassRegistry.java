@@ -297,6 +297,17 @@ public class ClassRegistry {
         return classes.containsKey(name);
     }
 
+    public MethodModel findMethod(String className, String methodName) {
+        String curr = className;
+        while (curr != null && classes.containsKey(curr)) {
+            ClassModel cm = classes.get(curr);
+            MethodModel mm = cm.getMethodByName(methodName);
+            if (mm != null) return mm;
+            curr = cm.getSuperClassName();
+        }
+        return null;
+    }
+
     public List<String> getTableFunctions() {
         return tableFunctions;
     }
