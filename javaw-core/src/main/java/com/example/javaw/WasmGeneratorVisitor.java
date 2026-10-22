@@ -55,6 +55,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     public void visit(CompilationUnit n, StringBuilder collector) {
         super.visit(n, collector);
         emitDefaultRootVirtualMethods(collector);
+        emitClassInitializersAndHelpers(n, collector);
         emitEnumInitializersAndHelpers(n, collector);
     }
 
@@ -964,15 +965,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     }
 
     private void emitResourceClose(String varName, StringBuilder collector) {
-        String sigName = "$t_sig_void_close";
-        if (classRegistry != null) {
-            MethodModel mm = classRegistry.findMethod("AutoCloseable", "close");
-            if (mm != null && mm.getTypeSignatureName() != null) {
-                sigName = mm.getTypeSignatureName();
-            } else {
-                sigName = classRegistry.getOrCreateTypeSignature("(func (param i32))");
-            }
-        }
+        String sigName = classRegistry != null ? classRegistry.getOrCreateTypeSignature("(func (param i32))") : "$t_sig_void_close";
         collector.append("        local.get $").append(varName).append("\n");
         collector.append("        if\n");
         collector.append("          local.get $").append(varName).append("\n");
@@ -1249,6 +1242,13 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             }
         } else if (expr.isNullLiteralExpr()) {
             collector.append("    i32.const 0\n");
+        } else if (expr.isClassExpr()) {
+            ClassExpr ce = expr.asClassExpr();
+            String typeName = ce.getType().asString();
+            if (typeName.contains("<")) {
+                typeName = typeName.substring(0, typeName.indexOf('<')).trim();
+            }
+            collector.append("    global.get $__class_").append(typeName).append("\n");
         } else if (expr.isConditionalExpr()) {
             ConditionalExpr cond = expr.asConditionalExpr();
             String resType = inferType(cond.getThenExpr(), localTypes, localElementTypes, localJavaTypes, expectedType);
@@ -1978,8 +1978,10 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     translateDomOrWindowStaticCall(call, collector, localTypes, localElementTypes, localJavaTypes);
                 } else if (scopeStr.equals("Atomics") || scopeStr.endsWith(".Atomics")) {
                     translateAtomicsStaticCall(call, collector, localTypes, localElementTypes, localJavaTypes);
-                } else if (scopeStr.equals("WasmThread") || scopeStr.endsWith(".WasmThread")) {
-                    translateWasmThreadStaticCall(call, collector, localTypes, localElementTypes, localJavaTypes);
+                } else if (scopeStr.equals("WasmThread") || scopeStr.endsWith(".WasmThread") || scopeStr.equals("Thread") || scopeStr.endsWith(".Thread")) {
+                    translateThreadStaticCall(call, collector, localTypes, localElementTypes, localJavaTypes);
+                } else if (scopeStr.equals("Class") || scopeStr.endsWith(".Class")) {
+                    translateClassStaticCall(call, collector, localTypes, localElementTypes, localJavaTypes);
                 } else if ("AtomicInteger".equals(scopeJavaType) || "AtomicInteger".equals(scopeStr) || (scopeJavaType != null && scopeJavaType.endsWith(".AtomicInteger"))) {
                     translateAtomicIntegerInstanceCall(call, collector, localTypes, localElementTypes, localJavaTypes);
                 } else if (DomHelper.isJsValueClass(scopeJavaType) || DomHelper.isJsValueClass(scopeStr)) {
@@ -2425,7 +2427,11 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                         targetMm = classRegistry.findMethod("Object", mName);
                     }
 
-                    if (targetMm != null && targetMm.isVirtual() && (targetCm == null || targetCm.isOopClass())) {
+                    if (targetMm != null && targetMm.isVirtual() && targetMm.getVirtualSlotIndex() >= 0 && (targetCm == null || targetCm.isOopClass())) {
+                        String sigName = targetMm.getTypeSignatureName();
+                        if (sigName == null && classRegistry != null) {
+                            sigName = classRegistry.getOrCreateTypeSignature(targetMm.buildWasmTypeSignature());
+                        }
                         // Dynamic dispatch via vtable and call_indirect
                         translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
                         collector.append("    local.set $__obj_tmp\n");
@@ -2438,9 +2444,9 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                         collector.append("    i32.load offset=0\n");
                         collector.append("    i32.const ").append(targetMm.getVirtualSlotIndex()).append("\n");
                         collector.append("    i32.add\n");
-                        collector.append("    call_indirect (type ").append(targetMm.getTypeSignatureName()).append(")\n");
+                        collector.append("    call_indirect (type ").append(sigName).append(")\n");
                     } else if (targetMm != null) {
-                        if (!targetMm.isStatic() && (targetCm != null && targetCm.isOopClass())) {
+                        if (!targetMm.isStatic()) {
                             translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
                         }
                         for (int i = 0; i < call.getArguments().size(); i++) {
@@ -2584,6 +2590,9 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 if (fm != null) return fm.getJavaType();
             }
         }
+        if (expr.isClassExpr()) {
+            return "Class";
+        }
         if (expr.isCastExpr()) {
             return expr.asCastExpr().getType().asString();
         }
@@ -2596,6 +2605,29 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         if (expr.isMethodCallExpr()) {
             MethodCallExpr call = expr.asMethodCallExpr();
             String mName = call.getNameAsString();
+            if (mName.equals("getClass")) {
+                return "Class";
+            }
+            if (mName.equals("currentThread")) {
+                return "Thread";
+            }
+            if (call.getScope().isPresent()) {
+                String scopeType = getExpressionJavaType(call.getScope().get(), localJavaTypes);
+                String scopeStr = call.getScope().get().toString();
+                if ("Class".equals(scopeStr) || "Class".equals(scopeType) || (scopeType != null && scopeType.startsWith("Class<")) || (scopeType != null && scopeType.endsWith(".Class"))) {
+                    if (mName.equals("getName") || mName.equals("getSimpleName") || mName.equals("toString")) return "String";
+                    if (mName.equals("isInterface") || mName.equals("isEnum") || mName.equals("isArray") || mName.equals("isInstance") || mName.equals("equals")) return "boolean";
+                    if (mName.equals("getId") || mName.equals("hashCode")) return "int";
+                    if (mName.equals("getSuperclass") || mName.equals("forName")) return "Class";
+                }
+                if ("Thread".equals(scopeStr) || "Thread".equals(scopeType) || (scopeType != null && scopeType.endsWith(".Thread"))) {
+                    if (mName.equals("getId") || mName.equals("activeCount")) return "int";
+                    if (mName.equals("getName")) return "String";
+                    if (mName.equals("isAlive")) return "boolean";
+                    if (mName.equals("currentThread")) return "Thread";
+                    if (mName.equals("start") || mName.equals("run") || mName.equals("setName") || mName.equals("sleep") || mName.equals("yield") || mName.equals("onSpinWait")) return "void";
+                }
+            }
             if (isMathCall(call)) {
                 if (mName.equals("round")) {
                     if (call.getArguments().size() > 0 && "float".equals(getExpressionJavaType(call.getArgument(0), localJavaTypes))) {
@@ -4604,7 +4636,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         }
     }
 
-    private void translateWasmThreadStaticCall(MethodCallExpr call, StringBuilder collector, Map<String, String> localTypes, Map<String, String> localElementTypes, Map<String, String> localJavaTypes) {
+    private void translateThreadStaticCall(MethodCallExpr call, StringBuilder collector, Map<String, String> localTypes, Map<String, String> localElementTypes, Map<String, String> localJavaTypes) {
         String mName = call.getNameAsString();
         if (mName.equals("spawn")) {
             translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
@@ -4615,8 +4647,20 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             collector.append("    call $dom_thread_sleep\n");
         } else if (mName.equals("currentThreadId")) {
             collector.append("    call $dom_thread_current_id\n");
-        } else if (mName.equals("hardwareConcurrency")) {
+        } else if (mName.equals("hardwareConcurrency") || mName.equals("activeCount")) {
             collector.append("    call $dom_thread_hardware_concurrency\n");
+        } else if (mName.equals("currentThread")) {
+            collector.append("    call $Thread_currentThread\n");
+        } else if (mName.equals("yield") || mName.equals("onSpinWait")) {
+            // no-op
+        }
+    }
+
+    private void translateClassStaticCall(MethodCallExpr call, StringBuilder collector, Map<String, String> localTypes, Map<String, String> localElementTypes, Map<String, String> localJavaTypes) {
+        String mName = call.getNameAsString();
+        if (mName.equals("forName")) {
+            translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
+            collector.append("    call $Class_forName\n");
         }
     }
 
@@ -4979,7 +5023,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         }
         if (expr.isDoubleLiteralExpr()) return "f64";
         if (expr.isLongLiteralExpr()) return "i64";
-        if (expr.isIntegerLiteralExpr() || expr.isBooleanLiteralExpr() || expr.isCharLiteralExpr()) return "i32";
+        if (expr.isIntegerLiteralExpr() || expr.isBooleanLiteralExpr() || expr.isCharLiteralExpr() || expr.isClassExpr()) return "i32";
         if (expr.isStringLiteralExpr()) return "i32";
         if (expr.isNameExpr()) {
             String name = expr.asNameExpr().getNameAsString();
@@ -5688,13 +5732,34 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 collector.append("    local.get $this\n");
                 collector.append("  )\n");
             }
+
+            // Slot 8: run
+            MethodModel runMm = cm.getMethodByName("run");
+            if (runMm != null && runMm.isSynthetic() && !cm.getName().equals("Thread")) {
+                collector.append("  ;; Default run() for ").append(cm.getName()).append("\n");
+                collector.append("  (func $").append(cm.getName()).append("_run (export \"").append(cm.getName()).append("_run\") (param $this i32)\n");
+                collector.append("  )\n");
+            }
+
+            // Slot 9: getClass
+            MethodModel getCls = cm.getMethodByName("getClass");
+            if (getCls != null && getCls.isSynthetic()) {
+                collector.append("  ;; Default getClass() for ").append(cm.getName()).append("\n");
+                collector.append("  (func $").append(cm.getName()).append("_getClass (export \"").append(cm.getName()).append("_getClass\") (param $this i32) (result i32)\n");
+                collector.append("    global.get $__class_").append(cm.getName()).append("\n");
+                collector.append("  )\n");
+            }
         }
     }
 
     private void emitEnumInitializersAndHelpers(CompilationUnit cu, StringBuilder collector) {
         if (classRegistry == null) return;
         List<EnumDeclaration> enumDecls = cu.findAll(EnumDeclaration.class);
-        if (enumDecls.isEmpty()) return;
+        if (enumDecls.isEmpty()) {
+            collector.append("  (func $__init_enums (export \"__init_enums\")\n");
+            collector.append("  )\n");
+            return;
+        }
 
         for (EnumDeclaration ed : enumDecls) {
             String enumName = ed.getNameAsString();
@@ -5758,6 +5823,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         collector.append("  ;; Enum Singleton Initializer\n");
         collector.append("  (func $__init_enums (export \"__init_enums\")\n");
         collector.append("    (local $inst i32)\n");
+        collector.append("    call $__init_classes\n");
         for (EnumDeclaration ed : enumDecls) {
             String enumName = ed.getNameAsString();
             ClassModel cm = classRegistry.getClass(enumName);
@@ -5797,6 +5863,280 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
 
                 collector.append("    local.get $inst\n");
                 collector.append("    global.set $").append(enumName).append("_").append(cName).append("\n");
+            }
+        }
+        collector.append("  )\n");
+    }
+
+    private void emitClassInitializersAndHelpers(CompilationUnit cu, StringBuilder collector) {
+        if (classRegistry == null) return;
+
+        // Class methods: $Class_getName, $Class_getSimpleName, $Class_getId, $Class_isInterface, $Class_isEnum, $Class_isArray, $Class_getSuperclass, $Class_isInstance, $Class_forName
+        collector.append("  ;; --- Class Reflection Methods ---\n");
+        collector.append("  (func $Class_getName (export \"Class_getName\") (param $this i32) (result i32)\n");
+        collector.append("    local.get $this\n");
+        collector.append("    i32.load offset=4\n");
+        collector.append("  )\n");
+        collector.append("  (func $Class_getSimpleName (export \"Class_getSimpleName\") (param $this i32) (result i32)\n");
+        collector.append("    local.get $this\n");
+        collector.append("    i32.load offset=8\n");
+        collector.append("  )\n");
+        collector.append("  (func $Class_getId (export \"Class_getId\") (param $this i32) (result i32)\n");
+        collector.append("    local.get $this\n");
+        collector.append("    i32.load offset=12\n");
+        collector.append("  )\n");
+        collector.append("  (func $Class_isInterface (export \"Class_isInterface\") (param $this i32) (result i32)\n");
+        collector.append("    local.get $this\n");
+        collector.append("    i32.load offset=16\n");
+        collector.append("  )\n");
+        collector.append("  (func $Class_isEnum (export \"Class_isEnum\") (param $this i32) (result i32)\n");
+        collector.append("    local.get $this\n");
+        collector.append("    i32.load offset=20\n");
+        collector.append("  )\n");
+        collector.append("  (func $Class_isArray (export \"Class_isArray\") (param $this i32) (result i32)\n");
+        collector.append("    local.get $this\n");
+        collector.append("    i32.load offset=4\n");
+        collector.append("    i32.load8_u\n");
+        collector.append("    i32.const 91\n"); // '['
+        collector.append("    i32.eq\n");
+        collector.append("  )\n");
+        collector.append("  (func $Class_getSuperclass (export \"Class_getSuperclass\") (param $this i32) (result i32)\n");
+        collector.append("    local.get $this\n");
+        collector.append("    i32.load offset=24\n");
+        collector.append("  )\n");
+        collector.append("  (func $Class_isInstance (export \"Class_isInstance\") (param $this i32) (param $obj i32) (result i32)\n");
+        collector.append("    (local $objCls i32)\n");
+        collector.append("    local.get $obj\n");
+        collector.append("    i32.eqz\n");
+        collector.append("    if\n");
+        collector.append("      i32.const 0\n");
+        collector.append("      return\n");
+        collector.append("    end\n");
+        collector.append("    local.get $obj\n");
+        collector.append("    i32.load offset=0\n");
+        collector.append("    call $__get_class_from_vtable\n");
+        collector.append("    local.set $objCls\n");
+        collector.append("    (block $done\n");
+        collector.append("      (loop $check\n");
+        collector.append("        local.get $objCls\n");
+        collector.append("        i32.eqz\n");
+        collector.append("        br_if $done\n");
+        collector.append("        local.get $objCls\n");
+        collector.append("        local.get $this\n");
+        collector.append("        i32.eq\n");
+        collector.append("        if\n");
+        collector.append("          i32.const 1\n");
+        collector.append("          return\n");
+        collector.append("        end\n");
+        collector.append("        local.get $objCls\n");
+        collector.append("        i32.load offset=24\n");
+        collector.append("        local.set $objCls\n");
+        collector.append("        br $check\n");
+        collector.append("      )\n");
+        collector.append("    )\n");
+        collector.append("    i32.const 0\n");
+        collector.append("  )\n");
+
+        collector.append("  (func $Class_forName (export \"Class_forName\") (param $name i32) (result i32)\n");
+        for (ClassModel cm : classRegistry.getClasses().values()) {
+            String cName = cm.getName();
+            StringConstant sc = stringPool != null ? stringPool.get(cName) : null;
+            int scOffset = sc != null ? sc.offset : 0;
+            collector.append("    local.get $name\n");
+            collector.append("    i32.const ").append(scOffset).append("\n");
+            collector.append("    call $__str_equals\n");
+            collector.append("    if\n");
+            collector.append("      global.get $__class_").append(cName).append("\n");
+            collector.append("      return\n");
+            collector.append("    end\n");
+        }
+        collector.append("    i32.const 0\n");
+        collector.append("  )\n");
+
+        // Helper: $__get_class_from_vtable
+        collector.append("  (func $__get_class_from_vtable (param $vtableBase i32) (result i32)\n");
+        for (ClassModel cm : classRegistry.getClasses().values()) {
+            if (cm.isOopClass()) {
+                collector.append("    local.get $vtableBase\n");
+                collector.append("    i32.const ").append(cm.getVtableBase()).append("\n");
+                collector.append("    i32.eq\n");
+                collector.append("    if\n");
+                collector.append("      global.get $__class_").append(cm.getName()).append("\n");
+                collector.append("      return\n");
+                collector.append("    end\n");
+            }
+        }
+        collector.append("    i32.const 0\n");
+        collector.append("  )\n");
+
+        // Thread constructors and methods: $Thread__init, $Thread__init_1, $Thread__init_2, $Thread_start, $Thread_run, $Thread_getId, $Thread_getName, $Thread_setName, $Thread_isAlive, $Thread_currentThread
+        collector.append("  ;; --- Standard Thread Methods ---\n");
+        collector.append("  (func $Thread__init (export \"Thread__init\") (param $this i32)\n");
+        collector.append("    local.get $this\n");
+        collector.append("    i32.const 0\n");
+        collector.append("    i32.const 0\n");
+        collector.append("    call $Thread__init_2\n");
+        collector.append("  )\n");
+
+        collector.append("  (func $Thread__init_1 (export \"Thread__init_1\") (param $this i32) (param $target i32)\n");
+        collector.append("    local.get $this\n");
+        collector.append("    local.get $target\n");
+        collector.append("    i32.const 0\n");
+        collector.append("    call $Thread__init_2\n");
+        collector.append("  )\n");
+
+        collector.append("  (func $Thread__init_2 (export \"Thread__init_2\") (param $this i32) (param $target i32) (param $name i32)\n");
+        collector.append("    local.get $this\n");
+        collector.append("    local.get $target\n");
+        collector.append("    i32.store offset=4\n");
+        collector.append("    local.get $this\n");
+        collector.append("    local.get $name\n");
+        collector.append("    i32.store offset=8\n");
+        collector.append("    local.get $this\n");
+        collector.append("    i32.const 1\n");
+        collector.append("    i32.store offset=12\n");
+        collector.append("    local.get $this\n");
+        collector.append("    i32.const 0\n");
+        collector.append("    i32.store offset=16\n");
+        collector.append("  )\n");
+
+        collector.append("  (func $Thread_start (export \"Thread_start\") (param $this i32)\n");
+        collector.append("    local.get $this\n");
+        collector.append("    i32.const 1\n");
+        collector.append("    i32.store offset=16\n");
+        collector.append("    local.get $this\n");
+        collector.append("    i32.load offset=4\n");
+        collector.append("    if\n");
+        collector.append("      local.get $this\n");
+        collector.append("      i32.load offset=4\n");
+        collector.append("      local.get $this\n");
+        collector.append("      i32.load offset=4\n");
+        collector.append("      i32.load offset=0\n");
+        collector.append("      i32.const 8\n");
+        collector.append("      i32.add\n");
+        collector.append("      call_indirect (type ").append(classRegistry.getOrCreateTypeSignature("(func (param i32))")).append(")\n");
+        collector.append("    else\n");
+        collector.append("      local.get $this\n");
+        collector.append("      local.get $this\n");
+        collector.append("      i32.load offset=0\n");
+        collector.append("      i32.const 8\n");
+        collector.append("      i32.add\n");
+        collector.append("      call_indirect (type ").append(classRegistry.getOrCreateTypeSignature("(func (param i32))")).append(")\n");
+        collector.append("    end\n");
+        collector.append("  )\n");
+
+        collector.append("  (func $Thread_run (export \"Thread_run\") (param $this i32)\n");
+        collector.append("    local.get $this\n");
+        collector.append("    i32.load offset=4\n");
+        collector.append("    if\n");
+        collector.append("      local.get $this\n");
+        collector.append("      i32.load offset=4\n");
+        collector.append("      local.get $this\n");
+        collector.append("      i32.load offset=4\n");
+        collector.append("      i32.load offset=0\n");
+        collector.append("      i32.const 8\n");
+        collector.append("      i32.add\n");
+        collector.append("      call_indirect (type ").append(classRegistry.getOrCreateTypeSignature("(func (param i32))")).append(")\n");
+        collector.append("    end\n");
+        collector.append("  )\n");
+
+        collector.append("  (func $Thread_getId (export \"Thread_getId\") (param $this i32) (result i32)\n");
+        collector.append("    local.get $this\n");
+        collector.append("    i32.load offset=12\n");
+        collector.append("  )\n");
+
+        collector.append("  (func $Thread_getName (export \"Thread_getName\") (param $this i32) (result i32)\n");
+        collector.append("    local.get $this\n");
+        collector.append("    i32.load offset=8\n");
+        collector.append("  )\n");
+
+        collector.append("  (func $Thread_setName (export \"Thread_setName\") (param $this i32) (param $name i32)\n");
+        collector.append("    local.get $this\n");
+        collector.append("    local.get $name\n");
+        collector.append("    i32.store offset=8\n");
+        collector.append("  )\n");
+
+        collector.append("  (func $Thread_isAlive (export \"Thread_isAlive\") (param $this i32) (result i32)\n");
+        collector.append("    local.get $this\n");
+        collector.append("    i32.load offset=16\n");
+        collector.append("  )\n");
+
+        collector.append("  (func $Thread_currentThread (export \"Thread_currentThread\") (result i32)\n");
+        collector.append("    (local $t i32)\n");
+        ClassModel threadCm = classRegistry.getClass("Thread");
+        int threadVtable = threadCm != null ? threadCm.getVtableBase() : 0;
+        StringConstant mainSc = stringPool != null ? stringPool.get("main") : null;
+        int mainOffset = mainSc != null ? mainSc.offset : 0;
+        collector.append("    i32.const 24\n");
+        collector.append("    call $__heap_alloc\n");
+        collector.append("    local.set $t\n");
+        collector.append("    local.get $t\n");
+        collector.append("    i32.const ").append(threadVtable).append("\n");
+        collector.append("    i32.store offset=0\n");
+        collector.append("    local.get $t\n");
+        collector.append("    i32.const 0\n"); // target = null
+        collector.append("    i32.store offset=4\n");
+        collector.append("    local.get $t\n");
+        collector.append("    i32.const ").append(mainOffset).append("\n"); // name = "main"
+        collector.append("    i32.store offset=8\n");
+        collector.append("    local.get $t\n");
+        collector.append("    i32.const 1\n"); // id
+        collector.append("    i32.store offset=12\n");
+        collector.append("    local.get $t\n");
+        collector.append("    i32.const 1\n"); // alive = true
+        collector.append("    i32.store offset=16\n");
+        collector.append("    local.get $t\n");
+        collector.append("  )\n");
+
+        // Class Descriptors Initializer ($__init_classes)
+        ClassModel classCm = classRegistry.getClass("Class");
+        int classVtable = classCm != null ? classCm.getVtableBase() : 0;
+        collector.append("  ;; Class Descriptors Initializer\n");
+        collector.append("  (func $__init_classes (export \"__init_classes\")\n");
+        collector.append("    (local $inst i32)\n");
+
+        for (ClassModel cm : classRegistry.getClasses().values()) {
+            String cName = cm.getName();
+            String simpleName = cName.contains(".") ? cName.substring(cName.lastIndexOf('.') + 1) : cName;
+            StringConstant nameSc = stringPool != null ? stringPool.get(cName) : null;
+            int nameOffset = nameSc != null ? nameSc.offset : 0;
+            StringConstant simpleSc = stringPool != null ? stringPool.get(simpleName) : null;
+            int simpleOffset = simpleSc != null ? simpleSc.offset : 0;
+
+            collector.append("    i32.const 32\n");
+            collector.append("    call $__heap_alloc\n");
+            collector.append("    local.set $inst\n");
+            collector.append("    local.get $inst\n");
+            collector.append("    i32.const ").append(classVtable).append("\n");
+            collector.append("    i32.store offset=0\n");
+            collector.append("    local.get $inst\n");
+            collector.append("    i32.const ").append(nameOffset).append("\n");
+            collector.append("    i32.store offset=4\n");
+            collector.append("    local.get $inst\n");
+            collector.append("    i32.const ").append(simpleOffset).append("\n");
+            collector.append("    i32.store offset=8\n");
+            collector.append("    local.get $inst\n");
+            collector.append("    i32.const ").append(cm.getClassId()).append("\n");
+            collector.append("    i32.store offset=12\n");
+            collector.append("    local.get $inst\n");
+            collector.append("    i32.const ").append(cm.isInterface() ? 1 : 0).append("\n");
+            collector.append("    i32.store offset=16\n");
+            collector.append("    local.get $inst\n");
+            collector.append("    i32.const ").append(cm.isEnum() ? 1 : 0).append("\n");
+            collector.append("    i32.store offset=20\n");
+            collector.append("    local.get $inst\n");
+            collector.append("    i32.const 0\n");
+            collector.append("    i32.store offset=24\n");
+            collector.append("    local.get $inst\n");
+            collector.append("    global.set $__class_").append(cName).append("\n");
+        }
+
+        // Second pass: set superclass pointers
+        for (ClassModel cm : classRegistry.getClasses().values()) {
+            if (cm.getSuperClassName() != null && classRegistry.hasClass(cm.getSuperClassName())) {
+                collector.append("    global.get $__class_").append(cm.getName()).append("\n");
+                collector.append("    global.get $__class_").append(cm.getSuperClassName()).append("\n");
+                collector.append("    i32.store offset=24\n");
             }
         }
         collector.append("  )\n");

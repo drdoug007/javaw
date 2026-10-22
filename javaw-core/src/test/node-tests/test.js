@@ -918,6 +918,17 @@ async function runTest() {
 
                     console.log('✓ Phase 5: Resource Management (try-with-resources) & Core Interfaces (AutoCloseable, Comparable, Iterable, Iterator) assertions passed.');
                 }
+
+                // Phase 6: Standard Thread/Runnable & Static Class Introspection Assertions
+                if (typeof instance.exports.testThreadAndRunnablePhase6 === 'function') {
+                    const threadRes = instance.exports.testThreadAndRunnablePhase6();
+                    assert.strictEqual(threadRes, 13, `testThreadAndRunnablePhase6 expected 13, got ${threadRes}`);
+
+                    const classIntroRes = instance.exports.testClassIntrospectionPhase6();
+                    assert.strictEqual(classIntroRes, 1, `testClassIntrospectionPhase6 expected 1 (true), got ${classIntroRes}`);
+
+                    console.log('✓ Phase 6: Standard Thread/Runnable & Static Class Introspection assertions passed.');
+                }
             }
 
             console.log('✓ TestClass execution assertions passed (including for loops, for-each loops, arrays, switches, labeled break/continue, compound assignments, dynamic strings, OOP, Canvas 2D, WebGL, JSObject, WASI VFS, Threads/Atomics, Exceptions, Multi-Value Returns, Bulk Memory, Fixed-Width SIMD, and Multi-Memory Segregation).');

@@ -375,10 +375,13 @@ public class JavacToWasm {
             }
         }
 
-        if (!pool.containsKey("@")) {
-            byte[] bytes = "@".getBytes(StandardCharsets.UTF_8);
-            pool.put("@", new StringConstant(currentOffset, bytes.length, bytes));
-            currentOffset += bytes.length + 1;
+        String[] defaultStrings = {"@", "true", "false", "class ", "interface ", "Object", "String", "Class", "Thread", "Runnable", "Enum", "int", "long", "double", "float", "boolean", "char", "byte", "short", "void"};
+        for (String ds : defaultStrings) {
+            if (!pool.containsKey(ds)) {
+                byte[] bytes = ds.getBytes(StandardCharsets.UTF_8);
+                pool.put(ds, new StringConstant(currentOffset, bytes.length, bytes));
+                currentOffset += bytes.length + 1;
+            }
         }
 
         List<com.github.javaparser.ast.expr.FieldAccessExpr> fieldAccesses = cu.findAll(com.github.javaparser.ast.expr.FieldAccessExpr.class);
@@ -448,7 +451,7 @@ public class JavacToWasm {
 
     public static boolean hasThreadsOrAtomics(CompilationUnit cu) {
         String code = cu.toString();
-        return code.contains("AtomicInteger") || code.contains("Atomics") || code.contains("WasmThread") || code.contains("concurrent");
+        return code.contains("AtomicInteger") || code.contains("Atomics") || code.contains("WasmThread") || code.contains("concurrent") || code.contains("Thread") || code.contains("Runnable");
     }
 
     public static String generateWat(List<CompilationUnit> cus) {
@@ -594,6 +597,9 @@ public class JavacToWasm {
             }
         }
         watOutput.append("  (global $__heap_ptr (mut i32) (i32.const ").append(heapStart).append("))\n");
+        for (String cName : classRegistry.getClasses().keySet()) {
+            watOutput.append("  (global $__class_").append(cName).append(" (mut i32) (i32.const 0))\n");
+        }
 
         classRegistry.emitTypeSignaturesAndTable(watOutput);
 
@@ -606,6 +612,8 @@ public class JavacToWasm {
         cu.accept(new WasmGeneratorVisitor(stringPool, globalVars, classRegistry, tracker, jsSnippets), watOutput);
         if (!cu.findAll(com.github.javaparser.ast.body.EnumDeclaration.class).isEmpty()) {
             watOutput.append("  (start $__init_enums)\n");
+        } else {
+            watOutput.append("  (start $__init_classes)\n");
         }
         watOutput.append(")\n");
         return watOutput.toString();
@@ -644,7 +652,11 @@ public class JavacToWasm {
                 Process process = new ProcessBuilder("wat2wasm", "--enable-threads", "--enable-exceptions", "--enable-multi-memory", "--enable-annotations", tempWat.toString(), "-o", tempWasm.toString())
                         .redirectErrorStream(true)
                         .start();
+                String errOutput = new String(process.getInputStream().readAllBytes());
                 int exitCode = process.waitFor();
+                if (exitCode != 0) {
+                    System.err.println("wat2wasm error in Phase6: " + errOutput);
+                }
                 if (exitCode == 0) {
                     if (optimize) {
                         try {

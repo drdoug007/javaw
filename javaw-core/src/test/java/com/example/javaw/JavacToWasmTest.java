@@ -1537,4 +1537,68 @@ public class JavacToWasmTest {
         org.junit.jupiter.api.Assertions.assertNotNull(res.getWat());
         assertTrue(res.isWasmGenerated());
     }
+
+    @Test
+    public void testThreadRunnableAndClassIntrospectionPhase6() {
+        String javaSource = "package com.example.javaw;\n" +
+                "import com.example.javaw.lang.Thread;\n" +
+                "import com.example.javaw.lang.Runnable;\n" +
+                "import com.example.javaw.lang.Class;\n" +
+                "public class Phase6App {\n" +
+                "    public static class WorkerTask implements Runnable {\n" +
+                "        public int count = 0;\n" +
+                "        public void run() {\n" +
+                "            this.count += 1;\n" +
+                "        }\n" +
+                "    }\n" +
+                "    public static boolean testThreadAndIntrospection() {\n" +
+                "        WorkerTask task = new WorkerTask();\n" +
+                "        Thread t = new Thread(task, \"worker\");\n" +
+                "        t.start();\n" +
+                "        Thread cur = Thread.currentThread();\n" +
+                "        int id = t.getId();\n" +
+                "        String name = t.getName();\n" +
+                "        boolean alive = t.isAlive();\n" +
+                "        Thread.yield();\n" +
+                "        Thread.onSpinWait();\n" +
+                "        Thread.sleep(10);\n" +
+                "        Class<?> cls1 = WorkerTask.class;\n" +
+                "        Class<?> cls2 = task.getClass();\n" +
+                "        String cName = cls1.getName();\n" +
+                "        String sName = cls1.getSimpleName();\n" +
+                "        int cId = cls1.getId();\n" +
+                "        boolean isIface = cls1.isInterface();\n" +
+                "        boolean isEnum = cls1.isEnum();\n" +
+                "        boolean isArr = cls1.isArray();\n" +
+                "        boolean isInst = cls1.isInstance(task);\n" +
+                "        Class<?> sup = cls1.getSuperclass();\n" +
+                "        Class<?> forN = Class.forName(\"WorkerTask\");\n" +
+                "        return task.count == 1 && cName.equals(\"WorkerTask\") && isInst && forN != null;\n" +
+                "    }\n" +
+                "}\n";
+
+        CompilationUnit cu = StaticJavaParser.parse(javaSource);
+        String wat = JavacToWasm.generateWat(cu);
+
+        assertTrue(wat.contains("$Thread_start"));
+        assertTrue(wat.contains("$Thread_currentThread"));
+        assertTrue(wat.contains("$Thread_getId"));
+        assertTrue(wat.contains("$Thread_getName"));
+        assertTrue(wat.contains("$Thread_isAlive"));
+        assertTrue(wat.contains("$Class_getName"));
+        assertTrue(wat.contains("$Class_getSimpleName"));
+        assertTrue(wat.contains("$Class_getId"));
+        assertTrue(wat.contains("$Class_isInterface"));
+        assertTrue(wat.contains("$Class_isEnum"));
+        assertTrue(wat.contains("$Class_isArray"));
+        assertTrue(wat.contains("$Class_isInstance"));
+        assertTrue(wat.contains("$Class_getSuperclass"));
+        assertTrue(wat.contains("$Class_forName"));
+        assertTrue(wat.contains("$__init_classes"));
+
+        JavacToWasm.CompilationResult res = JavacToWasm.compile("Phase6App.java", javaSource, true);
+        org.junit.jupiter.api.Assertions.assertNotNull(res);
+        org.junit.jupiter.api.Assertions.assertNotNull(res.getWat());
+        assertTrue(res.isWasmGenerated());
+    }
 }

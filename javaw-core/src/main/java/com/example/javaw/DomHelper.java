@@ -80,7 +80,8 @@ public class DomHelper {
     private static boolean isThreadMethod(String mName, MethodCallExpr call) {
         if (!call.getScope().isPresent()) return false;
         String scope = call.getScope().get().toString();
-        return scope.equals("WasmThread") || scope.endsWith(".WasmThread");
+        return scope.equals("WasmThread") || scope.endsWith(".WasmThread") ||
+               scope.equals("Thread") || scope.endsWith(".Thread");
     }
 
     private static void addThreadImports(String mName, Set<String> imports) {
@@ -88,9 +89,9 @@ public class DomHelper {
             imports.add("thread_spawn");
         } else if (mName.equals("sleep")) {
             imports.add("thread_sleep");
-        } else if (mName.equals("currentThreadId")) {
+        } else if (mName.equals("currentThreadId") || mName.equals("currentThread") || mName.equals("getId")) {
             imports.add("thread_current_id");
-        } else if (mName.equals("hardwareConcurrency")) {
+        } else if (mName.equals("hardwareConcurrency") || mName.equals("activeCount")) {
             imports.add("thread_hardware_concurrency");
         }
     }

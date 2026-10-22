@@ -239,6 +239,6 @@ This roadmap organizes planned features by their utility and return on investmen
   - Lower `try-with-resources` statements (`try (AutoCloseable res = ...) { ... }`) to WebAssembly `try-catch_all` blocks with guaranteed `.close()` cleanup.
   - Support standard interface dispatch for `java.lang.Comparable<T>` and `java.lang.Iterable<T>` in polymorphic call sites.
 
-- [ ] **Phase 6: Standard Thread/Runnable & Static Class Introspection**
+- [x] **Phase 6: Standard Thread/Runnable & Static Class Introspection**
   - Wrap `WasmThread` into standard `java.lang.Thread` and `java.lang.Runnable` constructs (`Thread.sleep(ms)`, `Thread.currentThread()`).
   - Static linear memory `java.lang.Class` descriptor tables supporting `obj.getClass().getName()`, `Class.getSimpleName()`, and `Class.isInstance(obj)`.

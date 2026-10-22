@@ -237,6 +237,28 @@ public class TestClass {
         return 0;
     }
 
+    public int testThreadAndRunnablePhase6() {
+        SimpleWorkerTask task = new SimpleWorkerTask();
+        Thread t = new Thread(task, "background-worker");
+        t.start();
+        boolean isAlive = t.isAlive();
+        int id = (int) t.getId();
+        Thread.yield();
+        Thread.onSpinWait();
+        return task.executionCount + (isAlive ? 1 : 0) + (id > 0 ? 2 : 0);
+    }
+
+    public boolean testClassIntrospectionPhase6() {
+        SimpleWorkerTask task = new SimpleWorkerTask();
+        Class<?> cls = task.getClass();
+        String name = cls.getName();
+        String simpleName = cls.getSimpleName();
+        boolean isIface = cls.isInterface();
+        boolean isEnum = cls.isEnum();
+        boolean isInst = cls.isInstance(task);
+        return name.equals("SimpleWorkerTask") && simpleName.equals("SimpleWorkerTask") && !isIface && !isEnum && isInst;
+    }
+
     public void sayHello() {
         // This is a comment
     }
@@ -1481,5 +1503,17 @@ class IntRange implements Iterable<BoxItem> {
 
     public java.util.Iterator<BoxItem> iterator() {
         return new IntRangeIterator(0, this.limit);
+    }
+}
+
+class SimpleWorkerTask implements Runnable {
+    public int executionCount;
+
+    public SimpleWorkerTask() {
+        this.executionCount = 0;
+    }
+
+    public void run() {
+        this.executionCount += 10;
     }
 }

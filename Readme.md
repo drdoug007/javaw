@@ -18,6 +18,13 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
   - Modular reactor architecture comprising `javaw-core` (embeddable compiler engine, runtime helpers, facades, and AST visitors), `javaw-maven-plugin` (dedicated Maven Mojo automating WebAssembly compilation in the standard build lifecycle), and `examples` (interactive consumer module).
   - Dedicated Maven Mojo `javaw:compile` bound to the `process-classes` lifecycle phase with full parameter configuration (`sourceDirectory`, `outputDirectory`, `optimizationLevel`, `generateSourceMaps`, `enableThreads`, `copyRuntimeScript`, `batchMode`, `moduleName`, `includes`, `excludes`).
   - Automated compilation of `.wat`, `.wasm`, `.wasm.map`, and runtime scripts (`javaw-runtime.js`) during standard `mvn compile` or `mvn package`.
+- **`java.lang` Standard Library Support & Core Language Idioms**:
+  - **Hardware Math & Primitive Wrapper Classes**: Direct WebAssembly FPU instruction lowering for `java.lang.Math` and `StrictMath` (`floor`, `ceil`, `trunc`, `rint`, `round`, `abs`, `sqrt`, `min`, `max`, `copySign`, `signum`, `toDegrees`, `toRadians`) and host/runtime transcendental math imports (`sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `atan2`, `exp`, `log`, `log10`, `pow`, `hypot`, `cbrt`, `sinh`, `cosh`, `tanh`, `random`, `PI`, `E`). Complete primitive wrapper classes (`Integer`, `Long`, `Double`, `Float`, `Boolean`, `Character`, `Byte`, `Short`, `Number`) with compile-time constants (`MAX_VALUE`, `MIN_VALUE`, `BYTES`, `SIZE`), string parsing & radix formatting (`parseInt`, `parseLong`, `parseDouble`, `toHexString`, `toBinaryString`, `toOctalString`), bit conversions (`doubleToLongBits`, `floatToIntBits`), and hardware-accelerated bitwise intrinsics (`bitCount` &rarr; `popcnt`, `numberOfLeadingZeros` &rarr; `clz`, `numberOfTrailingZeros` &rarr; `ctz`, `reverseBytes`, `rotateLeft` &rarr; `rotl`, `rotateRight` &rarr; `rotr`).
+  - **Root `Object` Virtual Contracts & Language `enum`**: Universal vtable integration for all classes and interfaces (slot 0: `toString()`, slot 1: `equals(Object)`, slot 2: `hashCode()`), shallow object cloning (`Object.clone()` lowered to `memory.copy`), heap-address `hashCode()`, and first-class Java `enum` lowering (`ordinal()`, `name()`, `values()`, `valueOf()`, and `switch` matching on enum constants).
+  - **Expanded `String`, `CharSequence` & Standard `StringBuilder`**: Standard package resolution for `java.lang.StringBuilder` (with `insert`, `delete`, `deleteCharAt`, `reverse`, `replace`, `substring`, `indexOf`) and `java.lang.CharSequence`. Expanded `String` methods: `trim()`, `strip()`, `toLowerCase()`, `toUpperCase()`, `replace(target, rep)`, `contains(seq)`, `startsWith(prefix)`, `endsWith(suffix)`, `toCharArray()`, `getBytes()`, `compareTo(other)`, `equalsIgnoreCase(other)`, `repeat(n)`, and `String.valueOf(...)`.
+  - **Standard `System`, High-Resolution Clock & Environment**: High-precision timers `System.currentTimeMillis()` and `System.nanoTime()` connected to WASI/browser performance timers, `System.identityHashCode(obj)`, `System.lineSeparator()`, and environment/property lookups (`System.getenv(key)`, `System.getProperty(key)`).
+  - **Resource Management & Core Interfaces (`AutoCloseable`, `Comparable`, `Iterable`)**: Standard interfaces `java.lang.AutoCloseable`, `java.lang.Comparable<T>`, `java.lang.Iterable<T>`, and `java.util.Iterator<E>` with universal vtable slots (slots 3–7) and polymorphic dispatch. Full `try-with-resources` (`try (AutoCloseable res = ...) { ... }`) lowering to nested WebAssembly `try-catch_all` blocks with guaranteed `.close()` cleanup.
+  - **Standard Thread/Runnable & Static Class Reflection Tables (`Thread`, `Runnable`, `Class<T>`)**: Standard `java.lang.Thread` and `java.lang.Runnable` wrapping WebAssembly thread primitives (`start()`, `run()`, `sleep(ms)`, `currentThread()`, `getId()`, `getName()`, `setName()`, `isAlive()`, `yield()`, `onSpinWait()`, `activeCount()`). Universal vtable slots (slot 8: `run()`, slot 9: `getClass()`), class literal expressions (`MyClass.class`), and static linear memory `java.lang.Class` descriptor tables supporting `obj.getClass()`, `Class.getName()`, `Class.getSimpleName()`, `Class.isInterface()`, `Class.isEnum()`, `Class.isArray()`, `Class.isInstance()`, and `Class.forName()`.
 - **Interactive In-Browser WASI Terminal & REPL Integration (WASI & ANSI)**:
   - Strongly-typed Java facades `com.example.javaw.wasi.WASITerminal` and `com.example.javaw.terminal.Terminal` providing standard ANSI color palette constants (`BLACK`, `RED`, `GREEN`, `YELLOW`, `BLUE`, `MAGENTA`, `CYAN`, `WHITE`, and `BRIGHT_*` variants), text attributes (`BOLD`, `DIM`, `ITALIC`, `UNDERLINE`, `REVERSE`), cursor positioning (`setCursor`), screen clearing (`clear`), and dimensions (`getColumns`, `getRows`).
   - Interactive line and character reading (`readLine()`, `readLine(prompt)`, `readChar()`) wired directly to WASI standard input (`fd 0` stdin queue) with linear memory string decoding.
@@ -222,23 +229,31 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
 │   │   │   │   │   ├── JsSnippetModel.java    # Model for extracted @JS inline JavaScript snippets
 │   │   │   │   │   ├── JsExportModel.java     # Model for exported Java classes (@JS.Export)
 │   │   │   │   │   └── JsAnnotationHelper.java # AST visitor and annotation discovery helper
+│   │   │   │   ├── lang
+│   │   │   │   │   ├── AutoCloseable.java     # Standard AutoCloseable interface
+│   │   │   │   │   ├── Class.java             # Static class metadata & reflection descriptor facade
+│   │   │   │   │   ├── Comparable.java        # Standard Comparable interface
+│   │   │   │   │   ├── Iterable.java          # Standard Iterable interface
+│   │   │   │   │   ├── Runnable.java          # Standard Runnable interface
+│   │   │   │   │   └── Thread.java            # Standard Thread facade wrapping WebAssembly concurrency
 │   │   │   │   ├── memory
-│   │   │   │   │   └── Memory.java        # WebAssembly Multi-Memory segregation & operations facade
+│   │   │   │   │   └── Memory.java            # WebAssembly Multi-Memory segregation & operations facade
 │   │   │   │   ├── simd
-│   │   │   │   │   ├── Float32x4.java     # 128-bit float vector facade (f32x4)
-│   │   │   │   │   ├── Int32x4.java       # 128-bit integer vector facade (i32x4)
-│   │   │   │   │   └── Vector128.java     # 128-bit SIMD constants and utilities
+│   │   │   │   │   ├── Float32x4.java         # 128-bit float vector facade (f32x4)
+│   │   │   │   │   ├── Int32x4.java           # 128-bit integer vector facade (i32x4)
+│   │   │   │   │   └── Vector128.java         # 128-bit SIMD constants and utilities
 │   │   │   │   ├── sourcemap
-│   │   │   │   │   ├── Base64VLQ.java     # Base64 Variable-Length Quantity (VLQ) encoder/decoder
-│   │   │   │   │   ├── MappingEntry.java  # Generated to original source coordinate mapping model
-│   │   │   │   │   ├── SourceMap.java     # Source Map v3 parser and consumer
+│   │   │   │   │   ├── Base64VLQ.java         # Base64 Variable-Length Quantity (VLQ) encoder/decoder
+│   │   │   │   │   ├── MappingEntry.java      # Generated to original source coordinate mapping model
+│   │   │   │   │   ├── SourceMap.java         # Source Map v3 parser and consumer
 │   │   │   │   │   ├── SourceMapGenerator.java # Source Map v3 generator and custom section injector
 │   │   │   │   │   └── SourceMapTracker.java   # AST source position tracking visitor helper
 │   │   │   │   ├── terminal
-│   │   │   │   │   └── Terminal.java      # Terminal facade for interactive console & ANSI styling
+│   │   │   │   │   └── Terminal.java          # Terminal facade for interactive console & ANSI styling
 │   │   │   │   ├── util
-│   │   │   │   │   ├── Arrays.java        # High-performance array utilities & bulk memory operations
-│   │   │   │   │   └── StringBuilder.java # Dynamic string builder facade
+│   │   │   │   │   ├── Arrays.java            # High-performance array utilities & bulk memory operations
+│   │   │   │   │   ├── Iterator.java          # Standard Iterator interface
+│   │   │   │   │   └── StringBuilder.java     # Dynamic string builder facade
 │   │   │   │   └── wasi
 │   │   │   │       ├── WASI.java          # WASI snapshot preview 1 system & VFS facade
 │   │   │   │       ├── WASIFile.java      # Object-oriented WASI Virtual File System abstraction
@@ -1288,6 +1303,105 @@ const terminal = runtime.createTerminal('#terminal-container', {
 
 // Run the Java WebAssembly shell routine
 runtime.instance.exports.runShell();
+```
+
+---
+
+#### Example W: `java.lang` Standard Library, Enums, Try-With-Resources & Reflection
+
+Author idiomatic Java code using standard mathematical functions, wrapper utilities, enums with `switch` statements, `try-with-resources` automatic cleanup, multithreaded tasks, and static class reflection:
+
+```java
+package com.example.javaw;
+
+import com.example.javaw.lang.AutoCloseable;
+import com.example.javaw.lang.Class;
+import com.example.javaw.lang.Runnable;
+import com.example.javaw.lang.Thread;
+
+enum Status {
+    PENDING,
+    ACTIVE,
+    COMPLETED
+}
+
+class Transaction implements AutoCloseable {
+    private String name;
+    private boolean closed;
+
+    public Transaction(String name) {
+        this.name = name;
+        this.closed = false;
+    }
+
+    public void commit() {
+        System.out.println("Transaction committed: " + this.name);
+    }
+
+    @Override
+    public void close() {
+        this.closed = true;
+        System.out.println("Transaction closed safely.");
+    }
+}
+
+class BackgroundWorker implements Runnable {
+    public int processed = 0;
+
+    @Override
+    public void run() {
+        this.processed += 100;
+    }
+}
+
+public class StandardLibraryDemo {
+
+    public static void demonstrateFeatures() {
+        // 1. Math and Hardware FPU Operations
+        double root = Math.sqrt(144.0);                  // f64.sqrt
+        double rounded = Math.floor(45.8);               // f64.floor
+        int maxVal = Math.max(10, 20);                   // Direct comparison
+        double angleRad = Math.toRadians(180.0);         // PI
+
+        // 2. Primitive Wrappers & Bitwise Intrinsics
+        int parsed = Integer.parseInt("1024");
+        String hex = Integer.toHexString(255);           // "ff"
+        int popCount = Integer.bitCount(0b1011001);       // i32.popcnt -> 4
+        int leadingZeros = Integer.numberOfLeadingZeros(16); // i32.clz
+
+        // 3. String Methods & Dynamic StringBuilder
+        String text = "   Java to WebAssembly   ".trim().toUpperCase();
+        boolean containsWasm = text.contains("WEBASSEMBLY");
+        String replaced = text.replace("JAVA", "JAVAW");
+
+        // 4. Java Enums & Switch Expressions
+        Status currentStatus = Status.ACTIVE;
+        String statusLabel;
+        switch (currentStatus) {
+            case PENDING -> statusLabel = "Waiting";
+            case ACTIVE -> statusLabel = "In Progress";
+            case COMPLETED -> statusLabel = "Done";
+            default -> statusLabel = "Unknown";
+        }
+
+        // 5. Try-With-Resources (Guaranteed .close() Invocation)
+        try (Transaction tx = new Transaction("Tx-01")) {
+            tx.commit();
+        }
+
+        // 6. Thread & Runnable Task Execution
+        BackgroundWorker worker = new BackgroundWorker();
+        Thread thread = new Thread(worker, "worker-thread");
+        thread.start();
+        Thread.yield();
+
+        // 7. Static Class Reflection & Introspection
+        Class<?> workerClass = worker.getClass();
+        String className = workerClass.getName();         // "BackgroundWorker"
+        boolean isInterface = workerClass.isInterface();  // false
+        boolean isInstance = workerClass.isInstance(worker); // true
+    }
+}
 ```
 
 ---

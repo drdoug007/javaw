@@ -90,6 +90,13 @@ public class WasmRuntime {
         watOutput.append("  (func $Iterator_next (export \"Iterator_next\") (param $this i32) (result i32)\n");
         watOutput.append("    i32.const 0\n");
         watOutput.append("  )\n");
+        watOutput.append("  (func $Runnable_run (export \"Runnable_run\") (param $this i32)\n");
+        watOutput.append("  )\n");
+        watOutput.append("  (func $Object_getClass (export \"Object_getClass\") (param $this i32) (result i32)\n");
+        watOutput.append("    local.get $this\n");
+        watOutput.append("    i32.load offset=0\n");
+        watOutput.append("    call $__get_class_from_vtable\n");
+        watOutput.append("  )\n");
         watOutput.append("  ;; --- String Runtime Functions ---\n");
         watOutput.append("  (func $__str_alloc (export \"__str_alloc\") (param $len i32) (result i32)\n");
         watOutput.append("    (local $ptr i32)\n");
