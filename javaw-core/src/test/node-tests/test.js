@@ -757,6 +757,42 @@ async function runTest() {
 
                     console.log('✓ In-Browser Interactive WASI Terminal & REPL (stdin queue, stdout stream, ANSI formatting, custom commands) assertions passed.');
                 }
+
+                // Phase 1: Hardware Math & Primitive Wrapper Classes Assertions
+                if (typeof instance.exports.testMathHardware === 'function') {
+                    const mathHw = instance.exports.testMathHardware(5.7, 4.0);
+                    // floor(5.7)=5, ceil(5.7)=6, sqrt(4)=2, abs(5.7)=5.7, min(5.7,4)=4, max(5.7,4)=5.7, rint(5.7)=6, copySign(5.7,4)=5.7 -> sum = 40.1
+                    assert.ok(Math.abs(mathHw - 40.1) < 0.001, `testMathHardware expected ~40.1, got ${mathHw}`);
+
+                    const mathTrans = instance.exports.testMathTranscendental(1.0);
+                    assert.ok(typeof mathTrans === 'number' && !isNaN(mathTrans), 'testMathTranscendental should return valid number');
+
+                    const mathConst = instance.exports.testMathConstants();
+                    assert.ok(Math.abs(mathConst - (Math.PI + Math.E)) < 0.0001, `testMathConstants expected ${Math.PI + Math.E}, got ${mathConst}`);
+
+                    const intRes = instance.exports.testIntegerWrappers(writeWasmString(instance, '100'), 42);
+                    assert.ok(typeof intRes === 'number', 'testIntegerWrappers should return integer');
+
+                    const longRes = instance.exports.testLongWrappers(writeWasmString(instance, '500'), 100n);
+                    assert.ok(typeof longRes === 'bigint' || typeof longRes === 'number', 'testLongWrappers should return long');
+
+                    const doubleRes = instance.exports.testDoubleWrappers(writeWasmString(instance, '3.14'), 2.5);
+                    assert.ok(typeof doubleRes === 'number' && !isNaN(doubleRes), 'testDoubleWrappers should return double');
+
+                    const floatRes = instance.exports.testFloatWrappers(writeWasmString(instance, '1.5'), 0.5);
+                    assert.ok(typeof floatRes === 'number' && !isNaN(floatRes), 'testFloatWrappers should return float');
+
+                    const boolRes = instance.exports.testBooleanWrappers(writeWasmString(instance, 'true'), 1);
+                    assert.strictEqual(boolRes, 1, 'testBooleanWrappers should return 1');
+
+                    const charRes = instance.exports.testCharacterWrappers(65); // 'A'
+                    assert.ok(typeof charRes === 'number', 'testCharacterWrappers should return int');
+
+                    const bitRes = instance.exports.testBitwiseIntrinsics(0x0F0F0F0F, 0x0F0F0F0F0F0F0F0Fn);
+                    assert.ok(typeof bitRes === 'number', 'testBitwiseIntrinsics should return int');
+
+                    console.log('✓ Phase 1: Hardware Math, Transcendental Functions, Primitive Wrappers, and Bitwise Intrinsics assertions passed.');
+                }
             }
 
             console.log('✓ TestClass execution assertions passed (including for loops, for-each loops, arrays, switches, labeled break/continue, compound assignments, dynamic strings, OOP, Canvas 2D, WebGL, JSObject, WASI VFS, Threads/Atomics, Exceptions, Multi-Value Returns, Bulk Memory, Fixed-Width SIMD, and Multi-Memory Segregation).');

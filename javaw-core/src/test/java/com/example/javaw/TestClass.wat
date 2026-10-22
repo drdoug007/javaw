@@ -88,6 +88,13 @@
   (import "dom" "terminal_clear" (func $dom_terminal_clear))
   (import "dom" "terminal_get_columns" (func $dom_terminal_get_columns (result i32)))
   (import "dom" "terminal_get_rows" (func $dom_terminal_get_rows (result i32)))
+  (import "dom" "math_sin" (func $dom_math_sin (param f64) (result f64)))
+  (import "dom" "math_cos" (func $dom_math_cos (param f64) (result f64)))
+  (import "dom" "math_tan" (func $dom_math_tan (param f64) (result f64)))
+  (import "dom" "math_exp" (func $dom_math_exp (param f64) (result f64)))
+  (import "dom" "math_log" (func $dom_math_log (param f64) (result f64)))
+  (import "dom" "math_pow" (func $dom_math_pow (param f64 f64) (result f64)))
+  (import "dom" "math_hypot" (func $dom_math_hypot (param f64 f64) (result f64)))
   (@custom "javaw_js_snippets" "[{\22className\22:\22JSMath\22,\22methodName\22:\22hypot\22,\22importName\22:\22js_inline_JSMath_hypot\22,\22jsCode\22:\22return Math.hypot(a, b);\22,\22returnType\22:\22double\22,\22returnWasmType\22:\22f64\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22a\22,\22javaType\22:\22double\22,\22wasmType\22:\22f64\22,\22coerced\22:false},{\22name\22:\22b\22,\22javaType\22:\22double\22,\22wasmType\22:\22f64\22,\22coerced\22:false}]},{\22className\22:\22JSMath\22,\22methodName\22:\22PI\22,\22importName\22:\22js_inline_JSMath_PI\22,\22jsCode\22:\22return Math.PI;\22,\22returnType\22:\22double\22,\22returnWasmType\22:\22f64\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[]},{\22className\22:\22JSDate\22,\22methodName\22:\22create\22,\22importName\22:\22js_inline_JSDate_create\22,\22jsCode\22:\22return new Date(ms);\22,\22returnType\22:\22JSDate\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22ms\22,\22javaType\22:\22double\22,\22wasmType\22:\22f64\22,\22coerced\22:false}]},{\22className\22:\22JSDate\22,\22methodName\22:\22getTime\22,\22importName\22:\22js_inline_JSDate_getTime\22,\22jsCode\22:\22return this.getTime();\22,\22returnType\22:\22double\22,\22returnWasmType\22:\22f64\22,\22isStatic\22:false,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22this\22,\22javaType\22:\22JSDate\22,\22wasmType\22:\22i32\22,\22coerced\22:false}]},{\22className\22:\22JSJSON\22,\22methodName\22:\22stringify\22,\22importName\22:\22js_inline_JSJSON_stringify\22,\22jsCode\22:\22return JSON.stringify(val);\22,\22returnType\22:\22String\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22val\22,\22javaType\22:\22JSValue\22,\22wasmType\22:\22i32\22,\22coerced\22:false}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsHypot\22,\22importName\22:\22js_inline_TestClass_jsHypot\22,\22jsCode\22:\22return Math.hypot(a, b);\22,\22returnType\22:\22double\22,\22returnWasmType\22:\22f64\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22a\22,\22javaType\22:\22double\22,\22wasmType\22:\22f64\22,\22coerced\22:false},{\22name\22:\22b\22,\22javaType\22:\22double\22,\22wasmType\22:\22f64\22,\22coerced\22:false}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsGreet\22,\22importName\22:\22js_inline_TestClass_jsGreet\22,\22jsCode\22:\22return 'Hello ' + name + '!';\22,\22returnType\22:\22String\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22name\22,\22javaType\22:\22String\22,\22wasmType\22:\22i32\22,\22coerced\22:false}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsMultiplyAndAdd\22,\22importName\22:\22js_inline_TestClass_jsMultiplyAndAdd\22,\22jsCode\22:\22return a * b + 10;\22,\22returnType\22:\22int\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22a\22,\22javaType\22:\22int\22,\22wasmType\22:\22i32\22,\22coerced\22:false},{\22name\22:\22b\22,\22javaType\22:\22int\22,\22wasmType\22:\22i32\22,\22coerced\22:false}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsIsGreaterThan100\22,\22importName\22:\22js_inline_TestClass_jsIsGreaterThan100\22,\22jsCode\22:\22return x > 100;\22,\22returnType\22:\22boolean\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22x\22,\22javaType\22:\22int\22,\22wasmType\22:\22i32\22,\22coerced\22:false}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsSumArray\22,\22importName\22:\22js_inline_TestClass_jsSumArray\22,\22jsCode\22:\22return arr.reduce((acc, x) => acc + x, 0);\22,\22returnType\22:\22int\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22arr\22,\22javaType\22:\22int[]\22,\22wasmType\22:\22i32\22,\22coerced\22:true}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsDoubleArray\22,\22importName\22:\22js_inline_TestClass_jsDoubleArray\22,\22jsCode\22:\22return arr.map(x => x * 2);\22,\22returnType\22:\22int[]\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:true,\22parameters\22:[{\22name\22:\22arr\22,\22javaType\22:\22int[]\22,\22wasmType\22:\22i32\22,\22coerced\22:true}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsJoinStrings\22,\22importName\22:\22js_inline_TestClass_jsJoinStrings\22,\22jsCode\22:\22return items.join(', ');\22,\22returnType\22:\22String\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:false,\22parameters\22:[{\22name\22:\22items\22,\22javaType\22:\22String[]\22,\22wasmType\22:\22i32\22,\22coerced\22:true}]},{\22className\22:\22TestClass\22,\22methodName\22:\22jsGetBookJson\22,\22importName\22:\22js_inline_TestClass_jsGetBookJson\22,\22jsCode\22:\22return { title: 'WASM in Action', year: 2026 };\22,\22returnType\22:\22String\22,\22returnWasmType\22:\22i32\22,\22isStatic\22:true,\22isCoerced\22:true,\22parameters\22:[]}]")
   (import "dom" "js_inline_JSMath_hypot" (func $dom_js_inline_JSMath_hypot (param f64 f64) (result f64)))
   (import "dom" "js_inline_JSMath_PI" (func $dom_js_inline_JSMath_PI (result f64)))
@@ -141,87 +148,88 @@
   (data (memory $strings) (i32.const 4269) "onTimerTick\00")
   (data (memory $strings) (i32.const 4281) "onFrameUpdate\00")
   (data (memory $strings) (i32.const 4295) "onFetchSuccess\00")
-  (data (memory $strings) (i32.const 4310) "Hello\00")
-  (data (memory $strings) (i32.const 4316) "WebAssembly\00")
-  (data (memory $strings) (i32.const 4328) ", \00")
-  (data (memory $strings) (i32.const 4331) "!\00")
-  (data (memory $strings) (i32.const 4333) "User: \00")
-  (data (memory $strings) (i32.const 4340) " (age: \00")
-  (data (memory $strings) (i32.const 4348) ")\00")
-  (data (memory $strings) (i32.const 4350) "Hello World\00")
-  (data (memory $strings) (i32.const 4362) "World\00")
-  (data (memory $strings) (i32.const 4368) "Java\00")
-  (data (memory $strings) (i32.const 4373) "Count: \00")
-  (data (memory $strings) (i32.const 4381) "testCanvas\00")
-  (data (memory $strings) (i32.const 4392) "#ff0000\00")
-  (data (memory $strings) (i32.const 4400) "glCanvas\00")
-  (data (memory $strings) (i32.const 4409) "({ title: 'Dynamic JS', count: 42, active: true })\00")
-  (data (memory $strings) (i32.const 4460) "title\00")
-  (data (memory $strings) (i32.const 4466) "count\00")
-  (data (memory $strings) (i32.const 4472) "active\00")
-  (data (memory $strings) (i32.const 4479) "user\00")
-  (data (memory $strings) (i32.const 4484) "Alice\00")
-  (data (memory $strings) (i32.const 4490) "score\00")
-  (data (memory $strings) (i32.const 4496) "rating\00")
-  (data (memory $strings) (i32.const 4503) "premium\00")
-  (data (memory $strings) (i32.const 4511) "item1\00")
-  (data (memory $strings) (i32.const 4517) "item2\00")
-  (data (memory $strings) (i32.const 4523) "updated\00")
-  (data (memory $strings) (i32.const 4531) "Math\00")
-  (data (memory $strings) (i32.const 4536) "max\00")
-  (data (memory $strings) (i32.const 4540) "Testing WASI standard output from Java!\00")
-  (data (memory $strings) (i32.const 4580) "Progress: \00")
-  (data (memory $strings) (i32.const 4591) "WASI stderr stream message\00")
-  (data (memory $strings) (i32.const 4618) "WASI Facade message: \00")
-  (data (memory $strings) (i32.const 4640) "Active\00")
-  (data (memory $strings) (i32.const 4647) "WASI Facade Error\00")
-  (data (memory $strings) (i32.const 4665) "Test error\00")
-  (data (memory $strings) (i32.const 4676) "Custom exception message\00")
-  (data (memory $strings) (i32.const 4701) "App failed\00")
-  (data (memory $strings) (i32.const 4712) "Code error\00")
-  (data (memory $strings) (i32.const 4723) "Bad arg\00")
-  (data (memory $strings) (i32.const 4731) "Generic error\00")
-  (data (memory $strings) (i32.const 4745) "Inner error\00")
-  (data (memory $strings) (i32.const 4757) "/hello.txt\00")
-  (data (memory $strings) (i32.const 4768) "Hello WASI VFS\00")
-  (data (memory $strings) (i32.const 4783) "/append.txt\00")
-  (data (memory $strings) (i32.const 4795) "Part1\00")
-  (data (memory $strings) (i32.const 4801) "Part2\00")
-  (data (memory $strings) (i32.const 4807) "/to_delete.txt\00")
-  (data (memory $strings) (i32.const 4822) "temp data\00")
-  (data (memory $strings) (i32.const 4832) "/app/data.txt\00")
-  (data (memory $strings) (i32.const 4846) "Config=42\00")
-  (data (memory $strings) (i32.const 4856) ";Active=true\00")
-  (data (memory $strings) (i32.const 4869) "/app/temp.log\00")
-  (data (memory $strings) (i32.const 4883) "12345\00")
-  (data (memory $strings) (i32.const 4889) "return Math.hypot(a, b);\00")
-  (data (memory $strings) (i32.const 4914) "return 'Hello ' + name + '!';\00")
-  (data (memory $strings) (i32.const 4944) "return a * b + 10;\00")
-  (data (memory $strings) (i32.const 4963) "return x > 100;\00")
-  (data (memory $strings) (i32.const 4979) "return arr.reduce((acc, x) => acc + x, 0);\00")
-  (data (memory $strings) (i32.const 5022) "return arr.map(x => x * 2);\00")
-  (data (memory $strings) (i32.const 5050) "return items.join(', ');\00")
-  (data (memory $strings) (i32.const 5075) "return { title: 'WASM in Action', year: 2026 };\00")
-  (data (memory $strings) (i32.const 5123) "hello world\00")
-  (data (memory $strings) (i32.const 5135) "number\00")
-  (data (memory $strings) (i32.const 5142) "string\00")
-  (data (memory $strings) (i32.const 5149) "boolean\00")
-  (data (memory $strings) (i32.const 5157) "id_key\00")
-  (data (memory $strings) (i32.const 5164) "9007199254740995\00")
-  (data (memory $strings) (i32.const 5181) "Invalid type argument\00")
-  (data (memory $strings) (i32.const 5203) "TypeError\00")
-  (data (memory $strings) (i32.const 5213) "Error\00")
-  (data (memory $strings) (i32.const 5219) "42\00")
-  (data (memory $strings) (i32.const 5222) "name\00")
-  (data (memory $strings) (i32.const 5227) "version\00")
-  (data (memory $strings) (i32.const 5235) "nonexistent.txt\00")
-  (data (memory $strings) (i32.const 5251) ".app-header { font-size: 24px; }\00")
-  (data (memory $strings) (i32.const 5284) "globalThis.__injected_script_run = true;\00")
-  (data (memory $strings) (i32.const 5325) "__bundled_test_var\00")
-  (data (memory $strings) (i32.const 5344) "[WASI] \00")
-  (data (memory $strings) (i32.const 5352) "JavaCounter\00")
-  (data (memory $strings) (i32.const 5364) ": \00")
-  (data (memory $strings) (i32.const 5367) "\1b[32m\00")
+  (data (memory $strings) (i32.const 4310) "1A\00")
+  (data (memory $strings) (i32.const 4313) "Hello\00")
+  (data (memory $strings) (i32.const 4319) "WebAssembly\00")
+  (data (memory $strings) (i32.const 4331) ", \00")
+  (data (memory $strings) (i32.const 4334) "!\00")
+  (data (memory $strings) (i32.const 4336) "User: \00")
+  (data (memory $strings) (i32.const 4343) " (age: \00")
+  (data (memory $strings) (i32.const 4351) ")\00")
+  (data (memory $strings) (i32.const 4353) "Hello World\00")
+  (data (memory $strings) (i32.const 4365) "World\00")
+  (data (memory $strings) (i32.const 4371) "Java\00")
+  (data (memory $strings) (i32.const 4376) "Count: \00")
+  (data (memory $strings) (i32.const 4384) "testCanvas\00")
+  (data (memory $strings) (i32.const 4395) "#ff0000\00")
+  (data (memory $strings) (i32.const 4403) "glCanvas\00")
+  (data (memory $strings) (i32.const 4412) "({ title: 'Dynamic JS', count: 42, active: true })\00")
+  (data (memory $strings) (i32.const 4463) "title\00")
+  (data (memory $strings) (i32.const 4469) "count\00")
+  (data (memory $strings) (i32.const 4475) "active\00")
+  (data (memory $strings) (i32.const 4482) "user\00")
+  (data (memory $strings) (i32.const 4487) "Alice\00")
+  (data (memory $strings) (i32.const 4493) "score\00")
+  (data (memory $strings) (i32.const 4499) "rating\00")
+  (data (memory $strings) (i32.const 4506) "premium\00")
+  (data (memory $strings) (i32.const 4514) "item1\00")
+  (data (memory $strings) (i32.const 4520) "item2\00")
+  (data (memory $strings) (i32.const 4526) "updated\00")
+  (data (memory $strings) (i32.const 4534) "Math\00")
+  (data (memory $strings) (i32.const 4539) "max\00")
+  (data (memory $strings) (i32.const 4543) "Testing WASI standard output from Java!\00")
+  (data (memory $strings) (i32.const 4583) "Progress: \00")
+  (data (memory $strings) (i32.const 4594) "WASI stderr stream message\00")
+  (data (memory $strings) (i32.const 4621) "WASI Facade message: \00")
+  (data (memory $strings) (i32.const 4643) "Active\00")
+  (data (memory $strings) (i32.const 4650) "WASI Facade Error\00")
+  (data (memory $strings) (i32.const 4668) "Test error\00")
+  (data (memory $strings) (i32.const 4679) "Custom exception message\00")
+  (data (memory $strings) (i32.const 4704) "App failed\00")
+  (data (memory $strings) (i32.const 4715) "Code error\00")
+  (data (memory $strings) (i32.const 4726) "Bad arg\00")
+  (data (memory $strings) (i32.const 4734) "Generic error\00")
+  (data (memory $strings) (i32.const 4748) "Inner error\00")
+  (data (memory $strings) (i32.const 4760) "/hello.txt\00")
+  (data (memory $strings) (i32.const 4771) "Hello WASI VFS\00")
+  (data (memory $strings) (i32.const 4786) "/append.txt\00")
+  (data (memory $strings) (i32.const 4798) "Part1\00")
+  (data (memory $strings) (i32.const 4804) "Part2\00")
+  (data (memory $strings) (i32.const 4810) "/to_delete.txt\00")
+  (data (memory $strings) (i32.const 4825) "temp data\00")
+  (data (memory $strings) (i32.const 4835) "/app/data.txt\00")
+  (data (memory $strings) (i32.const 4849) "Config=42\00")
+  (data (memory $strings) (i32.const 4859) ";Active=true\00")
+  (data (memory $strings) (i32.const 4872) "/app/temp.log\00")
+  (data (memory $strings) (i32.const 4886) "12345\00")
+  (data (memory $strings) (i32.const 4892) "return Math.hypot(a, b);\00")
+  (data (memory $strings) (i32.const 4917) "return 'Hello ' + name + '!';\00")
+  (data (memory $strings) (i32.const 4947) "return a * b + 10;\00")
+  (data (memory $strings) (i32.const 4966) "return x > 100;\00")
+  (data (memory $strings) (i32.const 4982) "return arr.reduce((acc, x) => acc + x, 0);\00")
+  (data (memory $strings) (i32.const 5025) "return arr.map(x => x * 2);\00")
+  (data (memory $strings) (i32.const 5053) "return items.join(', ');\00")
+  (data (memory $strings) (i32.const 5078) "return { title: 'WASM in Action', year: 2026 };\00")
+  (data (memory $strings) (i32.const 5126) "hello world\00")
+  (data (memory $strings) (i32.const 5138) "number\00")
+  (data (memory $strings) (i32.const 5145) "string\00")
+  (data (memory $strings) (i32.const 5152) "boolean\00")
+  (data (memory $strings) (i32.const 5160) "id_key\00")
+  (data (memory $strings) (i32.const 5167) "9007199254740995\00")
+  (data (memory $strings) (i32.const 5184) "Invalid type argument\00")
+  (data (memory $strings) (i32.const 5206) "TypeError\00")
+  (data (memory $strings) (i32.const 5216) "Error\00")
+  (data (memory $strings) (i32.const 5222) "42\00")
+  (data (memory $strings) (i32.const 5225) "name\00")
+  (data (memory $strings) (i32.const 5230) "version\00")
+  (data (memory $strings) (i32.const 5238) "nonexistent.txt\00")
+  (data (memory $strings) (i32.const 5254) ".app-header { font-size: 24px; }\00")
+  (data (memory $strings) (i32.const 5287) "globalThis.__injected_script_run = true;\00")
+  (data (memory $strings) (i32.const 5328) "__bundled_test_var\00")
+  (data (memory $strings) (i32.const 5347) "[WASI] \00")
+  (data (memory $strings) (i32.const 5355) "JavaCounter\00")
+  (data (memory $strings) (i32.const 5367) ": \00")
+  (data (memory $strings) (i32.const 5370) "\1b[32m\00")
   (global $__heap_ptr (mut i32) (i32.const 0))
   ;; --- WebAssembly Function Type Signatures ---
   (type $t_sig_1 (func (param i32) (result i32)))
@@ -1470,6 +1478,1525 @@
     local.get $path
     i32.store offset=4
   )
+  ;; --- Standard Library Numeric & Math Functions ---
+  (func $__i64_min (export "__i64_min") (param $a i64) (param $b i64) (result i64)
+    local.get $a
+    local.get $b
+    local.get $a
+    local.get $b
+    i64.lt_s
+    select
+  )
+  (func $__i64_max (export "__i64_max") (param $a i64) (param $b i64) (result i64)
+    local.get $a
+    local.get $b
+    local.get $a
+    local.get $b
+    i64.gt_s
+    select
+  )
+  (func $__i64_compare (export "__i64_compare") (param $a i64) (param $b i64) (result i32)
+    local.get $a
+    local.get $b
+    i64.eq
+    if (result i32)
+      i32.const 0
+    else
+      i32.const -1
+      i32.const 1
+      local.get $a
+      local.get $b
+      i64.lt_s
+      select
+    end
+  )
+  (func $__i64_compare_u (export "__i64_compare_u") (param $a i64) (param $b i64) (result i32)
+    local.get $a
+    local.get $b
+    i64.eq
+    if (result i32)
+      i32.const 0
+    else
+      i32.const -1
+      i32.const 1
+      local.get $a
+      local.get $b
+      i64.lt_u
+      select
+    end
+  )
+  (func $__i64_signum (export "__i64_signum") (param $a i64) (result i32)
+    local.get $a
+    i64.const 0
+    i64.eq
+    if (result i32)
+      i32.const 0
+    else
+      i32.const -1
+      i32.const 1
+      local.get $a
+      i64.const 0
+      i64.lt_s
+      select
+    end
+  )
+  (func $__f64_compare (export "__f64_compare") (param $a f64) (param $b f64) (result i32)
+    (local $a_nan i32)
+    (local $b_nan i32)
+    local.get $a
+    local.get $a
+    f64.ne
+    local.set $a_nan
+    local.get $b
+    local.get $b
+    f64.ne
+    local.set $b_nan
+    local.get $a_nan
+    local.get $b_nan
+    i32.and
+    if (result i32)
+      i32.const 0
+    else
+      local.get $a_nan
+      if (result i32)
+        i32.const 1
+      else
+        local.get $b_nan
+        if (result i32)
+          i32.const -1
+        else
+          local.get $a
+          local.get $b
+          f64.eq
+          if (result i32)
+            i32.const 0
+          else
+            i32.const -1
+            i32.const 1
+            local.get $a
+            local.get $b
+            f64.lt
+            select
+          end
+        end
+      end
+    end
+  )
+  (func $__i32_reverse_bytes (export "__i32_reverse_bytes") (param $x i32) (result i32)
+    local.get $x
+    i32.const 24
+    i32.shl
+    local.get $x
+    i32.const 8
+    i32.shl
+    i32.const 16711680
+    i32.and
+    i32.or
+    local.get $x
+    i32.const 8
+    i32.shr_u
+    i32.const 65280
+    i32.and
+    i32.or
+    local.get $x
+    i32.const 24
+    i32.shr_u
+    i32.or
+  )
+  (func $__i32_reverse_bits (export "__i32_reverse_bits") (param $x i32) (result i32)
+    (local $res i32)
+    (local $i i32)
+    i32.const 0
+    local.set $res
+    i32.const 0
+    local.set $i
+    (block $break_rev
+      (loop $loop_rev
+        local.get $i
+        i32.const 32
+        i32.ge_s
+        br_if $break_rev
+        local.get $res
+        i32.const 1
+        i32.shl
+        local.get $x
+        i32.const 1
+        i32.and
+        i32.or
+        local.set $res
+        local.get $x
+        i32.const 1
+        i32.shr_u
+        local.set $x
+        local.get $i
+        i32.const 1
+        i32.add
+        local.set $i
+        br $loop_rev
+      )
+    )
+    local.get $res
+  )
+  (func $__i64_reverse_bytes (export "__i64_reverse_bytes") (param $x i64) (result i64)
+    (local $lo i32)
+    (local $hi i32)
+    local.get $x
+    i32.wrap_i64
+    call $__i32_reverse_bytes
+    local.set $lo
+    local.get $x
+    i64.const 32
+    i64.shr_u
+    i32.wrap_i64
+    call $__i32_reverse_bytes
+    local.set $hi
+    local.get $lo
+    i64.extend_i32_u
+    i64.const 32
+    i64.shl
+    local.get $hi
+    i64.extend_i32_u
+    i64.or
+  )
+  (func $__i64_reverse_bits (export "__i64_reverse_bits") (param $x i64) (result i64)
+    (local $res i64)
+    (local $i i32)
+    i64.const 0
+    local.set $res
+    i32.const 0
+    local.set $i
+    (block $break_rev64
+      (loop $loop_rev64
+        local.get $i
+        i32.const 64
+        i32.ge_s
+        br_if $break_rev64
+        local.get $res
+        i64.const 1
+        i64.shl
+        local.get $x
+        i64.const 1
+        i64.and
+        i64.or
+        local.set $res
+        local.get $x
+        i64.const 1
+        i64.shr_u
+        local.set $x
+        local.get $i
+        i32.const 1
+        i32.add
+        local.set $i
+        br $loop_rev64
+      )
+    )
+    local.get $res
+  )
+  ;; --- String Parsing & Formatting Functions ---
+  (func $__str_parse_i32 (export "__str_parse_i32") (param $s i32) (result i32)
+    (local $res i32)
+    (local $neg i32)
+    (local $i i32)
+    (local $c i32)
+    local.get $s
+    i32.eqz
+    if
+      i32.const 0
+      return
+    end
+    i32.const 0
+    local.set $res
+    i32.const 0
+    local.set $neg
+    i32.const 0
+    local.set $i
+    local.get $s
+    i32.load8_u
+    local.set $c
+    local.get $c
+    i32.const 45
+    i32.eq
+    if
+      i32.const 1
+      local.set $neg
+      i32.const 1
+      local.set $i
+    else
+      local.get $c
+      i32.const 43
+      i32.eq
+      if
+        i32.const 1
+        local.set $i
+      end
+    end
+    (block $break_p32
+      (loop $loop_p32
+        local.get $s
+        local.get $i
+        i32.add
+        i32.load8_u
+        local.set $c
+        local.get $c
+        i32.const 48
+        i32.lt_u
+        br_if $break_p32
+        local.get $c
+        i32.const 57
+        i32.gt_u
+        br_if $break_p32
+        local.get $res
+        i32.const 10
+        i32.mul
+        local.get $c
+        i32.const 48
+        i32.sub
+        i32.add
+        local.set $res
+        local.get $i
+        i32.const 1
+        i32.add
+        local.set $i
+        br $loop_p32
+      )
+    )
+    local.get $neg
+    if (result i32)
+      i32.const 0
+      local.get $res
+      i32.sub
+    else
+      local.get $res
+    end
+  )
+  (func $__str_parse_i32_radix (export "__str_parse_i32_radix") (param $s i32) (param $radix i32) (result i32)
+    (local $res i32)
+    (local $neg i32)
+    (local $i i32)
+    (local $c i32)
+    (local $d i32)
+    local.get $s
+    i32.eqz
+    if
+      i32.const 0
+      return
+    end
+    local.get $radix
+    i32.const 2
+    i32.lt_s
+    local.get $radix
+    i32.const 36
+    i32.gt_s
+    i32.or
+    if
+      i32.const 10
+      local.set $radix
+    end
+    i32.const 0
+    local.set $res
+    i32.const 0
+    local.set $neg
+    i32.const 0
+    local.set $i
+    local.get $s
+    i32.load8_u
+    local.set $c
+    local.get $c
+    i32.const 45
+    i32.eq
+    if
+      i32.const 1
+      local.set $neg
+      i32.const 1
+      local.set $i
+    else
+      local.get $c
+      i32.const 43
+      i32.eq
+      if
+        i32.const 1
+        local.set $i
+      end
+    end
+    (block $break_pradix
+      (loop $loop_pradix
+        local.get $s
+        local.get $i
+        i32.add
+        i32.load8_u
+        local.set $c
+        local.get $c
+        i32.const 48
+        i32.ge_u
+        local.get $c
+        i32.const 57
+        i32.le_u
+        i32.and
+        if
+          local.get $c
+          i32.const 48
+          i32.sub
+          local.set $d
+        else
+          local.get $c
+          i32.const 97
+          i32.ge_u
+          local.get $c
+          i32.const 122
+          i32.le_u
+          i32.and
+          if
+            local.get $c
+            i32.const 87
+            i32.sub
+            local.set $d
+          else
+            local.get $c
+            i32.const 65
+            i32.ge_u
+            local.get $c
+            i32.const 90
+            i32.le_u
+            i32.and
+            if
+              local.get $c
+              i32.const 55
+              i32.sub
+              local.set $d
+            else
+              br $break_pradix
+            end
+          end
+        end
+        local.get $d
+        local.get $radix
+        i32.ge_s
+        br_if $break_pradix
+        local.get $res
+        local.get $radix
+        i32.mul
+        local.get $d
+        i32.add
+        local.set $res
+        local.get $i
+        i32.const 1
+        i32.add
+        local.set $i
+        br $loop_pradix
+      )
+    )
+    local.get $neg
+    if (result i32)
+      i32.const 0
+      local.get $res
+      i32.sub
+    else
+      local.get $res
+    end
+  )
+  (func $__str_from_i32_radix (export "__str_from_i32_radix") (param $val i32) (param $radix i32) (result i32)
+    (local $temp i32)
+    (local $len i32)
+    (local $is_neg i32)
+    (local $res i32)
+    (local $idx i32)
+    (local $rem i32)
+    local.get $radix
+    i32.const 2
+    i32.lt_s
+    local.get $radix
+    i32.const 36
+    i32.gt_s
+    i32.or
+    if
+      i32.const 10
+      local.set $radix
+    end
+    local.get $val
+    i32.eqz
+    if
+      i32.const 1
+      call $__str_alloc
+      local.set $res
+      local.get $res
+      i32.const 48
+      i32.store8
+      local.get $res
+      return
+    end
+    i32.const 0
+    local.set $is_neg
+    local.get $val
+    i32.const 0
+    i32.lt_s
+    if
+      i32.const 1
+      local.set $is_neg
+      i32.const 0
+      local.get $val
+      i32.sub
+      local.set $temp
+    else
+      local.get $val
+      local.set $temp
+    end
+    local.get $is_neg
+    local.set $len
+    (block $break_cradix
+      (loop $loop_cradix
+        local.get $temp
+        i32.eqz
+        br_if $break_cradix
+        local.get $len
+        i32.const 1
+        i32.add
+        local.set $len
+        local.get $temp
+        local.get $radix
+        i32.div_u
+        local.set $temp
+        br $loop_cradix
+      )
+    )
+    local.get $len
+    call $__str_alloc
+    local.set $res
+    local.get $is_neg
+    if
+      local.get $res
+      i32.const 45
+      i32.store8
+      i32.const 0
+      local.get $val
+      i32.sub
+      local.set $temp
+    else
+      local.get $val
+      local.set $temp
+    end
+    local.get $len
+    local.set $idx
+    (block $break_wradix
+      (loop $loop_wradix
+        local.get $temp
+        i32.eqz
+        br_if $break_wradix
+        local.get $idx
+        i32.const 1
+        i32.sub
+        local.set $idx
+        local.get $temp
+        local.get $radix
+        i32.rem_u
+        local.set $rem
+        local.get $res
+        local.get $idx
+        i32.add
+        local.get $rem
+        i32.const 10
+        i32.lt_u
+        if (result i32)
+          i32.const 48
+          local.get $rem
+          i32.add
+        else
+          i32.const 87
+          local.get $rem
+          i32.add
+        end
+        i32.store8
+        local.get $temp
+        local.get $radix
+        i32.div_u
+        local.set $temp
+        br $loop_wradix
+      )
+    )
+    local.get $res
+  )
+  (func $__str_to_hex_i32 (export "__str_to_hex_i32") (param $val i32) (result i32)
+    (local $temp i32)
+    (local $len i32)
+    (local $res i32)
+    (local $idx i32)
+    (local $rem i32)
+    local.get $val
+    i32.eqz
+    if
+      i32.const 1
+      call $__str_alloc
+      local.set $res
+      local.get $res
+      i32.const 48
+      i32.store8
+      local.get $res
+      return
+    end
+    local.get $val
+    local.set $temp
+    i32.const 0
+    local.set $len
+    (block $break_chex
+      (loop $loop_chex
+        local.get $temp
+        i32.eqz
+        br_if $break_chex
+        local.get $len
+        i32.const 1
+        i32.add
+        local.set $len
+        local.get $temp
+        i32.const 4
+        i32.shr_u
+        local.set $temp
+        br $loop_chex
+      )
+    )
+    local.get $len
+    call $__str_alloc
+    local.set $res
+    local.get $val
+    local.set $temp
+    local.get $len
+    local.set $idx
+    (block $break_whex
+      (loop $loop_whex
+        local.get $temp
+        i32.eqz
+        br_if $break_whex
+        local.get $idx
+        i32.const 1
+        i32.sub
+        local.set $idx
+        local.get $temp
+        i32.const 15
+        i32.and
+        local.set $rem
+        local.get $res
+        local.get $idx
+        i32.add
+        local.get $rem
+        i32.const 10
+        i32.lt_u
+        if (result i32)
+          i32.const 48
+          local.get $rem
+          i32.add
+        else
+          i32.const 87
+          local.get $rem
+          i32.add
+        end
+        i32.store8
+        local.get $temp
+        i32.const 4
+        i32.shr_u
+        local.set $temp
+        br $loop_whex
+      )
+    )
+    local.get $res
+  )
+  (func $__str_to_bin_i32 (export "__str_to_bin_i32") (param $val i32) (result i32)
+    local.get $val
+    i32.const 2
+    call $__str_from_i32_radix
+  )
+  (func $__str_to_oct_i32 (export "__str_to_oct_i32") (param $val i32) (result i32)
+    local.get $val
+    i32.const 8
+    call $__str_from_i32_radix
+  )
+  (func $__str_parse_i64 (export "__str_parse_i64") (param $s i32) (result i64)
+    (local $res i64)
+    (local $neg i32)
+    (local $i i32)
+    (local $c i32)
+    local.get $s
+    i32.eqz
+    if
+      i64.const 0
+      return
+    end
+    i64.const 0
+    local.set $res
+    i32.const 0
+    local.set $neg
+    i32.const 0
+    local.set $i
+    local.get $s
+    i32.load8_u
+    local.set $c
+    local.get $c
+    i32.const 45
+    i32.eq
+    if
+      i32.const 1
+      local.set $neg
+      i32.const 1
+      local.set $i
+    else
+      local.get $c
+      i32.const 43
+      i32.eq
+      if
+        i32.const 1
+        local.set $i
+      end
+    end
+    (block $break_p64
+      (loop $loop_p64
+        local.get $s
+        local.get $i
+        i32.add
+        i32.load8_u
+        local.set $c
+        local.get $c
+        i32.const 48
+        i32.lt_u
+        br_if $break_p64
+        local.get $c
+        i32.const 57
+        i32.gt_u
+        br_if $break_p64
+        local.get $res
+        i64.const 10
+        i64.mul
+        local.get $c
+        i32.const 48
+        i32.sub
+        i64.extend_i32_u
+        i64.add
+        local.set $res
+        local.get $i
+        i32.const 1
+        i32.add
+        local.set $i
+        br $loop_p64
+      )
+    )
+    local.get $neg
+    if (result i64)
+      i64.const 0
+      local.get $res
+      i64.sub
+    else
+      local.get $res
+    end
+  )
+  (func $__str_from_i64 (export "__str_from_i64") (param $val i64) (result i32)
+    (local $temp i64)
+    (local $len i32)
+    (local $is_neg i32)
+    (local $res i32)
+    (local $idx i32)
+    (local $rem i64)
+    local.get $val
+    i64.eqz
+    if
+      i32.const 1
+      call $__str_alloc
+      local.set $res
+      local.get $res
+      i32.const 48
+      i32.store8
+      local.get $res
+      return
+    end
+    i32.const 0
+    local.set $is_neg
+    local.get $val
+    i64.const 0
+    i64.lt_s
+    if
+      i32.const 1
+      local.set $is_neg
+      i64.const 0
+      local.get $val
+      i64.sub
+      local.set $temp
+    else
+      local.get $val
+      local.set $temp
+    end
+    local.get $is_neg
+    local.set $len
+    (block $break_c64
+      (loop $loop_c64
+        local.get $temp
+        i64.eqz
+        br_if $break_c64
+        local.get $len
+        i32.const 1
+        i32.add
+        local.set $len
+        local.get $temp
+        i64.const 10
+        i64.div_u
+        local.set $temp
+        br $loop_c64
+      )
+    )
+    local.get $len
+    call $__str_alloc
+    local.set $res
+    local.get $is_neg
+    if
+      local.get $res
+      i32.const 45
+      i32.store8
+      i64.const 0
+      local.get $val
+      i64.sub
+      local.set $temp
+    else
+      local.get $val
+      local.set $temp
+    end
+    local.get $len
+    local.set $idx
+    (block $break_w64
+      (loop $loop_w64
+        local.get $temp
+        i64.eqz
+        br_if $break_w64
+        local.get $idx
+        i32.const 1
+        i32.sub
+        local.set $idx
+        local.get $temp
+        i64.const 10
+        i64.rem_u
+        local.set $rem
+        local.get $res
+        local.get $idx
+        i32.add
+        i32.const 48
+        local.get $rem
+        i32.wrap_i64
+        i32.add
+        i32.store8
+        local.get $temp
+        i64.const 10
+        i64.div_u
+        local.set $temp
+        br $loop_w64
+      )
+    )
+    local.get $res
+  )
+  (func $__str_to_hex_i64 (export "__str_to_hex_i64") (param $val i64) (result i32)
+    (local $temp i64)
+    (local $len i32)
+    (local $res i32)
+    (local $idx i32)
+    (local $rem i64)
+    local.get $val
+    i64.eqz
+    if
+      i32.const 1
+      call $__str_alloc
+      local.set $res
+      local.get $res
+      i32.const 48
+      i32.store8
+      local.get $res
+      return
+    end
+    local.get $val
+    local.set $temp
+    i32.const 0
+    local.set $len
+    (block $break_chex64
+      (loop $loop_chex64
+        local.get $temp
+        i64.eqz
+        br_if $break_chex64
+        local.get $len
+        i32.const 1
+        i32.add
+        local.set $len
+        local.get $temp
+        i64.const 4
+        i64.shr_u
+        local.set $temp
+        br $loop_chex64
+      )
+    )
+    local.get $len
+    call $__str_alloc
+    local.set $res
+    local.get $val
+    local.set $temp
+    local.get $len
+    local.set $idx
+    (block $break_whex64
+      (loop $loop_whex64
+        local.get $temp
+        i64.eqz
+        br_if $break_whex64
+        local.get $idx
+        i32.const 1
+        i32.sub
+        local.set $idx
+        local.get $temp
+        i64.const 15
+        i64.and
+        local.set $rem
+        local.get $res
+        local.get $idx
+        i32.add
+        local.get $rem
+        i64.const 10
+        i64.lt_u
+        if (result i32)
+          i32.const 48
+          local.get $rem
+          i32.wrap_i64
+          i32.add
+        else
+          i32.const 87
+          local.get $rem
+          i32.wrap_i64
+          i32.add
+        end
+        i32.store8
+        local.get $temp
+        i64.const 4
+        i64.shr_u
+        local.set $temp
+        br $loop_whex64
+      )
+    )
+    local.get $res
+  )
+  (func $__str_to_bin_i64 (export "__str_to_bin_i64") (param $val i64) (result i32)
+    (local $temp i64)
+    (local $len i32)
+    (local $res i32)
+    (local $idx i32)
+    (local $rem i64)
+    local.get $val
+    i64.eqz
+    if
+      i32.const 1
+      call $__str_alloc
+      local.set $res
+      local.get $res
+      i32.const 48
+      i32.store8
+      local.get $res
+      return
+    end
+    local.get $val
+    local.set $temp
+    i32.const 0
+    local.set $len
+    (block $break_cbin64
+      (loop $loop_cbin64
+        local.get $temp
+        i64.eqz
+        br_if $break_cbin64
+        local.get $len
+        i32.const 1
+        i32.add
+        local.set $len
+        local.get $temp
+        i64.const 1
+        i64.shr_u
+        local.set $temp
+        br $loop_cbin64
+      )
+    )
+    local.get $len
+    call $__str_alloc
+    local.set $res
+    local.get $val
+    local.set $temp
+    local.get $len
+    local.set $idx
+    (block $break_wbin64
+      (loop $loop_wbin64
+        local.get $temp
+        i64.eqz
+        br_if $break_wbin64
+        local.get $idx
+        i32.const 1
+        i32.sub
+        local.set $idx
+        local.get $temp
+        i64.const 1
+        i64.and
+        local.set $rem
+        local.get $res
+        local.get $idx
+        i32.add
+        i32.const 48
+        local.get $rem
+        i32.wrap_i64
+        i32.add
+        i32.store8
+        local.get $temp
+        i64.const 1
+        i64.shr_u
+        local.set $temp
+        br $loop_wbin64
+      )
+    )
+    local.get $res
+  )
+  (func $__str_to_oct_i64 (export "__str_to_oct_i64") (param $val i64) (result i32)
+    (local $temp i64)
+    (local $len i32)
+    (local $res i32)
+    (local $idx i32)
+    (local $rem i64)
+    local.get $val
+    i64.eqz
+    if
+      i32.const 1
+      call $__str_alloc
+      local.set $res
+      local.get $res
+      i32.const 48
+      i32.store8
+      local.get $res
+      return
+    end
+    local.get $val
+    local.set $temp
+    i32.const 0
+    local.set $len
+    (block $break_coct64
+      (loop $loop_coct64
+        local.get $temp
+        i64.eqz
+        br_if $break_coct64
+        local.get $len
+        i32.const 1
+        i32.add
+        local.set $len
+        local.get $temp
+        i64.const 3
+        i64.shr_u
+        local.set $temp
+        br $loop_coct64
+      )
+    )
+    local.get $len
+    call $__str_alloc
+    local.set $res
+    local.get $val
+    local.set $temp
+    local.get $len
+    local.set $idx
+    (block $break_woct64
+      (loop $loop_woct64
+        local.get $temp
+        i64.eqz
+        br_if $break_woct64
+        local.get $idx
+        i32.const 1
+        i32.sub
+        local.set $idx
+        local.get $temp
+        i64.const 7
+        i64.and
+        local.set $rem
+        local.get $res
+        local.get $idx
+        i32.add
+        i32.const 48
+        local.get $rem
+        i32.wrap_i64
+        i32.add
+        i32.store8
+        local.get $temp
+        i64.const 3
+        i64.shr_u
+        local.set $temp
+        br $loop_woct64
+      )
+    )
+    local.get $res
+  )
+  (func $__str_parse_f64 (export "__str_parse_f64") (param $s i32) (result f64)
+    (local $res f64)
+    (local $neg i32)
+    (local $i i32)
+    (local $c i32)
+    (local $div f64)
+    (local $exp_neg i32)
+    (local $exp_val i32)
+    local.get $s
+    i32.eqz
+    if
+      f64.const 0.0
+      return
+    end
+    f64.const 0.0
+    local.set $res
+    i32.const 0
+    local.set $neg
+    i32.const 0
+    local.set $i
+    local.get $s
+    i32.load8_u
+    local.set $c
+    local.get $c
+    i32.const 45
+    i32.eq
+    if
+      i32.const 1
+      local.set $neg
+      i32.const 1
+      local.set $i
+    else
+      local.get $c
+      i32.const 43
+      i32.eq
+      if
+        i32.const 1
+        local.set $i
+      end
+    end
+    (block $break_fint
+      (loop $loop_fint
+        local.get $s
+        local.get $i
+        i32.add
+        i32.load8_u
+        local.set $c
+        local.get $c
+        i32.const 48
+        i32.lt_u
+        br_if $break_fint
+        local.get $c
+        i32.const 57
+        i32.gt_u
+        br_if $break_fint
+        local.get $res
+        f64.const 10.0
+        f64.mul
+        local.get $c
+        i32.const 48
+        i32.sub
+        f64.convert_i32_u
+        f64.add
+        local.set $res
+        local.get $i
+        i32.const 1
+        i32.add
+        local.set $i
+        br $loop_fint
+      )
+    )
+    local.get $c
+    i32.const 46
+    i32.eq
+    if
+      local.get $i
+      i32.const 1
+      i32.add
+      local.set $i
+      f64.const 10.0
+      local.set $div
+      (block $break_ffrac
+        (loop $loop_ffrac
+          local.get $s
+          local.get $i
+          i32.add
+          i32.load8_u
+          local.set $c
+          local.get $c
+          i32.const 48
+          i32.lt_u
+          br_if $break_ffrac
+          local.get $c
+          i32.const 57
+          i32.gt_u
+          br_if $break_ffrac
+          local.get $res
+          local.get $c
+          i32.const 48
+          i32.sub
+          f64.convert_i32_u
+          local.get $div
+          f64.div
+          f64.add
+          local.set $res
+          local.get $div
+          f64.const 10.0
+          f64.mul
+          local.set $div
+          local.get $i
+          i32.const 1
+          i32.add
+          local.set $i
+          br $loop_ffrac
+        )
+      )
+    end
+    local.get $c
+    i32.const 101
+    i32.eq
+    local.get $c
+    i32.const 69
+    i32.eq
+    i32.or
+    if
+      local.get $i
+      i32.const 1
+      i32.add
+      local.set $i
+      i32.const 0
+      local.set $exp_neg
+      local.get $s
+      local.get $i
+      i32.add
+      i32.load8_u
+      local.set $c
+      local.get $c
+      i32.const 45
+      i32.eq
+      if
+        i32.const 1
+        local.set $exp_neg
+        local.get $i
+        i32.const 1
+        i32.add
+        local.set $i
+      else
+        local.get $c
+        i32.const 43
+        i32.eq
+        if
+          i32.const 1
+          local.set $i
+        end
+      end
+      i32.const 0
+      local.set $exp_val
+      (block $break_fexp
+        (loop $loop_fexp
+          local.get $s
+          local.get $i
+          i32.add
+          i32.load8_u
+          local.set $c
+          local.get $c
+          i32.const 48
+          i32.lt_u
+          br_if $break_fexp
+          local.get $c
+          i32.const 57
+          i32.gt_u
+          br_if $break_fexp
+          local.get $exp_val
+          i32.const 10
+          i32.mul
+          local.get $c
+          i32.const 48
+          i32.sub
+          i32.add
+          local.set $exp_val
+          local.get $i
+          i32.const 1
+          i32.add
+          local.set $i
+          br $loop_fexp
+        )
+      )
+      (block $break_appexp
+        (loop $loop_appexp
+          local.get $exp_val
+          i32.eqz
+          br_if $break_appexp
+          local.get $exp_neg
+          if
+            local.get $res
+            f64.const 10.0
+            f64.div
+            local.set $res
+          else
+            local.get $res
+            f64.const 10.0
+            f64.mul
+            local.set $res
+          end
+          local.get $exp_val
+          i32.const 1
+          i32.sub
+          local.set $exp_val
+          br $loop_appexp
+        )
+      )
+    end
+    local.get $neg
+    if (result f64)
+      f64.const 0.0
+      local.get $res
+      f64.sub
+    else
+      local.get $res
+    end
+  )
+  (func $__str_parse_bool (export "__str_parse_bool") (param $s i32) (result i32)
+    (local $c0 i32)
+    (local $c1 i32)
+    (local $c2 i32)
+    (local $c3 i32)
+    (local $c4 i32)
+    local.get $s
+    i32.eqz
+    if
+      i32.const 0
+      return
+    end
+    local.get $s
+    i32.load8_u offset=0
+    local.set $c0
+    local.get $s
+    i32.load8_u offset=1
+    local.set $c1
+    local.get $s
+    i32.load8_u offset=2
+    local.set $c2
+    local.get $s
+    i32.load8_u offset=3
+    local.set $c3
+    local.get $s
+    i32.load8_u offset=4
+    local.set $c4
+    local.get $c4
+    i32.eqz
+    local.get $c0
+    i32.const 116
+    i32.eq
+    local.get $c0
+    i32.const 84
+    i32.eq
+    i32.or
+    i32.and
+    local.get $c1
+    i32.const 114
+    i32.eq
+    local.get $c1
+    i32.const 82
+    i32.eq
+    i32.or
+    i32.and
+    local.get $c2
+    i32.const 117
+    i32.eq
+    local.get $c2
+    i32.const 85
+    i32.eq
+    i32.or
+    i32.and
+    local.get $c3
+    i32.const 101
+    i32.eq
+    local.get $c3
+    i32.const 69
+    i32.eq
+    i32.or
+    i32.and
+  )
+  ;; --- Character Utility Functions ---
+  (func $__char_is_digit (export "__char_is_digit") (param $c i32) (result i32)
+    local.get $c
+    i32.const 48
+    i32.ge_u
+    local.get $c
+    i32.const 57
+    i32.le_u
+    i32.and
+  )
+  (func $__char_is_letter (export "__char_is_letter") (param $c i32) (result i32)
+    local.get $c
+    i32.const 65
+    i32.ge_u
+    local.get $c
+    i32.const 90
+    i32.le_u
+    i32.and
+    local.get $c
+    i32.const 97
+    i32.ge_u
+    local.get $c
+    i32.const 122
+    i32.le_u
+    i32.and
+    i32.or
+  )
+  (func $__char_is_letter_or_digit (export "__char_is_letter_or_digit") (param $c i32) (result i32)
+    local.get $c
+    call $__char_is_letter
+    local.get $c
+    call $__char_is_digit
+    i32.or
+  )
+  (func $__char_is_whitespace (export "__char_is_whitespace") (param $c i32) (result i32)
+    local.get $c
+    i32.const 32
+    i32.eq
+    local.get $c
+    i32.const 9
+    i32.eq
+    i32.or
+    local.get $c
+    i32.const 10
+    i32.eq
+    i32.or
+    local.get $c
+    i32.const 13
+    i32.eq
+    i32.or
+    local.get $c
+    i32.const 12
+    i32.eq
+    i32.or
+  )
+  (func $__char_is_upper (export "__char_is_upper") (param $c i32) (result i32)
+    local.get $c
+    i32.const 65
+    i32.ge_u
+    local.get $c
+    i32.const 90
+    i32.le_u
+    i32.and
+  )
+  (func $__char_is_lower (export "__char_is_lower") (param $c i32) (result i32)
+    local.get $c
+    i32.const 97
+    i32.ge_u
+    local.get $c
+    i32.const 122
+    i32.le_u
+    i32.and
+  )
+  (func $__char_to_upper (export "__char_to_upper") (param $c i32) (result i32)
+    local.get $c
+    call $__char_is_lower
+    if (result i32)
+      local.get $c
+      i32.const 32
+      i32.sub
+    else
+      local.get $c
+    end
+  )
+  (func $__char_to_lower (export "__char_to_lower") (param $c i32) (result i32)
+    local.get $c
+    call $__char_is_upper
+    if (result i32)
+      local.get $c
+      i32.const 32
+      i32.add
+    else
+      local.get $c
+    end
+  )
+  (func $__char_digit (export "__char_digit") (param $c i32) (param $radix i32) (result i32)
+    (local $d i32)
+    local.get $radix
+    i32.const 2
+    i32.lt_s
+    local.get $radix
+    i32.const 36
+    i32.gt_s
+    i32.or
+    if
+      i32.const -1
+      return
+    end
+    local.get $c
+    i32.const 48
+    i32.ge_u
+    local.get $c
+    i32.const 57
+    i32.le_u
+    i32.and
+    if
+      local.get $c
+      i32.const 48
+      i32.sub
+      local.set $d
+    else
+      local.get $c
+      i32.const 97
+      i32.ge_u
+      local.get $c
+      i32.const 122
+      i32.le_u
+      i32.and
+      if
+        local.get $c
+        i32.const 87
+        i32.sub
+        local.set $d
+      else
+        local.get $c
+        i32.const 65
+        i32.ge_u
+        local.get $c
+        i32.const 90
+        i32.le_u
+        i32.and
+        if
+          local.get $c
+          i32.const 55
+          i32.sub
+          local.set $d
+        else
+          i32.const -1
+          return
+        end
+      end
+    end
+    local.get $d
+    local.get $radix
+    i32.lt_s
+    if (result i32)
+      local.get $d
+    else
+      i32.const -1
+    end
+  )
+  (func $__char_for_digit (export "__char_for_digit") (param $d i32) (param $radix i32) (result i32)
+    local.get $d
+    i32.const 0
+    i32.lt_s
+    local.get $d
+    local.get $radix
+    i32.ge_s
+    i32.or
+    local.get $radix
+    i32.const 2
+    i32.lt_s
+    i32.or
+    local.get $radix
+    i32.const 36
+    i32.gt_s
+    i32.or
+    if
+      i32.const 0
+      return
+    end
+    local.get $d
+    i32.const 10
+    i32.lt_s
+    if (result i32)
+      i32.const 48
+      local.get $d
+      i32.add
+    else
+      i32.const 87
+      local.get $d
+      i32.add
+    end
+  )
   ;; --- WASI Runtime Helpers ---
   (func $__wasi_print_str (export "__wasi_print_str") (param $fd i32) (param $str_ptr i32) (param $str_len i32) (param $newline i32)
     (local $num_iovs i32)
@@ -1897,6 +3424,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     global.get $asyncCounter
     i32.const 10
@@ -1916,6 +3446,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     global.get $asyncCounter
     i32.const 5
@@ -1935,6 +3468,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     local.get $data
     global.set $asyncFetchedData
@@ -1952,6 +3488,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     i32.const 4269
     i32.const 11
@@ -1972,6 +3511,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     i32.const 4269
     i32.const 11
@@ -1992,6 +3534,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     i32.const 4281
     i32.const 13
@@ -2011,6 +3556,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     local.get $url
     local.set $__str_arg_ptr
@@ -2034,6 +3582,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     local.get $message
     local.set $__str_arg_ptr
@@ -2041,6 +3592,730 @@
     local.get $__str_arg_ptr
     call $__str_length
     call $dom_confirm
+    return
+  )
+  (func $testMathHardware (export "testMathHardware") (param $a f64) (param $b f64) (result f64)
+    (local $f f64)
+    (local $c f64)
+    (local $s f64)
+    (local $ab f64)
+    (local $mn f64)
+    (local $mx f64)
+    (local $r f64)
+    (local $cp f64)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
+    (local $__caught_exc i32)
+    local.get $a
+    f64.floor
+    local.set $f
+    local.get $a
+    f64.ceil
+    local.set $c
+    local.get $b
+    f64.sqrt
+    local.set $s
+    local.get $a
+    f64.abs
+    local.set $ab
+    local.get $a
+    local.get $b
+    f64.min
+    local.set $mn
+    local.get $a
+    local.get $b
+    f64.max
+    local.set $mx
+    local.get $a
+    f64.nearest
+    local.set $r
+    local.get $a
+    local.get $b
+    f64.copysign
+    local.set $cp
+    local.get $f
+    local.get $c
+    f64.add
+    local.get $s
+    f64.add
+    local.get $ab
+    f64.add
+    local.get $mn
+    f64.add
+    local.get $mx
+    f64.add
+    local.get $r
+    f64.add
+    local.get $cp
+    f64.add
+    return
+  )
+  (func $testMathTranscendental (export "testMathTranscendental") (param $x f64) (result f64)
+    (local $s f64)
+    (local $c f64)
+    (local $t f64)
+    (local $e f64)
+    (local $l f64)
+    (local $p f64)
+    (local $h f64)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
+    (local $__caught_exc i32)
+    local.get $x
+    call $dom_math_sin
+    local.set $s
+    local.get $x
+    call $dom_math_cos
+    local.set $c
+    local.get $x
+    call $dom_math_tan
+    local.set $t
+    local.get $x
+    call $dom_math_exp
+    local.set $e
+    local.get $x
+    call $dom_math_log
+    local.set $l
+    local.get $x
+    f64.const 2.0
+    call $dom_math_pow
+    local.set $p
+    local.get $x
+    local.get $x
+    call $dom_math_hypot
+    local.set $h
+    local.get $s
+    local.get $c
+    f64.add
+    local.get $t
+    f64.add
+    local.get $e
+    f64.add
+    local.get $l
+    f64.add
+    local.get $p
+    f64.add
+    local.get $h
+    f64.add
+    return
+  )
+  (func $testMathConstants (export "testMathConstants") (result f64)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
+    (local $__caught_exc i32)
+    f64.const 3.141592653589793
+    f64.const 2.718281828459045
+    f64.add
+    return
+  )
+  (func $testIntegerWrappers (export "testIntegerWrappers") (param $s i32) (param $val i32) (result i32)
+    (local $parsed i32)
+    (local $parsedHex i32)
+    (local $str i32)
+    (local $hex i32)
+    (local $bin i32)
+    (local $oct i32)
+    (local $bc i32)
+    (local $clz i32)
+    (local $ctz i32)
+    (local $revBytes i32)
+    (local $rotl i32)
+    (local $rotr i32)
+    (local $cmp i32)
+    (local $sgn i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
+    (local $__caught_exc i32)
+    local.get $s
+    call $__str_parse_i32
+    local.set $parsed
+    i32.const 4310
+    i32.const 16
+    call $__str_parse_i32_radix
+    local.set $parsedHex
+    local.get $val
+    call $__str_from_i32
+    local.set $str
+    local.get $val
+    call $__str_to_hex_i32
+    local.set $hex
+    local.get $val
+    call $__str_to_bin_i32
+    local.set $bin
+    local.get $val
+    call $__str_to_oct_i32
+    local.set $oct
+    local.get $val
+    i32.popcnt
+    local.set $bc
+    local.get $val
+    i32.clz
+    local.set $clz
+    local.get $val
+    i32.ctz
+    local.set $ctz
+    local.get $val
+    call $__i32_reverse_bytes
+    local.set $revBytes
+    local.get $val
+    i32.const 2
+    i32.rotl
+    local.set $rotl
+    local.get $val
+    i32.const 2
+    i32.rotr
+    local.set $rotr
+    local.get $val
+    local.get $parsed
+    local.set $__str_sub_start
+    local.set $__str_arg_ptr
+    local.get $__str_arg_ptr
+    local.get $__str_sub_start
+    i32.eq
+    if (result i32)
+      i32.const 0
+    else
+      i32.const -1
+      i32.const 1
+      local.get $__str_arg_ptr
+      local.get $__str_sub_start
+      i32.lt_s
+      select
+    end
+    local.set $cmp
+    local.get $val
+    local.set $__str_arg_ptr
+    local.get $__str_arg_ptr
+    i32.const 0
+    i32.eq
+    if (result i32)
+      i32.const 0
+    else
+      i32.const -1
+      i32.const 1
+      local.get $__str_arg_ptr
+      i32.const 0
+      i32.lt_s
+      select
+    end
+    local.set $sgn
+    local.get $parsed
+    local.get $parsedHex
+    i32.add
+    local.get $bc
+    i32.add
+    local.get $clz
+    i32.add
+    local.get $ctz
+    i32.add
+    local.get $cmp
+    i32.add
+    local.get $sgn
+    i32.add
+    return
+  )
+  (func $testLongWrappers (export "testLongWrappers") (param $s i32) (param $val i64) (result i64)
+    (local $parsed i64)
+    (local $str i32)
+    (local $hex i32)
+    (local $bin i32)
+    (local $bc i32)
+    (local $clz i32)
+    (local $ctz i32)
+    (local $revBytes i64)
+    (local $cmp i32)
+    (local $sgn i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
+    (local $__caught_exc i32)
+    local.get $s
+    call $__str_parse_i64
+    local.set $parsed
+    local.get $val
+    call $__str_from_i64
+    local.set $str
+    local.get $val
+    call $__str_to_hex_i64
+    local.set $hex
+    local.get $val
+    call $__str_to_bin_i64
+    local.set $bin
+    local.get $val
+    i64.popcnt
+    i32.wrap_i64
+    local.set $bc
+    local.get $val
+    i64.clz
+    i32.wrap_i64
+    local.set $clz
+    local.get $val
+    i64.ctz
+    i32.wrap_i64
+    local.set $ctz
+    local.get $val
+    call $__i64_reverse_bytes
+    local.set $revBytes
+    local.get $val
+    local.get $parsed
+    call $__i64_compare
+    local.set $cmp
+    local.get $val
+    call $__i64_signum
+    local.set $sgn
+    local.get $parsed
+    local.get $bc
+    i64.extend_i32_s
+    i64.add
+    local.get $clz
+    i64.extend_i32_s
+    i64.add
+    local.get $ctz
+    i64.extend_i32_s
+    i64.add
+    local.get $cmp
+    i64.extend_i32_s
+    i64.add
+    local.get $sgn
+    i64.extend_i32_s
+    i64.add
+    return
+  )
+  (func $testDoubleWrappers (export "testDoubleWrappers") (param $s i32) (param $val f64) (result f64)
+    (local $parsed f64)
+    (local $str i32)
+    (local $nan i32)
+    (local $inf i32)
+    (local $fin i32)
+    (local $cmp i32)
+    (local $bits i64)
+    (local $fromBits f64)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
+    (local $__caught_exc i32)
+    local.get $s
+    call $__str_parse_f64
+    local.set $parsed
+    local.get $val
+    call $__str_from_f64
+    local.set $str
+    local.get $val
+    local.set $__f64_tmp
+    local.get $__f64_tmp
+    local.get $__f64_tmp
+    f64.ne
+    local.set $nan
+    local.get $val
+    local.set $__f64_tmp
+    local.get $__f64_tmp
+    f64.const inf
+    f64.eq
+    local.get $__f64_tmp
+    f64.const -inf
+    f64.eq
+    i32.or
+    local.set $inf
+    local.get $val
+    local.set $__f64_tmp
+    local.get $__f64_tmp
+    local.get $__f64_tmp
+    f64.ne
+    local.get $__f64_tmp
+    f64.const inf
+    f64.eq
+    i32.or
+    local.get $__f64_tmp
+    f64.const -inf
+    f64.eq
+    i32.or
+    i32.eqz
+    local.set $fin
+    local.get $val
+    local.get $parsed
+    call $__f64_compare
+    local.set $cmp
+    local.get $val
+    i64.reinterpret_f64
+    local.set $bits
+    local.get $bits
+    f64.reinterpret_i64
+    local.set $fromBits
+    local.get $parsed
+    local.get $fromBits
+    f64.add
+    local.get $cmp
+    f64.convert_i32_s
+    f64.add
+    local.get $fin
+    if (result f64)
+    f64.const 1.0
+    else
+    f64.const 0.0
+    end
+    f64.add
+    return
+  )
+  (func $testFloatWrappers (export "testFloatWrappers") (param $s i32) (param $val f32) (result f32)
+    (local $parsed f32)
+    (local $str i32)
+    (local $nan i32)
+    (local $inf i32)
+    (local $fin i32)
+    (local $bits i32)
+    (local $fromBits f32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
+    (local $__caught_exc i32)
+    local.get $s
+    call $__str_parse_f64
+    f32.demote_f64
+    local.set $parsed
+    local.get $val
+    f64.promote_f32
+    call $__str_from_f64
+    local.set $str
+    local.get $val
+    local.set $__f32_tmp
+    local.get $__f32_tmp
+    local.get $__f32_tmp
+    f32.ne
+    local.set $nan
+    local.get $val
+    local.set $__f32_tmp
+    local.get $__f32_tmp
+    f32.const inf
+    f32.eq
+    local.get $__f32_tmp
+    f32.const -inf
+    f32.eq
+    i32.or
+    local.set $inf
+    local.get $val
+    local.set $__f32_tmp
+    local.get $__f32_tmp
+    local.get $__f32_tmp
+    f32.ne
+    local.get $__f32_tmp
+    f32.const inf
+    f32.eq
+    i32.or
+    local.get $__f32_tmp
+    f32.const -inf
+    f32.eq
+    i32.or
+    i32.eqz
+    local.set $fin
+    local.get $val
+    i32.reinterpret_f32
+    local.set $bits
+    local.get $bits
+    f32.reinterpret_i32
+    local.set $fromBits
+    local.get $parsed
+    local.get $fromBits
+    f32.add
+    f64.promote_f32
+    local.get $fin
+    if (result f64)
+    f64.const 1.0
+    else
+    f64.const 0.0
+    end
+    f64.add
+    f32.demote_f64
+    return
+  )
+  (func $testBooleanWrappers (export "testBooleanWrappers") (param $s i32) (param $val i32) (result i32)
+    (local $parsed i32)
+    (local $str i32)
+    (local $cmp i32)
+    (local $land i32)
+    (local $lor i32)
+    (local $lxor i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
+    (local $__caught_exc i32)
+    local.get $s
+    call $__str_parse_bool
+    local.set $parsed
+    local.get $val
+    call $__str_from_bool
+    local.set $str
+    local.get $val
+    local.get $parsed
+    i32.sub
+    local.set $cmp
+    local.get $val
+    local.get $parsed
+    i32.and
+    local.set $land
+    local.get $val
+    local.get $parsed
+    i32.or
+    local.set $lor
+    local.get $val
+    local.get $parsed
+    i32.xor
+    local.set $lxor
+    local.get $parsed
+    local.get $lor
+    i32.and
+    return
+  )
+  (func $testCharacterWrappers (export "testCharacterWrappers") (param $c i32) (result i32)
+    (local $isD i32)
+    (local $isL i32)
+    (local $isLD i32)
+    (local $isW i32)
+    (local $isU i32)
+    (local $isLow i32)
+    (local $up i32)
+    (local $low i32)
+    (local $d i32)
+    (local $fd i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
+    (local $__caught_exc i32)
+    local.get $c
+    call $__char_is_digit
+    local.set $isD
+    local.get $c
+    call $__char_is_letter
+    local.set $isL
+    local.get $c
+    call $__char_is_letter_or_digit
+    local.set $isLD
+    local.get $c
+    call $__char_is_whitespace
+    local.set $isW
+    local.get $c
+    call $__char_is_upper
+    local.set $isU
+    local.get $c
+    call $__char_is_lower
+    local.set $isLow
+    local.get $c
+    call $__char_to_upper
+    local.set $up
+    local.get $c
+    call $__char_to_lower
+    local.set $low
+    i32.const 102
+    i32.const 16
+    call $__char_digit
+    local.set $d
+    i32.const 15
+    i32.const 16
+    call $__char_for_digit
+    local.set $fd
+    local.get $isL
+    if (result i32)
+    i32.const 1
+    else
+    i32.const 0
+    end
+    local.get $isU
+    if (result i32)
+    i32.const 2
+    else
+    i32.const 0
+    end
+    i32.add
+    local.get $d
+    i32.add
+    local.get $up
+    i32.add
+    local.get $low
+    i32.add
+    return
+  )
+  (func $testBitwiseIntrinsics (export "testBitwiseIntrinsics") (param $i i32) (param $l i64) (result i32)
+    (local $p1 i32)
+    (local $z1 i32)
+    (local $t1 i32)
+    (local $r1 i32)
+    (local $rb1 i32)
+    (local $p2 i32)
+    (local $z2 i32)
+    (local $t2 i32)
+    (local $r2 i64)
+    (local $rb2 i64)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
+    (local $__caught_exc i32)
+    local.get $i
+    i32.popcnt
+    local.set $p1
+    local.get $i
+    i32.clz
+    local.set $z1
+    local.get $i
+    i32.ctz
+    local.set $t1
+    local.get $i
+    call $__i32_reverse_bytes
+    local.set $r1
+    local.get $i
+    call $__i32_reverse_bits
+    local.set $rb1
+    local.get $l
+    i64.popcnt
+    i32.wrap_i64
+    local.set $p2
+    local.get $l
+    i64.clz
+    i32.wrap_i64
+    local.set $z2
+    local.get $l
+    i64.ctz
+    i32.wrap_i64
+    local.set $t2
+    local.get $l
+    call $__i64_reverse_bytes
+    local.set $r2
+    local.get $l
+    call $__i64_reverse_bits
+    local.set $rb2
+    local.get $p1
+    local.get $z1
+    i32.add
+    local.get $t1
+    i32.add
+    local.get $p2
+    i32.add
+    local.get $z2
+    i32.add
+    local.get $t2
+    i32.add
     return
   )
   (func $sayHello (export "sayHello")
@@ -2056,6 +4331,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
   )
   (func $addNumbers (export "addNumbers") (param $a i32) (param $b i32) (result i32)
@@ -2071,6 +4349,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     local.get $a
     local.get $b
@@ -2090,6 +4371,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     f64.const 3.14159
     return
@@ -2109,6 +4393,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     i32.const 1
     local.set $result
@@ -2152,6 +4439,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     i32.const 0
     local.set $sum
@@ -2210,6 +4500,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     i32.const 0
     local.set $total
@@ -2267,6 +4560,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     i32.const 0
     local.set $total
@@ -2336,6 +4632,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     f64.const 0.0
     local.set $total
@@ -2393,6 +4692,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     i32.const 0
     local.set $total
@@ -2472,6 +4774,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     global.get $__heap_ptr
     local.set $__arr_alloc_ptr
@@ -2546,6 +4851,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     i32.const 0
     local.set $result
@@ -2607,6 +4915,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     i32.const 0
     local.set $result
@@ -2674,6 +4985,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     i32.const 0
     local.set $total
@@ -2749,6 +5063,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     i32.const 0
     local.set $count
@@ -2821,6 +5138,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     i32.const 0
     local.set $count
@@ -2887,6 +5207,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     i32.const 10
     local.set $res
@@ -2925,6 +5248,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     i32.const 0
     local.set $sum
@@ -2992,17 +5318,20 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
-    i32.const 4310
+    i32.const 4313
     local.set $greeting
-    i32.const 4316
+    i32.const 4319
     local.set $target
     local.get $greeting
-    i32.const 4328
+    i32.const 4331
     call $__str_concat
     local.get $target
     call $__str_concat
-    i32.const 4331
+    i32.const 4334
     call $__str_concat
     return
   )
@@ -3019,16 +5348,19 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
-    i32.const 4333
+    i32.const 4336
     local.get $name
     call $__str_concat
-    i32.const 4340
+    i32.const 4343
     call $__str_concat
     local.get $age
     call $__str_from_i32
     call $__str_concat
-    i32.const 4348
+    i32.const 4351
     call $__str_concat
     return
   )
@@ -3046,8 +5378,11 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
-    i32.const 4316
+    i32.const 4319
     local.set $s
     local.get $s
     call $__str_length
@@ -3067,8 +5402,11 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
-    i32.const 4316
+    i32.const 4319
     local.set $s
     local.get $s
     local.get $idx
@@ -3089,8 +5427,11 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
-    i32.const 4350
+    i32.const 4353
     local.set $s
     local.get $s
     local.get $start
@@ -3111,6 +5452,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     local.get $a
     local.get $b
@@ -3136,11 +5480,14 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
-    i32.const 4350
+    i32.const 4353
     local.set $s
     local.get $s
-    i32.const 4362
+    i32.const 4365
     call $__str_indexOf
     return
   )
@@ -3158,11 +5505,14 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
-    i32.const 4350
+    i32.const 4353
     local.set $s
     local.get $s
-    i32.const 4368
+    i32.const 4371
     call $__str_indexOf
     return
   )
@@ -3181,12 +5531,15 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     i32.const 16
     call $__sb_new
     local.set $__sb_tmp
     local.get $__sb_tmp
-    i32.const 4373
+    i32.const 4376
     call $__sb_append_str
     drop
     local.get $__sb_tmp
@@ -3235,12 +5588,15 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     i32.const 16
     call $__sb_new
     local.set $__sb_tmp
     local.get $__sb_tmp
-    i32.const 4368
+    i32.const 4371
     call $__sb_append_str
     drop
     local.get $__sb_tmp
@@ -3271,6 +5627,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     i32.const 16
     call $__heap_alloc
@@ -3322,6 +5681,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     i32.const 16
     call $__heap_alloc
@@ -3372,6 +5734,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     local.get $type
     i32.const 1
@@ -3428,6 +5793,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     local.get $type
     i32.const 1
@@ -3484,6 +5852,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     local.get $type
     i32.const 1
@@ -3579,6 +5950,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     i32.const 3
     local.set $__arr_alloc_len
@@ -3710,8 +6084,11 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
-    i32.const 4381
+    i32.const 4384
     i32.const 10
     call $dom_getElementById
     local.set $canvas
@@ -3725,7 +6102,7 @@
     call $dom_getContext2D
     local.set $ctx
     local.get $ctx
-    i32.const 4392
+    i32.const 4395
     i32.const 7
     call $dom_setFillStyle
     local.get $ctx
@@ -3768,8 +6145,11 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
-    i32.const 4400
+    i32.const 4403
     i32.const 8
     call $dom_getElementById
     local.set $glCanvas
@@ -3805,23 +6185,26 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
-    i32.const 4409
+    i32.const 4412
     i32.const 50
     call $dom_js_eval
     local.set $obj
     local.get $obj
-    i32.const 4460
+    i32.const 4463
     i32.const 5
     call $dom_js_getString
     local.set $title
     local.get $obj
-    i32.const 4466
+    i32.const 4469
     i32.const 5
     call $dom_js_getInt
     local.set $count
     local.get $obj
-    i32.const 4472
+    i32.const 4475
     i32.const 6
     call $dom_js_getBoolean
     local.set $active
@@ -3859,42 +6242,45 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     call $dom_js_createObject
     local.set $obj
     local.get $obj
-    i32.const 4479
+    i32.const 4482
     i32.const 4
-    i32.const 4484
+    i32.const 4487
     i32.const 5
     call $dom_js_setString
     local.get $obj
-    i32.const 4490
+    i32.const 4493
     i32.const 5
     i32.const 95
     call $dom_js_setInt
     local.get $obj
-    i32.const 4496
+    i32.const 4499
     i32.const 6
     f64.const 4.8
     call $dom_js_setDouble
     local.get $obj
-    i32.const 4503
+    i32.const 4506
     i32.const 7
     i32.const 1
     call $dom_js_setBoolean
     local.get $obj
-    i32.const 4479
+    i32.const 4482
     i32.const 4
     call $dom_js_getString
     local.set $user
     local.get $obj
-    i32.const 4490
+    i32.const 4493
     i32.const 5
     call $dom_js_getInt
     local.set $score
     local.get $obj
-    i32.const 4503
+    i32.const 4506
     i32.const 7
     call $dom_js_getBoolean
     local.set $premium
@@ -3927,15 +6313,18 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     call $dom_js_createArray
     local.set $arr
     local.get $arr
-    i32.const 4511
+    i32.const 4514
     i32.const 5
     call $dom_js_pushStr
     local.get $arr
-    i32.const 4517
+    i32.const 4520
     i32.const 5
     call $dom_js_pushStr
     local.get $arr
@@ -3946,7 +6335,7 @@
     local.set $len
     local.get $arr
     i32.const 1
-    i32.const 4523
+    i32.const 4526
     i32.const 7
     call $dom_js_setIndexStr
     local.get $arr
@@ -3984,14 +6373,17 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     call $dom_js_global
-    i32.const 4531
+    i32.const 4534
     i32.const 4
     call $dom_js_get
     local.set $math
     local.get $math
-    i32.const 4536
+    i32.const 4539
     i32.const 3
     i32.const 100
     call $dom_js_callInt1_int
@@ -4012,14 +6404,17 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     i32.const 1
-    i32.const 4540
+    i32.const 4543
     i32.const 39
     i32.const 1
     call $__wasi_print_str
     i32.const 1
-    i32.const 4580
+    i32.const 4583
     i32.const 10
     i32.const 0
     call $__wasi_print_str
@@ -4028,7 +6423,7 @@
     i32.const 1
     call $__wasi_print_int
     i32.const 2
-    i32.const 4591
+    i32.const 4594
     i32.const 26
     i32.const 1
     call $__wasi_print_str
@@ -4048,14 +6443,17 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     i32.const 1
-    i32.const 4618
+    i32.const 4621
     i32.const 21
     i32.const 0
     call $__wasi_print_str
     i32.const 1
-    i32.const 4640
+    i32.const 4643
     i32.const 6
     i32.const 1
     call $__wasi_print_str
@@ -4064,7 +6462,7 @@
     i32.const 1
     call $__wasi_print_int
     i32.const 2
-    i32.const 4647
+    i32.const 4650
     i32.const 17
     i32.const 1
     call $__wasi_print_str
@@ -4090,6 +6488,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     i32.const 8
     call $__heap_alloc
@@ -4177,6 +6578,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     global.get $__heap_ptr
     local.set $__arr_alloc_ptr
@@ -4274,6 +6678,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     call $dom_thread_hardware_concurrency
     local.set $hc
@@ -4309,6 +6716,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $e i32)
     (local $__caught_exc i32)
     i32.const 0
@@ -4326,7 +6736,7 @@
     i32.const 19
     i32.store offset=0
     local.get $__obj_alloc_ptr
-    i32.const 4665
+    i32.const 4668
     call $RuntimeException__init_1
     local.get $__obj_alloc_ptr
     throw $Exception
@@ -4358,6 +6768,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $e i32)
     (local $__caught_exc i32)
     (try
@@ -4369,7 +6782,7 @@
     i32.const 1
     i32.store offset=0
     local.get $__obj_alloc_ptr
-    i32.const 4676
+    i32.const 4679
     call $Exception__init_1
     local.get $__obj_alloc_ptr
     throw $Exception
@@ -4404,6 +6817,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $ce i32)
     (local $__caught_exc i32)
     (try
@@ -4415,7 +6831,7 @@
     i32.const 2
     i32.store offset=0
     local.get $__obj_alloc_ptr
-    i32.const 4701
+    i32.const 4704
     i32.const 404
     call $CustomAppException__init
     local.get $__obj_alloc_ptr
@@ -4451,6 +6867,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $ce i32)
     (local $iae i32)
     (local $e i32)
@@ -4468,7 +6887,7 @@
     i32.const 2
     i32.store offset=0
     local.get $__obj_alloc_ptr
-    i32.const 4712
+    i32.const 4715
     i32.const 500
     call $CustomAppException__init
     local.get $__obj_alloc_ptr
@@ -4485,7 +6904,7 @@
     i32.const 20
     i32.store offset=0
     local.get $__obj_alloc_ptr
-    i32.const 4723
+    i32.const 4726
     call $IllegalArgumentException__init_1
     local.get $__obj_alloc_ptr
     throw $Exception
@@ -4497,7 +6916,7 @@
     i32.const 1
     i32.store offset=0
     local.get $__obj_alloc_ptr
-    i32.const 4731
+    i32.const 4734
     call $Exception__init_1
     local.get $__obj_alloc_ptr
     throw $Exception
@@ -4579,6 +6998,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $e i32)
     (local $__caught_exc i32)
     i32.const 0
@@ -4598,7 +7020,7 @@
     i32.const 19
     i32.store offset=0
     local.get $__obj_alloc_ptr
-    i32.const 4745
+    i32.const 4748
     call $RuntimeException__init_1
     local.get $__obj_alloc_ptr
     throw $Exception
@@ -4648,6 +7070,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     local.get $a
     local.get $b
@@ -4666,6 +7091,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     local.get $p$first
     local.get $p$second
@@ -4687,6 +7115,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     local.get $a
     local.get $b
@@ -4711,6 +7142,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     local.get $dividend
     local.get $divisor
@@ -4735,6 +7169,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     local.get $dividend
     local.get $divisor
@@ -4759,6 +7196,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     local.get $pt$x
     local.get $factor
@@ -4784,6 +7224,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     local.get $a$x
     local.get $b$x
@@ -4813,6 +7256,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     global.get $__heap_ptr
     local.set $__arr_alloc_ptr
@@ -4928,6 +7374,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     global.get $__heap_ptr
     local.set $__arr_alloc_ptr
@@ -5035,6 +7484,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     i32.const 5
     local.set $__arr_alloc_len
@@ -5205,6 +7657,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     global.get $__heap_ptr
     local.set $__arr_alloc_ptr
@@ -5344,13 +7799,16 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
-    i32.const 4757
-    i32.const 4768
+    i32.const 4760
+    i32.const 4771
     i32.const 0
     call $__wasi_write_file_str
     drop
-    i32.const 4757
+    i32.const 4760
     call $__wasi_read_file_str
     return
   )
@@ -5367,6 +7825,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     local.get $path
     call $__wasi_file_exists
@@ -5385,6 +7846,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     local.get $path
     call $__wasi_file_length
@@ -5403,18 +7867,21 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
-    i32.const 4783
-    i32.const 4795
+    i32.const 4786
+    i32.const 4798
     i32.const 0
     call $__wasi_write_file_str
     drop
-    i32.const 4783
-    i32.const 4801
+    i32.const 4786
+    i32.const 4804
     i32.const 1
     call $__wasi_write_file_str
     drop
-    i32.const 4783
+    i32.const 4786
     call $__wasi_read_file_str
     return
   )
@@ -5434,19 +7901,22 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
-    i32.const 4807
-    i32.const 4822
+    i32.const 4810
+    i32.const 4825
     i32.const 0
     call $__wasi_write_file_str
     drop
-    i32.const 4807
+    i32.const 4810
     call $__wasi_file_exists
     local.set $existsBefore
-    i32.const 4807
+    i32.const 4810
     call $__wasi_file_delete
     local.set $deleted
-    i32.const 4807
+    i32.const 4810
     call $__wasi_file_exists
     local.set $existsAfter
     local.get $existsBefore
@@ -5472,6 +7942,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     call $__wasi_clock_time_ms
     local.set $time
@@ -5496,24 +7969,27 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     i32.const 8
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 4832
+    i32.const 4835
     call $WASIFile__init
     local.get $__obj_alloc_ptr
     local.set $file
     local.get $file
     i32.load offset=4
-    i32.const 4846
+    i32.const 4849
     i32.const 0
     call $__wasi_write_file_str
     drop
     local.get $file
     i32.load offset=4
-    i32.const 4856
+    i32.const 4859
     i32.const 1
     call $__wasi_write_file_str
     drop
@@ -5540,18 +8016,21 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     i32.const 8
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 4869
+    i32.const 4872
     call $WASIFile__init
     local.get $__obj_alloc_ptr
     local.set $file
     local.get $file
     i32.load offset=4
-    i32.const 4883
+    i32.const 4886
     i32.const 0
     call $__wasi_write_file_str
     drop
@@ -5599,6 +8078,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     v128.const f32x4 1.0 2.0 3.0 4.0
     local.set $a
@@ -5639,6 +8121,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     v128.const f32x4 2.0 3.0 4.0 5.0
     local.set $a
@@ -5678,6 +8163,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     f32.const 16.0
     f32x4.splat
@@ -5714,6 +8202,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     v128.const i32x4 10 20 30 40
     local.set $a
@@ -5759,6 +8250,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     global.get $__heap_ptr
     local.set $__arr_alloc_ptr
@@ -5848,6 +8342,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     i32.const 1
     local.set $heap
@@ -5880,6 +8377,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     i32.const 1
     local.set $heap
@@ -5912,6 +8412,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     i32.const 1
     local.set $heap
@@ -5939,6 +8442,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     i32.const 1
     local.set $heap
@@ -6003,6 +8509,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     global.get $__heap_ptr
     local.set $__arr_alloc_ptr
@@ -6051,6 +8560,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     global.get $__heap_ptr
     local.set $__arr_alloc_ptr
@@ -6135,11 +8647,14 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     i32.const 42
     call $dom_js_number_of_int
     local.set $numVal
-    i32.const 5123
+    i32.const 5126
     i32.const 11
     call $dom_js_string_of
     local.set $strVal
@@ -6192,7 +8707,7 @@
     i32.add
     local.set $score
     end
-    i32.const 5135
+    i32.const 5138
     local.get $numVal
     call $dom_js_typeof
     call $__str_equals
@@ -6202,7 +8717,7 @@
     i32.add
     local.set $score
     end
-    i32.const 5142
+    i32.const 5145
     local.get $strVal
     call $dom_js_typeof
     call $__str_equals
@@ -6212,7 +8727,7 @@
     i32.add
     local.set $score
     end
-    i32.const 5149
+    i32.const 5152
     local.get $boolVal
     call $dom_js_typeof
     call $__str_equals
@@ -6241,6 +8756,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     f64.const 100.5
     call $dom_js_number_of_double
@@ -6309,12 +8827,15 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
-    i32.const 5157
+    i32.const 5160
     i32.const 6
     call $dom_js_symbol_of
     local.set $sym
-    i32.const 5164
+    i32.const 5167
     i32.const 16
     call $dom_js_bigint_of_str
     local.set $big
@@ -6328,7 +8849,7 @@
     i32.add
     local.set $score
     end
-    i32.const 5157
+    i32.const 5160
     local.get $sym
     call $dom_js_symbolDescription
     call $__str_equals
@@ -6364,8 +8885,11 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
-    i32.const 5181
+    i32.const 5184
     i32.const 21
     call $dom_js_type_error_of
     local.set $err
@@ -6379,7 +8903,7 @@
     i32.add
     local.set $score
     end
-    i32.const 5181
+    i32.const 5184
     local.get $err
     call $dom_js_errorMessage
     call $__str_equals
@@ -6389,7 +8913,7 @@
     i32.add
     local.set $score
     end
-    i32.const 5203
+    i32.const 5206
     local.get $err
     call $dom_js_errorName
     call $__str_equals
@@ -6400,11 +8924,11 @@
     local.set $score
     end
     local.get $err
-    i32.const 5213
+    i32.const 5216
     i32.const 5
     call $dom_js_instanceof
     local.get $err
-    i32.const 5203
+    i32.const 5206
     i32.const 9
     call $dom_js_instanceof
     i32.and
@@ -6434,6 +8958,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     i32.const 42
     call $dom_js_number_of_int
@@ -6441,7 +8968,7 @@
     i32.const 42
     call $dom_js_number_of_int
     local.set $v2
-    i32.const 5219
+    i32.const 5222
     i32.const 2
     call $dom_js_string_of
     local.set $v3
@@ -6484,6 +9011,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     f64.const 3.0
     f64.const 4.0
@@ -6510,6 +9040,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     f64.const 1700000000000.0
     call $dom_js_inline_JSDate_create
@@ -6532,17 +9065,20 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     call $dom_js_createObject
     local.set $obj
     local.get $obj
-    i32.const 5222
+    i32.const 5225
     i32.const 4
-    i32.const 4316
+    i32.const 4319
     i32.const 11
     call $dom_js_setString
     local.get $obj
-    i32.const 5227
+    i32.const 5230
     i32.const 7
     i32.const 2026
     call $dom_js_setInt
@@ -6563,6 +9099,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     i32.const 4256
     i32.const 11
@@ -6582,11 +9121,14 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     i32.const 4211
     i32.const 9
     call $dom_js_resource_has
-    i32.const 5235
+    i32.const 5238
     i32.const 15
     call $dom_js_resource_has
     i32.eqz
@@ -6606,6 +9148,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     i32.const 4211
     i32.const 9
@@ -6625,8 +9170,11 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
-    i32.const 5251
+    i32.const 5254
     i32.const 32
     call $dom_js_resource_inject_style
   )
@@ -6643,6 +9191,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     i32.const 4211
     i32.const 9
@@ -6661,8 +9212,11 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
-    i32.const 5284
+    i32.const 5287
     i32.const 40
     call $dom_js_resource_inject_script
   )
@@ -6680,9 +9234,12 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     call $dom_js_global
-    i32.const 5325
+    i32.const 5328
     i32.const 18
     call $dom_js_get
     local.set $val
@@ -6703,6 +9260,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     local.get $prompt
     local.set $__str_arg_ptr
@@ -6725,6 +9285,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     call $__wasi_read_char
     return
@@ -6742,14 +9305,17 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     i32.const 1
-    i32.const 5367
+    i32.const 5370
     i32.const 5
     i32.const 0
     call $__wasi_print_str
     i32.const 1
-    i32.const 5344
+    i32.const 5347
     i32.const 7
     i32.const 0
     call $__wasi_print_str
@@ -6780,6 +9346,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     call $dom_terminal_get_columns
     i32.const 100
@@ -6801,6 +9370,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     call $dom_terminal_clear
   )
@@ -6820,6 +9392,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     local.get $this$quotient
     local.get $this$remainder
@@ -6840,6 +9415,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     local.get $this
     local.get $msg
@@ -6861,6 +9439,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     local.get $this
     i32.load offset=8
@@ -6880,6 +9461,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     local.get $this
     local.get $x
@@ -6901,6 +9485,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     local.get $this
     i32.load offset=4
@@ -6919,6 +9506,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     local.get $this
     i32.load offset=8
@@ -6937,6 +9527,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     local.get $this
     local.get $newX
@@ -6958,6 +9551,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     local.get $this
     i32.load offset=4
@@ -6986,6 +9582,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     local.get $this
     local.get $color
@@ -7004,6 +9603,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     local.get $this
     i32.load offset=4
@@ -7022,6 +9624,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     i32.const 0
     return
@@ -7040,6 +9645,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     local.get $this
     local.get $color
@@ -7061,6 +9669,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     local.get $this
     i32.load offset=8
@@ -7079,6 +9690,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     i32.const 3
     local.get $this
@@ -7103,6 +9717,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     local.get $this
     local.get $color
@@ -7127,6 +9744,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     local.get $this
     i32.load offset=8
@@ -7149,6 +9769,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     local.get $this
     local.get $initialCount
@@ -7167,6 +9790,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     local.get $this
     local.set $__obj_tmp
@@ -7190,6 +9816,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     local.get $this
     local.set $__obj_tmp
@@ -7213,6 +9842,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     local.get $this
     i32.load offset=4
@@ -7231,6 +9863,9 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     local.get $a
     local.get $b
@@ -7250,9 +9885,12 @@
     (local $__atomic_tmp i32)
     (local $__atomic_val i32)
     (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
     (local $__caught_exc i32)
     local.get $label
-    i32.const 5364
+    i32.const 5367
     call $__str_concat
     local.get $this
     i32.load offset=4

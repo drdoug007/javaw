@@ -20,10 +20,12 @@ public class TypeMapper {
         }
         return switch (typeStr) {
             case "void" -> null;
-            case "int", "boolean", "byte", "short", "char" -> "i32";
-            case "long" -> "i64";
-            case "float" -> "f32";
-            case "double" -> "f64";
+            case "int", "boolean", "byte", "short", "char",
+                 "Integer", "Boolean", "Byte", "Short", "Character",
+                 "java.lang.Integer", "java.lang.Boolean", "java.lang.Byte", "java.lang.Short", "java.lang.Character" -> "i32";
+            case "long", "Long", "java.lang.Long" -> "i64";
+            case "float", "Float", "java.lang.Float" -> "f32";
+            case "double", "Double", "java.lang.Double" -> "f64";
             case "Float32x4", "Int32x4", "Vector128", "F32x4", "I32x4" -> "v128";
             default -> "i32";
         };

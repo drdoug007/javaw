@@ -38,9 +38,26 @@ public class DomHelper {
                 addJsImports(mName, call, imports);
             } else if (isThreadMethod(mName, call)) {
                 addThreadImports(mName, imports);
+            } else if (isMathTranscendentalMethod(mName, call)) {
+                imports.add("math_" + mName);
             }
         }
         return imports;
+    }
+
+    private static boolean isMathTranscendentalMethod(String mName, MethodCallExpr call) {
+        if (!call.getScope().isPresent()) return false;
+        String scope = call.getScope().get().toString();
+        if (!scope.equals("Math") && !scope.equals("java.lang.Math") &&
+            !scope.equals("StrictMath") && !scope.equals("java.lang.StrictMath")) {
+            return false;
+        }
+        return mName.equals("sin") || mName.equals("cos") || mName.equals("tan") ||
+               mName.equals("asin") || mName.equals("acos") || mName.equals("atan") ||
+               mName.equals("atan2") || mName.equals("exp") || mName.equals("log") ||
+               mName.equals("log10") || mName.equals("log1p") || mName.equals("pow") ||
+               mName.equals("hypot") || mName.equals("cbrt") || mName.equals("sinh") ||
+               mName.equals("cosh") || mName.equals("tanh") || mName.equals("random");
     }
 
     private static boolean isTerminalMethod(String mName, MethodCallExpr call) {
@@ -962,6 +979,60 @@ public class DomHelper {
         }
         if (domImports.contains("dom_terminal_get_rows")) {
             watOutput.append("  (import \"dom\" \"terminal_get_rows\" (func $dom_terminal_get_rows (result i32)))\n");
+        }
+        if (domImports.contains("math_sin")) {
+            watOutput.append("  (import \"dom\" \"math_sin\" (func $dom_math_sin (param f64) (result f64)))\n");
+        }
+        if (domImports.contains("math_cos")) {
+            watOutput.append("  (import \"dom\" \"math_cos\" (func $dom_math_cos (param f64) (result f64)))\n");
+        }
+        if (domImports.contains("math_tan")) {
+            watOutput.append("  (import \"dom\" \"math_tan\" (func $dom_math_tan (param f64) (result f64)))\n");
+        }
+        if (domImports.contains("math_asin")) {
+            watOutput.append("  (import \"dom\" \"math_asin\" (func $dom_math_asin (param f64) (result f64)))\n");
+        }
+        if (domImports.contains("math_acos")) {
+            watOutput.append("  (import \"dom\" \"math_acos\" (func $dom_math_acos (param f64) (result f64)))\n");
+        }
+        if (domImports.contains("math_atan")) {
+            watOutput.append("  (import \"dom\" \"math_atan\" (func $dom_math_atan (param f64) (result f64)))\n");
+        }
+        if (domImports.contains("math_atan2")) {
+            watOutput.append("  (import \"dom\" \"math_atan2\" (func $dom_math_atan2 (param f64 f64) (result f64)))\n");
+        }
+        if (domImports.contains("math_exp")) {
+            watOutput.append("  (import \"dom\" \"math_exp\" (func $dom_math_exp (param f64) (result f64)))\n");
+        }
+        if (domImports.contains("math_log")) {
+            watOutput.append("  (import \"dom\" \"math_log\" (func $dom_math_log (param f64) (result f64)))\n");
+        }
+        if (domImports.contains("math_log10")) {
+            watOutput.append("  (import \"dom\" \"math_log10\" (func $dom_math_log10 (param f64) (result f64)))\n");
+        }
+        if (domImports.contains("math_log1p")) {
+            watOutput.append("  (import \"dom\" \"math_log1p\" (func $dom_math_log1p (param f64) (result f64)))\n");
+        }
+        if (domImports.contains("math_pow")) {
+            watOutput.append("  (import \"dom\" \"math_pow\" (func $dom_math_pow (param f64 f64) (result f64)))\n");
+        }
+        if (domImports.contains("math_hypot")) {
+            watOutput.append("  (import \"dom\" \"math_hypot\" (func $dom_math_hypot (param f64 f64) (result f64)))\n");
+        }
+        if (domImports.contains("math_cbrt")) {
+            watOutput.append("  (import \"dom\" \"math_cbrt\" (func $dom_math_cbrt (param f64) (result f64)))\n");
+        }
+        if (domImports.contains("math_sinh")) {
+            watOutput.append("  (import \"dom\" \"math_sinh\" (func $dom_math_sinh (param f64) (result f64)))\n");
+        }
+        if (domImports.contains("math_cosh")) {
+            watOutput.append("  (import \"dom\" \"math_cosh\" (func $dom_math_cosh (param f64) (result f64)))\n");
+        }
+        if (domImports.contains("math_tanh")) {
+            watOutput.append("  (import \"dom\" \"math_tanh\" (func $dom_math_tanh (param f64) (result f64)))\n");
+        }
+        if (domImports.contains("math_random")) {
+            watOutput.append("  (import \"dom\" \"math_random\" (func $dom_math_random (result f64)))\n");
         }
     }
 }

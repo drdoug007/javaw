@@ -95,6 +95,11 @@
                     <artifactId>maven-plugin-plugin</artifactId>
                     <version>${maven.plugin.tools.version}</version>
                 </plugin>
+                <plugin>
+                    <groupId>com.example</groupId>
+                    <artifactId>javaw-maven-plugin</artifactId>
+                    <version>${project.version}</version>
+                </plugin>
             </plugins>
         </pluginManagement>
     </build>

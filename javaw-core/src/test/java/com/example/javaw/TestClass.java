@@ -64,6 +64,128 @@ public class TestClass {
         return Window.confirm(message);
     }
 
+    public double testMathHardware(double a, double b) {
+        double f = Math.floor(a);
+        double c = Math.ceil(a);
+        double s = Math.sqrt(b);
+        double ab = Math.abs(a);
+        double mn = Math.min(a, b);
+        double mx = Math.max(a, b);
+        double r = Math.rint(a);
+        double cp = Math.copySign(a, b);
+        return f + c + s + ab + mn + mx + r + cp;
+    }
+
+    public double testMathTranscendental(double x) {
+        double s = Math.sin(x);
+        double c = Math.cos(x);
+        double t = Math.tan(x);
+        double e = Math.exp(x);
+        double l = Math.log(x);
+        double p = Math.pow(x, 2.0);
+        double h = Math.hypot(x, x);
+        return s + c + t + e + l + p + h;
+    }
+
+    public double testMathConstants() {
+        return Math.PI + Math.E;
+    }
+
+    public int testIntegerWrappers(String s, int val) {
+        int parsed = Integer.parseInt(s);
+        int parsedHex = Integer.parseInt("1A", 16);
+        String str = Integer.toString(val);
+        String hex = Integer.toHexString(val);
+        String bin = Integer.toBinaryString(val);
+        String oct = Integer.toOctalString(val);
+        int bc = Integer.bitCount(val);
+        int clz = Integer.numberOfLeadingZeros(val);
+        int ctz = Integer.numberOfTrailingZeros(val);
+        int revBytes = Integer.reverseBytes(val);
+        int rotl = Integer.rotateLeft(val, 2);
+        int rotr = Integer.rotateRight(val, 2);
+        int cmp = Integer.compare(val, parsed);
+        int sgn = Integer.signum(val);
+        return parsed + parsedHex + bc + clz + ctz + cmp + sgn;
+    }
+
+    public long testLongWrappers(String s, long val) {
+        long parsed = Long.parseLong(s);
+        String str = Long.toString(val);
+        String hex = Long.toHexString(val);
+        String bin = Long.toBinaryString(val);
+        int bc = Long.bitCount(val);
+        int clz = Long.numberOfLeadingZeros(val);
+        int ctz = Long.numberOfTrailingZeros(val);
+        long revBytes = Long.reverseBytes(val);
+        int cmp = Long.compare(val, parsed);
+        int sgn = Long.signum(val);
+        return parsed + (long)bc + (long)clz + (long)ctz + (long)cmp + (long)sgn;
+    }
+
+    public double testDoubleWrappers(String s, double val) {
+        double parsed = Double.parseDouble(s);
+        String str = Double.toString(val);
+        boolean nan = Double.isNaN(val);
+        boolean inf = Double.isInfinite(val);
+        boolean fin = Double.isFinite(val);
+        int cmp = Double.compare(val, parsed);
+        long bits = Double.doubleToLongBits(val);
+        double fromBits = Double.longBitsToDouble(bits);
+        return parsed + fromBits + (double)cmp + (fin ? 1.0 : 0.0);
+    }
+
+    public float testFloatWrappers(String s, float val) {
+        float parsed = Float.parseFloat(s);
+        String str = Float.toString(val);
+        boolean nan = Float.isNaN(val);
+        boolean inf = Float.isInfinite(val);
+        boolean fin = Float.isFinite(val);
+        int bits = Float.floatToIntBits(val);
+        float fromBits = Float.intBitsToFloat(bits);
+        return parsed + fromBits + (fin ? 1.0f : 0.0f);
+    }
+
+    public boolean testBooleanWrappers(String s, boolean val) {
+        boolean parsed = Boolean.parseBoolean(s);
+        String str = Boolean.toString(val);
+        int cmp = Boolean.compare(val, parsed);
+        boolean land = Boolean.logicalAnd(val, parsed);
+        boolean lor = Boolean.logicalOr(val, parsed);
+        boolean lxor = Boolean.logicalXor(val, parsed);
+        return parsed && lor;
+    }
+
+    public int testCharacterWrappers(char c) {
+        boolean isD = Character.isDigit(c);
+        boolean isL = Character.isLetter(c);
+        boolean isLD = Character.isLetterOrDigit(c);
+        boolean isW = Character.isWhitespace(c);
+        boolean isU = Character.isUpperCase(c);
+        boolean isLow = Character.isLowerCase(c);
+        char up = Character.toUpperCase(c);
+        char low = Character.toLowerCase(c);
+        int d = Character.digit('f', 16);
+        char fd = Character.forDigit(15, 16);
+        return (isL ? 1 : 0) + (isU ? 2 : 0) + d + (int)up + (int)low;
+    }
+
+    public int testBitwiseIntrinsics(int i, long l) {
+        int p1 = Integer.bitCount(i);
+        int z1 = Integer.numberOfLeadingZeros(i);
+        int t1 = Integer.numberOfTrailingZeros(i);
+        int r1 = Integer.reverseBytes(i);
+        int rb1 = Integer.reverse(i);
+
+        int p2 = Long.bitCount(l);
+        int z2 = Long.numberOfLeadingZeros(l);
+        int t2 = Long.numberOfTrailingZeros(l);
+        long r2 = Long.reverseBytes(l);
+        long rb2 = Long.reverse(l);
+
+        return p1 + z1 + t1 + p2 + z2 + t2;
+    }
+
     public void sayHello() {
         // This is a comment
     }

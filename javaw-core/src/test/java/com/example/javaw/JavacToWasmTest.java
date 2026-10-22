@@ -1216,4 +1216,56 @@ public class JavacToWasmTest {
             org.junit.jupiter.api.Assertions.assertTrue(res.getWat().length() > 0);
         }
     }
+
+    @Test
+    public void testStandardMathAndPrimitiveWrappers() {
+        String javaSource = "package com.example.javaw;\n" +
+                "public class StandardApp {\n" +
+                "    public static double runMath(double x, double y) {\n" +
+                "        double f = Math.floor(x);\n" +
+                "        double c = Math.ceil(x);\n" +
+                "        double s = Math.sqrt(y);\n" +
+                "        double ab = Math.abs(x);\n" +
+                "        double sin = Math.sin(x);\n" +
+                "        double pi = Math.PI;\n" +
+                "        return f + c + s + ab + sin + pi;\n" +
+                "    }\n" +
+                "    public static int runWrappers(String s, int val) {\n" +
+                "        int parsed = Integer.parseInt(s);\n" +
+                "        String hex = Integer.toHexString(val);\n" +
+                "        int popcnt = Integer.bitCount(val);\n" +
+                "        int clz = Integer.numberOfLeadingZeros(val);\n" +
+                "        int max = Integer.MAX_VALUE;\n" +
+                "        long lmax = Long.MAX_VALUE;\n" +
+                "        double dmax = Double.MAX_VALUE;\n" +
+                "        boolean b = Boolean.parseBoolean(\"true\");\n" +
+                "        boolean isD = Character.isDigit('9');\n" +
+                "        return parsed + popcnt + clz;\n" +
+                "    }\n" +
+                "}\n";
+
+        CompilationUnit cu = StaticJavaParser.parse(javaSource);
+        String wat = JavacToWasm.generateWat(cu);
+
+        assertTrue(wat.contains("f64.floor"));
+        assertTrue(wat.contains("f64.ceil"));
+        assertTrue(wat.contains("f64.sqrt"));
+        assertTrue(wat.contains("f64.abs"));
+        assertTrue(wat.contains("(import \"dom\" \"math_sin\" (func $dom_math_sin (param f64) (result f64)))"));
+        assertTrue(wat.contains("call $dom_math_sin"));
+        assertTrue(wat.contains("f64.const 3.141592653589793"));
+        assertTrue(wat.contains("call $__str_parse_i32"));
+        assertTrue(wat.contains("call $__str_to_hex_i32"));
+        assertTrue(wat.contains("i32.popcnt"));
+        assertTrue(wat.contains("i32.clz"));
+        assertTrue(wat.contains("i32.const 2147483647"));
+        assertTrue(wat.contains("i64.const 9223372036854775807"));
+        assertTrue(wat.contains("f64.const 1.7976931348623157e+308"));
+        assertTrue(wat.contains("call $__str_parse_bool"));
+        assertTrue(wat.contains("call $__char_is_digit"));
+
+        JavacToWasm.CompilationResult res = JavacToWasm.compile("StandardApp.java", javaSource, true);
+        org.junit.jupiter.api.Assertions.assertNotNull(res);
+        org.junit.jupiter.api.Assertions.assertNotNull(res.getWat());
+    }
 }

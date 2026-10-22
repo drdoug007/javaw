@@ -206,3 +206,39 @@ This roadmap organizes planned features by their utility and return on investmen
 - [x] **Examples Child Module & Lifecycle Dogfooding**
   - Convert `examples/` directory into a child module (`examples/pom.xml`) that consumes `javaw-core` and executes `javaw-maven-plugin` during build lifecycle.
   - Validate all interactive demo applications (Todo, Canvas Game of Life, SIMD Particles, JS Interop, WASI Terminal, Records, Atomics) compile and pass tests automatically during standard `mvn clean package`.
+
+---
+
+## 10. `java.lang` Standard Library Support & Core Language Idioms
+
+- [x] **Phase 1: Hardware Math & Primitive Wrapper Classes**
+  - Complete `java.lang.Math` and `StrictMath` hardware operations mapped directly to WebAssembly FPU instructions (`Math.floor`, `Math.ceil`, `Math.trunc`, `Math.rint`, `Math.round`, `Math.abs`, `Math.sqrt`, `Math.min`, `Math.max`, `Math.copySign`, `Math.signum`, `Math.toDegrees`, `Math.toRadians`).
+  - Bridge transcendental math functions and utilities (`sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `atan2`, `exp`, `log`, `log10`, `log1p`, `pow`, `hypot`, `cbrt`, `sinh`, `cosh`, `tanh`, `Math.random()`, `Math.PI`, `Math.E`) via host runtime / standard math imports.
+  - Primitive wrapper classes (`Integer`, `Long`, `Double`, `Float`, `Boolean`, `Character`, `Byte`, `Short`, `Number`) with constant fields (`MAX_VALUE`, `MIN_VALUE`, `BYTES`, `SIZE`, etc.).
+  - Wrapper parsing, string conversion, and validation methods (`Integer.parseInt(s)`, `Integer.toString(i)`, `Integer.toHexString(i)`, `Integer.toBinaryString(i)`, `Integer.toOctalString(i)`, `Long.parseLong(s)`, `Long.toString(l)`, `Double.parseDouble(s)`, `Double.isNaN(d)`, `Double.isInfinite(d)`, `Double.isFinite(d)`, `Double.doubleToLongBits`, `Double.longBitsToDouble`, `Float.parseFloat(s)`, `Float.floatToIntBits`, `Float.intBitsToFloat`, `Boolean.parseBoolean(s)`, `Character.isDigit`, `Character.isLetter`, `Character.toUpperCase`, `Character.toLowerCase`, `Character.digit`, `Character.forDigit`).
+  - Bitwise manipulation intrinsics mapped to WebAssembly instructions (`Integer.bitCount` -> `i32.popcnt`, `Integer.numberOfLeadingZeros` -> `i32.clz`, `Integer.numberOfTrailingZeros` -> `i32.ctz`, `Integer.reverseBytes`, `Integer.reverse`, `Integer.rotateLeft` -> `i32.rotl`, `Integer.rotateRight` -> `i32.rotr`, `Long.bitCount` -> `i64.popcnt`, `Long.numberOfLeadingZeros` -> `i64.clz`, `Long.numberOfTrailingZeros` -> `i64.ctz`, `Long.reverseBytes`, `Long.reverse`, `Long.rotateLeft` -> `i64.rotl`, `Long.rotateRight` -> `i64.rotr`).
+
+- [ ] **Phase 2: Root `Object` Virtual Contracts & Language `enum`**
+  - Universal root `Object` virtual method table integration for all classes: slot 0 (`toString()`), slot 1 (`equals(Object)`), slot 2 (`hashCode()`).
+  - Heap-address based default `hashCode()` and shallow memory cloning (`Object.clone()` lowered to `memory.copy`).
+  - Java `enum` language construct lowering (`enum MyEnum { A, B, C }`) with static singleton class instances, `name()`, `ordinal()`, and `values()` array generation.
+  - Support `switch` on enum instances lowered to branch tables (`br_table`) or conditional branching matching ordinal values.
+
+- [ ] **Phase 3: Expanded `String`, `CharSequence`, and Standard `StringBuilder`**
+  - Promote `com.example.javaw.util.StringBuilder` to standard `java.lang.StringBuilder` in core package resolution with expanded methods (`insert`, `delete`, `deleteCharAt`, `reverse`, `replace`).
+  - Implement `java.lang.CharSequence` interface.
+  - Expand `String` standard methods (`trim()`, `strip()`, `toLowerCase()`, `toUpperCase()`, `replace(target, replacement)`, `contains(seq)`, `startsWith(prefix)`, `endsWith(suffix)`, `toCharArray()`, `getBytes()`, `compareTo(other)`, `equalsIgnoreCase(other)`, `repeat(count)`).
+
+- [ ] **Phase 4: Standard `System`, Clock & Environment**
+  - Connect `System.currentTimeMillis()` and `System.nanoTime()` to WASI clock / browser performance timers.
+  - Implement `System.identityHashCode(obj)`, `System.lineSeparator()`.
+  - Bridge `System.getenv(key)` and `System.getProperty(key)` to WASI environment vectors or runtime JavaScript configs.
+
+- [ ] **Phase 5: Resource Management & Core Interfaces**
+  - Implement `java.lang.AutoCloseable` interface.
+  - Lower `try-with-resources` statements (`try (AutoCloseable res = ...) { ... }`) to WebAssembly `try-catch_all` blocks with guaranteed `.close()` cleanup.
+  - Support standard interface dispatch for `java.lang.Comparable<T>` and `java.lang.Iterable<T>` in polymorphic call sites.
+
+- [ ] **Phase 6: Standard Thread/Runnable & Static Class Introspection**
+  - Wrap `WasmThread` into standard `java.lang.Thread` and `java.lang.Runnable` constructs (`Thread.sleep(ms)`, `Thread.currentThread()`).
+  - Static linear memory `java.lang.Class` descriptor tables supporting `obj.getClass().getName()`, `Class.getSimpleName()`, and `Class.isInstance(obj)`.
