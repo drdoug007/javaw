@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bytecode & Relooper Algorithmic Engine Demo</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            padding: 40px 20px;
+            display: flex;
+            justify-content: center;
+        }
+        #bytecode-app {
+            max-width: 600px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+<div id="bytecode-app"></div>
+
+<script src="../../javaw-core/src/main/resources/javaw-runtime.js"></script>
+<script>
+    async function run() {
+        try {
+            const response = await fetch('BytecodeAlgorithmsDemo.wasm');
+            const wasmBytes = await response.arrayBuffer();
+            const { exports } = await Javaw.instantiateJavaw(wasmBytes, {}, document);
+
+            if (exports.start) {
+                exports.start();
+            } else if (exports.main) {
+                exports.main();
+            }
+        } catch (err) {
+            console.error("Failed to run BytecodeAlgorithmsDemo:", err);
+        }
+    }
+    window.addEventListener('DOMContentLoaded', run);
+</script>
+</body>
+</html>

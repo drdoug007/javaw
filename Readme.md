@@ -309,6 +309,9 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
 │           └── CompileMojoTest.java       # Unit tests for Mojo configuration and defaults
 └── examples                               # Interactive demo child module built via javaw-maven-plugin
     ├── pom.xml                            # Examples POM consuming javaw-core and running javaw-maven-plugin
+    ├── bytecode
+    │   ├── BytecodeAlgorithmsDemo.java    # Relooper control flow structuring & algorithmic routines
+    │   └── index.html                     # Standalone bytecode algorithms web runner
     ├── canvas
     │   └── GameOfLife.java                # Conway's Game of Life on HTML5 Canvas 2D
     ├── jsinterop
@@ -1457,6 +1460,7 @@ The repository includes a suite of standalone, fully functional example applicat
 
 | Example Application | Directory / File | Key Features Demonstrated |
 | :--- | :--- | :--- |
+| **Bytecode & Relooper Algorithms** | `examples/bytecode/BytecodeAlgorithmsDemo.java` | Complex control flow structuring (Euclidean GCD, Fibonacci, Collatz, Prime Sieve, State Machine Lexer) |
 | **Interactive Todo MVC** | `examples/todo/TodoApp.java` | DOM tree creation, `Element.appendChild`, `removeChild`, input forms, event listeners, dynamic strings, active item counts |
 | **Conway's Game of Life** | `examples/canvas/GameOfLife.java` | HTML5 Canvas 2D (`CanvasRenderingContext2D`), grid state in linear memory, animation loops, color styling |
 | **128-Bit SIMD Physics** | `examples/simd/SimdParticles.java` | Fixed-width SIMD (`Float32x4`, `Vector128`), parallel coordinate integration (`v128`), boundary reflection |

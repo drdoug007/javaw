@@ -125,6 +125,7 @@
         <button class="tab-btn" onclick="switchTab('simd')">3. 128-Bit SIMD Physics</button>
         <button class="tab-btn" onclick="switchTab('jsinterop')">4. JavaScript Interop & @JS</button>
         <button class="tab-btn" onclick="switchTab('terminal')">5. WASI Terminal & VFS</button>
+        <button class="tab-btn" onclick="switchTab('bytecode')">6. Bytecode & Relooper</button>
     </div>
 
     <!-- Panel 1: Todo App -->
@@ -188,6 +189,23 @@ String cmd = Terminal.readLine("wasi-sh> ");
 WASIFile file = new WASIFile("welcome.txt");</div>
     </div>
 
+    <!-- Panel 6: Bytecode & Relooper Algorithms -->
+    <div id="panel-bytecode" class="content-panel">
+        <div class="panel-description">
+            <strong>Demonstrates:</strong> Bytecode-to-WebAssembly Relooper control flow structuring (Euclidean GCD, Fibonacci, Collatz conjecture, Prime Sieve, and multi-state Lexer switch dispatch) with local <code>~/.m2</code> repository caching.
+        </div>
+        <div id="bytecode-app"></div>
+        <div class="code-preview">// Java Bytecode Algorithm Source (BytecodeAlgorithmsDemo.java)
+public static int gcd(int a, int b) {
+    while (b != 0) {
+        int temp = b;
+        b = a % b;
+        a = temp;
+    }
+    return a;
+}</div>
+    </div>
+
     <script src="../src/main/resources/javaw-runtime.js"></script>
     <script>
         function switchTab(name) {
@@ -200,6 +218,25 @@ WASIFile file = new WASIFile("welcome.txt");</div>
             const targetPanel = document.getElementById('panel-' + name);
             if (targetPanel) {
                 targetPanel.classList.add('active');
+            }
+            if (name === 'bytecode') {
+                initBytecodeApp();
+            }
+        }
+
+        async function initBytecodeApp() {
+            try {
+                const response = await fetch('bytecode/BytecodeAlgorithmsDemo.wasm');
+                if (!response.ok) return;
+                const wasmBytes = await response.arrayBuffer();
+                const { exports } = await Javaw.instantiateJavaw(wasmBytes, {}, document);
+                if (exports.start) {
+                    exports.start();
+                } else if (exports.main) {
+                    exports.main();
+                }
+            } catch (err) {
+                console.error("Failed to initialize BytecodeAlgorithmsDemo:", err);
             }
         }
 
