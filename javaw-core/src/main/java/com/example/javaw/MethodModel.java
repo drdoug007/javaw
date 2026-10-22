@@ -19,6 +19,7 @@ public class MethodModel {
     private boolean isVirtual;
     private int virtualSlotIndex = -1;
     private String typeSignatureName;
+    private boolean isSynthetic = false;
 
     public MethodModel(String name, String className, String functionName, String returnTypeName,
                        String returnWasmType, List<String> paramNames, List<String> paramTypeNames,
@@ -98,6 +99,14 @@ public class MethodModel {
 
     public void setTypeSignatureName(String typeSignatureName) {
         this.typeSignatureName = typeSignatureName;
+    }
+
+    public boolean isSynthetic() {
+        return isSynthetic;
+    }
+
+    public void setSynthetic(boolean synthetic) {
+        isSynthetic = synthetic;
     }
 
     public String getSignatureKey() {

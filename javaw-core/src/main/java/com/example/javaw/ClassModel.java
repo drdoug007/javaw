@@ -17,6 +17,9 @@ public class ClassModel {
     private int structSize = 8;
     private int vtableBase = 0;
     private boolean isExported = false;
+    private boolean isEnum = false;
+    private final List<String> enumConstants = new ArrayList<>();
+    private final Map<String, List<com.github.javaparser.ast.expr.Expression>> enumConstantArgs = new LinkedHashMap<>();
 
     public ClassModel(String name, String superClassName, boolean isInterface, int classId) {
         this.name = name;
@@ -114,7 +117,28 @@ public class ClassModel {
         this.isExported = exported;
     }
 
+    public boolean isEnum() {
+        return isEnum;
+    }
+
+    public void setEnum(boolean anEnum) {
+        isEnum = anEnum;
+    }
+
+    public List<String> getEnumConstants() {
+        return enumConstants;
+    }
+
+    public void addEnumConstant(String constantName) {
+        enumConstants.add(constantName);
+    }
+
+    public Map<String, List<com.github.javaparser.ast.expr.Expression>> getEnumConstantArgs() {
+        return enumConstantArgs;
+    }
+
     public boolean isOopClass() {
+        if (isEnum) return true;
         boolean hasInstanceFields = false;
         for (FieldModel fm : fields.values()) {
             if (!fm.isStatic()) {

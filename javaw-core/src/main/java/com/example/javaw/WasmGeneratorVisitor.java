@@ -2,6 +2,7 @@ package com.example.javaw;
 
 import com.example.javaw.js.JsAnnotationHelper;
 import com.example.javaw.sourcemap.SourceMapTracker;
+import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.*;
 import com.github.javaparser.ast.expr.*;
 import com.github.javaparser.ast.stmt.*;
@@ -21,6 +22,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     private final SourceMapTracker sourceMapTracker;
     private final Map<String, com.example.javaw.js.JsSnippetModel> jsSnippets;
     private final Deque<LoopContext> loopStack = new ArrayDeque<>();
+    private final Deque<String> switchEnumStack = new ArrayDeque<>();
     private final Map<String, Integer> methodCounts = new HashMap<>();
     private ClassModel currentClass;
     private RecordModel currentRecord;
@@ -47,6 +49,42 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
 
     public WasmGeneratorVisitor(Map<String, StringConstant> stringPool, Map<String, GlobalVar> globalVars) {
         this(stringPool, globalVars, null, null, Collections.emptyMap());
+    }
+
+    @Override
+    public void visit(CompilationUnit n, StringBuilder collector) {
+        super.visit(n, collector);
+        emitDefaultRootVirtualMethods(collector);
+        emitEnumInitializersAndHelpers(n, collector);
+    }
+
+    @Override
+    public void visit(EnumDeclaration n, StringBuilder collector) {
+        String enumName = n.getNameAsString();
+        currentClass = classRegistry != null ? classRegistry.getClass(enumName) : null;
+        methodCounts.clear();
+
+        if (sourceMapTracker != null) {
+            sourceMapTracker.track(collector, n, enumName);
+        }
+
+        collector.append("  ;; Enum: ").append(enumName).append("\n");
+
+        if (n.getConstructors().isEmpty()) {
+            collector.append("  (func $").append(enumName).append("__init (export \"")
+                    .append(enumName).append("__init\") (param $this i32)\n");
+            collector.append("  )\n");
+        }
+
+        for (ConstructorDeclaration cd : n.getConstructors()) {
+            cd.accept(this, collector);
+        }
+
+        for (MethodDeclaration md : n.getMethods()) {
+            md.accept(this, collector);
+        }
+
+        currentClass = null;
     }
 
     @Override
@@ -638,38 +676,49 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             }
             loopStack.push(new LoopContext(pendingLabels, breakLabel, enclosingLoopContinue));
 
-            translateExpression(switchStmt.getSelector(), collector, localTypes, localElementTypes, localJavaTypes, "i32");
-            collector.append("    local.set $").append(valVar).append("\n");
-
-            collector.append("    (block $").append(breakLabel).append("\n");
-            List<SwitchEntry> entries = switchStmt.getEntries();
-            int numEntries = entries.size();
-            for (int i = numEntries - 1; i >= 0; i--) {
-                collector.append("      (block $case_").append(switchId).append("_").append(i).append("\n");
+            String selectorType = getExpressionJavaType(switchStmt.getSelector(), localJavaTypes);
+            ClassModel enumModel = (selectorType != null && classRegistry != null) ? classRegistry.getClass(selectorType) : null;
+            if (enumModel != null && !enumModel.isEnum()) {
+                enumModel = null;
             }
-            for (int i = 0; i < numEntries; i++) {
-                SwitchEntry entry = entries.get(i);
-                if (!entry.getLabels().isEmpty()) {
-                    for (Expression lbl : entry.getLabels()) {
-                        collector.append("        local.get $").append(valVar).append("\n");
-                        translateExpression(lbl, collector, localTypes, localElementTypes, localJavaTypes, "i32");
-                        collector.append("        i32.eq\n");
-                        collector.append("        br_if $case_").append(switchId).append("_").append(i).append("\n");
+            switchEnumStack.push(enumModel != null ? enumModel.getName() : "");
+
+            try {
+                translateExpression(switchStmt.getSelector(), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                collector.append("    local.set $").append(valVar).append("\n");
+
+                collector.append("    (block $").append(breakLabel).append("\n");
+                List<SwitchEntry> entries = switchStmt.getEntries();
+                int numEntries = entries.size();
+                for (int i = numEntries - 1; i >= 0; i--) {
+                    collector.append("      (block $case_").append(switchId).append("_").append(i).append("\n");
+                }
+                for (int i = 0; i < numEntries; i++) {
+                    SwitchEntry entry = entries.get(i);
+                    if (!entry.getLabels().isEmpty()) {
+                        for (Expression lbl : entry.getLabels()) {
+                            collector.append("        local.get $").append(valVar).append("\n");
+                            translateExpression(lbl, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                            collector.append("        i32.eq\n");
+                            collector.append("        br_if $case_").append(switchId).append("_").append(i).append("\n");
+                        }
+                    } else {
+                        collector.append("        br $case_").append(switchId).append("_").append(i).append("\n");
                     }
-                } else {
-                    collector.append("        br $case_").append(switchId).append("_").append(i).append("\n");
                 }
-            }
-            collector.append("        br $").append(breakLabel).append("\n");
+                collector.append("        br $").append(breakLabel).append("\n");
 
-            for (int i = 0; i < numEntries; i++) {
-                SwitchEntry entry = entries.get(i);
-                collector.append("      ) ;; end block $case_").append(switchId).append("_").append(i).append("\n");
-                for (Statement s : entry.getStatements()) {
-                    translateStatement(s, collector, localTypes, localElementTypes, localJavaTypes, returnWasmType);
+                for (int i = 0; i < numEntries; i++) {
+                    SwitchEntry entry = entries.get(i);
+                    collector.append("      ) ;; end block $case_").append(switchId).append("_").append(i).append("\n");
+                    for (Statement s : entry.getStatements()) {
+                        translateStatement(s, collector, localTypes, localElementTypes, localJavaTypes, returnWasmType);
+                    }
                 }
+                collector.append("    )\n");
+            } finally {
+                switchEnumStack.pop();
             }
-            collector.append("    )\n");
 
             loopStack.pop();
         } else if (stmt.isBreakStmt()) {
@@ -1169,6 +1218,18 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             collector.append("    end\n");
         } else if (expr.isNameExpr()) {
             String var = expr.asNameExpr().getNameAsString();
+            String activeEnum = switchEnumStack.peek();
+            if (activeEnum != null && !activeEnum.isEmpty() && classRegistry != null) {
+                ClassModel enumCm = classRegistry.getClass(activeEnum);
+                if (enumCm != null && enumCm.getEnumConstants().contains(var)) {
+                    collector.append("    global.get $").append(activeEnum).append("_").append(var).append("\n");
+                    return;
+                }
+            }
+            if (currentClass != null && currentClass.isEnum() && currentClass.getEnumConstants().contains(var)) {
+                collector.append("    global.get $").append(currentClass.getName()).append("_").append(var).append("\n");
+                return;
+            }
             if (localJavaTypes.containsKey(var) && classRegistry != null && classRegistry.isRecord(localJavaTypes.get(var))) {
                 RecordModel rm = classRegistry.getRecord(localJavaTypes.get(var));
                 for (FieldModel c : rm.getComponents()) {
@@ -1421,6 +1482,9 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             if (fName.equals("length")) {
                 translateExpression(fae.getScope(), collector, localTypes, localElementTypes, localJavaTypes, "i32");
                 collector.append("    i32.load\n");
+            } else if (fae.getScope().isNameExpr() && classRegistry != null && classRegistry.hasClass(fae.getScope().asNameExpr().getNameAsString()) && classRegistry.getClass(fae.getScope().asNameExpr().getNameAsString()).isEnum() && classRegistry.getClass(fae.getScope().asNameExpr().getNameAsString()).getEnumConstants().contains(fName)) {
+                String enumName = fae.getScope().asNameExpr().getNameAsString();
+                collector.append("    global.get $").append(enumName).append("_").append(fName).append("\n");
             } else if (fae.getScope().isNameExpr() && isStandardConstantScope(fae.getScope().asNameExpr().getNameAsString())) {
                 String scopeName = fae.getScope().asNameExpr().getNameAsString();
                 String shortScope = scopeName.contains(".") ? scopeName.substring(scopeName.lastIndexOf('.') + 1) : scopeName;
@@ -1502,45 +1566,59 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             String valVar = "__switchexpr_val_" + switchNum;
             String exprType = inferType(switchExpr, localTypes, localElementTypes, localJavaTypes, expectedType);
 
-            translateExpression(switchExpr.getSelector(), collector, localTypes, localElementTypes, localJavaTypes, "i32");
-            collector.append("    local.set $").append(valVar).append("\n");
-
-            collector.append("    (block $").append(breakLabel).append(" (result ").append(exprType).append(")\n");
-            List<SwitchEntry> entries = switchExpr.getEntries();
-            int numEntries = entries.size();
-            for (int i = numEntries - 1; i >= 0; i--) {
-                collector.append("      (block $case_expr_").append(switchId).append("_").append(i).append("\n");
+            String selectorType = getExpressionJavaType(switchExpr.getSelector(), localJavaTypes);
+            ClassModel enumModel = (selectorType != null && classRegistry != null) ? classRegistry.getClass(selectorType) : null;
+            if (enumModel != null && !enumModel.isEnum()) {
+                enumModel = null;
             }
-            for (int i = 0; i < numEntries; i++) {
-                SwitchEntry entry = entries.get(i);
-                if (!entry.getLabels().isEmpty()) {
-                    for (Expression lbl : entry.getLabels()) {
-                        collector.append("        local.get $").append(valVar).append("\n");
-                        translateExpression(lbl, collector, localTypes, localElementTypes, localJavaTypes, "i32");
-                        collector.append("        i32.eq\n");
-                        collector.append("        br_if $case_expr_").append(switchId).append("_").append(i).append("\n");
-                    }
-                } else {
-                    collector.append("        br $case_expr_").append(switchId).append("_").append(i).append("\n");
+            switchEnumStack.push(enumModel != null ? enumModel.getName() : "");
+
+            try {
+                translateExpression(switchExpr.getSelector(), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                collector.append("    local.set $").append(valVar).append("\n");
+
+                collector.append("    (block $").append(breakLabel).append(" (result ").append(exprType).append(")\n");
+                List<SwitchEntry> entries = switchExpr.getEntries();
+                int numEntries = entries.size();
+                for (int i = numEntries - 1; i >= 0; i--) {
+                    collector.append("      (block $case_expr_").append(switchId).append("_").append(i).append("\n");
                 }
-            }
-            collector.append("        ").append(getWasmZeroConst(exprType)).append("\n");
-            collector.append("        br $").append(breakLabel).append("\n");
-
-            for (int i = 0; i < numEntries; i++) {
-                SwitchEntry entry = entries.get(i);
-                collector.append("      ) ;; end block $case_expr_").append(switchId).append("_").append(i).append("\n");
-                for (Statement s : entry.getStatements()) {
-                    if (s.isYieldStmt()) {
-                        YieldStmt ys = s.asYieldStmt();
-                        translateExpression(ys.getExpression(), collector, localTypes, localElementTypes, localJavaTypes, exprType);
-                        collector.append("        br $").append(breakLabel).append("\n");
+                for (int i = 0; i < numEntries; i++) {
+                    SwitchEntry entry = entries.get(i);
+                    if (!entry.getLabels().isEmpty()) {
+                        for (Expression lbl : entry.getLabels()) {
+                            collector.append("        local.get $").append(valVar).append("\n");
+                            translateExpression(lbl, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                            collector.append("        i32.eq\n");
+                            collector.append("        br_if $case_expr_").append(switchId).append("_").append(i).append("\n");
+                        }
                     } else {
-                        translateStatement(s, collector, localTypes, localElementTypes, localJavaTypes, exprType);
+                        collector.append("        br $case_expr_").append(switchId).append("_").append(i).append("\n");
                     }
                 }
+                collector.append("        ").append(getWasmZeroConst(exprType)).append("\n");
+                collector.append("        br $").append(breakLabel).append("\n");
+
+                for (int i = 0; i < numEntries; i++) {
+                    SwitchEntry entry = entries.get(i);
+                    collector.append("      ) ;; end block $case_expr_").append(switchId).append("_").append(i).append("\n");
+                    for (Statement s : entry.getStatements()) {
+                        if (s.isYieldStmt()) {
+                            YieldStmt ys = s.asYieldStmt();
+                            translateExpression(ys.getExpression(), collector, localTypes, localElementTypes, localJavaTypes, exprType);
+                            collector.append("        br $").append(breakLabel).append("\n");
+                        } else if (s.isExpressionStmt()) {
+                            translateExpression(s.asExpressionStmt().getExpression(), collector, localTypes, localElementTypes, localJavaTypes, exprType);
+                            collector.append("        br $").append(breakLabel).append("\n");
+                        } else {
+                            translateStatement(s, collector, localTypes, localElementTypes, localJavaTypes, exprType);
+                        }
+                    }
+                }
+                collector.append("    )\n");
+            } finally {
+                switchEnumStack.pop();
             }
-            collector.append("    )\n");
         } else if (expr.isAssignExpr()) {
             AssignExpr assign = expr.asAssignExpr();
             AssignExpr.Operator op = assign.getOperator();
@@ -1921,7 +1999,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                         collector.append("    call $__str_length\n");
                         collector.append("    call $__str_substring\n");
                     }
-                } else if (mName.equals("equals")) {
+                } else if (mName.equals("equals") && isStringType(scope, localJavaTypes)) {
                     translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "String");
                     translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "String");
                     collector.append("    call $__str_equals\n");
@@ -1963,9 +2041,16 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                         translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
                         collector.append("    call $__sb_append_i32\n");
                     }
-                } else if (mName.equals("toString")) {
+                } else if (mName.equals("toString") && isStringBuilderType(scope, localJavaTypes)) {
                     translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
                     collector.append("    call $__sb_toString\n");
+                } else if (mName.equals("clone")) {
+                    String targetType = getExpressionJavaType(scope, localJavaTypes);
+                    ClassModel targetCm = (targetType != null && classRegistry != null) ? classRegistry.getClass(targetType) : null;
+                    int size = targetCm != null ? targetCm.getStructSize() : 32;
+                    translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                    collector.append("    i32.const ").append(size).append("\n");
+                    collector.append("    call $Object_clone\n");
                 } else if (scope.isSuperExpr()) {
                     String superClassName = currentClass != null ? currentClass.getSuperClassName() : null;
                     collector.append("    local.get $this\n");
@@ -1975,6 +2060,19 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     collector.append("    call $").append(superClassName).append("_").append(mName).append("\n");
                 } else {
                     String targetType = getExpressionJavaType(scope, localJavaTypes);
+                    if (scope.isNameExpr() && classRegistry != null && classRegistry.hasClass(scope.asNameExpr().getNameAsString())) {
+                        ClassModel scopeCm = classRegistry.getClass(scope.asNameExpr().getNameAsString());
+                        if (scopeCm.isEnum()) {
+                            if ("values".equals(mName)) {
+                                collector.append("    call $").append(scopeCm.getName()).append("_values\n");
+                                return;
+                            } else if ("valueOf".equals(mName) && call.getArguments().size() == 1) {
+                                translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "String");
+                                collector.append("    call $").append(scopeCm.getName()).append("_valueOf\n");
+                                return;
+                            }
+                        }
+                    }
                     if (targetType != null && classRegistry != null && classRegistry.isRecord(targetType)) {
                         RecordModel rm = classRegistry.getRecord(targetType);
                         if (rm.getComponent(mName) != null) {
@@ -2020,8 +2118,11 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     }
                     ClassModel targetCm = (targetType != null && classRegistry != null) ? classRegistry.getClass(targetType) : null;
                     MethodModel targetMm = (targetType != null && classRegistry != null) ? classRegistry.findMethod(targetType, mName) : (targetCm != null ? targetCm.getMethodByName(mName) : null);
+                    if (targetMm == null && ("toString".equals(mName) || "equals".equals(mName) || "hashCode".equals(mName)) && classRegistry != null) {
+                        targetMm = classRegistry.findMethod("Object", mName);
+                    }
 
-                    if (targetMm != null && targetMm.isVirtual() && targetCm != null && targetCm.isOopClass()) {
+                    if (targetMm != null && targetMm.isVirtual() && (targetCm == null || targetCm.isOopClass())) {
                         // Dynamic dispatch via vtable and call_indirect
                         translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
                         collector.append("    local.set $__obj_tmp\n");
@@ -2112,6 +2213,25 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                         }
                         collector.append("    call ").append(mm.getFunctionName()).append("\n");
                     }
+                } else if (("toString".equals(mName) || "equals".equals(mName) || "hashCode".equals(mName)) && currentClass != null && currentClass.isOopClass() && classRegistry != null) {
+                    MethodModel mm = classRegistry.findMethod(currentClass.getName(), mName);
+                    if (mm != null && mm.isVirtual()) {
+                        collector.append("    local.get $this\n");
+                        for (int i = 0; i < call.getArguments().size(); i++) {
+                            String pWasm = i < mm.getParamWasmTypes().size() ? mm.getParamWasmTypes().get(i) : "i32";
+                            translateExpression(call.getArgument(i), collector, localTypes, localElementTypes, localJavaTypes, pWasm);
+                        }
+                        collector.append("    local.get $this\n");
+                        collector.append("    i32.load offset=0\n");
+                        collector.append("    i32.const ").append(mm.getVirtualSlotIndex()).append("\n");
+                        collector.append("    i32.add\n");
+                        collector.append("    call_indirect (type ").append(mm.getTypeSignatureName()).append(")\n");
+                    } else {
+                        for (Expression arg : call.getArguments()) {
+                            translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, null);
+                        }
+                        collector.append("    call $").append(mName).append("\n");
+                    }
                 } else {
                     for (Expression arg : call.getArguments()) {
                         translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, null);
@@ -2140,6 +2260,31 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             if (currentRecord != null) return currentRecord.getName();
             if (localJavaTypes != null && localJavaTypes.containsKey("this")) return localJavaTypes.get("this");
             return currentClass != null ? currentClass.getName() : null;
+        }
+        if (expr.isFieldAccessExpr()) {
+            FieldAccessExpr fae = expr.asFieldAccessExpr();
+            String fName = fae.getNameAsString();
+            if (fae.getScope().isNameExpr() && classRegistry != null && classRegistry.hasClass(fae.getScope().asNameExpr().getNameAsString())) {
+                ClassModel cm = classRegistry.getClass(fae.getScope().asNameExpr().getNameAsString());
+                if (cm.isEnum() && cm.getEnumConstants().contains(fName)) {
+                    return cm.getName();
+                }
+            }
+            String targetType = getExpressionJavaType(fae.getScope(), localJavaTypes);
+            if (targetType != null && classRegistry != null && classRegistry.hasClass(targetType)) {
+                FieldModel fm = classRegistry.getClass(targetType).getField(fName);
+                if (fm != null) return fm.getJavaType();
+            }
+            if (currentClass != null && currentClass.hasField(fName)) {
+                FieldModel fm = currentClass.getField(fName);
+                if (fm != null) return fm.getJavaType();
+            }
+        }
+        if (expr.isCastExpr()) {
+            return expr.asCastExpr().getType().asString();
+        }
+        if (expr.isEnclosedExpr()) {
+            return getExpressionJavaType(expr.asEnclosedExpr().getInner(), localJavaTypes);
         }
         if (expr.isObjectCreationExpr()) {
             return expr.asObjectCreationExpr().getTypeAsString();
@@ -2525,6 +2670,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     }
 
     private boolean isStringType(Expression expr, Map<String, String> localJavaTypes) {
+        String jType = getExpressionJavaType(expr, localJavaTypes);
+        if ("String".equals(jType) || "java.lang.String".equals(jType)) return true;
         if (expr.isStringLiteralExpr()) return true;
         if (expr.isNameExpr()) {
             String name = expr.asNameExpr().getNameAsString();
@@ -2541,6 +2688,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             MethodCallExpr m = expr.asMethodCallExpr();
             String mName = m.getNameAsString();
             if (mName.equals("toString") || mName.equals("substring") || mName.equals("concat") ||
+                    mName.equals("name") ||
                     mName.equals("getInnerText") || mName.equals("getAttribute") ||
                     mName.equals("getValue") || mName.equals("getStyle") ||
                     mName.equals("getFillStyle") || mName.equals("getStrokeStyle") ||
@@ -2558,6 +2706,19 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         }
         if (expr.isEnclosedExpr()) {
             return isStringType(expr.asEnclosedExpr().getInner(), localJavaTypes);
+        }
+        return false;
+    }
+
+    private boolean isStringBuilderType(Expression expr, Map<String, String> localJavaTypes) {
+        if (expr.isObjectCreationExpr()) {
+            String t = expr.asObjectCreationExpr().getTypeAsString();
+            return t.equals("StringBuilder") || t.endsWith(".StringBuilder");
+        }
+        if (expr.isNameExpr()) {
+            String var = expr.asNameExpr().getNameAsString();
+            String type = localJavaTypes.get(var);
+            return "StringBuilder".equals(type) || (type != null && type.endsWith(".StringBuilder"));
         }
         return false;
     }
@@ -5073,5 +5234,158 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             else if (memId.equals("$stack")) idx = 2;
             collector.append("    i32.const ").append(idx).append("\n");
         }
+    }
+
+    private void emitDefaultRootVirtualMethods(StringBuilder collector) {
+        if (classRegistry == null) return;
+        for (ClassModel cm : classRegistry.getClasses().values()) {
+            if (cm.isInterface() || !cm.isOopClass()) continue;
+
+            // Slot 0: toString
+            MethodModel toStr = cm.getMethodByName("toString");
+            if (toStr != null && toStr.isSynthetic()) {
+                collector.append("  ;; Default toString() for ").append(cm.getName()).append("\n");
+                collector.append("  (func $").append(cm.getName()).append("_toString (export \"").append(cm.getName()).append("_toString\") (param $this i32) (result i32)\n");
+                if (cm.isEnum()) {
+                    collector.append("    local.get $this\n");
+                    collector.append("    i32.load offset=4\n");
+                } else {
+                    collector.append("    local.get $this\n");
+                    collector.append("    call $__str_from_i32\n");
+                }
+                collector.append("  )\n");
+            }
+
+            // Slot 1: equals
+            MethodModel eq = cm.getMethodByName("equals");
+            if (eq != null && eq.isSynthetic()) {
+                collector.append("  ;; Default equals() for ").append(cm.getName()).append("\n");
+                collector.append("  (func $").append(cm.getName()).append("_equals (export \"").append(cm.getName()).append("_equals\") (param $this i32) (param $other i32) (result i32)\n");
+                collector.append("    local.get $this\n");
+                collector.append("    local.get $other\n");
+                collector.append("    i32.eq\n");
+                collector.append("  )\n");
+            }
+
+            // Slot 2: hashCode
+            MethodModel hc = cm.getMethodByName("hashCode");
+            if (hc != null && hc.isSynthetic()) {
+                collector.append("  ;; Default hashCode() for ").append(cm.getName()).append("\n");
+                collector.append("  (func $").append(cm.getName()).append("_hashCode (export \"").append(cm.getName()).append("_hashCode\") (param $this i32) (result i32)\n");
+                collector.append("    local.get $this\n");
+                collector.append("  )\n");
+            }
+        }
+    }
+
+    private void emitEnumInitializersAndHelpers(CompilationUnit cu, StringBuilder collector) {
+        if (classRegistry == null) return;
+        List<EnumDeclaration> enumDecls = cu.findAll(EnumDeclaration.class);
+        if (enumDecls.isEmpty()) return;
+
+        for (EnumDeclaration ed : enumDecls) {
+            String enumName = ed.getNameAsString();
+            ClassModel cm = classRegistry.getClass(enumName);
+            if (cm == null) continue;
+
+            collector.append("  ;; Standard enum methods for ").append(enumName).append("\n");
+            collector.append("  (func $").append(enumName).append("_name (export \"").append(enumName).append("_name\") (param $this i32) (result i32)\n");
+            collector.append("    local.get $this\n");
+            collector.append("    i32.load offset=4\n");
+            collector.append("  )\n");
+
+            collector.append("  (func $").append(enumName).append("_ordinal (export \"").append(enumName).append("_ordinal\") (param $this i32) (result i32)\n");
+            collector.append("    local.get $this\n");
+            collector.append("    i32.load offset=8\n");
+            collector.append("  )\n");
+
+            collector.append("  (func $").append(enumName).append("_compareTo (export \"").append(enumName).append("_compareTo\") (param $this i32) (param $other i32) (result i32)\n");
+            collector.append("    local.get $this\n");
+            collector.append("    i32.load offset=8\n");
+            collector.append("    local.get $other\n");
+            collector.append("    i32.load offset=8\n");
+            collector.append("    i32.sub\n");
+            collector.append("  )\n");
+
+            int count = cm.getEnumConstants().size();
+            collector.append("  (func $").append(enumName).append("_values (export \"").append(enumName).append("_values\") (result i32)\n");
+            collector.append("    (local $arr i32)\n");
+            collector.append("    i32.const ").append(4 + count * 4).append("\n");
+            collector.append("    call $__heap_alloc\n");
+            collector.append("    local.set $arr\n");
+            collector.append("    local.get $arr\n");
+            collector.append("    i32.const ").append(count).append("\n");
+            collector.append("    i32.store\n");
+            for (int i = 0; i < count; i++) {
+                String cName = cm.getEnumConstants().get(i);
+                collector.append("    local.get $arr\n");
+                collector.append("    global.get $").append(enumName).append("_").append(cName).append("\n");
+                collector.append("    i32.store offset=").append(4 + i * 4).append("\n");
+            }
+            collector.append("    local.get $arr\n");
+            collector.append("  )\n");
+
+            collector.append("  (func $").append(enumName).append("_valueOf (export \"").append(enumName).append("_valueOf\") (param $name i32) (result i32)\n");
+            for (int i = 0; i < count; i++) {
+                String cName = cm.getEnumConstants().get(i);
+                StringConstant sc = stringPool != null ? stringPool.get(cName) : null;
+                int scOffset = sc != null ? sc.offset : 0;
+                collector.append("    local.get $name\n");
+                collector.append("    i32.const ").append(scOffset).append("\n");
+                collector.append("    call $__str_equals\n");
+                collector.append("    if\n");
+                collector.append("      global.get $").append(enumName).append("_").append(cName).append("\n");
+                collector.append("      return\n");
+                collector.append("    end\n");
+            }
+            collector.append("    i32.const 0\n");
+            collector.append("  )\n");
+        }
+
+        collector.append("  ;; Enum Singleton Initializer\n");
+        collector.append("  (func $__init_enums (export \"__init_enums\")\n");
+        collector.append("    (local $inst i32)\n");
+        for (EnumDeclaration ed : enumDecls) {
+            String enumName = ed.getNameAsString();
+            ClassModel cm = classRegistry.getClass(enumName);
+            if (cm == null) continue;
+            int structSize = Math.max(16, cm.getStructSize());
+            int vtableBase = cm.getVtableBase();
+
+            for (int i = 0; i < cm.getEnumConstants().size(); i++) {
+                String cName = cm.getEnumConstants().get(i);
+                StringConstant sc = stringPool != null ? stringPool.get(cName) : null;
+                int nameOffset = sc != null ? sc.offset : 0;
+
+                collector.append("    i32.const ").append(structSize).append("\n");
+                collector.append("    call $__heap_alloc\n");
+                collector.append("    local.set $inst\n");
+                collector.append("    local.get $inst\n");
+                collector.append("    i32.const ").append(vtableBase).append("\n");
+                collector.append("    i32.store offset=0\n");
+                collector.append("    local.get $inst\n");
+                collector.append("    i32.const ").append(nameOffset).append("\n");
+                collector.append("    i32.store offset=4\n");
+                collector.append("    local.get $inst\n");
+                collector.append("    i32.const ").append(i).append("\n");
+                collector.append("    i32.store offset=8\n");
+
+                List<Expression> args = cm.getEnumConstantArgs().get(cName);
+                if (args != null && !args.isEmpty()) {
+                    collector.append("    local.get $inst\n");
+                    for (Expression arg : args) {
+                        translateExpression(arg, collector, Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap(), null);
+                    }
+                    collector.append("    call $").append(enumName).append("__init\n");
+                } else if (!cm.getConstructors().isEmpty()) {
+                    collector.append("    local.get $inst\n");
+                    collector.append("    call $").append(enumName).append("__init\n");
+                }
+
+                collector.append("    local.get $inst\n");
+                collector.append("    global.set $").append(enumName).append("_").append(cName).append("\n");
+            }
+        }
+        collector.append("  )\n");
     }
 }

@@ -1035,6 +1035,137 @@ public class TestClass {
     public void testTerminalClear() {
         WASITerminal.clear();
     }
+
+    public String testEnumName(int idx) {
+        if (idx == 0) return Status.PENDING.name();
+        if (idx == 1) return Status.ACTIVE.name();
+        return Status.COMPLETED.name();
+    }
+
+    public int testEnumOrdinal(int idx) {
+        if (idx == 0) return Status.PENDING.ordinal();
+        if (idx == 1) return Status.ACTIVE.ordinal();
+        return Status.COMPLETED.ordinal();
+    }
+
+    public int testEnumCompareTo() {
+        return Status.COMPLETED.compareTo(Status.PENDING);
+    }
+
+    public int testEnumValues() {
+        Status[] all = Status.values();
+        return all.length;
+    }
+
+    public int testEnumValueOf(String name) {
+        Status s = Status.valueOf(name);
+        return s.ordinal();
+    }
+
+    public int testEnumSwitch(Status status) {
+        int result = 0;
+        switch (status) {
+            case PENDING:
+                result = 100;
+                break;
+            case ACTIVE:
+                result = 200;
+                break;
+            case COMPLETED:
+                result = 300;
+                break;
+        }
+        return result;
+    }
+
+    public int testEnumSwitchExpr(Status status) {
+        return switch (status) {
+            case PENDING -> 1;
+            case ACTIVE -> 2;
+            case COMPLETED -> 3;
+        };
+    }
+
+    public int testEnumWithFields() {
+        return Priority.LOW.getLevel() + Priority.HIGH.getLevel();
+    }
+
+    public boolean testObjectEqualsAndHash() {
+        Person p1 = new Person("Alice", 30);
+        Person p2 = new Person("Alice", 30);
+        Person p3 = new Person("Bob", 25);
+        boolean eq1 = p1.equals(p2);
+        boolean eq2 = p1.equals(p3);
+        int h1 = p1.hashCode();
+        int h2 = p2.hashCode();
+        return eq1 && !eq2 && (h1 == h2);
+    }
+
+    public String testObjectToString() {
+        Person p = new Person("Alice", 30);
+        return p.toString();
+    }
+
+    public boolean testObjectClone() {
+        Person p1 = new Person("Alice", 30);
+        Person p2 = p1.clonePerson();
+        return p2.age == 30 && p2.name.equals("Alice") && p1 != p2;
+    }
+}
+
+enum Status {
+    PENDING,
+    ACTIVE,
+    COMPLETED
+}
+
+enum Priority {
+    LOW(10),
+    HIGH(20);
+
+    private int level;
+
+    Priority(int level) {
+        this.level = level;
+    }
+
+    public int getLevel() {
+        return level;
+    }
+}
+
+class Person implements Cloneable {
+    public String name;
+    public int age;
+
+    public Person(String name, int age) {
+        this.name = name;
+        this.age = age;
+    }
+
+    public boolean equals(Object other) {
+        if (other instanceof Person) {
+            Person p = (Person) other;
+            return this.age == p.age && this.name.equals(p.name);
+        }
+        return false;
+    }
+
+    public int hashCode() {
+        return this.age * 31;
+    }
+
+    public String toString() {
+        return this.name;
+    }
+
+    public Person clonePerson() {
+        try {
+            return (Person) super.clone();
+        } catch (CloneNotSupportedException e) {
+            return null;
+        }
+    }
 }
 
 record Pair(int first, int second) {}

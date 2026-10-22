@@ -793,6 +793,33 @@ async function runTest() {
 
                     console.log('✓ Phase 1: Hardware Math, Transcendental Functions, Primitive Wrappers, and Bitwise Intrinsics assertions passed.');
                 }
+
+                // Phase 2: Root Object Virtual Contracts & Language Enum Assertions
+                if (typeof instance.exports.testEnumName === 'function') {
+                    const name0 = readWasmString(instance.exports.memory.buffer, instance.exports.testEnumName(0));
+                    const name1 = readWasmString(instance.exports.memory.buffer, instance.exports.testEnumName(1));
+                    const name2 = readWasmString(instance.exports.memory.buffer, instance.exports.testEnumName(2));
+                    assert.strictEqual(name0, 'PENDING');
+                    assert.strictEqual(name1, 'ACTIVE');
+                    assert.strictEqual(name2, 'COMPLETED');
+
+                    assert.strictEqual(instance.exports.testEnumOrdinal(0), 0);
+                    assert.strictEqual(instance.exports.testEnumOrdinal(1), 1);
+                    assert.strictEqual(instance.exports.testEnumOrdinal(2), 2);
+
+                    assert.strictEqual(instance.exports.testEnumCompareTo(), 2);
+                    assert.strictEqual(instance.exports.testEnumValues(), 3);
+                    assert.strictEqual(instance.exports.testEnumValueOf(writeWasmString(instance, 'COMPLETED')), 2);
+
+                    assert.strictEqual(instance.exports.testEnumWithFields(), 30);
+
+                    assert.strictEqual(instance.exports.testObjectEqualsAndHash(), 1);
+                    const objStr = readWasmString(instance.exports.memory.buffer, instance.exports.testObjectToString());
+                    assert.strictEqual(objStr, 'Alice');
+                    assert.strictEqual(instance.exports.testObjectClone(), 1);
+
+                    console.log('✓ Phase 2: Root Object Virtual Contracts, Shallow Cloning, and Language Enums assertions passed.');
+                }
             }
 
             console.log('✓ TestClass execution assertions passed (including for loops, for-each loops, arrays, switches, labeled break/continue, compound assignments, dynamic strings, OOP, Canvas 2D, WebGL, JSObject, WASI VFS, Threads/Atomics, Exceptions, Multi-Value Returns, Bulk Memory, Fixed-Width SIMD, and Multi-Memory Segregation).');

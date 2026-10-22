@@ -54,12 +54,15 @@
   (data (i32.const 4405) "active\00")
   (data (i32.const 4412) "#status-text\00")
   (data (i32.const 4425) ".item-tag\00")
+  (data (i32.const 4435) "App\00")
+  (data (i32.const 4439) "@\00")
   (global $__heap_ptr (mut i32) (i32.const 65536))
   ;; --- WebAssembly Function Type Signatures ---
   (type $t_sig_1 (func (param i32) (result i32)))
+  (type $t_sig_2 (func (param i32 i32) (result i32)))
   ;; --- WebAssembly Function Table (VTable) ---
-  (table (export "__vtable") 6 funcref)
-  (elem (i32.const 0) $Throwable_getMessage $Exception_getMessage $RuntimeException_getMessage $IllegalArgumentException_getMessage $IllegalStateException_getMessage $NullPointerException_getMessage)
+  (table (export "__vtable") 27 funcref)
+  (elem (i32.const 0) $Throwable_toString $Throwable_equals $Throwable_hashCode $Throwable_getMessage $Throwable_toString $Throwable_equals $Throwable_hashCode $Exception_getMessage $Throwable_toString $Throwable_equals $Throwable_hashCode $RuntimeException_getMessage $Throwable_toString $Throwable_equals $Throwable_hashCode $IllegalArgumentException_getMessage $Throwable_toString $Throwable_equals $Throwable_hashCode $IllegalStateException_getMessage $Throwable_toString $Throwable_equals $Throwable_hashCode $NullPointerException_getMessage $WASIFile_toString $WASIFile_equals $WASIFile_hashCode)
   ;; --- Heap Allocation Functions ---
   (func $__heap_alloc (export "__heap_alloc") (param $size i32) (result i32)
     (local $ptr i32)
@@ -82,6 +85,49 @@
     local.get $aligned_size
     memory.fill
     local.get $ptr
+  )
+  ;; --- Root Object Functions ---
+  (func $Object_toString (export "Object_toString") (param $this i32) (result i32)
+    (local $addr_str i32)
+    local.get $this
+    call $__str_from_i32
+    local.set $addr_str
+    local.get $addr_str
+  )
+  (func $Object_equals (export "Object_equals") (param $this i32) (param $other i32) (result i32)
+    local.get $this
+    local.get $other
+    i32.eq
+  )
+  (func $Object_hashCode (export "Object_hashCode") (param $this i32) (result i32)
+    local.get $this
+  )
+  (func $Object_clone (export "Object_clone") (param $src i32) (param $size i32) (result i32)
+    (local $dst i32)
+    local.get $size
+    call $__heap_alloc
+    local.set $dst
+    local.get $dst
+    local.get $src
+    local.get $size
+    memory.copy
+    local.get $dst
+  )
+  ;; --- Enum Standard Functions ---
+  (func $Enum_name (export "Enum_name") (param $this i32) (result i32)
+    local.get $this
+    i32.load offset=4
+  )
+  (func $Enum_ordinal (export "Enum_ordinal") (param $this i32) (result i32)
+    local.get $this
+    i32.load offset=8
+  )
+  (func $Enum_compareTo (export "Enum_compareTo") (param $this i32) (param $other i32) (result i32)
+    local.get $this
+    i32.load offset=8
+    local.get $other
+    i32.load offset=8
+    i32.sub
   )
   ;; --- String Runtime Functions ---
   (func $__str_alloc (export "__str_alloc") (param $len i32) (result i32)
@@ -3202,5 +3248,35 @@
     local.get $container
     local.get $firstItem
     call $dom_removeChild
+  )
+  ;; Default toString() for Throwable
+  (func $Throwable_toString (export "Throwable_toString") (param $this i32) (result i32)
+    local.get $this
+    call $__str_from_i32
+  )
+  ;; Default equals() for Throwable
+  (func $Throwable_equals (export "Throwable_equals") (param $this i32) (param $other i32) (result i32)
+    local.get $this
+    local.get $other
+    i32.eq
+  )
+  ;; Default hashCode() for Throwable
+  (func $Throwable_hashCode (export "Throwable_hashCode") (param $this i32) (result i32)
+    local.get $this
+  )
+  ;; Default toString() for WASIFile
+  (func $WASIFile_toString (export "WASIFile_toString") (param $this i32) (result i32)
+    local.get $this
+    call $__str_from_i32
+  )
+  ;; Default equals() for WASIFile
+  (func $WASIFile_equals (export "WASIFile_equals") (param $this i32) (param $other i32) (result i32)
+    local.get $this
+    local.get $other
+    i32.eq
+  )
+  ;; Default hashCode() for WASIFile
+  (func $WASIFile_hashCode (export "WASIFile_hashCode") (param $this i32) (result i32)
+    local.get $this
   )
 )

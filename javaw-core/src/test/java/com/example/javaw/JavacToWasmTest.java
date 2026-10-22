@@ -1268,4 +1268,83 @@ public class JavacToWasmTest {
         org.junit.jupiter.api.Assertions.assertNotNull(res);
         org.junit.jupiter.api.Assertions.assertNotNull(res.getWat());
     }
+
+    @Test
+    public void testRootObjectVirtualContracts() {
+        String javaSource = "package com.example.javaw;\n" +
+                "public class ObjectApp {\n" +
+                "    public static String testToString(Item item) {\n" +
+                "        return item.toString();\n" +
+                "    }\n" +
+                "    public static boolean testEquals(Item a, Item b) {\n" +
+                "        return a.equals(b);\n" +
+                "    }\n" +
+                "    public static int testHashCode(Item item) {\n" +
+                "        return item.hashCode();\n" +
+                "    }\n" +
+                "    public static Item testClone(Item item) {\n" +
+                "        return (Item) item.clone();\n" +
+                "    }\n" +
+                "}\n" +
+                "class Item {\n" +
+                "    public int id;\n" +
+                "    public Item(int id) {\n" +
+                "        this.id = id;\n" +
+                "    }\n" +
+                "}\n";
+
+        CompilationUnit cu = StaticJavaParser.parse(javaSource);
+        String wat = JavacToWasm.generateWat(cu);
+
+        assertTrue(wat.contains("(func $Object_toString"));
+        assertTrue(wat.contains("(func $Object_equals"));
+        assertTrue(wat.contains("(func $Object_hashCode"));
+        assertTrue(wat.contains("(func $Object_clone"));
+        assertTrue(wat.contains("call_indirect (type $t_sig_"));
+        assertTrue(wat.contains("call $Object_clone"));
+
+        JavacToWasm.CompilationResult res = JavacToWasm.compile("ObjectApp.java", javaSource, true);
+        org.junit.jupiter.api.Assertions.assertNotNull(res);
+        org.junit.jupiter.api.Assertions.assertNotNull(res.getWat());
+    }
+
+    @Test
+    public void testJavaEnumLanguageConstructs() {
+        String javaSource = "package com.example.javaw;\n" +
+                "public class EnumApp {\n" +
+                "    public static int runEnum(Status status) {\n" +
+                "        String n = status.name();\n" +
+                "        int ord = status.ordinal();\n" +
+                "        int cmp = status.compareTo(Status.PENDING);\n" +
+                "        Status[] all = Status.values();\n" +
+                "        Status completed = Status.valueOf(\"COMPLETED\");\n" +
+                "        int res = switch (status) {\n" +
+                "            case PENDING -> 10;\n" +
+                "            case ACTIVE -> 20;\n" +
+                "            case COMPLETED -> 30;\n" +
+                "        };\n" +
+                "        return ord + cmp + all.length + res;\n" +
+                "    }\n" +
+                "}\n" +
+                "enum Status {\n" +
+                "    PENDING,\n" +
+                "    ACTIVE,\n" +
+                "    COMPLETED\n" +
+                "}\n";
+
+        CompilationUnit cu = StaticJavaParser.parse(javaSource);
+        String wat = JavacToWasm.generateWat(cu);
+
+        assertTrue(wat.contains("(func $Status_name"));
+        assertTrue(wat.contains("(func $Status_ordinal"));
+        assertTrue(wat.contains("(func $Status_compareTo"));
+        assertTrue(wat.contains("(func $Status_values"));
+        assertTrue(wat.contains("(func $Status_valueOf"));
+        assertTrue(wat.contains("(func $__init_enums"));
+        assertTrue(wat.contains("(start $__init_enums)"));
+
+        JavacToWasm.CompilationResult res = JavacToWasm.compile("EnumApp.java", javaSource, true);
+        org.junit.jupiter.api.Assertions.assertNotNull(res);
+        org.junit.jupiter.api.Assertions.assertNotNull(res.getWat());
+    }
 }

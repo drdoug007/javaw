@@ -248,6 +248,15 @@ public class JavacToWasm {
                 globals.put(vName, new GlobalVar(vName, vType, initVal, vd.getTypeAsString()));
             }
         }
+
+        List<com.github.javaparser.ast.body.EnumDeclaration> enumDecls = cu.findAll(com.github.javaparser.ast.body.EnumDeclaration.class);
+        for (com.github.javaparser.ast.body.EnumDeclaration ed : enumDecls) {
+            String enumName = ed.getNameAsString();
+            for (com.github.javaparser.ast.body.EnumConstantDeclaration ecd : ed.getEntries()) {
+                String gName = enumName + "_" + ecd.getNameAsString();
+                globals.put(gName, new GlobalVar(gName, "i32", "0", enumName));
+            }
+        }
         return globals;
     }
 
@@ -275,6 +284,40 @@ public class JavacToWasm {
                 pool.put(val, new StringConstant(currentOffset, bytes.length, bytes));
                 currentOffset += bytes.length + 1; // null-terminated spacing
             }
+        }
+
+        List<com.github.javaparser.ast.body.EnumDeclaration> enumDecls = cu.findAll(com.github.javaparser.ast.body.EnumDeclaration.class);
+        for (com.github.javaparser.ast.body.EnumDeclaration ed : enumDecls) {
+            String enumName = ed.getNameAsString();
+            if (!pool.containsKey(enumName)) {
+                byte[] bytes = enumName.getBytes(StandardCharsets.UTF_8);
+                pool.put(enumName, new StringConstant(currentOffset, bytes.length, bytes));
+                currentOffset += bytes.length + 1;
+            }
+            for (com.github.javaparser.ast.body.EnumConstantDeclaration ecd : ed.getEntries()) {
+                String val = ecd.getNameAsString();
+                if (!pool.containsKey(val)) {
+                    byte[] bytes = val.getBytes(StandardCharsets.UTF_8);
+                    pool.put(val, new StringConstant(currentOffset, bytes.length, bytes));
+                    currentOffset += bytes.length + 1;
+                }
+            }
+        }
+
+        List<com.github.javaparser.ast.body.ClassOrInterfaceDeclaration> classDecls = cu.findAll(com.github.javaparser.ast.body.ClassOrInterfaceDeclaration.class);
+        for (com.github.javaparser.ast.body.ClassOrInterfaceDeclaration cd : classDecls) {
+            String cName = cd.getNameAsString();
+            if (!pool.containsKey(cName)) {
+                byte[] bytes = cName.getBytes(StandardCharsets.UTF_8);
+                pool.put(cName, new StringConstant(currentOffset, bytes.length, bytes));
+                currentOffset += bytes.length + 1;
+            }
+        }
+
+        if (!pool.containsKey("@")) {
+            byte[] bytes = "@".getBytes(StandardCharsets.UTF_8);
+            pool.put("@", new StringConstant(currentOffset, bytes.length, bytes));
+            currentOffset += bytes.length + 1;
         }
 
         List<com.github.javaparser.ast.expr.FieldAccessExpr> fieldAccesses = cu.findAll(com.github.javaparser.ast.expr.FieldAccessExpr.class);
@@ -474,7 +517,7 @@ public class JavacToWasm {
         }
 
         Map<String, StringConstant> stringPool = collectStringLiterals(cu);
-        int heapStart = multiMem ? 0 : 65536; // Multi-memory isolates heap starting at 0; single-memory uses page 1+
+        int heapStart = 65536; // Single-memory and multi-memory isolate heap starting at page 1+
         for (Map.Entry<String, StringConstant> entry : stringPool.entrySet()) {
             StringConstant sc = entry.getValue();
             if (multiMem) {
@@ -483,10 +526,10 @@ public class JavacToWasm {
             } else {
                 watOutput.append("  (data (i32.const ").append(sc.offset).append(") \"")
                         .append(escapeForWat(sc.bytes)).append("\")\n");
-                int end = sc.offset + sc.length + 16;
-                if (end > heapStart) {
-                    heapStart = ((end + 65535) / 65536) * 65536;
-                }
+            }
+            int end = sc.offset + sc.length + 16;
+            if (end > heapStart) {
+                heapStart = ((end + 65535) / 65536) * 65536;
             }
         }
         watOutput.append("  (global $__heap_ptr (mut i32) (i32.const ").append(heapStart).append("))\n");
@@ -500,6 +543,9 @@ public class JavacToWasm {
 
         SourceMapTracker tracker = sourceMapGen != null ? new SourceMapTracker(sourceMapGen, sourceName) : null;
         cu.accept(new WasmGeneratorVisitor(stringPool, globalVars, classRegistry, tracker, jsSnippets), watOutput);
+        if (!cu.findAll(com.github.javaparser.ast.body.EnumDeclaration.class).isEmpty()) {
+            watOutput.append("  (start $__init_enums)\n");
+        }
         watOutput.append(")\n");
         return watOutput.toString();
     }

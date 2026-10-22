@@ -142,6 +142,105 @@ public class ClassRegistry {
             }
         }
 
+        // Phase 1b: Register Java enums
+        List<EnumDeclaration> enumDecls = cu.findAll(EnumDeclaration.class);
+        for (EnumDeclaration ed : enumDecls) {
+            String enumName = ed.getNameAsString();
+            ClassModel cm = new ClassModel(enumName, "Enum", false, classIdCounter++);
+            cm.setEnum(true);
+            classes.put(enumName, cm);
+
+            // Add standard enum instance fields: name at offset 4, ordinal at offset 8
+            cm.addField(new FieldModel("name", "String", "i32", 4, 4, false));
+            cm.addField(new FieldModel("ordinal", "int", "i32", 8, 4, false));
+
+            // Register enum constants
+            for (EnumConstantDeclaration ecd : ed.getEntries()) {
+                String cName = ecd.getNameAsString();
+                cm.addEnumConstant(cName);
+                if (!ecd.getArguments().isEmpty()) {
+                    cm.getEnumConstantArgs().put(cName, new ArrayList<>(ecd.getArguments()));
+                }
+            }
+
+            // Collect custom fields
+            for (FieldDeclaration fd : ed.getFields()) {
+                boolean isStatic = fd.isStatic();
+                for (VariableDeclarator vd : fd.getVariables()) {
+                    String fName = vd.getNameAsString();
+                    String fType = vd.getType().asString();
+                    String wasmType = TypeMapper.mapType(vd.getType());
+                    if (wasmType == null) wasmType = "i32";
+                    int size = "v128".equals(wasmType) ? 16 : (("i64".equals(wasmType) || "f64".equals(wasmType)) ? 8 : 4);
+                    cm.addField(new FieldModel(fName, fType, wasmType, 0, size, isStatic));
+                }
+            }
+
+            // Collect constructors
+            for (ConstructorDeclaration cons : ed.getConstructors()) {
+                List<String> paramNames = new ArrayList<>();
+                List<String> paramTypeNames = new ArrayList<>();
+                List<String> paramWasmTypes = new ArrayList<>();
+                for (Parameter p : cons.getParameters()) {
+                    paramNames.add(p.getNameAsString());
+                    paramTypeNames.add(p.getType().asString());
+                    String pWasm = TypeMapper.mapType(p.getType());
+                    paramWasmTypes.add(pWasm != null ? pWasm : "i32");
+                }
+                String funcName = "$" + enumName + "__init";
+                if (!cm.getConstructors().isEmpty()) {
+                    funcName += "_" + cm.getConstructors().size();
+                }
+                MethodModel mm = new MethodModel("<init>", enumName, funcName, "void", null,
+                        paramNames, paramTypeNames, paramWasmTypes, false, true);
+                cm.addConstructor(mm);
+            }
+
+            // Collect methods
+            for (MethodDeclaration md : ed.getMethods()) {
+                String mName = md.getNameAsString();
+                String retTypeName = md.getType().asString();
+                String retWasmType = TypeMapper.mapType(md.getType());
+                boolean isStatic = md.isStatic();
+                List<String> paramNames = new ArrayList<>();
+                List<String> paramTypeNames = new ArrayList<>();
+                List<String> paramWasmTypes = new ArrayList<>();
+                for (Parameter p : md.getParameters()) {
+                    paramNames.add(p.getNameAsString());
+                    paramTypeNames.add(p.getType().asString());
+                    String pWasm = TypeMapper.mapType(p.getType());
+                    paramWasmTypes.add(pWasm != null ? pWasm : "i32");
+                }
+
+                String funcName = "$" + enumName + "_" + mName;
+                MethodModel mm = new MethodModel(mName, enumName, funcName, retTypeName, retWasmType,
+                        paramNames, paramTypeNames, paramWasmTypes, isStatic, false);
+                cm.addMethod(mm);
+            }
+
+            // Pre-register standard enum instance and static methods if not explicitly provided
+            if (cm.getMethodByName("name") == null) {
+                cm.addMethod(new MethodModel("name", enumName, "$" + enumName + "_name", "String", "i32",
+                        Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), false, false));
+            }
+            if (cm.getMethodByName("ordinal") == null) {
+                cm.addMethod(new MethodModel("ordinal", enumName, "$" + enumName + "_ordinal", "int", "i32",
+                        Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), false, false));
+            }
+            if (cm.getMethodByName("compareTo") == null) {
+                cm.addMethod(new MethodModel("compareTo", enumName, "$" + enumName + "_compareTo", "int", "i32",
+                        Collections.singletonList("other"), Collections.singletonList(enumName), Collections.singletonList("i32"), false, false));
+            }
+            if (cm.getMethodByName("values") == null) {
+                cm.addMethod(new MethodModel("values", enumName, "$" + enumName + "_values", enumName + "[]", "i32",
+                        Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), true, false));
+            }
+            if (cm.getMethodByName("valueOf") == null) {
+                cm.addMethod(new MethodModel("valueOf", enumName, "$" + enumName + "_valueOf", enumName, "i32",
+                        Collections.singletonList("name"), Collections.singletonList("String"), Collections.singletonList("i32"), true, false));
+            }
+        }
+
         // Pre-register built-in exception classes if not defined in source
         String[][] builtins = {
                 {"Throwable", null},
@@ -228,6 +327,49 @@ public class ClassRegistry {
             if (cm.getSuperClassName() != null && classes.containsKey(cm.getSuperClassName())) {
                 ClassModel superCm = classes.get(cm.getSuperClassName());
                 slots.addAll(superCm.getVtableSlots());
+            } else {
+                // Universal root Object virtual method slots:
+                // Slot 0: toString()
+                MethodModel toStringMm = cm.getMethodByName("toString");
+                if (toStringMm != null && toStringMm.getParamNames().isEmpty() && !toStringMm.isStatic()) {
+                    toStringMm.setVirtualSlotIndex(0);
+                    slots.add(toStringMm);
+                } else {
+                    MethodModel defToString = new MethodModel("toString", cm.getName(), "$" + cm.getName() + "_toString", "String", "i32",
+                            Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), false, false);
+                    defToString.setVirtualSlotIndex(0);
+                    defToString.setSynthetic(true);
+                    slots.add(defToString);
+                    cm.addMethod(defToString);
+                }
+
+                // Slot 1: equals(Object)
+                MethodModel equalsMm = cm.getMethodByName("equals");
+                if (equalsMm != null && equalsMm.getParamNames().size() == 1 && !equalsMm.isStatic()) {
+                    equalsMm.setVirtualSlotIndex(1);
+                    slots.add(equalsMm);
+                } else {
+                    MethodModel defEquals = new MethodModel("equals", cm.getName(), "$" + cm.getName() + "_equals", "boolean", "i32",
+                            Collections.singletonList("other"), Collections.singletonList("Object"), Collections.singletonList("i32"), false, false);
+                    defEquals.setVirtualSlotIndex(1);
+                    defEquals.setSynthetic(true);
+                    slots.add(defEquals);
+                    cm.addMethod(defEquals);
+                }
+
+                // Slot 2: hashCode()
+                MethodModel hashCodeMm = cm.getMethodByName("hashCode");
+                if (hashCodeMm != null && hashCodeMm.getParamNames().isEmpty() && !hashCodeMm.isStatic()) {
+                    hashCodeMm.setVirtualSlotIndex(2);
+                    slots.add(hashCodeMm);
+                } else {
+                    MethodModel defHashCode = new MethodModel("hashCode", cm.getName(), "$" + cm.getName() + "_hashCode", "int", "i32",
+                            Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), false, false);
+                    defHashCode.setVirtualSlotIndex(2);
+                    defHashCode.setSynthetic(true);
+                    slots.add(defHashCode);
+                    cm.addMethod(defHashCode);
+                }
             }
 
             for (MethodModel mm : cm.getMethods().values()) {
@@ -236,7 +378,8 @@ public class ClassRegistry {
                     for (int i = 0; i < slots.size(); i++) {
                         MethodModel existing = slots.get(i);
                         if (existing.getName().equals(mm.getName()) &&
-                                existing.getParamTypeNames().equals(mm.getParamTypeNames())) {
+                                (existing.getParamTypeNames().equals(mm.getParamTypeNames()) ||
+                                 (existing.getName().equals("equals") && mm.getParamTypeNames().size() == 1))) {
                             slots.set(i, mm);
                             mm.setVirtualSlotIndex(i);
                             overridden = true;
@@ -298,12 +441,40 @@ public class ClassRegistry {
     }
 
     public MethodModel findMethod(String className, String methodName) {
+        if ("Object".equals(className)) {
+            if ("toString".equals(methodName)) {
+                MethodModel mm = new MethodModel("toString", "Object", "$Object_toString", "String", "i32",
+                        Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), false, false);
+                mm.setVirtualSlotIndex(0);
+                mm.setTypeSignatureName(typeSignatures.get("(func (param i32) (result i32))"));
+                return mm;
+            } else if ("equals".equals(methodName)) {
+                MethodModel mm = new MethodModel("equals", "Object", "$Object_equals", "boolean", "i32",
+                        Collections.singletonList("other"), Collections.singletonList("Object"), Collections.singletonList("i32"), false, false);
+                mm.setVirtualSlotIndex(1);
+                mm.setTypeSignatureName(typeSignatures.get("(func (param i32 i32) (result i32))"));
+                return mm;
+            } else if ("hashCode".equals(methodName)) {
+                MethodModel mm = new MethodModel("hashCode", "Object", "$Object_hashCode", "int", "i32",
+                        Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), false, false);
+                mm.setVirtualSlotIndex(2);
+                mm.setTypeSignatureName(typeSignatures.get("(func (param i32) (result i32))"));
+                return mm;
+            }
+        }
         String curr = className;
         while (curr != null && classes.containsKey(curr)) {
             ClassModel cm = classes.get(curr);
             MethodModel mm = cm.getMethodByName(methodName);
             if (mm != null) return mm;
             curr = cm.getSuperClassName();
+        }
+        if ("toString".equals(methodName)) {
+            return findMethod("Object", "toString");
+        } else if ("equals".equals(methodName)) {
+            return findMethod("Object", "equals");
+        } else if ("hashCode".equals(methodName)) {
+            return findMethod("Object", "hashCode");
         }
         return null;
     }
@@ -331,7 +502,9 @@ public class ClassRegistry {
     public boolean isSubclassOf(String subClass, String superClass) {
         if (subClass == null || superClass == null) return false;
         if (subClass.equals(superClass)) return true;
+        if ("Object".equals(superClass)) return true;
         ClassModel cm = classes.get(subClass);
+        if (cm != null && cm.isEnum() && "Enum".equals(superClass)) return true;
         while (cm != null && cm.getSuperClassName() != null) {
             if (cm.getSuperClassName().equals(superClass)) {
                 return true;
