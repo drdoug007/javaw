@@ -184,3 +184,25 @@ This roadmap organizes planned features by their utility and return on investmen
   - Implemented strongly-typed Java facades `com.example.javaw.wasi.WASITerminal` and `com.example.javaw.terminal.Terminal` with full ANSI color palette constants (`BLACK`, `RED`, `GREEN`, `YELLOW`, `BLUE`, `MAGENTA`, `CYAN`, `WHITE`, `BRIGHT_*`), text attributes (`BOLD`, `DIM`, `ITALIC`, `UNDERLINE`, `REVERSE`), cursor positioning (`setCursor`), dimensions (`getColumns`, `getRows`), screen clearing (`clear`), and interactive line/char reading (`readLine`, `readChar`).
   - Implemented WebAssembly runtime routines (`$__wasi_read_char`, `$__wasi_read_line`) wired to WASI `fd_read` (`fd 0` stdin queue) with buffer memory management and dynamic string creation.
   - Built `JavawTerminal` in `javaw-runtime.js` supporting both xterm.js and a zero-dependency DOM terminal with full ANSI escape rendering, customizable prompt (`javaw> `), command history (Up/Down arrow navigation), Ctrl+L/Ctrl+C keyboard shortcuts, custom command dispatch (`help`, `clear`, `history`, `ls`, `js`, `run <wasmExport>`), and interactive REPL integration.
+
+---
+
+## 9. Maven Multi-Module Architecture & Build Tooling
+
+- [ ] **Multi-Module Project Architecture (`javaw-core`, `javaw-maven-plugin`, `examples`)**
+  - Convert root project into an aggregator parent POM (`pom.xml` with `<packaging>pom</packaging>`) and centralized `<dependencyManagement>`.
+  - Extract compiler engine, AST lowering visitors, runtime generator, source maps, and standard facades into `javaw-core`.
+  - Isolate Maven plugin dependencies (`maven-plugin-api`, `maven-plugin-annotations`, `plexus-utils`) from the core compiler library.
+- [ ] **`javaw-maven-plugin` Mojo Implementation**
+  - Implement `CompileMojo` bound to the standard lifecycle (`compile` / `process-classes` phase, goal: `javaw:compile`).
+  - Expose configurable Mojo parameters:
+    - `sourceDirectory`: Java source folder for WebAssembly compilation (defaults to `src/main/java` or `src/main/javaw`).
+    - `outputDirectory`: Target directory for generated `.wat`, `.wasm`, `.wasm.map`, and runtime assets (defaults to `${project.build.directory}/generated-wasm`).
+    - `optimizationLevel`: Binaryen `wasm-opt` optimization flag (`-O0`, `-O1`, `-O2`, `-O3`, `-Oz`).
+    - `generateSourceMaps`: Boolean flag controlling Source Map v3 (`.wasm.map`) generation.
+    - `enableThreads`: Boolean flag to enable shared memory and WebAssembly thread atomics.
+    - `copyRuntimeScript`: Automatically copy `javaw-runtime.js` alongside compiled WASM artifacts.
+  - Automate `.wat`, `.wasm`, and `.wasm.map` compilation without manual CLI invocation.
+- [ ] **Examples Child Module & Lifecycle Dogfooding**
+  - Convert `examples/` directory into a child module (`examples/pom.xml`) that consumes `javaw-core` and executes `javaw-maven-plugin` during build lifecycle.
+  - Validate all interactive demo applications (Todo, Canvas Game of Life, SIMD Particles, JS Interop, WASI Terminal, Records, Atomics) compile and pass tests automatically during standard `mvn clean package`.
