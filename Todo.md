@@ -242,3 +242,38 @@ This roadmap organizes planned features by their utility and return on investmen
 - [x] **Phase 6: Standard Thread/Runnable & Static Class Introspection**
   - Wrap `WasmThread` into standard `java.lang.Thread` and `java.lang.Runnable` constructs (`Thread.sleep(ms)`, `Thread.currentThread()`).
   - Static linear memory `java.lang.Class` descriptor tables supporting `obj.getClass().getName()`, `Class.getSimpleName()`, and `Class.isInstance(obj)`.
+
+---
+
+## 11. Bytecode-to-WebAssembly Compiler & Local Repository Dependency Caching
+
+- [x] **Phase 1: Bytecode Parsing & Control Flow Graph (CFG) Analysis (`javaw-bytecode`)**
+  - Implement bytecode class reader using OW2 ASM (`ClassReader`, `ClassNode`, `MethodNode`) to extract class structure, methods, signatures, instructions (`InsnList`), and local variable tables.
+  - Implement basic block decomposition (`BasicBlock`) segmenting linear instruction streams at jump targets and branching instructions.
+  - Construct Control Flow Graph (`ControlFlowGraph`) with directed predecessor/successor edges, loop back-edges, and natural loop detection.
+
+- [x] **Phase 2: Relooper Algorithm for Structured Control Flow**
+  - Implement the Relooper algorithm partitioning basic blocks into `Simple`, `Loop`, and `Multiple` blocks.
+  - Structure forward branches into WebAssembly `block` nesting and backward jump branches into `loop` nesting.
+  - Support unstructured jumps (`goto`, `ifeq`, `if_icmpne`, `tableswitch`, `lookupswitch`) translating to valid WebAssembly structured control flow (`block`, `loop`, `br`, `br_if`, `br_table`).
+  - Handle multi-entry irreducible control flow graphs using synthetic state variables and branch tables.
+
+- [x] **Phase 3: JVM Operand Stack & Opcode Lowering**
+  - Implement stack-to-local variable mapper (`StackToLocalMapper`) simulating JVM operand stack depth and allocating WebAssembly local slots for stack manipulation (`dup`, `swap`, `pop`).
+  - Lower JVM bytecode instructions to WebAssembly: arithmetic (`iadd`, `isub`, `imul`, `idiv`, `fadd`, `dadd`), bitwise (`ishl`, `ishr`, `iand`, `ior`, `ixor`), loads/stores (`iload`, `istore`, `aload`, `astore`), array operations (`iaload`, `iastore`, `arraylength`), and conversions (`i2l`, `i2f`, `i2d`, `l2i`).
+  - Lower object allocations (`new`, `invokespecial <init>`), field accesses (`getfield`, `putfield`, `getstatic`, `putstatic`), and method invocations (`invokestatic`, `invokevirtual`, `invokespecial`, `invokeinterface`).
+
+- [x] **Phase 4: Local `.m2` Repository WASM Artifact Caching & Hashing Engine**
+  - Implement `LocalM2CacheManager` locating and managing precompiled WebAssembly artifacts in `~/.m2/repository/{groupId}/{artifactId}/{version}/{artifactId}-{version}-javaw.wasm`.
+  - Implement deterministic SHA-256 content hashing (`JarHashUtil`) over input JAR archives to guarantee cache validity for release and SNAPSHOT dependencies.
+  - Implement companion `.javaw-metadata.json` serialization capturing SHA-256 hash, compiler version, exported function signatures, and class descriptors.
+  - Instant $O(1)$ cache hit reuse on subsequent builds, eliminating redundant bytecode recompilation.
+
+- [x] **Phase 5: Dependency Resolution & Static Linking in `javaw-maven-plugin`**
+  - Update `CompileMojo` in `javaw-maven-plugin` to inspect `project.getArtifacts()` and filter external JAR dependencies on the classpath.
+  - Coordinate cache lookup -> bytecode compilation on cache miss -> save to `.m2` cache -> retrieve compiled symbols.
+  - Implement static WebAssembly symbol linker merging application AST/WASM with dependency WASM modules and reconciling function tables and heap layouts.
+
+- [x] **Phase 6: Multi-Dependency End-to-End Application Integration**
+  - Create integration test suite and example application consuming external third-party JAR dependencies.
+  - Verify seamless compilation, local `.m2` caching round-trips, and runtime execution in Node.js and browser environments.

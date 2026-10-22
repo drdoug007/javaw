@@ -14,8 +14,15 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
 
 ## Features
 
+- **Bytecode-to-WebAssembly Compiler & Local Repository Dependency Caching (`javaw-bytecode`)**:
+  - Direct JVM `.class` bytecode parsing via OW2 ASM (`ClassReader`, `ClassNode`, `MethodNode`) enabling consumption of third-party Maven JAR dependencies without requiring source code or `-sources.jar` artifacts.
+  - Control Flow Graph analysis and **Relooper algorithm** converting arbitrary JVM branching structures (`goto`, conditional jumps `if*`, `tableswitch`, `lookupswitch`, irreducible loops) into WebAssembly structured control flow (`block`, `loop`, `br`, `br_if`, `br_table`).
+  - Operand stack simulation and lowering (`StackToLocalMapper`, `BytecodeInstructionVisitor`) mapping JVM stack depths to WebAssembly local slots for stack manipulations (`dup`, `swap`, `pop`) and instruction translations (arithmetic, bitwise, memory loads/stores, object allocations, field access, static/virtual method calls).
+  - Local `.m2` repository cache manager (`LocalM2CacheManager`) storing precompiled WebAssembly artifacts (`${artifactId}-${version}-javaw.wasm` and `.javaw-metadata.json`) directly in `~/.m2/repository/` for near-instantaneous $O(1)$ cache hits on subsequent builds.
+  - Deterministic SHA-256 content hashing (`JarHashUtil`) verifying JAR checksums before cache reuse, guaranteeing reliable cache invalidation for updated release or SNAPSHOT dependencies.
+  - Seamless Maven build integration: `javaw-maven-plugin:compile` inspects project dependencies, compiles external JAR dependencies on cache miss, caches them in `.m2`, and statically links dependency functions and exports into the application bundle via `WasmLinker`.
 - **Maven Multi-Module Architecture & Build Tooling (`javaw-maven-plugin`)**:
-  - Modular reactor architecture comprising `javaw-core` (embeddable compiler engine, runtime helpers, facades, and AST visitors), `javaw-maven-plugin` (dedicated Maven Mojo automating WebAssembly compilation in the standard build lifecycle), and `examples` (interactive consumer module).
+  - Modular reactor architecture comprising `javaw-core` (embeddable compiler engine, runtime helpers, facades, and AST visitors), `javaw-bytecode` (bytecode parser, Relooper CFG engine, stack lowering, linker, and `.m2` cache manager), `javaw-maven-plugin` (dedicated Maven Mojo automating WebAssembly compilation and dependency linking), and `examples` (interactive consumer module).
   - Dedicated Maven Mojo `javaw:compile` bound to the `process-classes` lifecycle phase with full parameter configuration (`sourceDirectory`, `outputDirectory`, `optimizationLevel`, `generateSourceMaps`, `enableThreads`, `copyRuntimeScript`, `batchMode`, `moduleName`, `includes`, `excludes`).
   - Automated compilation of `.wat`, `.wasm`, `.wasm.map`, and runtime scripts (`javaw-runtime.js`) during standard `mvn compile` or `mvn package`.
 - **`java.lang` Standard Library Support & Core Language Idioms**:
@@ -269,6 +276,30 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
 │   │       └── node-tests
 │   │           ├── package.json           # Node.js test configuration
 │   │           └── test.js                # End-to-end WebAssembly execution & DOM test suite
+├── javaw-bytecode                     # Bytecode compiler & local repository cache module
+│   ├── pom.xml                        # ASM dependencies (asm, asm-tree, asm-analysis, asm-commons)
+│   └── src
+│       ├── main/java/com/example/javaw/bytecode
+│       │   ├── BytecodeCompiler.java       # Bytecode and JAR compilation orchestrator
+│       │   ├── ClassBytecodeCompiler.java  # Individual .class file bytecode translator
+│       │   ├── TypeHelper.java             # JVM descriptor to WebAssembly type mapper
+│       │   ├── cache
+│       │   │   ├── CacheMetadata.java      # JSON metadata contract for cached artifacts
+│       │   │   ├── JarHashUtil.java        # SHA-256 JAR content hashing engine
+│       │   │   └── LocalM2CacheManager.java # ~/.m2/repository cache store and loader
+│       │   ├── cfg
+│       │   │   ├── BasicBlock.java         # Basic block node with instruction sequence
+│       │   │   ├── ControlFlowGraph.java   # Control Flow Graph builder and edge analyzer
+│       │   │   └── Relooper.java           # Relooper structured control flow algorithm
+│       │   ├── linker
+│       │   │   └── WasmLinker.java         # Static WebAssembly symbol and WAT module linker
+│       │   └── lowering
+│       │       ├── BytecodeInstructionVisitor.java # JVM bytecode to WebAssembly instruction lowering
+│       │       └── StackToLocalMapper.java # JVM operand stack to WebAssembly local variable mapper
+│       └── test/java/com/example/javaw/bytecode
+│           ├── BytecodeCompilerTest.java   # Synthetic class compilation and execution tests
+│           ├── LocalM2CacheManagerTest.java # Cache hit/miss and SHA-256 invalidation tests
+│           └── RelooperTest.java           # Relooper control flow structuring unit tests
 ├── javaw-maven-plugin                     # Maven Plugin module automating Java-to-WASM compilation
 │   ├── pom.xml                            # Plugin packaging and maven-plugin-tools descriptor configuration
 │   └── src
@@ -310,7 +341,7 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
 
 ## Building the Project
 
-Build all reactor modules (`javaw-core`, `javaw-maven-plugin`, and `examples`) using Maven:
+Build all reactor modules (`javaw-core`, `javaw-bytecode`, `javaw-maven-plugin`, and `examples`) using Maven:
 
 ```bash
 mvn clean package
@@ -318,6 +349,7 @@ mvn clean package
 
 The resulting artifacts:
 - **Standalone Fat JAR**: `javaw-core/target/javaw-core-1.0-SNAPSHOT.jar`
+- **Bytecode Compiler & Cache Engine**: `javaw-bytecode/target/javaw-bytecode-1.0-SNAPSHOT.jar`
 - **Maven Plugin**: `javaw-maven-plugin/target/javaw-maven-plugin-1.0-SNAPSHOT.jar`
 - **Compiled WebAssembly Examples**: `examples/target/generated-wasm/`
 
@@ -325,7 +357,7 @@ The resulting artifacts:
 
 ## Maven Plugin Integration (`javaw-maven-plugin`)
 
-The `javaw-maven-plugin` enables zero-friction, automated compilation of Java source code to WebAssembly directly within standard Maven workflows.
+The `javaw-maven-plugin` enables zero-friction, automated compilation of Java source code and external Maven dependencies to WebAssembly directly within standard Maven workflows.
 
 ### 1. Add Plugin to `pom.xml`
 
@@ -370,7 +402,20 @@ The `javaw-maven-plugin` enables zero-friction, automated compilation of Java so
 </project>
 ```
 
-### 2. Plugin Configuration Parameters
+### 2. Third-Party Dependency Compilation & Local Repository (`~/.m2`) Caching
+
+When compiling a Maven project that references external dependencies (such as utility JARs or data structures), `javaw-maven-plugin` coordinates with `javaw-bytecode`:
+1. **Dependency Inspection**: Scans `project.getArtifacts()` for external compile/runtime JARs on the classpath.
+2. **Deterministic SHA-256 Cache Check**: Computes a SHA-256 hash of each dependency JAR and checks the local Maven repository (`~/.m2/repository/{groupId}/{artifactId}/{version}/{artifactId}-{version}-javaw.wasm` and companion `.javaw-metadata.json`).
+3. **Bytecode Compilation on Cache Miss**:
+   - Parses `.class` bytecode via OW2 ASM.
+   - Restructures unstructured JVM jumps (`goto`, `ifeq`, `tableswitch`, etc.) into WebAssembly structured control flow (`block`, `loop`, `br`, `br_if`) using the **Relooper algorithm**.
+   - Lowers JVM stack instructions and allocates WebAssembly locals.
+   - Saves the precompiled `.wasm` artifact and metadata JSON directly into `~/.m2/repository`.
+4. **Instant $O(1)$ Cache Hit**: Reuses previously compiled `.wasm` artifacts on subsequent builds without reparsing or recompiling bytecode.
+5. **Static Linking**: Merges application WebAssembly modules with dependency WebAssembly units into the final application bundle using `WasmLinker`.
+
+### 3. Plugin Configuration Parameters
 
 | Parameter | Type | Default Value | Description |
 | :--- | :--- | :--- | :--- |

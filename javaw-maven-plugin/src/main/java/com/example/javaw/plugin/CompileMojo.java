@@ -1,6 +1,10 @@
 package com.example.javaw.plugin;
 
 import com.example.javaw.JavacToWasm;
+import com.example.javaw.bytecode.cache.CacheMetadata;
+import com.example.javaw.bytecode.cache.LocalM2CacheManager;
+import com.example.javaw.bytecode.linker.WasmLinker;
+import org.apache.maven.artifact.Artifact;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -13,6 +17,7 @@ import org.apache.maven.project.MavenProject;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -179,6 +184,7 @@ public class CompileMojo extends AbstractMojo {
     private void compileIndividual(List<Path> javaFiles, Path outDirPath) throws MojoFailureException {
         Path srcRoot = sourceDirectory.toPath().toAbsolutePath().normalize();
         int successCount = 0;
+        List<String> depWats = resolveDependencyWats();
 
         for (Path javaFile : javaFiles) {
             Path absJavaFile = javaFile.toAbsolutePath().normalize();
@@ -211,6 +217,11 @@ public class CompileMojo extends AbstractMojo {
             if (!success) {
                 throw new MojoFailureException("Compilation failed for " + relPath);
             }
+
+            if (!depWats.isEmpty()) {
+                linkDependencies(watPath, wasmPath, depWats);
+            }
+
             successCount++;
         }
         getLog().info("Successfully compiled " + successCount + " WebAssembly module(s).");
@@ -241,7 +252,84 @@ public class CompileMojo extends AbstractMojo {
         if (!success) {
             throw new MojoFailureException("Batch WebAssembly compilation failed.");
         }
+
+        List<String> depWats = resolveDependencyWats();
+        if (!depWats.isEmpty()) {
+            linkDependencies(watPath, wasmPath, depWats);
+        }
+
         getLog().info("Successfully compiled unified WebAssembly module: " + wasmPath);
+    }
+
+    private List<String> resolveDependencyWats() {
+        List<String> depWats = new ArrayList<>();
+        if (project == null || project.getArtifacts() == null) {
+            return depWats;
+        }
+
+        LocalM2CacheManager cacheManager = new LocalM2CacheManager();
+        for (Artifact artifact : project.getArtifacts()) {
+            if ("test".equals(artifact.getScope()) || "provided".equals(artifact.getScope()) || "system".equals(artifact.getScope())) {
+                continue;
+            }
+            if ("com.example".equals(artifact.getGroupId()) && ("javaw-core".equals(artifact.getArtifactId()) || "javaw-bytecode".equals(artifact.getArtifactId()))) {
+                continue;
+            }
+
+            File jarFile = artifact.getFile();
+            if (jarFile != null && jarFile.exists() && jarFile.getName().endsWith(".jar")) {
+                try {
+                    getLog().info("Resolving WebAssembly artifact for dependency: " + artifact.getId());
+                    cacheManager.getOrCompile(artifact.getGroupId(), artifact.getArtifactId(), artifact.getVersion(), jarFile);
+                    File watFile = cacheManager.getCachedWatFile(artifact.getGroupId(), artifact.getArtifactId(), artifact.getVersion());
+                    if (watFile.exists()) {
+                        depWats.add(Files.readString(watFile.toPath(), StandardCharsets.UTF_8));
+                        getLog().info("Loaded cached WebAssembly artifact from: " + watFile);
+                    }
+                } catch (Exception e) {
+                    getLog().warn("Could not compile/load WebAssembly for dependency " + artifact.getId() + ": " + e.getMessage());
+                }
+            }
+        }
+        return depWats;
+    }
+
+    private void linkDependencies(Path watPath, Path wasmPath, List<String> depWats) {
+        if (depWats == null || depWats.isEmpty() || !Files.exists(watPath)) {
+            return;
+        }
+        try {
+            String appWat = Files.readString(watPath, StandardCharsets.UTF_8);
+            String linkedWat = WasmLinker.link(appWat, depWats);
+            Files.writeString(watPath, linkedWat, StandardCharsets.UTF_8);
+            getLog().info("Linked " + depWats.size() + " dependency WebAssembly module(s) into: " + watPath);
+
+            // Re-compile linked WAT to WASM if wat2wasm is present
+            if (wasmPath != null) {
+                List<String> cmd = new ArrayList<>();
+                cmd.add("wat2wasm");
+                if (enableThreads) {
+                    cmd.add("--enable-threads");
+                }
+                cmd.add("--enable-exceptions");
+                cmd.add("--enable-multi-memory");
+                cmd.add("--enable-annotations");
+                cmd.add(watPath.toString());
+                cmd.add("-o");
+                cmd.add(wasmPath.toString());
+                try {
+                    Process p = new ProcessBuilder(cmd).redirectErrorStream(true).start();
+                    int exit = p.waitFor();
+                    if (exit == 0) {
+                        getLog().info("Successfully re-compiled linked binary WASM: " + wasmPath);
+                    }
+                } catch (Exception e) {
+                    // wat2wasm not available
+                }
+            }
+        } catch (Exception e) {
+            getLog().warn("Static linking failed for " + watPath + ": " + e.getMessage());
+        }
     }
 
     private void copyRuntimeScriptTo(Path outDirPath) {
