@@ -32,6 +32,14 @@ final class StreamSupport {
                 public T next() { if(first) first=false; else value=nextValue.apply(value); return value; }
             }
             class __JavawReadOnlyList<T> extends ArrayList<T> {
+                public void add(int index,T value) { throw new UnsupportedOperationException(); }
+                public boolean addAll(Collection<? extends T> values) { throw new UnsupportedOperationException(); }
+                public boolean addAll(int index,Collection<? extends T> values) { throw new UnsupportedOperationException(); }
+                public boolean removeAll(Collection<?> values) { throw new UnsupportedOperationException(); }
+                public boolean retainAll(Collection<?> values) { throw new UnsupportedOperationException(); }
+                public boolean removeIf(Predicate<T> predicate) { throw new UnsupportedOperationException(); }
+                public void replaceAll(UnaryOperator<T> operator) { throw new UnsupportedOperationException(); }
+                public void sort(Comparator<T> comparator) { throw new UnsupportedOperationException(); }
                 public __JavawReadOnlyList(Object[] values) { super(); for(int i=0;i<values.length;i++) super.add((T)values[i]); }
                 public boolean add(T value) { throw new UnsupportedOperationException(); }
                 public T set(int index,T value) { throw new UnsupportedOperationException(); }

@@ -41,7 +41,7 @@ final class CollectorSupport {
                 public boolean add(Characteristics value) { throw new UnsupportedOperationException(); }
                 public boolean remove(Object value) { throw new UnsupportedOperationException(); }
                 public void clear() { throw new UnsupportedOperationException(); }
-                public Iterator<Characteristics> iterator() { return values.iterator(); }
+                public Iterator<Characteristics> iterator() { return new __JavawReadOnlyIterator<Characteristics>(values.iterator()); }
                 public Stream<Characteristics> stream() { return Stream.fromCollection(this); }
             }
             class __JavawCollector<T,A,R> implements Collector<T,A,R> {
