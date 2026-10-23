@@ -1037,24 +1037,13 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     private void translateCatchClauses(List<CatchClause> clauses, StringBuilder collector, Map<String, String> localTypes, Map<String, String> localElementTypes, Map<String, String> localJavaTypes, String returnWasmType) {
         if (clauses.isEmpty()) return;
 
-        if (clauses.size() == 1) {
-            CatchClause cc = clauses.get(0);
-            String pName = cc.getParameter().getNameAsString();
-            collector.append("        local.get $__caught_exc\n");
-            collector.append("        local.set $").append(pName).append("\n");
-            for (Statement s : cc.getBody().getStatements()) {
-                translateStatement(s, collector, localTypes, localElementTypes, localJavaTypes, returnWasmType);
-            }
-            return;
-        }
-
         int unclosedElseCount = 0;
         for (int i = 0; i < clauses.size(); i++) {
             CatchClause cc = clauses.get(i);
             String pName = cc.getParameter().getNameAsString();
             String pType = cc.getParameter().getType().asString();
             boolean isLast = (i == clauses.size() - 1);
-            boolean isCatchAllType = pType.equals("Exception") || pType.equals("Throwable") || pType.equals("Object");
+            boolean isCatchAllType = pType.equals("Throwable") || pType.equals("Object");
 
             if (isLast && isCatchAllType) {
                 collector.append("        local.get $__caught_exc\n");
@@ -1074,7 +1063,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 collector.append("          i32.const 0\n");
                 if (classRegistry != null) {
                     for (ClassModel cm : classRegistry.getClasses().values()) {
-                        if (classRegistry.isSubclassOf(cm.getName(), pType)) {
+                        if (java.util.Arrays.stream(pType.split("\\s*\\|\\s*")).anyMatch(type -> classRegistry.isSubclassOf(cm.getName(), type))) {
                             collector.append("          local.get $__vtable_tmp\n");
                             collector.append("          i32.const ").append(cm.getVtableBase()).append("\n");
                             collector.append("          i32.eq\n");

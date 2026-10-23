@@ -2556,6 +2556,14 @@ public class WasmRuntime {
         watOutput.append("    local.get $this\n");
         watOutput.append("    call $RuntimeException_getMessage\n");
         watOutput.append("  )\n");
+        for (String name : java.util.List.of("Error", "AssertionError")) {
+            watOutput.append("  (func $").append(name).append("__init (param $this i32)\n")
+                    .append("    local.get $this\n    call $Throwable__init\n  )\n");
+            watOutput.append("  (func $").append(name).append("__init_1 (param $this i32) (param $message i32)\n")
+                    .append("    local.get $this\n    local.get $message\n    call $Throwable__init_1\n  )\n");
+            watOutput.append("  (func $").append(name).append("_getMessage (param $this i32) (result i32)\n")
+                    .append("    local.get $this\n    call $Throwable_getMessage\n  )\n");
+        }
         watOutput.append("  (func $WASIFile__init (export \"WASIFile__init\") (param $this i32) (param $path i32)\n");
         watOutput.append("    local.get $this\n");
         watOutput.append("    local.get $path\n");

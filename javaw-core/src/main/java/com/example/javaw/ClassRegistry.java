@@ -262,6 +262,8 @@ public class ClassRegistry {
         // Pre-register built-in exception classes if not defined in source
         String[][] builtins = {
                 {"Throwable", null},
+                {"Error", "Throwable"},
+                {"AssertionError", "Error"},
                 {"Exception", "Throwable"},
                 {"RuntimeException", "Exception"},
                 {"IllegalArgumentException", "RuntimeException"},

@@ -358,6 +358,7 @@ Checked items elsewhere describe supported subsets, not complete Java/JDK/JVM co
 - [ ] Expand java.io/NIO, networking, date/time, regex, serialization, and standard exception behavior; document host-specific limitations.
 - [ ] Extend source conformance beyond the Phase 1 subset: full intersection least-upper-bound inference, capture conversion, target-typed poly expressions, and the complete Java conversion/exception matrix.
 - [ ] Audit remaining language constructs, including assertions and nested/anonymous classes, with explicit supported/unsupported diagnostics.
+  - [x] Lower assertions with a disabled-by-default module switch, lazy condition/detail evaluation, AssertionError/Error hierarchy, and typed single/multi-catch dispatch. Diagnose synchronized blocks/methods, volatile fields, unbound native methods, and nested/local/anonymous classes before lowering. `SourceRuntimeSupportTest` executes assertions and verifies diagnostic locations. Per-class assertion policy, AssertionError cause chaining, and a full language audit remain pending.
 
 ### Phase 5: Dependencies, frameworks, and diagnostics
 

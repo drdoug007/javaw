@@ -494,6 +494,7 @@ public class JavacToWasm {
         cu = cu.clone();
         JavaSourcePreparation.markSource(cu, sourceName);
         JavaSourcePreparation.normalizeTypes(cu, JavaSourcePreparation.typeNames(List.of(cu)));
+        SourceRuntimeSupport.prepare(cu);
         SpringWebSupport springWeb = SpringWebSupport.lower(cu);
         DecimalSupport.addTypes(cu);
         LibrarySupport.addTypes(cu);
