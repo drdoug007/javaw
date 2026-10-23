@@ -39,8 +39,22 @@ public class MethodModel {
     }
 
     void setFunctionName(String name) { functionName = name; }
-    void setDeclaration(com.github.javaparser.ast.body.CallableDeclaration<?> node) { declaration = node; }
+    void setDeclaration(com.github.javaparser.ast.body.CallableDeclaration<?> node) { declaration = node; if (node.isPrivate()) isVirtual = false; }
     com.github.javaparser.ast.body.CallableDeclaration<?> getDeclaration() { return declaration; }
+
+    MethodModel substitute(java.util.Map<String, String> bindings) {
+        if (bindings.isEmpty()) return this;
+        String substituted = GenericTypes.substitute(returnTypeName, bindings);
+        String result = GenericTypes.readable(substituted);
+        if (substituted != null && (substituted.equals("?") || substituted.startsWith("? super ")) && declaration != null)
+            result = GenericTypes.erasedBindings(declaration).getOrDefault(returnTypeName, result);
+        List<String> parameters = paramTypeNames.stream().map(t -> GenericTypes.substitute(t, bindings)).toList();
+        MethodModel copy = new MethodModel(name, className, functionName, result, TypeMapper.mapType(result), paramNames,
+                parameters, parameters.stream().map(TypeMapper::mapType).toList(), isStatic, isConstructor);
+        copy.declaration = declaration; copy.isVirtual = isVirtual; copy.virtualSlotIndex = virtualSlotIndex;
+        copy.typeSignatureName = typeSignatureName; copy.isSynthetic = isSynthetic;
+        return copy;
+    }
 
     boolean isVarargs() {
         if (declaration == null || declaration.getParameters().isEmpty()) return false;
@@ -121,7 +135,8 @@ public class MethodModel {
     }
 
     public String getSignatureKey() {
-        return name + "(" + String.join(",", paramTypeNames) + ")";
+        return name + "(" + paramTypeNames.stream().map(t -> declaration == null ? t : GenericTypes.eraseVariables(t, declaration))
+                .collect(java.util.stream.Collectors.joining(",")) + ")";
     }
 
     public String buildWasmTypeSignature() {

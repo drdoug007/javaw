@@ -1,5 +1,5 @@
 (module
-  (@custom "javaw_spring_web" "{\22routes\22:[{\22verb\22:\22GET\22,\22path\22:\22/api/products\22,\22controller\22:\22ProductController\22,\22export\22:\22ProductController_handleGetAll\22,\22result\22:\22Product[]\22,\22params\22:[]},{\22verb\22:\22GET\22,\22path\22:\22/api/products/{id}\22,\22controller\22:\22ProductController\22,\22export\22:\22ProductController_handleGetById\22,\22result\22:\22Product\22,\22params\22:[{\22name\22:\22id\22,\22type\22:\22int\22,\22path\22:true}]},{\22verb\22:\22POST\22,\22path\22:\22/api/products\22,\22controller\22:\22ProductController\22,\22export\22:\22ProductController_handleCreate\22,\22result\22:\22Product\22,\22params\22:[{\22name\22:\22name\22,\22type\22:\22String\22,\22path\22:false},{\22name\22:\22price\22,\22type\22:\22BigDecimal\22,\22path\22:false},{\22name\22:\22stock\22,\22type\22:\22int\22,\22path\22:false}]},{\22verb\22:\22PUT\22,\22path\22:\22/api/products/{id}\22,\22controller\22:\22ProductController\22,\22export\22:\22ProductController_handleUpdate\22,\22result\22:\22Product\22,\22params\22:[{\22name\22:\22id\22,\22type\22:\22int\22,\22path\22:true},{\22name\22:\22name\22,\22type\22:\22String\22,\22path\22:false},{\22name\22:\22price\22,\22type\22:\22BigDecimal\22,\22path\22:false},{\22name\22:\22stock\22,\22type\22:\22int\22,\22path\22:false}]},{\22verb\22:\22DELETE\22,\22path\22:\22/api/products/{id}\22,\22controller\22:\22ProductController\22,\22export\22:\22ProductController_handleDelete\22,\22result\22:\22void\22,\22params\22:[{\22name\22:\22id\22,\22type\22:\22int\22,\22path\22:true}]}],\22entities\22:{\22Product\22:[{\22name\22:\22id\22,\22type\22:\22Integer\22,\22offset\22:4,\22boxedOffset\22:8},{\22name\22:\22name\22,\22type\22:\22String\22,\22offset\22:8},{\22name\22:\22price\22,\22type\22:\22BigDecimal\22,\22offset\22:12},{\22name\22:\22stock\22,\22type\22:\22int\22,\22offset\22:16}]},\22boxInteger\22:\22Integer_valueOf__69_6e_74_\22,\22exception\22:{\22vtable\22:100,\22status\22:8,\22reason\22:12}}")
+  (@custom "javaw_spring_web" "{\22routes\22:[{\22verb\22:\22GET\22,\22path\22:\22/api/products\22,\22controller\22:\22ProductController\22,\22export\22:\22ProductController_handleGetAll\22,\22result\22:\22Product[]\22,\22params\22:[]},{\22verb\22:\22GET\22,\22path\22:\22/api/products/{id}\22,\22controller\22:\22ProductController\22,\22export\22:\22ProductController_handleGetById\22,\22result\22:\22Product\22,\22params\22:[{\22name\22:\22id\22,\22type\22:\22int\22,\22path\22:true}]},{\22verb\22:\22POST\22,\22path\22:\22/api/products\22,\22controller\22:\22ProductController\22,\22export\22:\22ProductController_handleCreate\22,\22result\22:\22Product\22,\22params\22:[{\22name\22:\22name\22,\22type\22:\22String\22,\22path\22:false},{\22name\22:\22price\22,\22type\22:\22BigDecimal\22,\22path\22:false},{\22name\22:\22stock\22,\22type\22:\22int\22,\22path\22:false}]},{\22verb\22:\22PUT\22,\22path\22:\22/api/products/{id}\22,\22controller\22:\22ProductController\22,\22export\22:\22ProductController_handleUpdate\22,\22result\22:\22Product\22,\22params\22:[{\22name\22:\22id\22,\22type\22:\22int\22,\22path\22:true},{\22name\22:\22name\22,\22type\22:\22String\22,\22path\22:false},{\22name\22:\22price\22,\22type\22:\22BigDecimal\22,\22path\22:false},{\22name\22:\22stock\22,\22type\22:\22int\22,\22path\22:false}]},{\22verb\22:\22DELETE\22,\22path\22:\22/api/products/{id}\22,\22controller\22:\22ProductController\22,\22export\22:\22ProductController_handleDelete\22,\22result\22:\22void\22,\22params\22:[{\22name\22:\22id\22,\22type\22:\22int\22,\22path\22:true}]}],\22entities\22:{\22Product\22:[{\22name\22:\22id\22,\22type\22:\22Integer\22,\22offset\22:4,\22boxedOffset\22:8},{\22name\22:\22name\22,\22type\22:\22String\22,\22offset\22:8},{\22name\22:\22price\22,\22type\22:\22BigDecimal\22,\22offset\22:12},{\22name\22:\22stock\22,\22type\22:\22int\22,\22offset\22:16}]},\22boxInteger\22:\22Integer_valueOf__69_6e_74_\22,\22exception\22:{\22vtable\22:99,\22status\22:8,\22reason\22:12}}")
   (@custom "sourceMappingURL" "\16SpringBootApp.wasm.map")
   (import "dom" "save" (func $dom_save (param i32)))
   (tag $Exception (export "Exception") (param i32))
@@ -108,15 +108,14 @@
   (type $t_sig_2 (func (param i32 i32) (result i32)))
   (type $t_sig_3 (func (param i32)))
   (type $t_sig_4 (func (param i32 i32)))
-  (type $t_sig_5 (func (param i32 i32 i32 i32)))
-  (type $t_sig_6 (func (param i32 i32 i32 i32) (result i32)))
-  (type $t_sig_7 (func (param i32 i32 i32 i32 i32) (result i32)))
-  (type $t_sig_8 (func (param i32) (result i64)))
-  (type $t_sig_9 (func (param i32) (result f32)))
-  (type $t_sig_10 (func (param i32) (result f64)))
+  (type $t_sig_5 (func (param i32 i32 i32 i32) (result i32)))
+  (type $t_sig_6 (func (param i32 i32 i32 i32 i32) (result i32)))
+  (type $t_sig_7 (func (param i32) (result i64)))
+  (type $t_sig_8 (func (param i32) (result f32)))
+  (type $t_sig_9 (func (param i32) (result f64)))
   ;; --- WebAssembly Function Table (VTable) ---
-  (table (export "__vtable") 327 funcref)
-  (elem (i32.const 0) $Product_toString $Product_equals $Product_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Product_run $Product_getClass $Product_getName $Product_setName $Product_getPrice $Product_setPrice $Product_getStock $Product_setStock $SpringBootApp_toString $SpringBootApp_equals $SpringBootApp_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $SpringBootApp_run $SpringBootApp_getClass $SpringBootApp___javaw_runner_SpringBootApp_init $SpringBootApp_addProduct $ProductController_toString $ProductController_equals $ProductController_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $ProductController_run $ProductController_getClass $ProductController_handleGetAll $ProductController_handleGetById $ProductController_handleCreate $ProductController_handleUpdate $ProductController_handleDelete $ProductRepository_toString $ProductRepository_equals $ProductRepository_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $ProductRepository_run $ProductRepository_getClass $ProductRepository_findById $ProductRepository_findAll $ProductRepository_save $ProductRepository_deleteById $__JavawRow_ProductRepository_toString $__JavawRow_ProductRepository_equals $__JavawRow_ProductRepository_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $__JavawRow_ProductRepository_run $__JavawRow_ProductRepository_getClass $Throwable_toString $Throwable_equals $Throwable_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Throwable_run $Throwable_getClass $Throwable_getMessage $Throwable_toString $Throwable_equals $Throwable_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Throwable_run $Throwable_getClass $Exception_getMessage $Throwable_toString $Throwable_equals $Throwable_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Throwable_run $Throwable_getClass $RuntimeException_getMessage $Throwable_toString $Throwable_equals $Throwable_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Throwable_run $Throwable_getClass $RuntimeException_getMessage $__JavawSpringContext_toString $__JavawSpringContext_equals $__JavawSpringContext_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $__JavawSpringContext_run $__JavawSpringContext_getClass $Number_toString $Number_equals $Number_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Number_run $Number_getClass $Number_intValue $Number_longValue $Number_floatValue $Number_doubleValue $Boolean_toString $Boolean_equals $Boolean_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Boolean_run $Boolean_getClass $Boolean_booleanValue $Number_toString $Byte_equals $Byte_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Number_run $Number_getClass $Byte_intValue $Byte_longValue $Byte_floatValue $Byte_doubleValue $Byte_byteValue $Byte_shortValue $Character_toString $Character_equals $Character_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Character_run $Character_getClass $Character_charValue $Number_toString $Double_equals $Double_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Number_run $Number_getClass $Double_intValue $Double_longValue $Double_floatValue $Double_doubleValue $Double_byteValue $Double_shortValue $Number_toString $Float_equals $Float_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Number_run $Number_getClass $Float_intValue $Float_longValue $Float_floatValue $Float_doubleValue $Float_byteValue $Float_shortValue $Number_toString $Integer_equals $Integer_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Number_run $Number_getClass $Integer_intValue $Integer_longValue $Integer_floatValue $Integer_doubleValue $Integer_byteValue $Integer_shortValue $Number_toString $Long_equals $Long_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Number_run $Number_getClass $Long_intValue $Long_longValue $Long_floatValue $Long_doubleValue $Long_byteValue $Long_shortValue $Number_toString $Short_equals $Short_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Number_run $Number_getClass $Short_intValue $Short_longValue $Short_floatValue $Short_doubleValue $Short_byteValue $Short_shortValue $Throwable_toString $Throwable_equals $Throwable_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Throwable_run $Throwable_getClass $IllegalArgumentException_getMessage $Throwable_toString $Throwable_equals $Throwable_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Throwable_run $Throwable_getClass $IllegalStateException_getMessage $Throwable_toString $Throwable_equals $Throwable_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Throwable_run $Throwable_getClass $NullPointerException_getMessage $Throwable_toString $Throwable_equals $Throwable_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Throwable_run $Throwable_getClass $ArithmeticException_getMessage $WASIFile_toString $WASIFile_equals $WASIFile_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $WASIFile_run $WASIFile_getClass $Thread_toString $Thread_equals $Thread_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Thread_run $Thread_getClass $Class_toString $Class_equals $Class_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Class_run $Class_getClass)
+  (table (export "__vtable") 326 funcref)
+  (elem (i32.const 0) $Product_toString $Product_equals $Product_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Product_run $Product_getClass $Product_getName $Product_setName $Product_getPrice $Product_setPrice $Product_getStock $Product_setStock $SpringBootApp_toString $SpringBootApp_equals $SpringBootApp_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $SpringBootApp_run $SpringBootApp_getClass $SpringBootApp___javaw_runner_SpringBootApp_init $ProductController_toString $ProductController_equals $ProductController_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $ProductController_run $ProductController_getClass $ProductController_handleGetAll $ProductController_handleGetById $ProductController_handleCreate $ProductController_handleUpdate $ProductController_handleDelete $ProductRepository_toString $ProductRepository_equals $ProductRepository_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $ProductRepository_run $ProductRepository_getClass $ProductRepository_findById $ProductRepository_findAll $ProductRepository_save $ProductRepository_deleteById $__JavawRow_ProductRepository_toString $__JavawRow_ProductRepository_equals $__JavawRow_ProductRepository_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $__JavawRow_ProductRepository_run $__JavawRow_ProductRepository_getClass $Throwable_toString $Throwable_equals $Throwable_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Throwable_run $Throwable_getClass $Throwable_getMessage $Throwable_toString $Throwable_equals $Throwable_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Throwable_run $Throwable_getClass $Exception_getMessage $Throwable_toString $Throwable_equals $Throwable_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Throwable_run $Throwable_getClass $RuntimeException_getMessage $Throwable_toString $Throwable_equals $Throwable_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Throwable_run $Throwable_getClass $RuntimeException_getMessage $__JavawSpringContext_toString $__JavawSpringContext_equals $__JavawSpringContext_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $__JavawSpringContext_run $__JavawSpringContext_getClass $Number_toString $Number_equals $Number_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Number_run $Number_getClass $Number_intValue $Number_longValue $Number_floatValue $Number_doubleValue $Boolean_toString $Boolean_equals $Boolean_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Boolean_run $Boolean_getClass $Boolean_booleanValue $Number_toString $Byte_equals $Byte_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Number_run $Number_getClass $Byte_intValue $Byte_longValue $Byte_floatValue $Byte_doubleValue $Byte_byteValue $Byte_shortValue $Character_toString $Character_equals $Character_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Character_run $Character_getClass $Character_charValue $Number_toString $Double_equals $Double_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Number_run $Number_getClass $Double_intValue $Double_longValue $Double_floatValue $Double_doubleValue $Double_byteValue $Double_shortValue $Number_toString $Float_equals $Float_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Number_run $Number_getClass $Float_intValue $Float_longValue $Float_floatValue $Float_doubleValue $Float_byteValue $Float_shortValue $Number_toString $Integer_equals $Integer_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Number_run $Number_getClass $Integer_intValue $Integer_longValue $Integer_floatValue $Integer_doubleValue $Integer_byteValue $Integer_shortValue $Number_toString $Long_equals $Long_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Number_run $Number_getClass $Long_intValue $Long_longValue $Long_floatValue $Long_doubleValue $Long_byteValue $Long_shortValue $Number_toString $Short_equals $Short_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Number_run $Number_getClass $Short_intValue $Short_longValue $Short_floatValue $Short_doubleValue $Short_byteValue $Short_shortValue $Throwable_toString $Throwable_equals $Throwable_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Throwable_run $Throwable_getClass $IllegalArgumentException_getMessage $Throwable_toString $Throwable_equals $Throwable_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Throwable_run $Throwable_getClass $IllegalStateException_getMessage $Throwable_toString $Throwable_equals $Throwable_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Throwable_run $Throwable_getClass $NullPointerException_getMessage $Throwable_toString $Throwable_equals $Throwable_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Throwable_run $Throwable_getClass $ArithmeticException_getMessage $WASIFile_toString $WASIFile_equals $WASIFile_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $WASIFile_run $WASIFile_getClass $Thread_toString $Thread_equals $Thread_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Thread_run $Thread_getClass $Class_toString $Class_equals $Class_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Class_run $Class_getClass)
   ;; --- Heap Allocation Functions ---
   (func $__heap_alloc (export "__heap_alloc") (param $size i32) (result i32)
     (local $ptr i32)
@@ -5074,7 +5073,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 57
+    i32.const 56
     i32.store offset=0
     local.get $__obj_alloc_ptr
     local.get $value
@@ -5242,37 +5241,22 @@
     (local $__caught_exc i32)
     local.get $this
     call $__require_nonnull
-    local.tee $__receiver$1
     i32.const 4105
     i32.const 4120
     i32.const 25
-    local.get $__receiver$1
-    i32.load offset=0
-    i32.const 11
-    i32.add
-    call_indirect (type $t_sig_5)
+    call $SpringBootApp_addProduct
     local.get $this
     call $__require_nonnull
-    local.tee $__receiver$2
     i32.const 4125
     i32.const 4137
     i32.const 18
-    local.get $__receiver$2
-    i32.load offset=0
-    i32.const 11
-    i32.add
-    call_indirect (type $t_sig_5)
+    call $SpringBootApp_addProduct
     local.get $this
     call $__require_nonnull
-    local.tee $__receiver$3
     i32.const 4143
     i32.const 4159
     i32.const 50
-    local.get $__receiver$3
-    i32.load offset=0
-    i32.const 11
-    i32.add
-    call_indirect (type $t_sig_5)
+    call $SpringBootApp_addProduct
   )
   (func $SpringBootApp_addProduct (export "SpringBootApp_addProduct") (param $this i32) (param $name i32) (param $price i32) (param $stock i32)
     (local $product i32)
@@ -5596,7 +5580,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 100
+    i32.const 99
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 404
@@ -5636,7 +5620,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 100
+    i32.const 99
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 404
@@ -5676,7 +5660,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 100
+    i32.const 99
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 404
@@ -5773,7 +5757,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 43
+    i32.const 42
     i32.store offset=0
     local.get $__obj_alloc_ptr
     call $ProductRepository__init
@@ -5788,7 +5772,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 28
+    i32.const 27
     i32.store offset=0
     local.get $__obj_alloc_ptr
     global.get $__repo_ProductRepository
@@ -5882,7 +5866,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 264
+    i32.const 263
     i32.store offset=0
     local.get $__obj_alloc_ptr
     call $IllegalStateException__init
@@ -5911,7 +5895,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 264
+    i32.const 263
     i32.store offset=0
     local.get $__obj_alloc_ptr
     call $IllegalStateException__init
@@ -5940,7 +5924,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 264
+    i32.const 263
     i32.store offset=0
     local.get $__obj_alloc_ptr
     call $IllegalStateException__init
@@ -5969,7 +5953,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 264
+    i32.const 263
     i32.store offset=0
     local.get $__obj_alloc_ptr
     call $IllegalStateException__init
@@ -6026,7 +6010,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 135
+    i32.const 134
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 1
@@ -6045,7 +6029,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 135
+    i32.const 134
     i32.store offset=0
     local.get $__obj_alloc_ptr
     i32.const 0
@@ -6107,7 +6091,7 @@
       local.set $__vtable_tmp
       i32.const 0
       local.get $__vtable_tmp
-      i32.const 135
+      i32.const 134
       i32.eq
       i32.or
     end
@@ -6250,7 +6234,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 146
+    i32.const 145
     i32.store offset=0
     local.get $__obj_alloc_ptr
     local.get $value
@@ -6272,7 +6256,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 146
+    i32.const 145
     i32.store offset=0
     local.get $__obj_alloc_ptr
     local.get $value
@@ -6441,7 +6425,7 @@
       local.set $__vtable_tmp
       i32.const 0
       local.get $__vtable_tmp
-      i32.const 146
+      i32.const 145
       i32.eq
       i32.or
     end
@@ -6575,7 +6559,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 162
+    i32.const 161
     i32.store offset=0
     local.get $__obj_alloc_ptr
     local.get $value
@@ -6597,7 +6581,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 162
+    i32.const 161
     i32.store offset=0
     local.get $__obj_alloc_ptr
     local.get $value
@@ -6656,7 +6640,7 @@
       local.set $__vtable_tmp
       i32.const 0
       local.get $__vtable_tmp
-      i32.const 162
+      i32.const 161
       i32.eq
       i32.or
     end
@@ -6740,7 +6724,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 173
+    i32.const 172
     i32.store offset=0
     local.get $__obj_alloc_ptr
     local.get $value
@@ -6913,7 +6897,7 @@
       local.set $__vtable_tmp
       i32.const 0
       local.get $__vtable_tmp
-      i32.const 173
+      i32.const 172
       i32.eq
       i32.or
     end
@@ -7028,7 +7012,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 189
+    i32.const 188
     i32.store offset=0
     local.get $__obj_alloc_ptr
     local.get $value
@@ -7201,7 +7185,7 @@
       local.set $__vtable_tmp
       i32.const 0
       local.get $__vtable_tmp
-      i32.const 189
+      i32.const 188
       i32.eq
       i32.or
     end
@@ -7361,7 +7345,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 205
+    i32.const 204
     i32.store offset=0
     local.get $__obj_alloc_ptr
     local.get $value
@@ -7383,7 +7367,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 205
+    i32.const 204
     i32.store offset=0
     local.get $__obj_alloc_ptr
     local.get $value
@@ -7552,7 +7536,7 @@
       local.set $__vtable_tmp
       i32.const 0
       local.get $__vtable_tmp
-      i32.const 205
+      i32.const 204
       i32.eq
       i32.or
     end
@@ -7693,7 +7677,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 221
+    i32.const 220
     i32.store offset=0
     local.get $__obj_alloc_ptr
     local.get $value
@@ -7715,7 +7699,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 221
+    i32.const 220
     i32.store offset=0
     local.get $__obj_alloc_ptr
     local.get $value
@@ -7886,7 +7870,7 @@
       local.set $__vtable_tmp
       i32.const 0
       local.get $__vtable_tmp
-      i32.const 221
+      i32.const 220
       i32.eq
       i32.or
     end
@@ -8031,7 +8015,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 237
+    i32.const 236
     i32.store offset=0
     local.get $__obj_alloc_ptr
     local.get $value
@@ -8053,7 +8037,7 @@
     call $__heap_alloc
     local.set $__obj_alloc_ptr
     local.get $__obj_alloc_ptr
-    i32.const 237
+    i32.const 236
     i32.store offset=0
     local.get $__obj_alloc_ptr
     local.get $value
@@ -8222,7 +8206,7 @@
       local.set $__vtable_tmp
       i32.const 0
       local.get $__vtable_tmp
-      i32.const 237
+      i32.const 236
       i32.eq
       i32.or
     end
@@ -8268,7 +8252,7 @@
     i32.const 8
     call $__heap_alloc
     local.tee $e
-    i32.const 275
+    i32.const 274
     i32.store
     local.get $e
     throw $Exception
@@ -8279,7 +8263,7 @@
     i32.const 8
     call $__heap_alloc
     local.tee $e
-    i32.const 286
+    i32.const 285
     i32.store
     local.get $e
     throw $Exception
@@ -9071,168 +9055,168 @@
       return
     end
     local.get $vtableBase
-    i32.const 28
+    i32.const 27
     i32.eq
     if
       global.get $__class_ProductController
       return
     end
     local.get $vtableBase
-    i32.const 43
+    i32.const 42
     i32.eq
     if
       global.get $__class_ProductRepository
       return
     end
     local.get $vtableBase
-    i32.const 57
+    i32.const 56
     i32.eq
     if
       global.get $__class___JavawRow_ProductRepository
       return
     end
     local.get $vtableBase
-    i32.const 100
+    i32.const 99
     i32.eq
     if
       global.get $__class_ResponseStatusException
       return
     end
     local.get $vtableBase
-    i32.const 111
+    i32.const 110
     i32.eq
     if
       global.get $__class___JavawSpringContext
       return
     end
     local.get $vtableBase
-    i32.const 121
+    i32.const 120
     i32.eq
     if
       global.get $__class_Number
       return
     end
     local.get $vtableBase
-    i32.const 135
+    i32.const 134
     i32.eq
     if
       global.get $__class_Boolean
       return
     end
     local.get $vtableBase
-    i32.const 146
+    i32.const 145
     i32.eq
     if
       global.get $__class_Byte
       return
     end
     local.get $vtableBase
-    i32.const 162
+    i32.const 161
     i32.eq
     if
       global.get $__class_Character
       return
     end
     local.get $vtableBase
-    i32.const 173
+    i32.const 172
     i32.eq
     if
       global.get $__class_Double
       return
     end
     local.get $vtableBase
-    i32.const 189
+    i32.const 188
     i32.eq
     if
       global.get $__class_Float
       return
     end
     local.get $vtableBase
-    i32.const 205
+    i32.const 204
     i32.eq
     if
       global.get $__class_Integer
       return
     end
     local.get $vtableBase
-    i32.const 221
+    i32.const 220
     i32.eq
     if
       global.get $__class_Long
       return
     end
     local.get $vtableBase
-    i32.const 237
+    i32.const 236
     i32.eq
     if
       global.get $__class_Short
       return
     end
     local.get $vtableBase
-    i32.const 67
+    i32.const 66
     i32.eq
     if
       global.get $__class_Throwable
       return
     end
     local.get $vtableBase
-    i32.const 78
+    i32.const 77
     i32.eq
     if
       global.get $__class_Exception
       return
     end
     local.get $vtableBase
-    i32.const 89
+    i32.const 88
     i32.eq
     if
       global.get $__class_RuntimeException
       return
     end
     local.get $vtableBase
-    i32.const 253
+    i32.const 252
     i32.eq
     if
       global.get $__class_IllegalArgumentException
       return
     end
     local.get $vtableBase
-    i32.const 264
+    i32.const 263
     i32.eq
     if
       global.get $__class_IllegalStateException
       return
     end
     local.get $vtableBase
-    i32.const 275
+    i32.const 274
     i32.eq
     if
       global.get $__class_NullPointerException
       return
     end
     local.get $vtableBase
-    i32.const 286
+    i32.const 285
     i32.eq
     if
       global.get $__class_ArithmeticException
       return
     end
     local.get $vtableBase
-    i32.const 297
+    i32.const 296
     i32.eq
     if
       global.get $__class_WASIFile
       return
     end
     local.get $vtableBase
-    i32.const 307
+    i32.const 306
     i32.eq
     if
       global.get $__class_Thread
       return
     end
     local.get $vtableBase
-    i32.const 317
+    i32.const 316
     i32.eq
     if
       global.get $__class_Class
@@ -9328,7 +9312,7 @@
     call $__heap_alloc
     local.set $t
     local.get $t
-    i32.const 307
+    i32.const 306
     i32.store offset=0
     local.get $t
     i32.const 0
@@ -9351,7 +9335,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 4211
@@ -9377,7 +9361,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 4219
@@ -9403,7 +9387,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 4233
@@ -9429,7 +9413,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 4251
@@ -9455,7 +9439,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 4269
@@ -9481,7 +9465,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 4298
@@ -9507,7 +9491,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 4322
@@ -9533,7 +9517,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 4343
@@ -9559,7 +9543,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 4350
@@ -9585,7 +9569,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 4358
@@ -9611,7 +9595,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 4363
@@ -9637,7 +9621,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 4373
@@ -9663,7 +9647,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 4380
@@ -9689,7 +9673,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 4386
@@ -9715,7 +9699,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 4394
@@ -9741,7 +9725,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 4399
@@ -9767,7 +9751,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 0
@@ -9793,7 +9777,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 0
@@ -9819,7 +9803,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 0
@@ -9845,7 +9829,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 0
@@ -9871,7 +9855,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 0
@@ -9897,7 +9881,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 0
@@ -9923,7 +9907,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 0
@@ -9949,7 +9933,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 0
@@ -9975,7 +9959,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 0
@@ -10001,7 +9985,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 0
@@ -10027,7 +10011,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 0
@@ -10053,7 +10037,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 0
@@ -10079,7 +10063,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 0
@@ -10105,7 +10089,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 0
@@ -10131,7 +10115,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 4463
@@ -10157,7 +10141,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 4456
@@ -10183,7 +10167,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 4450
@@ -10209,7 +10193,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 4477
@@ -10235,7 +10219,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 4481
@@ -10261,7 +10245,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 4486
@@ -10287,7 +10271,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 4493
@@ -10313,7 +10297,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 4499
@@ -10339,7 +10323,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 4507
@@ -10365,7 +10349,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 4512
@@ -10391,7 +10375,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 4517
@@ -10417,7 +10401,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 317
+    i32.const 316
     i32.store offset=0
     local.get $inst
     i32.const 4523

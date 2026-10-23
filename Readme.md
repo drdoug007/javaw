@@ -23,7 +23,7 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
 | Optional | Only a repository `findById(...).orElseThrow(...)` pattern is lowered; general Optional operations remain pending. |
 | Decimal arithmetic | BigDecimal passes decimal text through memory; general arithmetic, rounding, and scale semantics are pending. |
 | Memory management | Objects and temporary allocations use a bump allocator without automatic reclamation. |
-| Types and methods | Local `var` inference covers supported literals, binary/conditional expressions, arrays, aliases, and inherited/static method returns. Block/loop/catch scopes preserve distinct locals. Qualified module types are resolved when simple names are unique. Complete overload resolution, generic inference, and Java numeric/boxing conformance remain pending. |
+| Types and methods | Local `var` inference covers supported literals, binary/conditional expressions, arrays, aliases, and inherited/static method returns. Block/loop/catch scopes preserve distinct locals. Qualified module types are resolved when simple names are unique. Source overload selection, nullable boxing, and reference generic inference are supported for the tested subset. Complete JLS conversion and inference conformance remains pending. |
 | Reflection | Basic class descriptors exist; dynamic invocation, reflective construction, runtime annotation inspection, and dynamic class loading remain pending. |
 | Concurrency | Wasm threads and atomics cover a subset; monitors, wait/notify, and complete Java Memory Model semantics remain pending. |
 | JDK APIs | I/O, NIO, networking, date/time, regex, and serialization lack comprehensive compatibility. WASI/JavaScript facades provide selected operations. |
@@ -31,13 +31,19 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
 | Spring and persistence | Constructor injection and selected CRUD/controller/startup patterns are lowered. General Spring beans/proxies, transactions, Hibernate, JDBC, and the actual H2 engine remain pending. |
 | Diagnostics | Unresolved local inference, self-references, scope violations, and conflicting module type names receive source-location diagnostics. Other unsupported features can still surface as unresolved symbols or invalid WAT. |
 
-Source-class constructor overloads use argument types and arity, including primitive/reference widening and `this(...)`/`super(...)` chains. Ambiguous or inapplicable constructor calls report source locations. Source-class method calls and inferred return types use the same selector, including inherited overloads and virtual dispatch. Overloaded source-class methods receive distinct Wasm symbols and exports. Custom record/enum overloads and source access/static-context checks use the same selection path. Nested virtual calls retain distinct receivers. Nullable primitive wrappers use linear-memory objects with small-value caches, value equality/hashing, and null-unboxing exceptions. Assignments, arguments, returns, arrays, and fields apply boxing/unboxing; overload selection tries strict conversions before boxing/unboxing. Primitive/reference varargs are packed after fixed-arity invocation phases, including constructor calls and element boxing. Generic invocation inference remains pending. Constructor and method regressions execute Wasm in `OverloadResolutionTest`.
+Source-class constructor overloads use argument types and arity, including primitive/reference widening and `this(...)`/`super(...)` chains. Ambiguous or inapplicable constructor calls report source locations. Source-class method calls and inferred return types use the same selector, including inherited overloads and virtual dispatch. Overloaded source-class methods receive distinct Wasm symbols and exports. Custom record/enum overloads and source access/static-context checks use the same selection path. Nested virtual calls retain distinct receivers. Constructor and method regressions execute Wasm in `OverloadResolutionTest`.
+
+Nullable primitive wrappers use linear-memory objects with small-value caches, value equality/hashing, and null-unboxing exceptions. Assignments, arguments, returns, arrays, and fields apply boxing/unboxing; overload selection tries strict conversions before boxing/unboxing. Primitive/reference varargs are packed after fixed-arity invocation phases, including constructor calls and element boxing.
+
+Source generic inference covers method/class variables, explicit and diamond arguments, bounds, inherited substitutions, simple wildcard reads/writes, generic varargs, and virtual overrides. Invalid bounds and parameterized assignments receive source diagnostics. Full intersection/capture and target-typed poly-expression inference remain pending; inferred intersections require an explicit common type argument.
 
 Source-resolution regressions execute compiled Wasm in Node; see `javaw-core/src/test/java/com/example/javaw/SourceResolutionTest.java`. Qualified references to source classes work across batch files; multiple classes with the same simple name in one module are explicitly rejected.
 
+Generic, wrapper, and varargs regressions execute Wasm in `GenericInferenceTest`, `BoxingSupportTest`, and `VarargsTest`.
+
 Primitive numeric regressions in `NumericConformanceTest` execute typed mutations, compound assignment promotion/narrowing, constant-expression ternaries, saturating float-to-integer casts, division edge cases, and floating remainder entirely in Wasm.
 
-The next priorities are reusable type/method resolution, Optional and lambdas, collections, decimal arithmetic, and memory reclamation. See [the compatibility roadmap](Todo.md#13-java-compatibility-roadmap) for acceptance criteria and remaining work.
+Phase 1 source-resolution foundations are implemented for the tested subset. The next priorities are general Optional and lambdas, collections, decimal arithmetic, and memory reclamation. See [the compatibility roadmap](Todo.md#13-java-compatibility-roadmap) for acceptance criteria and remaining work.
 
 ## Features
 

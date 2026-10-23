@@ -499,6 +499,7 @@ public class JavacToWasm {
         JavaSourcePreparation.normalizeVarargs(cu);
         JavaSourcePreparation.resolveLocalScopes(cu);
         ClassRegistry classRegistry = ClassRegistry.build(cu);
+        GenericTypes.validateSourceTypes(cu, classRegistry);
         springWeb.emitMetadata(classRegistry, watOutput);
 
         if (sourceMapGen != null && sourceMapGen.getFile() != null && !sourceMapGen.getFile().isEmpty()) {
@@ -640,7 +641,9 @@ public class JavacToWasm {
     }
 
     public static CompilationResult compile(String fileName, String javaSource, boolean optimize) {
-        CompilationUnit cu = StaticJavaParser.parse(javaSource);
+        CompilationUnit cu;
+        try { cu = StaticJavaParser.parse(javaSource); }
+        catch (com.github.javaparser.ParseProblemException error) { throw new IllegalArgumentException(fileName + ": " + error.getMessage(), error); }
         String stem = fileName.endsWith(".java") ? fileName.substring(0, fileName.length() - 5) : fileName;
         SourceMapGenerator sourceMapGen = new SourceMapGenerator(stem + ".wat");
         sourceMapGen.addSource(fileName, javaSource);

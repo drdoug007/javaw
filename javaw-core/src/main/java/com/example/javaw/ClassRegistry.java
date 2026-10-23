@@ -11,6 +11,7 @@ import java.util.*;
  * Registry and layout calculator for Java classes, fields, vtables, and function table slots.
  */
 public class ClassRegistry {
+    private final Map<String, TypeDeclaration<?>> sourceTypes = new LinkedHashMap<>();
     private final Map<String, ClassModel> classes = new LinkedHashMap<>();
     private final Map<String, RecordModel> records = new LinkedHashMap<>();
     private final List<String> tableFunctions = new ArrayList<>();
@@ -24,6 +25,7 @@ public class ClassRegistry {
     }
 
     private void initFromCu(CompilationUnit cu) {
+        cu.findAll(TypeDeclaration.class).forEach(t -> sourceTypes.put(t.getNameAsString(), t));
         List<ClassOrInterfaceDeclaration> classDecls = cu.findAll(ClassOrInterfaceDeclaration.class);
         int classIdCounter = 1;
 
@@ -104,7 +106,7 @@ public class ClassRegistry {
                 }
 
                 if (cd.getMethodsByName(mName).size() > 1) {
-                    funcName = "$" + className + "_" + mName + "__" + methodSuffix(paramTypeNames);
+                    funcName = "$" + className + "_" + mName + "__" + methodSuffix(paramTypeNames.stream().map(t -> GenericTypes.eraseVariables(t, md)).toList());
                 }
 
                 MethodModel mm = new MethodModel(mName, className, funcName, retTypeName, retWasmType,
@@ -145,7 +147,7 @@ public class ClassRegistry {
                     paramWasmTypes.add(pWasm != null ? pWasm : "i32");
                 }
                 String funcName = "$" + recName + "_" + mName;
-                if (rd.getMethodsByName(mName).size() > 1) funcName += "__" + methodSuffix(paramTypeNames);
+                if (rd.getMethodsByName(mName).size() > 1) funcName += "__" + methodSuffix(paramTypeNames.stream().map(t -> GenericTypes.eraseVariables(t, md)).toList());
                 MethodModel mm = new MethodModel(mName, recName, funcName, retTypeName, retWasmType,
                         paramNames, paramTypeNames, paramWasmTypes, isStatic, false);
                 mm.setDeclaration(md);
@@ -225,7 +227,7 @@ public class ClassRegistry {
                 }
 
                 String funcName = "$" + enumName + "_" + mName;
-                if (ed.getMethodsByName(mName).size() > 1) funcName += "__" + methodSuffix(paramTypeNames);
+                if (ed.getMethodsByName(mName).size() > 1) funcName += "__" + methodSuffix(paramTypeNames.stream().map(t -> GenericTypes.eraseVariables(t, md)).toList());
                 MethodModel mm = new MethodModel(mName, enumName, funcName, retTypeName, retWasmType,
                         paramNames, paramTypeNames, paramWasmTypes, isStatic, false);
                 mm.setDeclaration(md);
@@ -590,7 +592,7 @@ public class ClassRegistry {
                     for (int i = 0; i < slots.size(); i++) {
                         MethodModel existing = slots.get(i);
                         if (existing.getName().equals(mm.getName()) &&
-                                (existing.getParamTypeNames().equals(mm.getParamTypeNames()) ||
+                                (overridesParameters(mm, existing) ||
                                  (existing.getName().equals("equals") && mm.getParamTypeNames().size() == 1))) {
                             slots.set(i, mm);
                             mm.setVirtualSlotIndex(i);
@@ -645,11 +647,11 @@ public class ClassRegistry {
     }
 
     public ClassModel getClass(String name) {
-        return classes.get(name);
+        return classes.get(GenericTypes.raw(name));
     }
 
     public boolean hasClass(String name) {
-        return classes.containsKey(name);
+        return classes.containsKey(GenericTypes.raw(name));
     }
 
     static String methodSuffix(List<String> types) {
@@ -658,26 +660,159 @@ public class ClassRegistry {
                 .collect(java.util.stream.Collectors.joining())).collect(java.util.stream.Collectors.joining("__"));
     }
 
+    private boolean overridesParameters(MethodModel method, MethodModel inherited) {
+        String parent = asSuperType(method.getClassName(), inherited.getClassName());
+        List<String> expected = parent == null ? inherited.getParamTypeNames()
+                : inherited.substitute(classBindings(parent)).getParamTypeNames();
+        return expected.equals(method.getParamTypeNames());
+    }
+
+    Map<String, String> classBindings(String owner) {
+        TypeDeclaration<?> declaration = sourceTypes.get(GenericTypes.raw(owner));
+        return declaration == null ? Map.of() : GenericTypes.bindings(GenericTypes.parameters(declaration), GenericTypes.arguments(owner), this);
+    }
+
+    String fieldType(String owner, String field) {
+        Map<String, String> bindings = classBindings(owner);
+        TypeDeclaration<?> declaration = sourceTypes.get(GenericTypes.raw(owner));
+        if (declaration instanceof ClassOrInterfaceDeclaration type) {
+            for (FieldDeclaration f : type.getFields()) for (VariableDeclarator v : f.getVariables())
+                if (v.getNameAsString().equals(field)) return GenericTypes.substitute(v.getTypeAsString(), bindings);
+            if (!type.getExtendedTypes().isEmpty()) return fieldType(GenericTypes.substitute(type.getExtendedTypes(0).asString(), bindings), field);
+        }
+        ClassModel model = getClass(owner);
+        return model == null || model.getField(field) == null ? null : GenericTypes.substitute(model.getField(field).getJavaType(), bindings);
+    }
+
+    List<String> sourceSupertypes(String source) {
+        LinkedHashSet<String> result = new LinkedHashSet<>();
+        Deque<String> pending = new ArrayDeque<>(); pending.add(source);
+        while (!pending.isEmpty()) {
+            String name = pending.removeFirst();
+            if (!result.add(name)) continue;
+            TypeDeclaration<?> declaration = sourceTypes.get(GenericTypes.raw(name));
+            if (declaration instanceof ClassOrInterfaceDeclaration type) {
+                Map<String, String> bindings = classBindings(name);
+                for (var parent : type.getExtendedTypes()) pending.add(GenericTypes.substitute(parent.asString(), bindings));
+                for (var parent : type.getImplementedTypes()) pending.add(GenericTypes.substitute(parent.asString(), bindings));
+            }
+        }
+        result.add("Object"); return new ArrayList<>(result);
+    }
+
+    String asSuperType(String actual, String expected) {
+        if (actual == null) return null;
+        if (Objects.equals(GenericTypes.raw(actual), expected)) return actual;
+        TypeDeclaration<?> source = sourceTypes.get(GenericTypes.raw(actual));
+        if (!(source instanceof ClassOrInterfaceDeclaration type)) return null;
+        Map<String, String> bindings = classBindings(actual);
+        List<com.github.javaparser.ast.type.ClassOrInterfaceType> parents = new ArrayList<>(type.getExtendedTypes());
+        parents.addAll(type.getImplementedTypes());
+        for (var parent : parents) {
+            String found = asSuperType(GenericTypes.substitute(parent.asString(), bindings), expected);
+            if (found != null) return found;
+        }
+        return null;
+    }
+
+    String constructedType(String sourceType, List<String> arguments, String target) {
+        TypeDeclaration<?> source = sourceTypes.get(GenericTypes.raw(sourceType));
+        if (source == null || GenericTypes.parameters(source).isEmpty()) return sourceType;
+        var variables = GenericTypes.parameters(source);
+        if (!sourceType.endsWith("<>")) { classBindings(sourceType); return sourceType; }
+        if (target != null && Objects.equals(GenericTypes.raw(target), GenericTypes.raw(sourceType)) && !GenericTypes.arguments(target).isEmpty()) {
+            classBindings(target); return target;
+        }
+        List<MethodModel> inferred = new ArrayList<>();
+        List<Map<String, String>> substitutions = new ArrayList<>();
+        Set<String> names = new HashSet<>(); variables.forEach(t -> names.add(t.getNameAsString()));
+        for (MethodModel constructor : getClass(sourceType).getConstructors()) {
+            Map<String, String> bindings = new LinkedHashMap<>();
+            for (int i = 0; i < Math.min(arguments.size(), constructor.getParamTypeNames().size()); i++)
+                GenericTypes.constrain(constructor.getParamTypeNames().get(i), arguments.get(i), names, bindings, this);
+            for (var variable : variables) bindings.putIfAbsent(variable.getNameAsString(), variable.getTypeBound().isEmpty() ? "Object" : variable.getTypeBound().get(0).asString());
+            try { GenericTypes.validateBounds(variables, bindings, this); }
+            catch (IllegalArgumentException error) { continue; }
+            inferred.add(constructor.substitute(bindings)); substitutions.add(bindings);
+        }
+        if (inferred.isEmpty() && !getClass(sourceType).getConstructors().isEmpty())
+            throw new IllegalArgumentException("Cannot infer constructor type arguments within their bounds; supply explicit compatible type arguments");
+        MethodModel selected = inferred.isEmpty() ? null : resolveOverload(inferred, arguments);
+        Map<String, String> chosen = inferred.isEmpty() ? GenericTypes.bindings(variables, List.of(), this)
+                : substitutions.get(java.util.stream.IntStream.range(0, inferred.size())
+                        .filter(i -> inferred.get(i).getFunctionName().equals(selected.getFunctionName())).findFirst().orElseThrow());
+        return GenericTypes.raw(sourceType) + "<" + variables.stream().map(t -> chosen.get(t.getNameAsString()))
+                .collect(java.util.stream.Collectors.joining(",")) + ">";
+    }
+
+    List<MethodModel> constructorCandidates(String owner) {
+        ClassModel model = getClass(owner);
+        if (model == null) return List.of();
+        Map<String, String> bindings = classBindings(owner);
+        return model.getConstructors().stream().map(m -> m.substitute(bindings)).toList();
+    }
+
     public List<MethodModel> methodCandidates(String className, String methodName) {
-        if (records.containsKey(className)) return records.get(className).getMethods().stream()
-                .filter(m -> m.getName().equals(methodName)).toList();
         Map<String, MethodModel> methods = new LinkedHashMap<>();
         collectMethods(className, methodName, methods, new HashSet<>());
         return new ArrayList<>(methods.values());
     }
 
-    private void collectMethods(String name, String methodName, Map<String, MethodModel> methods, Set<String> seen) {
-        if (name == null || !seen.add(name)) return;
-        ClassModel model = classes.get(name);
-        if (model == null) return;
-        model.getMethods().values().stream().filter(m -> m.getName().equals(methodName))
-                .forEach(m -> methods.putIfAbsent(m.getSignatureKey(), m));
-        collectMethods(model.getSuperClassName(), methodName, methods, seen);
-        for (String iface : model.getImplementedInterfaces()) collectMethods(iface, methodName, methods, seen);
+    private void collectMethods(String owner, String methodName, Map<String, MethodModel> methods, Set<String> seen) {
+        if (owner == null || !seen.add(owner)) return;
+        Map<String, String> bindings = new LinkedHashMap<>(classBindings(owner));
+        List<MethodModel> own = isRecord(owner) ? getRecord(owner).getMethods()
+                : hasClass(owner) ? new ArrayList<>(getClass(owner).getMethods().values()) : List.of();
+        for (MethodModel method : own) if (method.getName().equals(methodName)) {
+            Map<String, String> visible = new LinkedHashMap<>(bindings);
+            if (method.getDeclaration() != null) GenericTypes.parameters(method.getDeclaration()).forEach(t -> visible.remove(t.getNameAsString()));
+            MethodModel instantiated = method.substitute(visible);
+            methods.putIfAbsent(instantiated.getSignatureKey(), instantiated);
+        }
+        TypeDeclaration<?> declaration = sourceTypes.get(GenericTypes.raw(owner));
+        if (declaration instanceof ClassOrInterfaceDeclaration type) {
+            for (var parent : type.getExtendedTypes()) collectMethods(GenericTypes.substitute(parent.asString(), bindings), methodName, methods, seen);
+            for (var parent : type.getImplementedTypes()) collectMethods(GenericTypes.substitute(parent.asString(), bindings), methodName, methods, seen);
+        } else if (hasClass(owner)) collectMethods(getClass(owner).getSuperClassName(), methodName, methods, seen);
+    }
+
+    private MethodModel inferMethod(MethodModel method, List<String> arguments, List<String> explicit) {
+        if (method.getDeclaration() == null) return method;
+        var variables = GenericTypes.parameters(method.getDeclaration());
+        if (variables.isEmpty()) {
+            if (!explicit.isEmpty()) throw new IllegalArgumentException("Explicit type arguments require a generic method");
+            return method;
+        }
+        Map<String, String> bindings = new LinkedHashMap<>();
+        if (!explicit.isEmpty()) bindings.putAll(GenericTypes.bindings(variables, explicit, this));
+        else {
+            Set<String> names = new HashSet<>(); variables.forEach(t -> names.add(t.getNameAsString()));
+            for (int i = 0; i < arguments.size(); i++) {
+                if (!method.isVarargs() && i >= method.getParamTypeNames().size()) break;
+                String formal = invocationParameter(method, i, method.isVarargs() && (arguments.size() != method.getParamTypeNames().size()
+                        || !arguments.get(i).endsWith("[]")));
+                GenericTypes.constrain(formal, arguments.get(i), names, bindings, this);
+            }
+            for (var variable : variables) bindings.putIfAbsent(variable.getNameAsString(), variable.getTypeBound().isEmpty() ? "Object"
+                    : GenericTypes.substitute(variable.getTypeBound().get(0).asString(), bindings));
+            GenericTypes.validateBounds(variables, bindings, this);
+        }
+        return method.substitute(bindings);
     }
 
     /** Strict invocation conversions: identity, primitive widening, and reference widening. */
     public MethodModel resolveOverload(List<MethodModel> candidates, List<String> arguments) {
+        return resolveOverload(candidates, arguments, List.of());
+    }
+
+    MethodModel resolveOverload(List<MethodModel> templates, List<String> arguments, List<String> explicit) {
+        List<MethodModel> candidates = new ArrayList<>();
+        List<String> failures = new ArrayList<>();
+        for (MethodModel template : templates) {
+            try { candidates.add(inferMethod(template, arguments, explicit)); }
+            catch (IllegalArgumentException error) { failures.add(error.getMessage()); }
+        }
+        if (candidates.isEmpty() && !failures.isEmpty()) throw new IllegalArgumentException(String.join("; ", failures));
         List<MethodModel> applicable = candidates.stream().filter(m -> {
             if (m.getParamTypeNames().size() != arguments.size()) return false;
             for (int i = 0; i < arguments.size(); i++)
@@ -722,6 +857,20 @@ public class ClassRegistry {
             if (!canWiden(a, b)) return false;
             strict |= !a.equals(b);
         }
+        if (!strict && first.getDeclaration() != null && second.getDeclaration() != null) {
+            List<String> firstErased = first.getDeclaration().getParameters().stream()
+                    .map(p -> GenericTypes.eraseVariables(p.getTypeAsString(), first.getDeclaration())).toList();
+            List<String> secondErased = second.getDeclaration().getParameters().stream()
+                    .map(p -> GenericTypes.eraseVariables(p.getTypeAsString(), second.getDeclaration())).toList();
+            if (firstErased.size() == secondErased.size()) {
+                for (int i = 0; i < firstErased.size(); i++) {
+                    if (!canWiden(firstErased.get(i), secondErased.get(i))) return false;
+                    strict |= !firstErased.get(i).equals(secondErased.get(i));
+                }
+            }
+            if (!strict) strict = GenericTypes.parameters(first.getDeclaration()).isEmpty()
+                    && !GenericTypes.parameters(second.getDeclaration()).isEmpty();
+        }
         return strict;
     }
 
@@ -760,7 +909,28 @@ public class ClassRegistry {
             String a = from.substring(0, from.length() - 2), b = to.substring(0, to.length() - 2);
             return a.equals(b) || !primitives.contains(a) && !primitives.contains(b) && canWiden(a, b);
         }
+        if (to.startsWith("?")) {
+            if (to.startsWith("? super ")) return canWiden(from, to.substring(8));
+            return false; // captured extends/unbounded types accept only null
+        }
         if (to.equals("Object")) return true;
+        if (to.contains("<")) {
+            String aligned = asSuperType(from, GenericTypes.raw(to));
+            if (aligned == null) return false;
+            List<String> expected = GenericTypes.arguments(to), actual = GenericTypes.arguments(aligned);
+            if (actual.isEmpty()) return true; // raw invocation uses erasure
+            if (expected.size() != actual.size()) return false;
+            for (int i = 0; i < expected.size(); i++) {
+                String e = expected.get(i), a = actual.get(i);
+                if (e.equals(a) || e.equals("?")) continue;
+                if (e.startsWith("? extends ") && canWiden(GenericTypes.readable(a), e.substring(10))) continue;
+                if (e.startsWith("? super ") && canWiden(e.substring(8), a)) continue;
+                return false;
+            }
+            return true;
+        }
+        from = GenericTypes.raw(from); to = GenericTypes.raw(to);
+
         Set<String> visited = new HashSet<>();
         Deque<String> pending = new ArrayDeque<>();
         pending.add(from);
@@ -955,7 +1125,7 @@ public class ClassRegistry {
     }
 
     public RecordModel getRecord(String name) {
-        return records.get(name);
+        return records.get(GenericTypes.raw(name));
     }
 
     public Map<String, RecordModel> getRecords() {

@@ -155,7 +155,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             String pType = TypeMapper.mapType(p.getType());
             if (pType == null) pType = "i32";
             localTypes.put(p.getNameAsString(), pType);
-            localJavaTypes.put(p.getNameAsString(), p.getType().asString());
+            localJavaTypes.put(p.getNameAsString(), GenericTypes.eraseVariables(p.getType().asString(), currentCallable));
             if (p.getType().isArrayType()) {
                 localElementTypes.put(p.getNameAsString(), TypeMapper.mapType(p.getType().asArrayType().getComponentType()));
             }
@@ -216,7 +216,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         boolean isStatic = n.isStatic();
         String funcName = "$" + recordName + "_" + methodName;
         MethodModel declaration = currentRecord.getMethods().stream().filter(m -> m.getSignatureKey().equals(
-                methodName + "(" + n.getParameters().stream().map(p -> p.getType().asString())
+                methodName + "(" + n.getParameters().stream().map(p -> GenericTypes.eraseVariables(p.getType().asString(), n))
                         .collect(java.util.stream.Collectors.joining(",")) + ")")).findFirst().orElseThrow();
         funcName = declaration.getFunctionName();
         String exportName = funcName.substring(1);
@@ -254,7 +254,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 String pType = TypeMapper.mapType(p.getType());
                 if (pType == null) pType = "i32";
                 localTypes.put(p.getNameAsString(), pType);
-                localJavaTypes.put(p.getNameAsString(), p.getType().asString());
+                localJavaTypes.put(p.getNameAsString(), GenericTypes.eraseVariables(p.getType().asString(), currentCallable));
                 if (p.getType().isArrayType()) {
                     localElementTypes.put(p.getNameAsString(), TypeMapper.mapType(p.getType().asArrayType().getComponentType()));
                 }
@@ -317,9 +317,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         boolean isJsInline = jsAnnoOpt.isPresent() || (jsSnippets != null && jsSnippets.containsKey(importName));
 
         // Skip abstract or interface methods without bodies and without JS/native annotations
-        if (!n.getBody().isPresent() && !isJsInline && !n.isNative()) {
-            return;
-        }
+        boolean abstractStub = !n.getBody().isPresent() && !isJsInline && !n.isNative();
 
         String returnWasmType = TypeMapper.mapType(n.getType());
         String returnTypeName = n.getType().asString();
@@ -346,7 +344,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         }
 
         if (currentClass != null) {
-            String key = methodName + "(" + n.getParameters().stream().map(p -> p.getType().asString())
+            String key = methodName + "(" + n.getParameters().stream().map(p -> GenericTypes.eraseVariables(p.getType().asString(), n))
                     .collect(java.util.stream.Collectors.joining(",")) + ")";
             MethodModel declaration = currentClass.getMethod(key);
             if (declaration != null) {
@@ -384,7 +382,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 String pType = TypeMapper.mapType(p.getType());
                 if (pType == null) pType = "i32";
                 localTypes.put(p.getNameAsString(), pType);
-                localJavaTypes.put(p.getNameAsString(), p.getType().asString());
+                localJavaTypes.put(p.getNameAsString(), GenericTypes.eraseVariables(p.getType().asString(), currentCallable));
                 if (p.getType().isArrayType()) {
                     localElementTypes.put(p.getNameAsString(), TypeMapper.mapType(p.getType().asArrayType().getComponentType()));
                 }
@@ -417,6 +415,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 }
             }
             collector.append("    call $dom_").append(importName).append("\n");
+        } else if (abstractStub) {
+            collector.append("    unreachable\n");
         } else if (n.getBody().isPresent()) {
             BlockStmt body = n.getBody().get();
             emitLocalDeclarationsAndHelpers(body, collector, localTypes, localElementTypes, localJavaTypes);
@@ -448,7 +448,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         List<VariableDeclarator> varDecls = body.findAll(VariableDeclarator.class);
         for (VariableDeclarator vd : varDecls) {
             String vName = vd.getNameAsString();
-            String vTypeName = vd.getType().asString();
+            String vTypeName = GenericTypes.eraseVariables(vd.getType().asString(), currentCallable);
             if (vd.getType().isVarType()) {
                 String inferredType = vd.getInitializer().map(e -> getExpressionJavaType(e, localJavaTypes)).orElse(null);
                 if (inferredType == null && vd.getParentNode().flatMap(Node::getParentNode).filter(n -> n instanceof ForEachStmt).isPresent()) {
@@ -1098,9 +1098,25 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         }
     }
 
+    private String assignmentTargetType(Expression target, Map<String, String> locals) {
+        if (target.isFieldAccessExpr()) {
+            var field = target.asFieldAccessExpr();
+            String owner = getExpressionJavaType(field.getScope(), locals);
+            if (classRegistry.hasClass(owner)) return classRegistry.fieldType(owner, field.getNameAsString());
+        }
+        return getExpressionJavaType(target, locals);
+    }
+
     private void translateValue(Expression expression, StringBuilder out, Map<String, String> locals,
             Map<String, String> elements, Map<String, String> javaTypes, String targetJavaType) {
+        if (currentCallable != null) targetJavaType = GenericTypes.eraseVariables(targetJavaType, currentCallable);
         String source = getExpressionJavaType(expression, javaTypes);
+        if (targetJavaType != null && targetJavaType.startsWith("?") && !targetJavaType.startsWith("? super ") && !"null".equals(source))
+            throw JavaSourcePreparation.error(expression, "Cannot write a value into a captured wildcard type; use a compatible super bound or explicit type argument");
+        if (targetJavaType != null && targetJavaType.startsWith("? super ")) targetJavaType = targetJavaType.substring(8);
+        if (source != null && targetJavaType != null && targetJavaType.contains("<") && classRegistry.hasClass(targetJavaType)
+                && !classRegistry.canWiden(source, targetJavaType))
+            throw JavaSourcePreparation.error(expression, "Incompatible generic assignment: " + source + " to " + targetJavaType);
         String targetPrimitive = BoxingSupport.primitive(targetJavaType);
         if (BoxingSupport.boxed(source) && BoxingSupport.wrapper(targetJavaType) != null) {
             translateExpression(expression, out, locals, elements, javaTypes, "i32");
@@ -1499,7 +1515,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             translateExpression(expr.asEnclosedExpr().getInner(), collector, localTypes, localElementTypes, localJavaTypes, expectedType);
         } else if (expr.isObjectCreationExpr()) {
             ObjectCreationExpr oce = expr.asObjectCreationExpr();
-            String typeName = oce.getTypeAsString();
+            String typeName = creationType(oce, localJavaTypes);
             if (typeName.equals("StringBuilder") || typeName.endsWith(".StringBuilder")) {
                 if (oce.getArguments().isEmpty()) {
                     collector.append("    i32.const 16\n");
@@ -1841,7 +1857,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     FieldModel fm = currentClass.getField(target);
                     if (op == AssignExpr.Operator.ASSIGN) {
                         collector.append("    local.get $this\n");
-                        translateValue(assign.getValue(), collector, localTypes, localElementTypes, localJavaTypes, fm.getJavaType());
+                        translateValue(assign.getValue(), collector, localTypes, localElementTypes, localJavaTypes, assignmentTargetType(assign.getTarget(), localJavaTypes));
                         collector.append("    ").append(getStoreInstruction(fm.getWasmType())).append(" offset=").append(fm.getOffset()).append("\n");
                     } else {
                         collector.append("    local.get $this\n");
@@ -1853,7 +1869,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 } else {
                     String targetType = localTypes.getOrDefault(target, isGlobal ? globalVars.get(target).type : "i32");
                     if (op == AssignExpr.Operator.ASSIGN) {
-                        translateValue(assign.getValue(), collector, localTypes, localElementTypes, localJavaTypes, getExpressionJavaType(assign.getTarget(), localJavaTypes));
+                        translateValue(assign.getValue(), collector, localTypes, localElementTypes, localJavaTypes, assignmentTargetType(assign.getTarget(), localJavaTypes));
                         collector.append(isGlobal ? "    global.set $" : "    local.set $").append(target).append("\n");
                     } else if (op == AssignExpr.Operator.PLUS && isStringType(assign.getValue(), localJavaTypes)) {
                         collector.append(isGlobal ? "    global.get $" : "    local.get $").append(target).append("\n");
@@ -1879,7 +1895,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 if (fm != null) {
                     if (op == AssignExpr.Operator.ASSIGN) {
                         translateExpression(fae.getScope(), collector, localTypes, localElementTypes, localJavaTypes, "i32");
-                        translateValue(assign.getValue(), collector, localTypes, localElementTypes, localJavaTypes, fm.getJavaType());
+                        translateValue(assign.getValue(), collector, localTypes, localElementTypes, localJavaTypes, assignmentTargetType(assign.getTarget(), localJavaTypes));
                         collector.append("    ").append(getStoreInstruction(fm.getWasmType())).append(" offset=").append(fm.getOffset()).append("\n");
                     } else {
                         translateExpression(fae.getScope(), collector, localTypes, localElementTypes, localJavaTypes, "i32");
@@ -1903,7 +1919,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     collector.append("    i32.const ").append(elemSize).append("\n");
                     collector.append("    i32.mul\n");
                     collector.append("    i32.add\n");
-                    translateValue(assign.getValue(), collector, localTypes, localElementTypes, localJavaTypes, getExpressionJavaType(assign.getTarget(), localJavaTypes));
+                    translateValue(assign.getValue(), collector, localTypes, localElementTypes, localJavaTypes, assignmentTargetType(assign.getTarget(), localJavaTypes));
                     collector.append("    ").append(getStoreInstruction(elemType)).append(" offset=").append(headerOffset).append("\n");
                 } else {
                     translateExpression(aae.getName(), collector, localTypes, localElementTypes, localJavaTypes, "i32");
@@ -2862,6 +2878,13 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         };
     }
 
+    private String creationType(ObjectCreationExpr creation, Map<String, String> locals) {
+        String target = creation.findAncestor(VariableDeclarator.class).map(v -> v.getTypeAsString()).orElse(null);
+        List<String> arguments = creation.getArguments().stream().map(a -> getExpressionJavaType(a, locals)).toList();
+        try { return classRegistry.constructedType(creation.getTypeAsString(), arguments, target); }
+        catch (IllegalArgumentException error) { throw JavaSourcePreparation.error(creation, error.getMessage()); }
+    }
+
     private List<Expression> invocationArguments(MethodModel method, List<Expression> arguments, Map<String, String> javaTypes) {
         if (!method.isVarargs()) return arguments;
         int fixed = method.getParamTypeNames().size() - 1;
@@ -2888,8 +2911,12 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         if (classRegistry == null) return null;
         String owner = call.getScope().isPresent() ? getExpressionJavaType(call.getScope().get(), locals)
                 : currentRecord != null ? currentRecord.getName() : currentClass != null ? currentClass.getName() : null;
-        if (classRegistry.methodCandidates(owner, call.getNameAsString()).stream().noneMatch(m -> m.getDeclaration() != null)) return null;
-        return resolveMethodCall(owner, call, locals);
+        try {
+            if (classRegistry.methodCandidates(owner, call.getNameAsString()).stream().noneMatch(m -> m.getDeclaration() != null)) return null;
+            return resolveMethodCall(owner, call, locals);
+        } catch (IllegalArgumentException error) {
+            throw JavaSourcePreparation.error(call, error.getMessage());
+        }
     }
 
     private void emitSourceMethod(MethodCallExpr call, MethodModel method, StringBuilder out,
@@ -2942,7 +2969,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 .filter(m -> call.getScope().isPresent() || !staticContext || m.isStatic()).toList();
         List<String> arguments = call.getArguments().stream().map(a -> a.isNullLiteralExpr() ? "null"
                 : getExpressionJavaType(a, localJavaTypes)).toList();
-        try { return classRegistry.resolveOverload(candidates, arguments); }
+        try { return classRegistry.resolveOverload(candidates, arguments, call.getTypeArguments().map(a -> a.stream().map(t -> t.asString()).toList()).orElse(List.of())); }
         catch (IllegalArgumentException error) { throw JavaSourcePreparation.error(call, error.getMessage()); }
     }
 
@@ -2961,6 +2988,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         ClassModel model = classRegistry.getClass(caller);
         while (model != null) {
             if (model.getName().equals(method.getClassName())) {
+                if (method.isStatic()) return true;
                 if (source instanceof MethodCallExpr call && call.getScope().isPresent()
                         && !call.getScope().get().isSuperExpr()) {
                     ClassModel target = classRegistry.getClass(receiver);
@@ -2985,7 +3013,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         if (model != null && (!model.getConstructors().isEmpty() || !arguments.isEmpty())) {
             List<String> types = arguments.stream().map(a -> a.isNullLiteralExpr() ? "null"
                     : getExpressionJavaType(a, localJavaTypes)).toList();
-            try { selected = classRegistry.resolveOverload(model.getConstructors().stream()
+            try { selected = classRegistry.resolveOverload(classRegistry.constructorCandidates(className).stream()
                     .filter(m -> accessible(m, currentClass != null ? currentClass.getName()
                             : currentRecord != null ? currentRecord.getName() : "", className, source)).toList(), types); }
             catch (IllegalArgumentException error) { throw JavaSourcePreparation.error(source, error.getMessage()); }
@@ -2993,7 +3021,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         List<Expression> invocation = selected == null ? arguments : invocationArguments(selected, arguments, localJavaTypes);
         for (int i = 0; i < invocation.size(); i++)
             translateValue(invocation.get(i), collector, localTypes, localElementTypes, localJavaTypes, selected == null ? "int" : selected.getParamTypeNames().get(i));
-        return selected == null ? "$" + className + "__init" : selected.getFunctionName();
+        return selected == null ? "$" + GenericTypes.raw(className) + "__init" : selected.getFunctionName();
     }
 
     private String getExpressionJavaType(Expression expr, Map<String, String> localJavaTypes) {
@@ -3048,7 +3076,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 return globalVars.get(name).getJavaType();
             }
             if (currentClass != null && currentClass.hasField(name)) {
-                return currentClass.getField(name).getJavaType();
+                return classRegistry.fieldType(currentClass.getName(), name);
             }
             if (classRegistry != null && (classRegistry.hasClass(name) || classRegistry.isRecord(name))) return name;
             return null;
@@ -3072,11 +3100,11 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             String targetType = getExpressionJavaType(fae.getScope(), localJavaTypes);
             if (targetType != null && classRegistry != null && classRegistry.hasClass(targetType)) {
                 FieldModel fm = classRegistry.getClass(targetType).getField(fName);
-                if (fm != null) return fm.getJavaType();
+                if (fm != null) return GenericTypes.readable(classRegistry.fieldType(targetType, fName));
             }
             if (currentClass != null && currentClass.hasField(fName)) {
                 FieldModel fm = currentClass.getField(fName);
-                if (fm != null) return fm.getJavaType();
+                if (fm != null) return classRegistry.fieldType(currentClass.getName(), fName);
             }
         }
         if (expr.isClassExpr()) {
@@ -3089,7 +3117,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             return getExpressionJavaType(expr.asEnclosedExpr().getInner(), localJavaTypes);
         }
         if (expr.isObjectCreationExpr()) {
-            return expr.asObjectCreationExpr().getTypeAsString();
+            return creationType(expr.asObjectCreationExpr(), localJavaTypes);
         }
         if (expr.isMethodCallExpr()) {
             MethodCallExpr call = expr.asMethodCallExpr();
@@ -3377,7 +3405,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 if (scopeType != null && classRegistry != null && classRegistry.isRecord(scopeType)) {
                     RecordModel rm = classRegistry.getRecord(scopeType);
                     if (rm.getComponent(mName) != null) {
-                        return rm.getComponent(mName).getTypeName();
+                        return GenericTypes.readable(GenericTypes.substitute(rm.getComponent(mName).getTypeName(), classRegistry.classBindings(scopeType)));
                     }
                     MethodModel mm = resolveMethodCall(rm.getName(), call, localJavaTypes);
                     if (mm != null) return mm.getReturnTypeName();
