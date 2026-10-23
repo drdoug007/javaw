@@ -19,6 +19,7 @@ final class ReflectionSupport {
     private final Map<String, TypeDeclaration<?>> declarations = new LinkedHashMap<>();
     private final List<Member> members = new ArrayList<>();
     private final Map<String, AnnotationDeclaration> annotations = new LinkedHashMap<>();
+    private final Map<String,String> repeatableContainers = new LinkedHashMap<>();
     private final List<String> annotationObjects = new ArrayList<>();
     private final Map<String, RecordDeclaration> records = new LinkedHashMap<>();
     private final Set<String> descriptorTypes = new LinkedHashSet<>();
@@ -35,7 +36,7 @@ final class ReflectionSupport {
                 throw JavaSourcePreparation.error(type,"Unsupported dynamic class loading; link all source types before Wasm instantiation and use Class.forName");
         boolean needed=cu.findAll(MethodCallExpr.class).stream().anyMatch(c -> Set.of("getDeclaredFields","getDeclaredField","getFields","getField",
                 "getDeclaredMethods","getDeclaredMethod","getMethods","getMethod","getDeclaredConstructors","getDeclaredConstructor",
-                "isRecord","getRecordComponents","isAnnotation","isPrimitive","getConstructors","getConstructor","getDeclaredAnnotations","getAnnotations","getAnnotation","isAnnotationPresent","forName").contains(c.getNameAsString()));
+                "isRecord","getRecordComponents","isAnnotation","isPrimitive","getConstructors","getConstructor","getDeclaredAnnotations","getAnnotations","getAnnotation","getDeclaredAnnotation","getAnnotationsByType","getDeclaredAnnotationsByType","isAnnotationPresent","forName").contains(c.getNameAsString()));
         if(!needed) return null;
         for(MethodCallExpr call:cu.findAll(MethodCallExpr.class))
             if(call.getNameAsString().equals("forName") && call.getArguments().size()!=1)
@@ -64,6 +65,7 @@ final class ReflectionSupport {
     }
 
     private void generate(CompilationUnit cu) {
+        prepareRepeatableAnnotations(cu);
         for (var annotation : annotations.values()) {
             var iface=new ClassOrInterfaceDeclaration().setInterface(true).setName(annotation.getNameAsString());
             iface.addExtendedType("Annotation");
@@ -351,7 +353,97 @@ final class ReflectionSupport {
         helper.append("return new Annotation[0]; }");
         helper.append("public static <A extends Annotation> A __javaw_class_getAnnotation(Class<?> owner,Class<A> type) { if(type==null) throw new NullPointerException(); for(Annotation annotation:__javaw_class_getAnnotations(owner)) if(annotation.annotationType()==type) return (A)annotation; return null; }");
         helper.append("public static boolean __javaw_class_isAnnotationPresent(Class<?> owner,Class<? extends Annotation> type) { return __javaw_class_getAnnotation(owner,type)!=null; }");
+        helper.append("public static <A extends Annotation> A __javaw_class_getDeclaredAnnotation(Class<?> owner,Class<A> type) { if(type==null) throw new NullPointerException(); for(Annotation annotation:__javaw_class_getDeclaredAnnotations(owner)) if(annotation.annotationType()==type) return (A)annotation; return null; }");
+        annotationQueries(helper);
+
     }
+    private void annotationQueries(StringBuilder helper) {
+        helper.append("public static <A extends Annotation> A[] __javaw_annotations_by_type(Annotation[] source,Class<A> type) { if(type==null) throw new NullPointerException();");
+        for(String name:annotations.keySet()) {
+            String container=repeatableContainers.get(name);
+            helper.append("if(type==").append(name).append(".class) { int count=0; for(Annotation annotation:source) { if(annotation.annotationType()==")
+                    .append(name).append(".class) count++;");
+            if(container!=null) helper.append("else if(annotation.annotationType()==").append(container).append(".class) count+=((").append(container).append(")annotation).value().length;");
+            helper.append("} ").append(name).append("[] result=new ").append(name).append("[count]; int index=0; for(Annotation annotation:source) { if(annotation.annotationType()==")
+                    .append(name).append(".class) result[index++]=(").append(name).append(")annotation;");
+            if(container!=null) helper.append("else if(annotation.annotationType()==").append(container).append(".class) for(").append(name).append(" value:((").append(container).append(")annotation).value()) result[index++]=value;");
+            helper.append("} return (A[])result; }");
+        }
+        helper.append("return (A[])new Annotation[0]; }");
+        helper.append("public static <A extends Annotation> A[] __javaw_class_getDeclaredAnnotationsByType(Class<?> owner,Class<A> type) { return __javaw_annotations_by_type(__javaw_class_getDeclaredAnnotations(owner),type); }");
+        helper.append("public static <A extends Annotation> A[] __javaw_class_getAnnotationsByType(Class<?> owner,Class<A> type) { A[] result=__javaw_class_getDeclaredAnnotationsByType(owner,type); if(result.length!=0) return result;");
+        for(var schema:annotations.values()) if(hasMetaAnnotation(schema,"Inherited")) {
+            helper.append("if(type==").append(schema.getNameAsString()).append(".class) {");
+            for(var declaration:types) if(declaration instanceof ClassOrInterfaceDeclaration type && !type.isInterface() && !type.getExtendedTypes().isEmpty())
+                helper.append("if(owner==").append(type.getNameAsString()).append(".class) return __javaw_class_getAnnotationsByType(").append(type.getExtendedTypes(0).getNameAsString()).append(".class,type);");
+            helper.append("}");
+        }
+        helper.append("return result; }");
+    }
+
+    private static boolean hasMetaAnnotation(AnnotationDeclaration schema,String name) {
+        return schema.getAnnotations().stream().anyMatch(a -> a.getName().getIdentifier().equals(name));
+    }
+
+    private static int retentionRank(AnnotationDeclaration schema) {
+        var retention=schema.getAnnotations().stream().filter(a -> a.getName().getIdentifier().equals("Retention")).findFirst();
+        if(retention.isEmpty()) return 1;
+        String value=retention.get().toString();
+        return value.contains("RUNTIME")?2:value.contains("SOURCE")?0:1;
+    }
+
+    private void prepareRepeatableAnnotations(CompilationUnit cu) {
+        for(var schema:annotations.values()) {
+            var repeatable=schema.getAnnotations().stream().filter(a -> a.getName().getIdentifier().equals("Repeatable")).findFirst();
+            if(repeatable.isEmpty()) continue;
+            var literal=repeatable.get().findFirst(ClassExpr.class).orElseThrow(() -> JavaSourcePreparation.error(repeatable.get(),"Repeatable annotation requires a linked container class literal"));
+            String name=schema.getNameAsString(),container=literal.getType().asString();
+            var target=annotations.get(container);
+            if(target==null) throw JavaSourcePreparation.error(repeatable.get(),"Repeatable annotation container is not a linked annotation: "+container);
+            var value=target.getMembers().stream().filter(m -> m instanceof AnnotationMemberDeclaration a && a.getNameAsString().equals("value"))
+                    .map(m -> (AnnotationMemberDeclaration)m).findFirst();
+            if(value.isEmpty() || !value.get().getTypeAsString().equals(name+"[]"))
+                throw JavaSourcePreparation.error(repeatable.get(),"Repeatable container value() must return "+name+"[]");
+            for(var member:target.getMembers()) if(member instanceof AnnotationMemberDeclaration a && !a.getNameAsString().equals("value") && a.getDefaultValue().isEmpty())
+                throw JavaSourcePreparation.error(a,"Repeatable container members other than value() require defaults");
+            if(hasMetaAnnotation(schema,"Inherited") && !hasMetaAnnotation(target,"Inherited"))
+                throw JavaSourcePreparation.error(repeatable.get(),"An inherited repeatable annotation requires an inherited container");
+            if(retentionRank(target)<retentionRank(schema))
+                throw JavaSourcePreparation.error(repeatable.get(),"Repeatable annotation requires a container with at least the same retention; runtime annotations need a runtime-retained container");
+            if(hasMetaAnnotation(schema,"Documented") && !hasMetaAnnotation(target,"Documented"))
+                throw JavaSourcePreparation.error(repeatable.get(),"A documented repeatable annotation requires a documented container");
+            repeatableContainers.put(name,container);
+        }
+        for(String name:repeatableContainers.keySet()) {
+            var seen=new HashSet<String>(); String next=name;
+            while(next!=null) {
+                if(!seen.add(next)) throw JavaSourcePreparation.error(annotations.get(name),"Cyclic repeatable annotation containers are unsupported");
+                next=repeatableContainers.get(next);
+            }
+        }
+        for(Node node:cu.findAll(Node.class)) if(node instanceof NodeWithAnnotations<?> annotated) {
+            Map<String,List<AnnotationExpr>> groups=annotated.getAnnotations().stream().filter(a -> annotations.containsKey(a.getName().getIdentifier()))
+                    .collect(Collectors.groupingBy(a -> a.getName().getIdentifier(),LinkedHashMap::new,Collectors.toList()));
+            var replacements=new LinkedHashMap<String,AnnotationExpr>();
+            for(var group:groups.entrySet()) if(group.getValue().size()>1) {
+                String container=repeatableContainers.get(group.getKey());
+                if(container==null) throw JavaSourcePreparation.error(group.getValue().get(1),"Repeated runtime annotation requires @Repeatable and a linked container");
+                if(groups.containsKey(container)) throw JavaSourcePreparation.error(group.getValue().get(1),"Repeated annotations cannot be combined with their explicit container");
+                var values=new NodeList<Expression>();
+                group.getValue().forEach(a -> values.add(a.clone()));
+                replacements.put(group.getKey(),new SingleMemberAnnotationExpr(new Name(container),new ArrayInitializerExpr(values)));
+            }
+            if(replacements.isEmpty()) continue;
+            var normalized=new NodeList<AnnotationExpr>(); var emitted=new HashSet<String>();
+            for(var use:annotated.getAnnotations()) {
+                String name=use.getName().getIdentifier();
+                if(!replacements.containsKey(name)) normalized.add(use);
+                else if(emitted.add(name)) normalized.add(replacements.get(name));
+            }
+            annotated.setAnnotations(normalized);
+        }
+    }
+
     private List<AnnotationExpr> inheritedAnnotations(TypeDeclaration<?> type,Set<String> seen) {
         if(!seen.add(type.getNameAsString())) return List.of();
         var result=new ArrayList<>(declaredAnnotations(type));

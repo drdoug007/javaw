@@ -3,6 +3,9 @@ interface AnnotatedElement {
     public Annotation[] getDeclaredAnnotations();
     public Annotation[] getAnnotations();
     public <A extends Annotation> A getAnnotation(Class<A> type);
+    public <A extends Annotation> A getDeclaredAnnotation(Class<A> type);
+    public <A extends Annotation> A[] getAnnotationsByType(Class<A> type);
+    public <A extends Annotation> A[] getDeclaredAnnotationsByType(Class<A> type);
     public boolean isAnnotationPresent(Class<? extends Annotation> type);
 }
 class ReflectiveOperationException extends Exception {
@@ -48,6 +51,9 @@ abstract class __JavawMember extends AccessibleObject implements AnnotatedElemen
         for(Annotation annotation:getAnnotations()) if(annotation.annotationType()==type) return (A)annotation;
         return null;
     }
+    public <A extends Annotation> A getDeclaredAnnotation(Class<A> type) { return getAnnotation(type); }
+    public <A extends Annotation> A[] getAnnotationsByType(Class<A> type) { return __JavawReflection.__javaw_annotations_by_type(getAnnotations(),type); }
+    public <A extends Annotation> A[] getDeclaredAnnotationsByType(Class<A> type) { return __JavawReflection.__javaw_annotations_by_type(getDeclaredAnnotations(),type); }
     public boolean isAnnotationPresent(Class<? extends Annotation> type) { return getAnnotation(type)!=null; }
 }
 class Field extends __JavawMember {

@@ -47,10 +47,25 @@ member values; toString currently returns only the annotation name.
 Class getAnnotation/getAnnotations honor @Inherited through superclasses,
 not interfaces. getDeclaredAnnotations excludes inherited annotations.
 Retention, Target, Inherited, Documented, Repeatable, and Deprecated have linked
-metadata definitions. Repeated applications require an explicit container:
-automatic @Repeatable expansion and getAnnotationsByType are pending.
+metadata definitions. Repeated applications pack into their @Repeatable container.
+Class and reflected members support getDeclaredAnnotation, getAnnotationsByType,
+and getDeclaredAnnotationsByType. By-type queries expand containers in declaration
+order and return fresh typed arrays; singular queries expose directly present
+annotations/containers without expanding them. Class by-type queries inherit
+only when no direct or indirect values exist, and only through superclasses
+for @Inherited annotation types. An empty container permits this fallback.
+CLASS-retained repeated annotations can still be visible through a
+RUNTIME-retained container, matching Java retention behavior.
+
+Container declarations must have a matching value() array, defaults for other
+members, retention at least as long as the repeated type, and matching
+@Inherited/@Documented requirements. Invalid repeated use and cyclic container
+relationships receive source diagnostics. Full annotation applicability and
+type-use rules remain part of the source conformance follow-up.
+
 Parameter/type-use annotations, generic Type metadata, and annotation processing
-are outside this contract.
+are outside this contract. Repeatable behavior is executed by
+[RepeatableReflectionTest](../javaw-core/src/test/java/com/example/javaw/RepeatableReflectionTest.java).
 
 ## Class lookup and boundaries
 
