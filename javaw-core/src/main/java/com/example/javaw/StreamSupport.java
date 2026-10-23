@@ -60,6 +60,16 @@ final class StreamSupport {
                 public static <U> Collector<U,Object,List<U>> toList() { return new __JavawListCollector<U>(); }
                 public static <U> Collector<U,Object,Set<U>> toSet() { return new __JavawSetCollector<U>(); }
             }
+            class __JavawStreamIterator<T> implements Iterator<T> {
+                private Stream<T> stream; private boolean prepared; private boolean available;
+                public __JavawStreamIterator(Stream<T> stream) { this.stream=stream; }
+                public boolean hasNext() {
+                    if(!prepared) { available=stream.__advance(); prepared=true; } return available;
+                }
+                public T next() {
+                    if(!hasNext()) throw new NoSuchElementException(); prepared=false; return stream.__current();
+                }
+            }
             class Stream<T> {
                 private Iterator<T> source;
                 private Iterable<T> sourceCollection;
@@ -239,6 +249,12 @@ final class StreamSupport {
                     if(collector==null) throw new NullPointerException(); available(); return collector.collect(this);
                 }
                 public List<T> toList() { return new __JavawReadOnlyList<T>(toArray()); }
+                public Iterator<T> iterator() { start(); return new __JavawStreamIterator<T>(this); }
+                public boolean __advance() { return advance(); }
+                public T __current() { return (T)current; }
+                public IntStream mapToInt(ToIntFunction<T> mapper) { if(mapper==null) throw new NullPointerException(); return new IntStream(map(new __JavawToInt<T>(mapper))); }
+                public LongStream mapToLong(ToLongFunction<T> mapper) { if(mapper==null) throw new NullPointerException(); return new LongStream(map(new __JavawToLong<T>(mapper))); }
+                public DoubleStream mapToDouble(ToDoubleFunction<T> mapper) { if(mapper==null) throw new NullPointerException(); return new DoubleStream(map(new __JavawToDouble<T>(mapper))); }
                 public boolean isParallel() { return false; }
                 public Stream<T> sequential() { available(); return this; }
                 public Stream<T> parallel() { throw new UnsupportedOperationException(); }

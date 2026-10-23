@@ -498,6 +498,7 @@ public class JavacToWasm {
         LibrarySupport.addTypes(cu);
         CollectionSupport.addTypes(cu);
         StreamSupport.addTypes(cu);
+        PrimitiveStreamSupport.addTypes(cu);
         BoxingSupport.addWrappers(cu);
         JavaSourcePreparation.normalizeVarargs(cu);
         JavaSourcePreparation.resolveLocalScopes(cu);

@@ -334,7 +334,7 @@ Checked items elsewhere describe supported subsets, not complete Java/JDK/JVM co
 - [ ] Implement parallel stream execution and scheduling; parallel() currently throws UnsupportedOperationException.
 - [ ] Expand the Phase 2 library subset:
   - [x] Stable sorted (natural/custom comparators), takeWhile, and dropWhile with lazy traversal and short-circuit tests.
-  - [ ] Primitive streams.
+  - [x] Core IntStream/LongStream/DoubleStream pipelines, primitive functional interfaces, reference/cross-primitive mapping, ranges, optional primitive results, reductions, arrays, and numeric terminals. Pipeline storage is currently boxed; specialized storage and complete statistics/collector overload coverage remain library follow-ups.
   - [ ] Full Collector contracts and collector factories.
   - [ ] Collection bulk operations/views and iterator removal.
   - [ ] Inherited/default functional-interface methods.
