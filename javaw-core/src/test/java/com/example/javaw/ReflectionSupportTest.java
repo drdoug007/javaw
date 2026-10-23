@@ -163,7 +163,7 @@ class ReflectionSupportTest {
                     Object copied=Arrays.copyOf(new int[]{1},1);
                     try { text.invoke(model,copied); return -10; } catch(IllegalArgumentException expected) {}
                     Method arrays=Model.class.getMethod("array",int[].class);
-                    try { arrays.invoke(model,array); return -11; } catch(UnsupportedOperationException expected) {}
+                    if(((Integer)arrays.invoke(model,array)).intValue()!=2) return -11;
                     if(((Integer)arrays.invoke(model,(Object)null)).intValue()!=7) return -12;
                     Method number=Model.class.getMethod("number",double.class);
                     if(((Double)number.invoke(model,Byte.valueOf((byte)3))).doubleValue()!=3.0) return -13;
@@ -199,6 +199,99 @@ class ReflectionSupportTest {
             "class Loader { static Class<?> load() { return Class.forName(\"X\",false,null); } }",false));
         assertTrue(overload.getMessage().contains("Unsupported Class.forName overload"));
     }
+
+    @Test void checksArrayComponentTypesAndPreservesCopies() throws Exception {
+        byte[] wasm=JavacToWasm.compile("ArrayReflection.java","""
+            import java.lang.reflect.*;
+            import java.util.Arrays;
+            class Animal {}
+            class Dog extends Animal {}
+            enum Kind { ONE, TWO }
+            class ArrayBox {
+                public int[] values;
+                public Animal[] animals;
+                public ArrayBox(int[] values) { this.values=values; }
+                public static int integers(int[] values) { return values[0]+values.length; }
+                public static int references(Animal[] values) { return values.length; }
+                public static int objects(Object[] values) { return values.length; }
+                public static long nested(long[][] values) { return values[0][0]+(long)values.length; }
+                public static int varargs(int... values) { return values[0]+values.length; }
+                public static int kinds(Kind[] values) { return values.length; }
+                public static int strings(String[] values) { return values[0].length(); }
+                public static double doubles(double[] values) { return values[0]; }
+                public static int chars(char[] values) { return values.length; }
+                public static int bytes(byte[] values) { return values.length; }
+            }
+            class ArrayReflection {
+                public static int test() {
+                    Method ints=ArrayBox.class.getMethod("integers",int[].class);
+                    Object input=new int[]{40,1};
+                    if(((Integer)ints.invoke(null,input)).intValue()!=42) return -1;
+                    Object copy=Arrays.copyOf((int[])input,2);
+                    if(((Integer)ints.invoke(null,copy)).intValue()!=42) return -2;
+                    Object range=Arrays.copyOfRange((int[])input,0,2);
+                    if(((Integer)ints.invoke(null,range)).intValue()!=42) return -3;
+                    try { ints.invoke(null,(Object)new long[]{40,1}); return -4; } catch(IllegalArgumentException expected) {}
+                    try { ints.invoke(null,"bad"); return -5; } catch(IllegalArgumentException expected) {}
+                    try { ints.invoke(null,(Object)new Integer[]{40,1}); return -6; } catch(IllegalArgumentException expected) {}
+                    ArrayBox box=(ArrayBox)ArrayBox.class.getConstructor(int[].class).newInstance(input);
+                    Field field=ArrayBox.class.getField("values");
+                    field.set(box,copy); if(field.get(box)!=copy) return -7;
+                    try { field.set(box,new short[]{1}); return -8; } catch(IllegalArgumentException expected) {}
+                    Method refs=ArrayBox.class.getMethod("references",Animal[].class);
+                    Object dogs=new Dog[]{new Dog()};
+                    if(((Integer)refs.invoke(null,dogs)).intValue()!=1) return -9;
+                    Field animals=ArrayBox.class.getField("animals"); animals.set(box,dogs);
+                    if(animals.get(box)!=dogs) return -10;
+                    try { refs.invoke(null,(Object)new String[]{"bad"}); return -11; } catch(IllegalArgumentException expected) {}
+                    Method objects=ArrayBox.class.getMethod("objects",Object[].class);
+                    if(((Integer)objects.invoke(null,(Object)new int[][]{new int[]{1}})).intValue()!=1) return -12;
+                    try { objects.invoke(null,input); return -13; } catch(IllegalArgumentException expected) {}
+                    Object nested=new long[][]{new long[]{41}};
+                    if(((Long)ArrayBox.class.getMethod("nested",long[][].class).invoke(null,nested)).longValue()!=42L) return -14;
+                    if(((Integer)ArrayBox.class.getMethod("varargs",int[].class).invoke(null,input)).intValue()!=42) return -15;
+                    try { ArrayBox.class.getMethod("varargs",int[].class).invoke(null,40,1); return -16; } catch(IllegalArgumentException expected) {}
+                    if(((Integer)ArrayBox.class.getMethod("kinds",Kind[].class).invoke(null,(Object)Kind.values())).intValue()!=2) return -17;
+                    int[] literal={40,1};
+                    if(((Integer)ints.invoke(null,(Object)literal)).intValue()!=42) return -18;
+                    Object chars="hi".toCharArray(), bytes="hi".getBytes();
+                    if(((Integer)ArrayBox.class.getMethod("chars",char[].class).invoke(null,chars)).intValue()!=2) return -19;
+                    if(((Integer)ArrayBox.class.getMethod("bytes",byte[].class).invoke(null,bytes)).intValue()!=2) return -20;
+                    try { ArrayBox.class.getMethod("chars",char[].class).invoke(null,bytes); return -21; } catch(IllegalArgumentException expected) {}
+                    return 42;
+                }
+                public static int hostInts(Object input) {
+                    try { return ((Integer)ArrayBox.class.getMethod("integers",int[].class).invoke(null,input)).intValue(); }
+                    catch(IllegalArgumentException expected) { return -1; }
+                }
+                public static int hostStrings(Object input) {
+                    return ((Integer)ArrayBox.class.getMethod("strings",String[].class).invoke(null,input)).intValue();
+                }
+                public static double hostDoubles(Object input) {
+                    return ((Double)ArrayBox.class.getMethod("doubles",double[].class).invoke(null,input)).doubleValue();
+                }
+            }
+            """,false).getWasm();
+        OverloadResolutionTest.execute(wasm,"""
+            assert.equal(e.test(),42);
+            const runtime=new globalThis.JavawRuntime();
+            runtime.setInstance({exports:e});
+            const ints=runtime.writeIntArray([40,1]);
+            assert.equal(e.hostInts(ints),42);
+            const doubles=runtime.writeDoubleArray([42.5]);
+            assert.equal(e.hostDoubles(doubles),42.5);
+            assert.equal(e.hostInts(doubles),-1);
+            const strings=runtime.writeStringArray(["hello"]);
+            assert.equal(e.hostStrings(strings),5);
+            assert.equal(e.hostInts(strings),-1);
+            const untyped=e.__javaw_array_bytes_alloc(12);
+            new DataView(e.memory.buffer).setInt32(untyped,2,true);
+            assert.equal(e.hostInts(untyped),-1);
+            e.__gc_retain(ints); e.__gc_collect();
+            assert.equal(e.hostInts(ints),42);
+            e.__gc_release(ints); e.__gc_collect();
+            const reused=runtime.writeDoubleArray([42.5]);
+            assert.equal(e.hostInts(reused),-1);
+            """);
+    }
 }
-
-

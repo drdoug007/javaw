@@ -1248,7 +1248,7 @@ public class WasmRuntime {
         watOutput.append("    i32.mul\n");
         watOutput.append("    i32.const 4\n");
         watOutput.append("    i32.add\n");
-        watOutput.append("    call $__heap_alloc\n");
+        watOutput.append("    call $__javaw_array_bytes_alloc\n");
         watOutput.append("    local.set $arr\n");
         watOutput.append("    local.get $arr\n");
         watOutput.append("    local.get $len\n");
@@ -2081,6 +2081,8 @@ public class WasmRuntime {
         watOutput.append("    local.get $totalBytes\n");
         watOutput.append("    call $__javaw_array_bytes_alloc\n");
         watOutput.append("    local.set $newArr\n");
+        watOutput.append("    local.get $arr\n    if\n      local.get $newArr i32.const 4 i32.sub\n");
+        watOutput.append("      local.get $arr i32.const 4 i32.sub i32.load i32.store\n    end\n");
         watOutput.append("    local.get $newArr\n");
         watOutput.append("    local.get $newLen\n");
         watOutput.append("    i32.store\n");
@@ -2131,6 +2133,8 @@ public class WasmRuntime {
         watOutput.append("    local.get $totalBytes\n");
         watOutput.append("    call $__javaw_array_bytes_alloc\n");
         watOutput.append("    local.set $newArr\n");
+        watOutput.append("    local.get $arr\n    if\n      local.get $newArr i32.const 4 i32.sub\n");
+        watOutput.append("      local.get $arr i32.const 4 i32.sub i32.load i32.store\n    end\n");
         watOutput.append("    local.get $newArr\n");
         watOutput.append("    local.get $newLen\n");
         watOutput.append("    i32.store\n");
@@ -2188,6 +2192,8 @@ public class WasmRuntime {
         watOutput.append("    i32.add\n");
         watOutput.append("    call $__javaw_array_bytes_alloc\n");
         watOutput.append("    local.set $newArr\n");
+        watOutput.append("    local.get $arr\n    if\n      local.get $newArr i32.const 4 i32.sub\n");
+        watOutput.append("      local.get $arr i32.const 4 i32.sub i32.load i32.store\n    end\n");
         watOutput.append("    local.get $newArr\n");
         watOutput.append("    local.get $newLen\n");
         watOutput.append("    i32.store\n");
@@ -2237,6 +2243,8 @@ public class WasmRuntime {
         watOutput.append("    i32.add\n");
         watOutput.append("    call $__javaw_array_bytes_alloc\n");
         watOutput.append("    local.set $newArr\n");
+        watOutput.append("    local.get $arr\n    if\n      local.get $newArr i32.const 4 i32.sub\n");
+        watOutput.append("      local.get $arr i32.const 4 i32.sub i32.load i32.store\n    end\n");
         watOutput.append("    local.get $newArr\n");
         watOutput.append("    local.get $newLen\n");
         watOutput.append("    i32.store\n");

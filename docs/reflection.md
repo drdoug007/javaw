@@ -67,12 +67,20 @@ isPrimitive, and isAnnotation are available. Full JVM Class semantics, including
 array covariance/instance tests and implicit Object superclass metadata, remain
 pending.
 
-Non-null array arguments and field writes currently throw
-UnsupportedOperationException because arrays do not yet carry enough runtime
-component-type information for safe reflection conversion. Null arrays,
-array type metadata, and array return values are supported. Reflective varargs
-are passed as a single array argument, not automatically repacked; the same
-non-null array restriction applies.
+Array arguments and field writes check managed runtime component-type tags.
+Primitive arrays require the exact primitive type (int[] does not widen to
+long[]). Reference arrays support covariance, including source class/interface
+inheritance and multidimensional arrays. Null arrays are accepted. Incompatible
+arrays, strings, objects, and untyped host buffers throw IllegalArgumentException
+before invoking the target. Array return values retain their runtime type tags.
+Arrays.copyOf/copyOfRange preserve tags; source String.toCharArray/getBytes calls
+attach char[]/byte[] tags. Enum values arrays are tagged when
+their array descriptor is linked. Garbage collection and block reuse preserve
+or reset tags with the allocation.
+
+Reflective varargs are passed as a single array argument, not automatically
+repacked. For example, invoke(null, (Object)new int[]{1,2}) passes an int[]
+argument; invoke(null, 1,2) does not call a method taking int... correctly.
 
 Enum and record member lookup/enumeration explicitly throw
 UnsupportedOperationException. Member metadata for compiler-injected library
@@ -80,7 +88,9 @@ facades, JAR classes, and synthesized members is not provided; those types may
 have class descriptors without reflectable members. Runtime annotation inspection
 on linked enum/record declarations is available.
 
-The host runtime tags its managed arrays so they cannot be mistaken for strings
-during reflective argument checks. Host integrations must use the runtime's
-array writers (or __javaw_array_bytes_alloc), and its string/object ABI; arbitrary
-raw pointers do not acquire Java runtime types.
+The host runtime's writeIntArray, writeDoubleArray, and writeStringArray attach
+the corresponding int[], double[], and String[] tags. Managed allocations from
+__javaw_array_bytes_alloc alone carry an untyped-array marker and are rejected
+by typed reflection; host integrations should use the typed writers and the
+runtime's string/object ABI. Handle arrays do not acquire Java object-array
+types. Arbitrary raw pointers do not acquire Java runtime types.

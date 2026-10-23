@@ -297,7 +297,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
 
     @Override
     public void visit(MethodDeclaration n, StringBuilder collector) {
-        if (n.isNative() && n.getNameAsString().equals("__javaw_is_string")
+        if (n.isNative() && Set.of("__javaw_is_string","__javaw_array_matches").contains(n.getNameAsString())
                 && n.findAncestor(ClassOrInterfaceDeclaration.class).map(c -> c.getNameAsString().equals("__JavawReflection")).orElse(false)) return;
         currentCallable = n;
         if (n.getParentNode().isPresent() && n.getParentNode().get() instanceof RecordDeclaration) {
@@ -1586,7 +1586,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         } else if (expr.isArrayCreationExpr()) {
             ArrayCreationExpr ace = expr.asArrayCreationExpr();
             String array = arrayAllocationLocals.getOrDefault(expr,"__arr_alloc_ptr");
-            String elemType = TypeMapper.mapType(ace.getElementType());
+            String elemType = ace.getLevels().size()>1 ? "i32" : TypeMapper.mapType(ace.getElementType());
             int headerOffset = (elemType.equals("f64") || elemType.equals("i64")) ? 8 : 4;
             int elemSize = (elemType.equals("f64") || elemType.equals("i64")) ? 8 : 4;
 
@@ -1598,6 +1598,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
 
                 collector.append("    i32.const ").append(alignedBytes).append("\n");
                 collector.append("    call $__javaw_array_bytes_alloc\n    local.set $").append(array).append("\n");
+                emitArrayTag(collector,array,getExpressionJavaType(ace,localJavaTypes),ace);
 
                 collector.append("    local.get $").append(array).append("\n");
                 collector.append("    i32.const ").append(n).append("\n");
@@ -1617,6 +1618,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 collector.append("    local.get $__arr_alloc_len\n    i32.const ").append(elemSize)
                         .append("\n    i32.const ").append(headerOffset)
                         .append("\n    call $__javaw_array_alloc\n    local.set $").append(array).append("\n");
+                emitArrayTag(collector,array,getExpressionJavaType(ace,localJavaTypes),ace);
 
                 collector.append("    local.get $").append(array).append("\n");
             }
@@ -1634,6 +1636,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
 
             collector.append("    i32.const ").append(alignedBytes).append("\n");
             collector.append("    call $__javaw_array_bytes_alloc\n    local.set $").append(array).append("\n");
+            emitArrayTag(collector,array,elementJava+"[]",expr);
 
             collector.append("    local.get $").append(array).append("\n");
             collector.append("    i32.const ").append(n).append("\n");
@@ -2292,9 +2295,13 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 } else if (mName.equals("toCharArray")) {
                     translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "String");
                     collector.append("    call $__str_toCharArray\n");
+                    if(classRegistry!=null && classRegistry.hasClass("__JavawReflection"))
+                        collector.append("    call $__javaw_tag_char_array\n");
                 } else if (mName.equals("getBytes")) {
                     translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "String");
                     collector.append("    call $__str_getBytes\n");
+                    if(classRegistry!=null && classRegistry.hasClass("__JavawReflection"))
+                        collector.append("    call $__javaw_tag_byte_array\n");
                 } else if (mName.equals("repeat")) {
                     translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "String");
                     translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
@@ -6561,6 +6568,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             collector.append("    i32.const ").append(4 + count * 4).append("\n");
             collector.append("    call $__javaw_array_bytes_alloc\n");
             collector.append("    local.set $arr\n");
+            emitArrayTag(collector,"arr",enumName+"[]",cu);
             collector.append("    local.get $arr\n");
             collector.append("    i32.const ").append(count).append("\n");
             collector.append("    i32.store\n");
@@ -6640,10 +6648,39 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         collector.append("  )\n");
     }
 
+    private void emitArrayTag(StringBuilder out,String local,String type,Node context) {
+        if(classRegistry==null || !classRegistry.hasClass("__JavawReflection")) return;
+        String erased=ReflectionSupport.erasedArrayType(type,context);
+        ClassModel model=classRegistry.getClass(erased);
+        if(model==null) return; // Unknown host/internal arrays retain the untyped-array marker.
+        out.append("    local.get $").append(local).append("\n    i32.const 4\n    i32.sub\n    i32.const ")
+                .append(model.getClassId()+2).append("\n    i32.store\n");
+    }
+
     private void emitClassInitializersAndHelpers(CompilationUnit cu, StringBuilder collector) {
         if (classRegistry == null) return;
 
         if (classRegistry.hasClass("__JavawReflection")) {
+            collector.append("  (func $__javaw_array_matches (param $value i32) (param $expected i32) (result i32) (local $block i32) (local $tag i32)\n")
+                    .append("    local.get $value call $__gc_find local.tee $block i32.eqz if i32.const 0 return end\n")
+                    .append("    local.get $value local.get $block i32.const 16 i32.add i32.ne if i32.const 0 return end\n")
+                    .append("    local.get $block i32.load offset=12 local.set $tag\n");
+            for(ClassModel expected:classRegistry.getClasses().values()) if(expected.getName().endsWith("[]")) {
+                collector.append("    local.get $expected global.get $__class_").append(ClassRegistry.classSymbol(expected.getName()))
+                        .append(" i32.eq\n    if\n");
+                for(ClassModel actual:classRegistry.getClasses().values())
+                    if(actual.getName().endsWith("[]") && classRegistry.canWiden(actual.getName(),expected.getName()))
+                        collector.append("      local.get $tag i32.const ").append(actual.getClassId()+2)
+                                .append(" i32.eq if i32.const 1 return end\n");
+                collector.append("      i32.const 0 return\n    end\n");
+            }
+            collector.append("    i32.const 0\n  )\n");
+            for(String type:List.of("int[]","double[]","String[]","char[]","byte[]")) {
+                ClassModel model=classRegistry.getClass(type);
+                collector.append("  (func $__javaw_tag_").append(type.substring(0,type.length()-2)).append("_array (export \"__javaw_tag_").append(type.substring(0,type.length()-2)).append("_array\") (param $value i32) (result i32)\n")
+                        .append("    local.get $value i32.const 4 i32.sub i32.const ").append(model.getClassId()+2)
+                        .append(" i32.store local.get $value)\n");
+            }
             collector.append("  (func $__javaw_is_string (param $value i32) (result i32) (local $block i32)\n")
                     .append("    local.get $value i32.eqz if i32.const 0 return end\n")
                     .append("    local.get $value call $__javaw_is_object if i32.const 0 return end\n")

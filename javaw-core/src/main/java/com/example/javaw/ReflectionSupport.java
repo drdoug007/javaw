@@ -196,6 +196,9 @@ final class ReflectionSupport {
         for(String source:annotationObjects) LibrarySupport.add(cu,"java.lang.annotation",source);
     }
 
+    static String erasedArrayType(String type,Node context) {
+        return erased(type,context);
+    }
     private static String erased(String type,Node context) {
         return GenericTypes.eraseVariables(type,context).replaceAll("<[^<>]*>", "");
     }
@@ -272,7 +275,7 @@ final class ReflectionSupport {
     }
     private String conversion(String value,String type,String local) {
         if(BoxingSupport.wrapper(type)!=null) return type+" "+local+"=__JavawReflection.__javaw_as_"+type+"("+value+");";
-        if(type.endsWith("[]")) return "if("+value+"!=null) throw new UnsupportedOperationException(\"Reflective array argument type checking is unavailable\"); "+type+" "+local+"=null;";
+        if(type.endsWith("[]")) return "if("+value+"!=null && !__JavawReflection.__javaw_array_matches("+value+","+classLiteral(type)+")) throw new IllegalArgumentException(); "+type+" "+local+"=("+type+")"+value+";";
         String check=type.equals("Object")?"":type.equals("String")?"if("+value+"!=null && !__JavawReflection.__javaw_is_string("+value+")) throw new IllegalArgumentException();"
                 :"if("+value+"!=null && !("+value+" instanceof "+type+")) throw new IllegalArgumentException();";
         return check+type+" "+local+"=("+type+")"+value+";";
@@ -289,6 +292,7 @@ final class ReflectionSupport {
             source.append("throw new IllegalArgumentException(); }");
         }
         source.append("public static native boolean __javaw_is_string(Object value);");
+        source.append("public static native boolean __javaw_array_matches(Object value,Class<?> expected);");
     }
 
     private void annotationMetadata(StringBuilder helper,CompilationUnit cu) {

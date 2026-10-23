@@ -6,7 +6,7 @@ import java.util.regex.Pattern;
 /** Non-moving conservative tracing at explicit, stack-free host safepoints. */
 final class ManagedHeap {
     static void emitAllocator(StringBuilder out) {
-        // Header: capacity, flags (used/marked/scanned/object), host retain count, reserved.
+        // Header: capacity, flags (used/marked/scanned/object), host retain count, payload type tag (0 raw/string, 1 untyped array, class id + 2 typed array).
         out.append("""
           (func $__heap_alloc (export "__heap_alloc") (param $size i32) (result i32)
             (local $block i32) (local $capacity i32) (local $need i32) (local $end i32) (local $split i32)

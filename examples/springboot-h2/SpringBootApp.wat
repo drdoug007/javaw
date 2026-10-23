@@ -1812,7 +1812,7 @@
     i32.mul
     i32.const 4
     i32.add
-    call $__heap_alloc
+    call $__javaw_array_bytes_alloc
     local.set $arr
     local.get $arr
     local.get $len
@@ -2639,6 +2639,11 @@
     local.get $totalBytes
     call $__javaw_array_bytes_alloc
     local.set $newArr
+    local.get $arr
+    if
+      local.get $newArr i32.const 4 i32.sub
+      local.get $arr i32.const 4 i32.sub i32.load i32.store
+    end
     local.get $newArr
     local.get $newLen
     i32.store
@@ -2688,6 +2693,11 @@
     local.get $totalBytes
     call $__javaw_array_bytes_alloc
     local.set $newArr
+    local.get $arr
+    if
+      local.get $newArr i32.const 4 i32.sub
+      local.get $arr i32.const 4 i32.sub i32.load i32.store
+    end
     local.get $newArr
     local.get $newLen
     i32.store
@@ -2744,6 +2754,11 @@
     i32.add
     call $__javaw_array_bytes_alloc
     local.set $newArr
+    local.get $arr
+    if
+      local.get $newArr i32.const 4 i32.sub
+      local.get $arr i32.const 4 i32.sub i32.load i32.store
+    end
     local.get $newArr
     local.get $newLen
     i32.store
@@ -2792,6 +2807,11 @@
     i32.add
     call $__javaw_array_bytes_alloc
     local.set $newArr
+    local.get $arr
+    if
+      local.get $newArr i32.const 4 i32.sub
+      local.get $arr i32.const 4 i32.sub i32.load i32.store
+    end
     local.get $newArr
     local.get $newLen
     i32.store

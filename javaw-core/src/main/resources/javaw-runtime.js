@@ -318,6 +318,8 @@
                 ptr = (this.instance.exports.__javaw_array_bytes_alloc || this.instance.exports.__heap_alloc)(byteSize);
             }
             if (ptr > 0) {
+                const tag = this.instance.exports.__javaw_tag_int_array;
+                if (tag) tag(ptr);
                 const view = new DataView(this.getMemory().buffer);
                 view.setInt32(ptr, len, true);
                 for (let i = 0; i < len; i++) {
@@ -336,6 +338,8 @@
                 ptr = (this.instance.exports.__javaw_array_bytes_alloc || this.instance.exports.__heap_alloc)(byteSize);
             }
             if (ptr > 0) {
+                const tag = this.instance.exports.__javaw_tag_double_array;
+                if (tag) tag(ptr);
                 const view = new DataView(this.getMemory().buffer);
                 view.setInt32(ptr, len, true);
                 for (let i = 0; i < len; i++) {
@@ -354,6 +358,8 @@
                 ptr = (this.instance.exports.__javaw_array_bytes_alloc || this.instance.exports.__heap_alloc)(byteSize);
             }
             if (ptr > 0) {
+                const tag = this.instance.exports.__javaw_tag_String_array;
+                if (tag) tag(ptr);
                 const view = new DataView(this.getMemory().buffer);
                 view.setInt32(ptr, len, true);
                 for (let i = 0; i < len; i++) {

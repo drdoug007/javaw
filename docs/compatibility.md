@@ -80,7 +80,7 @@ mvn -o -pl javaw-bytecode -am test \
 
 ## Remaining Phase 4 and Phase 5 work
 
-Remaining reflection compatibility (array arguments, enum/record/library members,
+Remaining reflection compatibility (enum/record/library members,
 full access and Class semantics); worker-safe allocation,
 monitor ownership, blocking wait/notify and thread lifecycle/JMM; comprehensive
 I/O/NIO/network/date-time/regex/serialization; complete JLS conversions and

@@ -403,7 +403,14 @@ public class ClassRegistry {
         }
 
         if (classes.containsKey("__JavawReflection")) {
-            Set<String> descriptorNames = new LinkedHashSet<>(List.of("String", "Object"));
+            Set<String> descriptorNames = new LinkedHashSet<>(List.of("String", "Object", "int[]", "double[]", "String[]", "Object[]", "char[]", "byte[]"));
+            for (var array : cu.findAll(com.github.javaparser.ast.type.ArrayType.class))
+                descriptorNames.add(ReflectionSupport.erasedArrayType(array.asString(),array));
+            for (var array : cu.findAll(com.github.javaparser.ast.expr.ArrayCreationExpr.class))
+                descriptorNames.add(ReflectionSupport.erasedArrayType(array.getElementType().asString()+"[]".repeat(array.getLevels().size()),array));
+            for (ClassModel model : classes.values()) for (MethodModel method : model.getMethods().values())
+                for (String parameter : method.getParamTypeNames()) if(parameter.endsWith("[]"))
+                    descriptorNames.add(ReflectionSupport.erasedArrayType(parameter,method.getDeclaration()==null?cu:method.getDeclaration()));
             for (var literal : cu.findAll(com.github.javaparser.ast.expr.ClassExpr.class))
                 descriptorNames.add(literal.getType().asString().replaceAll("<[^<>]*>", ""));
             for (String name : descriptorNames) if (!classes.containsKey(name))
