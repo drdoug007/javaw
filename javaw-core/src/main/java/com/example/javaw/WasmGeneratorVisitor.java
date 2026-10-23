@@ -3100,6 +3100,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 }
             }
             String targetType = getExpressionJavaType(fae.getScope(), localJavaTypes);
+            if (fName.equals("length") && targetType != null && targetType.endsWith("[]")) return "int";
             if (targetType != null && classRegistry != null && classRegistry.hasClass(targetType)) {
                 FieldModel fm = classRegistry.getClass(targetType).getField(fName);
                 if (fm != null) return GenericTypes.readable(classRegistry.fieldType(targetType, fName));
