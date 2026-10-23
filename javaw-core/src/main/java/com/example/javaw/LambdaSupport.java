@@ -41,6 +41,8 @@ final class LambdaSupport {
         }
     }
     private void lower() {
+        registry=ClassRegistry.build(cu);
+        inferEmptyFactories();
         // Outer callbacks establish parameter types needed by nested callbacks.
         while (true) {
             Expression callback = cu.findAll(Expression.class).stream()
@@ -54,6 +56,47 @@ final class LambdaSupport {
             registry = ClassRegistry.build(cu);
             lower(callback);
         }
+    }
+    /** Supply context to factories whose arguments contribute no type constraints. */
+    private void inferEmptyFactories() {
+        for(MethodCallExpr call:cu.findAll(MethodCallExpr.class)) {
+            if(call.getTypeArguments().isPresent() || call.getArguments().stream().anyMatch(a->!a.isNullLiteralExpr())) continue;
+            Map<String,String> variables;
+            try { variables=locals(call); }
+            catch(IllegalArgumentException unsupported) { continue; }
+            String expected;
+            try { expected=contextType(call,variables); }
+            catch(IllegalArgumentException unsupported) { continue; }
+            if(expected==null || expected.equals("var") || expected.contains("?")) continue;
+            String owner;
+            try { owner=call.getScope().map(e->type(e,variables)).orElseGet(()->call.findAncestor(ClassOrInterfaceDeclaration.class).map(c->c.getNameAsString()).orElse("")); }
+            catch(IllegalArgumentException unsupported) { continue; }
+            var methods=registry.methodCandidates(owner,call.getNameAsString()).stream()
+                .filter(m->m.getParamTypeNames().size()==call.getArguments().size()).toList();
+            if(methods.size()!=1 || methods.get(0).getDeclaration()==null) continue;
+            MethodModel method=methods.get(0);
+            var params=GenericTypes.parameters(method.getDeclaration());
+            if(params.isEmpty()) continue;
+            Set<String> names=new LinkedHashSet<>(); params.forEach(p->names.add(p.getNameAsString()));
+            Map<String,String> bindings=new LinkedHashMap<>();
+            GenericTypes.constrain(method.getReturnTypeName(),expected,names,bindings,registry);
+            if(!bindings.keySet().containsAll(names)) continue;
+            // Captures/intersections cannot be expressed as explicit source witnesses.
+            if(bindings.values().stream().anyMatch(t->t.contains("?") || t.contains("&"))) continue;
+            NodeList<com.github.javaparser.ast.type.Type> witnesses=new NodeList<>();
+            params.forEach(p->witnesses.add(StaticJavaParser.parseType(bindings.get(p.getNameAsString()))));
+            call.setTypeArguments(witnesses);
+        }
+    }
+    private String contextType(Expression expression,Map<String,String> variables) {
+        Node parent=expression.getParentNode().orElse(null);
+        if(parent instanceof VariableDeclarator v) return v.getTypeAsString();
+        if(parent instanceof AssignExpr a) return type(a.getTarget(),variables);
+        if(parent instanceof ReturnStmt) return expression.findAncestor(MethodDeclaration.class).map(m->m.getTypeAsString()).orElse(null);
+        if(parent instanceof CastExpr c) return c.getTypeAsString();
+        if(parent instanceof EnclosedExpr e) return contextType(e,variables);
+        if(parent instanceof ConditionalExpr c) return contextType(c,variables);
+        return null;
     }
     private Map<String,String> locals(Node node) {
         Map<String,String> result = new LinkedHashMap<>();
@@ -132,6 +175,15 @@ final class LambdaSupport {
     private void lower(Expression callback) {
         Map<String,String> variables = locals(callback);
         String target = target(callback, variables);
+        // Ground a wildcard functional target before generating its implementation.
+        if(target.contains("?")) {
+            var grounded=StaticJavaParser.parseClassOrInterfaceType(target);
+            for(var wildcard:new ArrayList<>(grounded.findAll(com.github.javaparser.ast.type.WildcardType.class))) {
+                var bound=wildcard.getExtendedType().orElseGet(()->wildcard.getSuperType().orElse(StaticJavaParser.parseClassOrInterfaceType("Object")));
+                wildcard.replace(bound.clone());
+            }
+            target=grounded.asString();
+        }
         ClassModel iface = registry.getClass(target);
         if (iface == null || !iface.isInterface()) throw JavaSourcePreparation.error(callback,"Callback target is not a source functional interface: " + target);
         MethodModel sam;

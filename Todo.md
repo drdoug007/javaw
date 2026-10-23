@@ -339,6 +339,8 @@ Checked items elsewhere describe supported subsets, not complete Java/JDK/JVM co
   - [x] Collection bulk operations, backed nested sublists, live map key/value/entry views, entry mutation, map compute/merge defaults, and iterator removal with state/fail-fast checks; executable Wasm regressions cover view propagation and immutable iterator guards. Complete JDK collection coverage remains a follow-up.
   - [x] Inherited/default functional-interface methods, generic SAM substitution, subtype default dispatch, Function composition/identity, Predicate composition/negation, Consumer sequencing, and inherited UnaryOperator/BinaryOperator contracts.
   - [ ] Full wildcard/target typing.
+    - [x] Infer otherwise unconstrained empty/null factory type arguments from declaration, assignment, return, and conditional contexts; ground wildcard functional-interface targets for generated lambda implementations. Executable Wasm tests cover Optional/Stream factories and wildcard Function/Predicate/Supplier callbacks.
+    - [ ] Complete nested poly-expression inference, overload-sensitive lambda inference, wildcard capture, and intersection constraints.
 
 ### Phase 3: Decimal arithmetic and memory reclamation
 
