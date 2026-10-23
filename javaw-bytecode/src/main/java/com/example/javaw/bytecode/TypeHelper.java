@@ -63,7 +63,7 @@ public class TypeHelper {
         } else if ("_clinit_".equals(name)) {
             name = "_clinit";
         }
-        return "$" + owner + "_" + name;
+        return "$" + owner + "_" + name + "_" + java.util.HexFormat.of().formatHex(methodDescriptor.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
     public static String getGlobalFieldName(String ownerInternalName, String fieldName) {

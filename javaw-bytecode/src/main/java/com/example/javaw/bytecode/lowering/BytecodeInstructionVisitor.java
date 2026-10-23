@@ -184,9 +184,26 @@ public class BytecodeInstructionVisitor {
             case Opcodes.IMUL:
                 visitBinaryOp("i32", "i32.mul");
                 break;
-            case Opcodes.IDIV:
-                visitBinaryOp("i32", "i32.div_s");
+            case Opcodes.IDIV: {
+                String divisor = stack.pop();
+                String dividend = stack.peek();
+                emit("local.get " + dividend);
+                emit("i32.const -2147483648");
+                emit("i32.eq");
+                emit("local.get " + divisor);
+                emit("i32.const -1");
+                emit("i32.eq");
+                emit("i32.and");
+                emit("if (result i32)");
+                emit("i32.const -2147483648");
+                emit("else");
+                emit("local.get " + dividend);
+                emit("local.get " + divisor);
+                emit("i32.div_s");
+                emit("end");
+                emit("local.set " + dividend);
                 break;
+            }
             case Opcodes.IREM:
                 visitBinaryOp("i32", "i32.rem_s");
                 break;
@@ -462,7 +479,7 @@ public class BytecodeInstructionVisitor {
                 break;
 
             default:
-                break;
+                throw new IllegalArgumentException("Unsupported bytecode opcode " + opcode);
         }
     }
 
@@ -490,10 +507,8 @@ public class BytecodeInstructionVisitor {
             String slot = stack.push("i32");
             emit("i32.const " + ptr);
             emit("local.set " + slot);
-        } else if (cst instanceof Type) {
-            String slot = stack.push("i32");
-            emit("i32.const 1");
-            emit("local.set " + slot);
+        } else {
+            throw new IllegalArgumentException("Unsupported LDC constant " + cst.getClass().getName());
         }
     }
 
@@ -520,6 +535,9 @@ public class BytecodeInstructionVisitor {
         if (!isStatic) {
             thisVar = stack.pop();
         }
+
+        // java.lang.Object's empty constructor has no runtime action in this layout.
+        if (minsn.owner.equals("java/lang/Object") && minsn.name.equals("<init>") && minsn.desc.equals("()V")) return;
 
         // Special handling for System.out.println / String methods / Math
         String funcName = TypeHelper.getMethodFunctionName(minsn.owner, minsn.name, minsn.desc);

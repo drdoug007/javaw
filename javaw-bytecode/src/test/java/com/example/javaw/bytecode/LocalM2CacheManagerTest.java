@@ -80,6 +80,13 @@ public class LocalM2CacheManagerTest {
         assertNotNull(meta2);
         assertEquals(meta1.getJarSha256(), meta2.getJarSha256());
 
+        // Compiler semantics must invalidate otherwise identical artifact bytes.
+        meta2.setCompilerVersion("1.0-SNAPSHOT");
+        java.nio.file.Files.writeString(jsonFile.toPath(), meta2.toJson());
+        assertFalse(cacheManager.isCacheValid(groupId, artifactId, version, jarFile));
+        cacheManager.getOrCompile(groupId, artifactId, version, jarFile);
+        assertTrue(cacheManager.isCacheValid(groupId, artifactId, version, jarFile));
+
         // 4. Invalidation: Modify JAR content
         createSampleJar(jarFile, 100); // changes SHA-256
         assertFalse(cacheManager.isCacheValid(groupId, artifactId, version, jarFile));

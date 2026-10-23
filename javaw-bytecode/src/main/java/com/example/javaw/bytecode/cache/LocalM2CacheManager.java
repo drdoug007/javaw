@@ -48,7 +48,8 @@ public class LocalM2CacheManager {
             String json = new String(Files.readAllBytes(metaFile.toPath()), StandardCharsets.UTF_8);
             CacheMetadata meta = CacheMetadata.fromJson(json);
             String currentHash = JarHashUtil.computeSha256(jarFile);
-            return currentHash.equalsIgnoreCase(meta.getJarSha256());
+            return CacheMetadata.COMPILER_VERSION.equals(meta.getCompilerVersion())
+                    && currentHash.equalsIgnoreCase(meta.getJarSha256());
         } catch (Exception e) {
             return false;
         }

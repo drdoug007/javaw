@@ -2,12 +2,10 @@ package com.example.javaw.bytecode;
 
 import com.example.javaw.bytecode.cfg.BasicBlock;
 import com.example.javaw.bytecode.cfg.ControlFlowGraph;
-import com.example.javaw.bytecode.cfg.Relooper;
 import com.example.javaw.bytecode.lowering.BytecodeInstructionVisitor;
 import com.example.javaw.bytecode.lowering.StackToLocalMapper;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 
 import java.util.*;
@@ -30,6 +28,11 @@ public class ClassBytecodeCompiler {
     }
 
     public String compileToWat() {
+        return compileToWat(java.util.Map.of(classNode.name, classNode));
+    }
+
+    String compileToWat(Map<String, ClassNode> linked) {
+        BytecodeCompatibility.validate(classNode, linked);
         StringBuilder wat = new StringBuilder();
         wat.append("(module\n");
         wat.append("    (import \"env\" \"memory\" (memory 2 20))\n");
@@ -44,7 +47,7 @@ public class ClassBytecodeCompiler {
                 String wasmType = TypeHelper.getWasmType(fn.desc);
                 globalVariables.add(gName);
                 wat.append("    (global ").append(gName).append(" (mut ").append(wasmType != null ? wasmType : "i32")
-                   .append(") (").append(wasmType != null ? wasmType : "i32").append(".const 0))\n");
+                   .append(") (").append(wasmType != null ? wasmType : "i32").append(".const ").append(fn.value instanceof Integer ? fn.value : 0).append("))\n");
             } else {
                 fieldOffsets.put(classNode.name + "." + fn.name, instanceOffset);
                 String wasmType = TypeHelper.getWasmType(fn.desc);
@@ -92,10 +95,13 @@ public class ClassBytecodeCompiler {
         }
         wat.append("\n");
 
-        // Build CFG and Relooper
         ControlFlowGraph cfg = ControlFlowGraph.build(mn);
-        Relooper relooper = new Relooper();
-        Relooper.Shape rootShape = relooper.reloop(cfg);
+        org.objectweb.asm.tree.analysis.Frame<org.objectweb.asm.tree.analysis.BasicValue>[] frames;
+        try {
+            frames = new org.objectweb.asm.tree.analysis.Analyzer<>(new org.objectweb.asm.tree.analysis.BasicInterpreter()).analyze(classNode.name, mn);
+        } catch (org.objectweb.asm.tree.analysis.AnalyzerException error) {
+            throw BytecodeCompatibility.failure(classNode, mn, error.node, "invalid operand stack", "recompile valid Java bytecode: " + error.getMessage());
+        }
 
         // Locals mapping
         StackToLocalMapper mapper = new StackToLocalMapper(mn.maxLocals, mn.maxStack);
@@ -120,97 +126,48 @@ public class ClassBytecodeCompiler {
             wat.append("        local.set $l_").append(lIdx++).append("\n");
         }
 
-        // Render shapes
-        renderShape(rootShape, wat, mapper, new HashSet<>());
-
-        // Default fallback return for non-void
-        if (retType != null) {
-            wat.append("        ").append(retType).append(".const 0\n");
-        }
-        wat.append("    )\n");
-    }
-
-    private void renderShape(Relooper.Shape shape, StringBuilder wat, StackToLocalMapper mapper, Set<Integer> activeLoops) {
-        if (shape == null) return;
-
-        if (shape instanceof Relooper.LoopShape) {
-            Relooper.LoopShape loop = (Relooper.LoopShape) shape;
-            wat.append("        (block $block_exit_").append(loop.getId()).append("\n");
-            wat.append("            (loop $loop_").append(loop.getId()).append("\n");
-            activeLoops.add(loop.getId());
-
-            renderShape(loop.getInner(), wat, mapper, activeLoops);
-
-            activeLoops.remove(loop.getId());
-            wat.append("            )\n");
-            wat.append("        )\n");
-
-            renderShape(loop.getNext(), wat, mapper, activeLoops);
-
-        } else if (shape instanceof Relooper.SimpleShape) {
-            Relooper.SimpleShape simple = (Relooper.SimpleShape) shape;
-            BasicBlock block = simple.getBlock();
-
-            // Lower instructions
+        // Explicit state dispatch preserves every branch target, including joins and back edges.
+        wat.append("        (loop $loop_dispatch\n");
+        for (BasicBlock block : cfg.getBlocks()) {
+            AbstractInsnNode first = block.getInstructions().get(0);
+            var frame = frames[mn.instructions.indexOf(first)];
+            if (frame == null) continue; // Unreachable JVM instructions.
+            mapper.setStackDepth(frame.getStackSize());
+            wat.append("        local.get $__state\n        i32.const ").append(block.getId()).append("\n        i32.eq\n        if\n");
             BytecodeInstructionVisitor visitor = new BytecodeInstructionVisitor(mapper, stringPool, fieldOffsets);
-            for (AbstractInsnNode insn : block.getInstructions()) {
-                if (!(insn instanceof JumpInsnNode) && !(insn instanceof TableSwitchInsnNode) && !(insn instanceof LookupSwitchInsnNode)) {
-                    visitor.visitInsn(insn);
-                }
+            AbstractInsnNode terminal = null;
+            for (AbstractInsnNode instruction : block.getInstructions()) {
+                if (instruction.getOpcode() >= 0) terminal = instruction;
+                if (!(instruction instanceof JumpInsnNode)) visitor.visitInsn(instruction);
             }
             wat.append(visitor.getOutput());
-
-            // Handle branching at block exit
-            handleBranching(block, wat, mapper, activeLoops);
-
-            renderShape(simple.getNext(), wat, mapper, activeLoops);
-
-        } else if (shape instanceof Relooper.MultipleShape) {
-            Relooper.MultipleShape multi = (Relooper.MultipleShape) shape;
-            wat.append("        (block $multi_").append(multi.getId()).append("\n");
-            for (Map.Entry<BasicBlock, Relooper.Shape> entry : multi.getHandlers().entrySet()) {
-                wat.append("            (block $handler_").append(entry.getKey().getId()).append("\n");
-                renderShape(entry.getValue(), wat, mapper, activeLoops);
-                wat.append("                br $multi_").append(multi.getId()).append("\n");
-                wat.append("            )\n");
+            if (terminal instanceof JumpInsnNode jump) {
+                if (jump.getOpcode() == Opcodes.GOTO) {
+                    setState(wat, block.getBranchTarget());
+                } else {
+                    emitJumpCondition(jump.getOpcode(), wat, mapper);
+                    wat.append("        if\n");
+                    setState(wat, block.getBranchTarget());
+                    wat.append("        else\n");
+                    setState(wat, block.getFallthrough());
+                    wat.append("        end\n");
+                }
+                wat.append("        br $loop_dispatch\n");
+            } else if (terminal == null || terminal.getOpcode() != Opcodes.RETURN
+                    && terminal.getOpcode() != Opcodes.IRETURN && terminal.getOpcode() != Opcodes.ARETURN) {
+                if (block.getFallthrough() != null) {
+                    setState(wat, block.getFallthrough());
+                    wat.append("        br $loop_dispatch\n");
+                } else wat.append("        unreachable\n");
             }
-            wat.append("        )\n");
-
-            renderShape(multi.getNext(), wat, mapper, activeLoops);
+            wat.append("        end\n");
         }
+        wat.append("        unreachable\n        )\n        unreachable\n    )\n");
     }
 
-    private void handleBranching(BasicBlock block, StringBuilder wat, StackToLocalMapper mapper, Set<Integer> activeLoops) {
-        AbstractInsnNode lastInsn = null;
-        for (int i = block.getInstructions().size() - 1; i >= 0; i--) {
-            AbstractInsnNode in = block.getInstructions().get(i);
-            if (!(in instanceof LineNumberNode) && !(in instanceof FrameNode)) {
-                lastInsn = in;
-                break;
-            }
-        }
-
-        if (lastInsn instanceof JumpInsnNode) {
-            JumpInsnNode jump = (JumpInsnNode) lastInsn;
-            int opcode = jump.getOpcode();
-
-            if (opcode == Opcodes.GOTO) {
-                // If branchTarget is a loop header
-                if (block.getBranchTarget() != null && block.getBranchTarget().isLoopHeader()) {
-                    for (int loopId : activeLoops) {
-                        wat.append("        br $loop_").append(loopId).append("\n");
-                    }
-                }
-            } else {
-                // Conditional jump
-                emitJumpCondition(opcode, wat, mapper);
-                if (block.getBranchTarget() != null && block.getBranchTarget().isLoopHeader()) {
-                    for (int loopId : activeLoops) {
-                        wat.append("        br_if $loop_").append(loopId).append("\n");
-                    }
-                }
-            }
-        }
+    private void setState(StringBuilder wat, BasicBlock target) {
+        if (target == null) throw new IllegalArgumentException("Missing bytecode branch target");
+        wat.append("        i32.const ").append(target.getId()).append("\n        local.set $__state\n");
     }
 
     private void emitJumpCondition(int opcode, StringBuilder wat, StackToLocalMapper mapper) {
@@ -298,7 +255,7 @@ public class ClassBytecodeCompiler {
                 wat.append("        i32.ne\n");
                 break;
             default:
-                break;
+                throw new IllegalArgumentException("Unsupported branch opcode " + opcode);
         }
     }
 }
