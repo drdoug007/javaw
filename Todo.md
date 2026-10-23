@@ -332,7 +332,13 @@ Checked items elsewhere describe supported subsets, not complete Java/JDK/JVM co
 - [x] Implement sequential Stream pipelines, terminal operations, and short-circuit behavior; track parallel streams separately.
   - Lazy pull pipelines support finite/collection and infinite generated/iterated sources, map/filter/flatMap/peek/distinct/skip/limit, reduction, matching, find, count, min/max, forEach, arrays, unmodifiable toList, and mutable Collectors.toList/toSet. Wasm execution verifies callback counts, short-circuiting, null results, and single-use errors.
 - [ ] Implement parallel stream execution and scheduling; parallel() currently throws UnsupportedOperationException.
-- [ ] Expand the Phase 2 library subset: primitive streams, sorted/takeWhile/dropWhile, full Collector contracts and collector factories, collection bulk operations/views, iterator removal, inherited/default functional-interface methods, and full wildcard/target typing.
+- [ ] Expand the Phase 2 library subset:
+  - [x] Stable sorted (natural/custom comparators), takeWhile, and dropWhile with lazy traversal and short-circuit tests.
+  - [ ] Primitive streams.
+  - [ ] Full Collector contracts and collector factories.
+  - [ ] Collection bulk operations/views and iterator removal.
+  - [ ] Inherited/default functional-interface methods.
+  - [ ] Full wildcard/target typing.
 
 ### Phase 3: Decimal arithmetic and memory reclamation
 

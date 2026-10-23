@@ -32,6 +32,14 @@ final class CollectionRuntime {
               local.get $b call $__javaw_is_object if i32.const 0 return end
               local.get $a local.get $b call $__str_equals
             end)
+          (func $__javaw_compare (param $a i32) (param $b i32) (result i32)
+            local.get $a call $__require_nonnull drop
+            local.get $b call $__require_nonnull drop
+            local.get $a call $__javaw_is_object
+            if (result i32)
+              local.get $a local.get $b local.get $a i32.load i32.const 4 i32.add
+              call_indirect (param i32 i32) (result i32)
+            else local.get $a local.get $b call $__str_compareTo end)
           (func $__javaw_hash (param $value i32) (result i32)
             (local $hash i32) (local $index i32) (local $char i32)
             local.get $value i32.eqz if i32.const 0 return end

@@ -23,6 +23,7 @@ final class CollectionSupport {
             class __JavawObjects {
                 public static boolean same(Object a,Object b) { return false; }
                 public static int hash(Object value) { return 0; }
+                public static int compare(Object a,Object b) { return 0; }
             }
             class ArrayList<E> implements List<E> {
                 private Object[] data;

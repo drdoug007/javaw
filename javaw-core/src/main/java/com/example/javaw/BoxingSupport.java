@@ -63,6 +63,16 @@ final class BoxingSupport {
             if (logical || character) body.append("public ").append(primitive).append(' ').append(logical ? "booleanValue" : "charValue").append("() { return __boxedValue; }");
             else for (String type : List.of("byte", "short", "int", "long", "float", "double"))
                 body.append("public ").append(type).append(' ').append(type).append("Value() { return (").append(type).append(")__boxedValue; }");
+            body.append("public int compareTo(Object other) { ").append(wrapper).append(" that = (").append(wrapper).append(")other; ");
+            if (logical) body.append("return __boxedValue == that.__boxedValue ? 0 : (__boxedValue ? 1 : -1); }");
+            else if (primitive.equals("float") || primitive.equals("double")) {
+                String bits = primitive.equals("float") ? "Float.floatToIntBits" : "Double.doubleToLongBits";
+                body.append("if (__boxedValue < that.__boxedValue) return -1; if (__boxedValue > that.__boxedValue) return 1;")
+                    .append("if (__boxedValue != __boxedValue) return that.__boxedValue != that.__boxedValue ? 0 : 1;")
+                    .append("if (that.__boxedValue != that.__boxedValue) return -1;")
+                    .append("return ").append(bits).append("(__boxedValue) < ").append(bits).append("(that.__boxedValue) ? -1 : (")
+                    .append(bits).append("(__boxedValue) == ").append(bits).append("(that.__boxedValue) ? 0 : 1); }");
+            } else body.append("return __boxedValue < that.__boxedValue ? -1 : (__boxedValue == that.__boxedValue ? 0 : 1); }");
             body.append("public boolean equals(Object other) { if (!(other instanceof ").append(wrapper)
                     .append(")) return false; ").append(wrapper).append(" that = (").append(wrapper).append(")other; ");
             if (primitive.equals("float") || primitive.equals("double")) {

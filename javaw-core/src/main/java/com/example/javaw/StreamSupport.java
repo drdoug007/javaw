@@ -6,6 +6,10 @@ final class StreamSupport {
     static void addTypes(CompilationUnit cu) {
         LibrarySupport.add(cu,"java.util", """
             interface Comparator<T> { public int compare(T left,T right); }
+            class __JavawNaturalComparator<T> implements Comparator<T> {
+                public __JavawNaturalComparator() {}
+                public int compare(T left,T right) { return __JavawObjects.compare(left,right); }
+            }
             class __JavawArrayIterator<T> implements Iterator<T> {
                 private T[] values; private int index;
                 public __JavawArrayIterator(T[] values) { this.values=values; }
@@ -68,6 +72,10 @@ final class StreamSupport {
                 private HashSet<Object> seen;
                 private long remaining;
                 private Object current;
+                private Comparator<T> ordering;
+                private ArrayList<T> sortedValues;
+                private int sortedIndex;
+                private boolean prefixDone;
                 private boolean used;
                 private boolean closed;
                 private Stream(Iterator<T> source) { this.source=source; }
@@ -119,6 +127,19 @@ final class StreamSupport {
                     if(mapper==null) throw new NullPointerException();
                     start(); Stream<R> result=new Stream<R>(this,7); result.mapper=mapper; return result;
                 }
+                public Stream<T> sorted() { return sorted(new __JavawNaturalComparator<T>()); }
+                public Stream<T> sorted(Comparator<T> comparator) {
+                    if(comparator==null) throw new NullPointerException();
+                    Stream<T> result=link(8); result.ordering=comparator; return result;
+                }
+                public Stream<T> takeWhile(Predicate<T> predicate) {
+                    if(predicate==null) throw new NullPointerException();
+                    Stream<T> result=link(9); result.predicate=predicate; return result;
+                }
+                public Stream<T> dropWhile(Predicate<T> predicate) {
+                    if(predicate==null) throw new NullPointerException();
+                    Stream<T> result=link(10); result.predicate=predicate; return result;
+                }
                 private boolean advance() {
                     if(closed) throw new IllegalStateException();
                     if(stage==0) {
@@ -126,6 +147,23 @@ final class StreamSupport {
                         if(!source.hasNext()) return false;
                         current=source.next(); return true;
                     }
+                    if(stage==8) {
+                        if(sortedValues==null) {
+                            sortedValues=new ArrayList<T>();
+                            while(parent.advance()) sortedValues.add((T)parent.current);
+                            // Stable insertion sort retains encounter order for equal keys.
+                            for(int i=1;i<sortedValues.size();i++) {
+                                T value=sortedValues.get(i); int j=i;
+                                while(j>0 && ordering.compare(sortedValues.get(j-1),value)>0) {
+                                    sortedValues.set(j,sortedValues.get(j-1)); j--;
+                                }
+                                sortedValues.set(j,value);
+                            }
+                        }
+                        if(sortedIndex>=sortedValues.size()) return false;
+                        current=sortedValues.get(sortedIndex); sortedIndex++; return true;
+                    }
+                    if(stage==9 && prefixDone) return false;
                     if(stage==4 && remaining==0) return false;
                     if(stage==7) {
                         while(true) {
@@ -138,6 +176,8 @@ final class StreamSupport {
                     }
                     while(parent.advance()) {
                         Object value=parent.current;
+                        if(stage==9 && !predicate.test(value)) { prefixDone=true; return false; }
+                        if(stage==10 && !prefixDone) { if(predicate.test(value)) continue; prefixDone=true; }
                         if(stage==2 && !predicate.test(value)) continue;
                         if(stage==5 && remaining>0) { remaining--; continue; }
                         if(stage==6 && !seen.add(value)) continue;
