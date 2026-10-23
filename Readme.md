@@ -20,6 +20,7 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
 | :--- | :--- |
 | Lambdas and method references | General closures, captured variables, functional interfaces, and method references are not implemented; Spring callback patterns have special lowering. |
 | Collections and streams | General JDK collections and Stream pipelines are not implemented. Spring repository lists are lowered to reference arrays. |
+| Lambdas | Reusable closure objects capture effectively-final locals and lexical `this`; functional interfaces and static/bound/unbound/constructor method references use Wasm dispatch. Explicitly typed callback locals resolve ambiguous targets; complete JLS target typing remains pending. |
 | Optional | Source-backed `empty`, `of`, `ofNullable`, presence checks, `get`, eager/lazy defaults, exception suppliers, `map`, `flatMap`, `filter`, and `ifPresent` execute in Wasm. Functional callbacks use interface dispatch; empty/null factories may require explicit type witnesses (`Optional.<String>empty()`). |
 | Decimal arithmetic | BigDecimal passes decimal text through memory; general arithmetic, rounding, and scale semantics are pending. |
 | Memory management | Objects and temporary allocations use a bump allocator without automatic reclamation. |
@@ -43,7 +44,7 @@ Generic, wrapper, and varargs regressions execute Wasm in `GenericInferenceTest`
 
 Primitive numeric regressions in `NumericConformanceTest` execute typed mutations, compound assignment promotion/narrowing, constant-expression ternaries, saturating float-to-integer casts, division edge cases, and floating remainder entirely in Wasm.
 
-Phase 1 source-resolution foundations are implemented for the tested subset. The next priorities are general Optional and lambdas, collections, decimal arithmetic, and memory reclamation. See [the compatibility roadmap](Todo.md#13-java-compatibility-roadmap) for acceptance criteria and remaining work.
+Phase 1 source-resolution foundations and source-backed Optional/closures are implemented for the tested subset. The next priorities are collections, streams, decimal arithmetic, and memory reclamation. See [the compatibility roadmap](Todo.md#13-java-compatibility-roadmap) for acceptance criteria and remaining work.
 
 ## Features
 

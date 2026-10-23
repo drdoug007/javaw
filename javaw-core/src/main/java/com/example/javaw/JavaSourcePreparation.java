@@ -137,6 +137,11 @@ final class JavaSourcePreparation {
         }
         // Bodies of nested callables have their own local namespace.
         @Override public void visit(ClassOrInterfaceDeclaration n, Void unused) { }
-        @Override public void visit(LambdaExpr n, Void unused) { }
+        @Override public void visit(LambdaExpr n, Void unused) {
+            scopes.push(new HashMap<>());
+            n.getParameters().forEach(p -> declare(p.getName()));
+            n.getBody().accept(this, null);
+            scopes.pop();
+        }
     }
 }

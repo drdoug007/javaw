@@ -63,6 +63,7 @@ final class SpringWebSupport {
                 }
             }
             """));
+        LibrarySupport.add(cu, "org.springframework.boot", "interface ApplicationRunner { public void run(ApplicationArguments args); }");
         support.lowerStartup(cu);
         support.lowerDecimalConstants(cu);
         support.lowerLists(cu);
@@ -197,7 +198,7 @@ final class SpringWebSupport {
         for (ClassOrInterfaceDeclaration application : cu.findAll(ClassOrInterfaceDeclaration.class)) {
             if (!application.isAnnotationPresent("SpringBootApplication")) continue;
             List<MethodDeclaration> callbacks = new ArrayList<>();
-            for (MethodDeclaration bean : application.getMethods()) {
+            for (MethodDeclaration bean : new ArrayList<>(application.getMethods())) {
                 if (!bean.isAnnotationPresent("Bean")) continue;
                 if (!bean.getTypeAsString().equals("ApplicationRunner") || !bean.getParameters().isEmpty()
                         || bean.getBody().isEmpty() || bean.getBody().get().getStatements().size() != 1
@@ -207,16 +208,12 @@ final class SpringWebSupport {
                         .orElseThrow(() -> unsupported("ApplicationRunner return value"));
                 if (!returned.isLambdaExpr() || returned.asLambdaExpr().getParameters().size() != 1)
                     throw unsupported("ApplicationRunner requires a one-argument lambda");
-                LambdaExpr lambda = returned.asLambdaExpr();
-                var body = lambda.getBody().isBlockStmt() ? lambda.getBody().asBlockStmt().clone()
-                        : new com.github.javaparser.ast.stmt.BlockStmt().addStatement(lambda.getBody().clone());
-                bean.setName("__javaw_runner_" + application.getNameAsString() + "_" + bean.getNameAsString());
-                bean.setType("void");
-                bean.addParameter("ApplicationArguments", lambda.getParameter(0).getNameAsString());
-                bean.setBody(body);
-                callbacks.add(bean);
+                MethodDeclaration callback = new MethodDeclaration().setName("__javaw_runner_" + application.getNameAsString() + "_" + bean.getNameAsString()).setType("void");
+                callback.addParameter("ApplicationArguments", "args");
+                callback.setBody(StaticJavaParser.parseBlock("{ " + bean.getNameAsString() + "().run(args); }"));
+                callbacks.add(callback);
             }
-            if (!callbacks.isEmpty()) runners.put(application, callbacks);
+            if (!callbacks.isEmpty()) { callbacks.forEach(application::addMember); runners.put(application, callbacks); }
         }
     }
 

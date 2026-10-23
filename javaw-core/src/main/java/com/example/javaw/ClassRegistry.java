@@ -98,7 +98,8 @@ public class ClassRegistry {
 
                 String funcName;
                 if (isStatic) {
-                    funcName = "$" + mName;
+                    boolean library = cd.containsData(JavaSourcePreparation.PACKAGE) && cd.getData(JavaSourcePreparation.PACKAGE).startsWith("java.util");
+                    funcName = library ? "$" + className + "_" + mName : "$" + mName;
                 } else if (!cm.isOopClass() && !com.example.javaw.js.JsAnnotationHelper.getClassImportAnnotation(cd).isPresent()) {
                     funcName = "$" + mName;
                 } else {
