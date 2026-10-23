@@ -134,9 +134,9 @@ final class LambdaSupport {
         String target = target(callback, variables);
         ClassModel iface = registry.getClass(target);
         if (iface == null || !iface.isInterface()) throw JavaSourcePreparation.error(callback,"Callback target is not a source functional interface: " + target);
-        var methods = iface.getMethods().values().stream().filter(MethodModel::isVirtual).toList();
-        if (methods.size()!=1) throw JavaSourcePreparation.error(callback,"Callback target must have one abstract method");
-        MethodModel sam = registry.methodCandidates(target, methods.get(0).getName()).get(0);
+        MethodModel sam;
+        try { sam = registry.functionalMethod(target); }
+        catch (IllegalArgumentException error) { throw JavaSourcePreparation.error(callback,error.getMessage()); }
         String name = "__JavawLambda" + sequence++;
         ClassOrInterfaceDeclaration generated = new ClassOrInterfaceDeclaration().setName(name);
         generated.addImplementedType(target);

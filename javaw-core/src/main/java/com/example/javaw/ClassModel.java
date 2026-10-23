@@ -155,6 +155,6 @@ public class ClassModel {
                 break;
             }
         }
-        return hasInstanceFields || !constructors.isEmpty() || superClassName != null || isExported;
+        return hasInstanceFields || !implementedInterfaces.isEmpty() || !constructors.isEmpty() || superClassName != null || isExported;
     }
 }

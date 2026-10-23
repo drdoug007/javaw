@@ -1764,6 +1764,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                         fm = currentClass.getField(fName);
                     }
                     if (fm != null) {
+                        if(fm.isStatic()) { collector.append("    global.get $").append(fName).append("\n"); emitNumericWidening(fm.getWasmType(),expectedType,collector); return; }
                         translateExpression(fae.getScope(), collector, localTypes, localElementTypes, localJavaTypes, "i32");
                         collector.append("    ").append(getLoadInstruction(fm.getWasmType())).append(" offset=").append(fm.getOffset()).append("\n");
                         emitNumericWidening(fm.getWasmType(), expectedType, collector);

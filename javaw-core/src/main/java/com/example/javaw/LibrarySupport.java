@@ -8,11 +8,51 @@ final class LibrarySupport {
     static void addTypes(CompilationUnit cu) {
         add(cu, "java.util.function", """
             interface Supplier<T> { public T get(); }
-            interface Function<T,R> { public R apply(T value); }
-            interface Predicate<T> { public boolean test(T value); }
-            interface Consumer<T> { public void accept(T value); }
-            interface UnaryOperator<T> { public T apply(T value); }
-            interface BinaryOperator<T> { public T apply(T left, T right); }
+            interface Function<T,R> {
+                public R apply(T value);
+                public default <V> Function<T,V> andThen(Function<R,V> after) {
+                    if(after==null) throw new NullPointerException(); return new __JavawCompose<T,R,V>(this,after);
+                }
+                public default <V> Function<V,R> compose(Function<V,T> before) {
+                    if(before==null) throw new NullPointerException(); return new __JavawCompose<V,T,R>(before,this);
+                }
+                public static <V> Function<V,V> identity() { return new __JavawIdentity<V>(); }
+            }
+            interface Predicate<T> {
+                public boolean test(T value);
+                public default Predicate<T> negate() { return new __JavawNegate<T>(this); }
+                public default Predicate<T> and(Predicate<T> other) { if(other==null) throw new NullPointerException(); return new __JavawPredicatePair<T>(this,other,true); }
+                public default Predicate<T> or(Predicate<T> other) { if(other==null) throw new NullPointerException(); return new __JavawPredicatePair<T>(this,other,false); }
+            }
+            interface Consumer<T> {
+                public void accept(T value);
+                public default Consumer<T> andThen(Consumer<T> after) { if(after==null) throw new NullPointerException(); return new __JavawConsumerPair<T>(this,after); }
+            }
+            interface UnaryOperator<T> extends Function<T,T> {}
+            interface BiFunction<T,U,R> { public R apply(T first,U second); }
+            interface BiConsumer<T,U> { public void accept(T first,U second); }
+            interface BinaryOperator<T> extends BiFunction<T,T,T> {}
+            class __JavawCompose<T,U,R> implements Function<T,R> {
+                private Function<T,U> before; private Function<U,R> after;
+                public __JavawCompose(Function<T,U> before,Function<U,R> after) { this.before=before; this.after=after; }
+                public R apply(T value) { return after.apply(before.apply(value)); }
+            }
+            class __JavawIdentity<T> implements Function<T,T> { public __JavawIdentity() {} public T apply(T value) { return value; } }
+            class __JavawNegate<T> implements Predicate<T> {
+                private Predicate<T> predicate;
+                public __JavawNegate(Predicate<T> predicate) { this.predicate=predicate; }
+                public boolean test(T value) { return !predicate.test(value); }
+            }
+            class __JavawPredicatePair<T> implements Predicate<T> {
+                private Predicate<T> first; private Predicate<T> second; private boolean conjunction;
+                public __JavawPredicatePair(Predicate<T> first,Predicate<T> second,boolean conjunction) { this.first=first; this.second=second; this.conjunction=conjunction; }
+                public boolean test(T value) { return conjunction ? first.test(value) && second.test(value) : first.test(value) || second.test(value); }
+            }
+            class __JavawConsumerPair<T> implements Consumer<T> {
+                private Consumer<T> first; private Consumer<T> second;
+                public __JavawConsumerPair(Consumer<T> first,Consumer<T> second) { this.first=first; this.second=second; }
+                public void accept(T value) { first.accept(value); second.accept(value); }
+            }
             """);
         add(cu, "java.util", """
             class Optional<T> {

@@ -337,7 +337,7 @@ Checked items elsewhere describe supported subsets, not complete Java/JDK/JVM co
   - [x] Core IntStream/LongStream/DoubleStream pipelines, primitive functional interfaces, reference/cross-primitive mapping, ranges, optional primitive results, reductions, arrays, and numeric terminals. Pipeline storage is currently boxed; specialized storage and complete statistics/collector overload coverage remain library follow-ups.
   - [ ] Full Collector contracts and collector factories.
   - [ ] Collection bulk operations/views and iterator removal.
-  - [ ] Inherited/default functional-interface methods.
+  - [x] Inherited/default functional-interface methods, generic SAM substitution, subtype default dispatch, Function composition/identity, Predicate composition/negation, Consumer sequencing, and inherited UnaryOperator/BinaryOperator contracts.
   - [ ] Full wildcard/target typing.
 
 ### Phase 3: Decimal arithmetic and memory reclamation

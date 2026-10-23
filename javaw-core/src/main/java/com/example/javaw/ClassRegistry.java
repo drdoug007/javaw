@@ -606,6 +606,19 @@ public class ClassRegistry {
             }
 
             if (slots.size() == 10) slots.addAll(interfaceSlots);
+            Set<String> defaultNames = new HashSet<>();
+            for(MethodModel contract: interfaceSlots) if(contract.getDeclaration() instanceof MethodDeclaration declaration && declaration.isDefault()) defaultNames.add(contract.getName());
+            Map<String,List<MethodModel>> defaultCandidates = new HashMap<>();
+            for(int i=10;i<slots.size();i++) {
+                MethodModel inherited=slots.get(i);
+                ClassModel declarationOwner=getClass(inherited.getClassName());
+                if(declarationOwner==null || !declarationOwner.isInterface() || !defaultNames.contains(inherited.getName())
+                        || asSuperType(cm.getName(),declarationOwner.getName())==null) continue;
+                for(MethodModel candidate : defaultCandidates.computeIfAbsent(inherited.getName(), name -> methodCandidates(cm.getName(),name))) {
+                    if(candidate.getDeclaration() instanceof MethodDeclaration declaration && declaration.isDefault()
+                            && overridesParameters(candidate,inherited)) { slots.set(i,candidate); break; }
+                }
+            }
             for (MethodModel mm : cm.getMethods().values()) {
                 if (mm.isVirtual()) {
                     boolean overridden = false;
@@ -724,6 +737,25 @@ public class ClassRegistry {
             }
         }
         result.add("Object"); return new ArrayList<>(result);
+    }
+
+    /** Abstract instance contract after inherited substitution and default-method resolution. */
+    MethodModel functionalMethod(String owner) {
+        Set<String> names = new LinkedHashSet<>();
+        for (String parent : sourceSupertypes(owner)) {
+            ClassModel model = getClass(parent);
+            if (model != null) model.getMethods().values().forEach(m -> names.add(m.getName()));
+        }
+        Map<String,MethodModel> contracts = new LinkedHashMap<>();
+        for (String name : names) for (MethodModel method : methodCandidates(owner,name)) {
+            if (!method.isVirtual() || !(method.getDeclaration() instanceof MethodDeclaration declaration)
+                    || declaration.getBody().isPresent()) continue;
+            if ((name.equals("equals") && method.getParamTypeNames().equals(List.of("Object")))
+                    || (Set.of("hashCode","toString").contains(name) && method.getParamTypeNames().isEmpty())) continue;
+            contracts.putIfAbsent(method.getSignatureKey(),method);
+        }
+        if(contracts.size()!=1) throw new IllegalArgumentException("Callback target must have one abstract method; found " + contracts.keySet());
+        return contracts.values().iterator().next();
     }
 
     String asSuperType(String actual, String expected) {
