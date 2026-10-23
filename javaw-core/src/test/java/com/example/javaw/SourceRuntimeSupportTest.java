@@ -40,16 +40,32 @@ class SourceRuntimeSupportTest {
             """);
     }
 
+    @Test void executesStaticNestedClasses() throws Exception {
+        byte[] wasm = JavacToWasm.compile("Outer.java", """
+            class Outer {
+                static class Nested {
+                    int value; Nested(int n) { value=n; }
+                    public int read() { return value; }
+                }
+                public static int nested() { var n=new Nested(42); return n.read(); }
+            }
+            """,false).getWasm();
+        OverloadResolutionTest.execute(wasm,"assert.equal(e.nested(),42);");
+        var duplicate=StaticJavaParser.parse("class A { static class Item {} } class B { static class Item {} }");
+        assertTrue(assertThrows(IllegalArgumentException.class,()->SourceRuntimeSupport.prepare(duplicate))
+                .getMessage().contains("duplicate flattened type name"));
+    }
+
     @Test void rejectsUnsupportedConstructsWithLocationAndRemediation() {
         for (String construct : new String[]{"void f() { synchronized(this) {} }", "synchronized void f() {}",
-                "volatile int x;", "native void f();", "void f() { Object x = new Object() {}; }", "class Inner {}",
+                "void f() { do {} while(false); }", "volatile int x;", "native void f();", "void f() { Object x = new Object() {}; }", "class Inner {}",
                 "void f() { class Local {} }"}) {
             var cu = StaticJavaParser.parse("class Audit {\n" + construct + "\n}");
             JavaSourcePreparation.markSource(cu, "Audit.java");
             var error = assertThrows(IllegalArgumentException.class, () -> SourceRuntimeSupport.prepare(cu));
             assertTrue(error.getMessage().startsWith("Audit.java:2:"), error.getMessage());
             assertTrue(error.getMessage().contains("Unsupported"));
-            assertTrue(error.getMessage().contains("; use") || error.getMessage().contains(": move") || error.getMessage().contains(": provide"));
+            assertTrue(error.getMessage().contains("; use") || error.getMessage().contains(": move") || error.getMessage().contains(": provide") || error.getMessage().contains(": rewrite"));
         }
     }
 }

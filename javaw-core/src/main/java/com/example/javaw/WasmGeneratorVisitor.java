@@ -861,6 +861,9 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             collector.append("    throw $Exception\n");
         } else if (stmt.isTryStmt()) {
             translateTryStatement(stmt.asTryStmt(), collector, localTypes, localElementTypes, localJavaTypes, returnWasmType);
+        } else if (!stmt.isEmptyStmt()) {
+            throw JavaSourcePreparation.error(stmt, "Unsupported statement " + stmt.getClass().getSimpleName()
+                    + "; rewrite using supported control flow instead of silently omitting it");
         }
     }
 

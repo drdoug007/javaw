@@ -10,6 +10,8 @@ import java.util.ArrayList;
 /** Audits user input before generated library types enter the compilation unit. */
 final class SourceRuntimeSupport {
     static void prepare(CompilationUnit cu) {
+        for (DoStmt statement : cu.findAll(DoStmt.class))
+            throw JavaSourcePreparation.error(statement, "Unsupported do-while statement: rewrite using a while loop with an explicit first iteration");
         for (SynchronizedStmt statement : cu.findAll(SynchronizedStmt.class))
             throw JavaSourcePreparation.error(statement, "Unsupported synchronized block: monitors require a worker-safe runtime; use explicit host coordination");
         for (MethodDeclaration method : cu.findAll(MethodDeclaration.class))
@@ -30,9 +32,18 @@ final class SourceRuntimeSupport {
         for (ObjectCreationExpr creation : cu.findAll(ObjectCreationExpr.class))
             if (creation.getAnonymousClassBody().isPresent()) throw JavaSourcePreparation.error(creation,
                     "Unsupported anonymous class: move the implementation to a named top-level class");
-        for (TypeDeclaration<?> type : cu.findAll(TypeDeclaration.class))
-            if (!(type.getParentNode().orElse(null) instanceof CompilationUnit)) throw JavaSourcePreparation.error(type,
-                    "Unsupported nested/local type: move '" + type.getNameAsString() + "' to a top-level declaration");
+        var names = new java.util.HashSet<String>();
+        for (TypeDeclaration<?> type : cu.findAll(TypeDeclaration.class)) {
+            if (!names.add(type.getNameAsString())) throw JavaSourcePreparation.error(type,
+                    "Unsupported duplicate flattened type name '" + type.getNameAsString() + "'; use unique simple names across the module");
+            var parent = type.getParentNode().orElse(null);
+            boolean staticMember = parent instanceof TypeDeclaration<?> && (type.isStatic()
+                    || type.isEnumDeclaration() || type.isRecordDeclaration()
+                    || type instanceof ClassOrInterfaceDeclaration declaration && declaration.isInterface()
+                    || parent instanceof ClassOrInterfaceDeclaration declaration && declaration.isInterface());
+            if (!(parent instanceof CompilationUnit) && !staticMember) throw JavaSourcePreparation.error(type,
+                    "Unsupported non-static inner/local type: move '" + type.getNameAsString() + "' to a top-level declaration");
+        }
         var assertions = new ArrayList<>(cu.findAll(AssertStmt.class));
         if (assertions.isEmpty()) return;
         if (cu.getTypes().stream().anyMatch(t -> t.getNameAsString().equals("__JavawAssertions")))
