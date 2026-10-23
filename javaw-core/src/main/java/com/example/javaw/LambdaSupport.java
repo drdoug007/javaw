@@ -44,7 +44,12 @@ final class LambdaSupport {
         // Outer callbacks establish parameter types needed by nested callbacks.
         while (true) {
             Expression callback = cu.findAll(Expression.class).stream()
-                .filter(e -> e.isLambdaExpr() || e.isMethodReferenceExpr()).findFirst().orElse(null);
+                .filter(e -> e.isLambdaExpr() || e.isMethodReferenceExpr())
+                // The existing logging facade treats listener registration as a host/no-op API.
+                .filter(e -> !(e.getParentNode().orElse(null) instanceof MethodCallExpr call
+                    && call.getNameAsString().equals("addListener")
+                    && call.getScope().map(Object::toString).orElse("").equals("SimpleLogger")))
+                .findFirst().orElse(null);
             if (callback == null) return;
             registry = ClassRegistry.build(cu);
             lower(callback);
@@ -136,6 +141,8 @@ final class LambdaSupport {
         ClassOrInterfaceDeclaration generated = new ClassOrInterfaceDeclaration().setName(name);
         generated.addImplementedType(target);
         var owner = callback.findAncestor(ClassOrInterfaceDeclaration.class).orElseThrow();
+        generated.setData(JavaSourcePreparation.LEXICAL_OWNER,owner.containsData(JavaSourcePreparation.LEXICAL_OWNER)
+            ? owner.getData(JavaSourcePreparation.LEXICAL_OWNER) : owner.getNameAsString());
         if (owner.containsData(JavaSourcePreparation.PACKAGE)) generated.setData(JavaSourcePreparation.PACKAGE,owner.getData(JavaSourcePreparation.PACKAGE));
         MethodDeclaration implementation = generated.addMethod(sam.getName(), Modifier.Keyword.PUBLIC).setType(sam.getReturnTypeName());
         if (callback.isLambdaExpr() && callback.asLambdaExpr().getParameters().size() != sam.getParamTypeNames().size())

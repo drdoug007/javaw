@@ -11,6 +11,7 @@ final class LibrarySupport {
             interface Function<T,R> { public R apply(T value); }
             interface Predicate<T> { public boolean test(T value); }
             interface Consumer<T> { public void accept(T value); }
+            interface UnaryOperator<T> { public T apply(T value); }
             interface BinaryOperator<T> { public T apply(T left, T right); }
             """);
         add(cu, "java.util", """

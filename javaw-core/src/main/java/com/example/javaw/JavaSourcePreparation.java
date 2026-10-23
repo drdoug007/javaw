@@ -12,6 +12,7 @@ import java.util.*;
 final class JavaSourcePreparation {
     static final DataKey<String> LOWERED_JAVA_TYPE = new DataKey<>() {};
     static final DataKey<Boolean> VARARGS = new DataKey<>() {};
+    static final DataKey<String> LEXICAL_OWNER = new DataKey<>() {};
     static final DataKey<String> PACKAGE = new DataKey<>() {};
     private static final DataKey<String> SOURCE = new DataKey<>() {};
 

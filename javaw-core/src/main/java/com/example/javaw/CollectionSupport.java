@@ -9,6 +9,7 @@ final class CollectionSupport {
             interface Collection<E> extends Iterable<E> {
                 public int size(); public boolean isEmpty(); public boolean add(E value);
                 public boolean contains(Object value); public boolean remove(Object value); public void clear();
+                public Stream<E> stream();
             }
             interface List<E> extends Collection<E> {
                 public E get(int index); public E set(int index,E value); public E remove(int index);
@@ -60,6 +61,7 @@ final class CollectionSupport {
                 }
                 public void clear() { for(int i=0;i<count;i++) data[i]=null; count=0; version++; }
                 public Iterator<E> iterator() { return new __JavawListIterator<E>(this); }
+                public Stream<E> stream() { return Stream.fromCollection(this); }
                 public Object[] toArray() {
                     Object[] result=new Object[count]; for(int i=0;i<count;i++) result[i]=data[i]; return result;
                 }
@@ -149,6 +151,7 @@ final class CollectionSupport {
                 public boolean add(K key) { throw new UnsupportedOperationException(); }
                 public void clear() { map.clear(); }
                 public Iterator<K> iterator() { return map.keyIterator(); }
+                public Stream<K> stream() { return Stream.fromCollection(this); }
             }
             class HashSet<E> implements Set<E> {
                 private HashMap<E,Boolean> map;
@@ -160,6 +163,7 @@ final class CollectionSupport {
                 public boolean remove(Object value) { boolean exists=map.containsKey(value); map.remove(value); return exists; }
                 public void clear() { map.clear(); }
                 public Iterator<E> iterator() { return map.keyIterator(); }
+                public Stream<E> stream() { return Stream.fromCollection(this); }
             }
             """);
     }

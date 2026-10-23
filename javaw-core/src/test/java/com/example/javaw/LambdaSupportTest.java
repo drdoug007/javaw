@@ -4,11 +4,12 @@ import static org.junit.jupiter.api.Assertions.*;
 class LambdaSupportTest {
     @Test void executesClosuresMethodReferencesAndOptionalCallbacks() throws Exception {
         byte[] wasm = JavacToWasm.compile("App.java", """
+            class Plain { public Plain() {} public int value() { return 6; } }
             class App {
                 public int base;
                 public static int calls;
                 public App(int base) { this.base=base; }
-                public int read() { return base; }
+                private int read() { return base; }
                 public static App make() { return new App(7); }
                 public static String fallback() { calls++; return "empty"; }
                 public static Integer twice(Integer x) { return x*2; }
@@ -24,6 +25,10 @@ class LambdaSupportTest {
                     Supplier<Integer> bound = app::read;
                     app.base=11;
                     if (bound.get()!=11) return -9;
+                    Supplier<Plain> constructor = Plain::new;
+                    if(constructor.get().value()!=6) return -11;
+                    Supplier<Integer> expressionBound = new App(12)::read;
+                    if(expressionBound.get()!=12) return -12;
                     Supplier<App> factory = App::make;
                     if (factory.get().base!=7) return -10;
                     Supplier<String> fallback = App::fallback;

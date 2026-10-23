@@ -329,7 +329,10 @@ Checked items elsewhere describe supported subsets, not complete Java/JDK/JVM co
   - Captured effectively-final values and lexical receivers use closure fields; static, bound/unbound, and constructor references lower to interface objects. Spring startup runners share this path. Ambiguous callback targets require explicitly typed locals; complete JLS target typing remains in Phase 4.
 - [x] Implement ArrayList, HashMap, HashSet, iteration, and collection interfaces with documented null/equality behavior.
   - Growable lists, resizing bucketed maps/sets, live key sets, generic interfaces, enhanced for and fail-fast next() execute in Wasm. Null elements/keys/values are accepted; strings compare by content and source objects use virtual equals/hashCode. Full collection API/view coverage remains a library follow-up.
-- [ ] Implement sequential Stream pipelines, terminal operations, and short-circuit behavior; track parallel streams separately.
+- [x] Implement sequential Stream pipelines, terminal operations, and short-circuit behavior; track parallel streams separately.
+  - Lazy pull pipelines support finite/collection and infinite generated/iterated sources, map/filter/flatMap/peek/distinct/skip/limit, reduction, matching, find, count, min/max, forEach, arrays, unmodifiable toList, and mutable Collectors.toList/toSet. Wasm execution verifies callback counts, short-circuiting, null results, and single-use errors.
+- [ ] Implement parallel stream execution and scheduling; parallel() currently throws UnsupportedOperationException.
+- [ ] Expand the Phase 2 library subset: primitive streams, sorted/takeWhile/dropWhile, full Collector contracts and collector factories, collection bulk operations/views, iterator removal, inherited/default functional-interface methods, and full wildcard/target typing.
 
 ### Phase 3: Decimal arithmetic and memory reclamation
 
