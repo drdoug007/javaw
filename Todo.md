@@ -349,7 +349,7 @@ Checked items elsewhere describe supported subsets, not complete Java/JDK/JVM co
 
 - [x] Implement source-backed arbitrary-precision BigInteger and BigDecimal construction, arithmetic, scale, all eight RoundingMode values, comparison, exact integer conversions, and exact decimal JSON marshalling. String/int/long/unscaled and exact binary-double constructors are supported; constant double valueOf factories use JDK shortest formatting at compile time. Runtime double valueOf, MathContext overloads, and the rest of the JDK math API remain library follow-ups.
 - [x] Reclaim unreachable objects, arrays, strings, buffers, and cycles with conservative tracing at explicit host safepoints; reuse/split/coalesce cleared blocks and define counted host retains. Wasm regressions verify static/closure/interior roots, exception cleanup, and stable 500-cycle allocation and 300-cycle CRUD workloads after cache warm-up. Collection during active Wasm calls and concurrent collection remain unsupported.
-- [ ] Evaluate tracing GC, explicit runtime reclamation, and the existing WasmGC backend proposal; define object roots and host-reference ownership.
+- [x] Evaluate arenas, explicit ownership, precise/conservative tracing, and the WasmGC backend proposal in [the memory-management design](docs/memory-management.md). Choose non-moving conservative tracing at stack-free host safepoints; define static/host/interior roots, counted retains, and asynchronous/JS-wrapper ownership. Precise in-call tracing, concurrent collection, and a WasmGC backend remain separate future work.
 
 ### Phase 4: Runtime semantics and standard libraries
 
