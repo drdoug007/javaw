@@ -52,6 +52,14 @@ final class BoxingSupport {
                     .append("public static Boolean valueOf(boolean value) { if (value) { if (__trueBoolean == null) __trueBoolean = new Boolean(true); return __trueBoolean; }")
                     .append("if (__falseBoolean == null) __falseBoolean = new Boolean(false); return __falseBoolean; }");
             } else body.append("public static ").append(wrapper).append(" valueOf(").append(primitive).append(" value) { return new ").append(wrapper).append("(value); }");
+            if (!character) {
+                String parser = "parse" + (wrapper.equals("Integer") ? "Int" : wrapper);
+                body.append("public static ").append(wrapper).append(" valueOf(String text) { return valueOf((")
+                        .append(primitive).append(")").append(wrapper).append('.').append(parser).append("(text)); }");
+                if (Set.of("Integer", "Byte", "Short").contains(wrapper))
+                    body.append("public static ").append(wrapper).append(" valueOf(String text, int radix) { return valueOf((")
+                            .append(primitive).append(")").append(wrapper).append('.').append(parser).append("(text, radix)); }");
+            }
             if (logical || character) body.append("public ").append(primitive).append(' ').append(logical ? "booleanValue" : "charValue").append("() { return __boxedValue; }");
             else for (String type : List.of("byte", "short", "int", "long", "float", "double"))
                 body.append("public ").append(type).append(' ').append(type).append("Value() { return (").append(type).append(")__boxedValue; }");

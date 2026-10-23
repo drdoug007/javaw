@@ -6040,6 +6040,30 @@
     global.get $__falseBoolean
     return
   )
+  (func $Boolean_valueOf__53_74_72_69_6e_67_ (export "Boolean_valueOf__53_74_72_69_6e_67_") (param $text i32) (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
+    (local $__receiver$19 i32)
+    (local $__receiver$20 i32)
+    (local $__caught_exc i32)
+    local.get $text
+    call $__str_parse_bool
+    call $Boolean_valueOf__62_6f_6f_6c_65_61_6e_
+    return
+  )
   (func $Boolean_booleanValue (export "Boolean_booleanValue") (param $this i32) (result i32)
     (local $__arr_alloc_ptr i32)
     (local $__arr_alloc_len i32)
@@ -6264,6 +6288,57 @@
     local.get $__obj_alloc_ptr
     return
   )
+  (func $Byte_valueOf__53_74_72_69_6e_67_ (export "Byte_valueOf__53_74_72_69_6e_67_") (param $text i32) (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
+    (local $__receiver$21 i32)
+    (local $__receiver$22 i32)
+    (local $__caught_exc i32)
+    local.get $text
+    call $__str_parse_i32
+    i32.extend8_s
+    call $Byte_valueOf__62_79_74_65_
+    return
+  )
+  (func $Byte_valueOf__53_74_72_69_6e_67___69_6e_74_ (export "Byte_valueOf__53_74_72_69_6e_67___69_6e_74_") (param $text i32) (param $radix i32) (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
+    (local $__receiver$23 i32)
+    (local $__receiver$24 i32)
+    (local $__caught_exc i32)
+    local.get $text
+    local.get $radix
+    call $__str_parse_i32_radix
+    i32.extend8_s
+    call $Byte_valueOf__62_79_74_65_
+    return
+  )
   (func $Byte_byteValue (export "Byte_byteValue") (param $this i32) (result i32)
     (local $__arr_alloc_ptr i32)
     (local $__arr_alloc_len i32)
@@ -6486,7 +6561,7 @@
     local.get $value
     i32.store offset=8
   )
-  (func $Character_valueOf__63_68_61_72_ (export "Character_valueOf__63_68_61_72_") (param $value i32) (result i32)
+  (func $valueOf (export "valueOf") (param $value i32) (result i32)
     (local $index i32)
     (local $result i32)
     (local $__arr_alloc_ptr i32)
@@ -6732,6 +6807,30 @@
     local.get $__obj_alloc_ptr
     return
   )
+  (func $Double_valueOf__53_74_72_69_6e_67_ (export "Double_valueOf__53_74_72_69_6e_67_") (param $text i32) (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
+    (local $__receiver$25 i32)
+    (local $__receiver$26 i32)
+    (local $__caught_exc i32)
+    local.get $text
+    call $__str_parse_f64
+    call $Double_valueOf__64_6f_75_62_6c_65_
+    return
+  )
   (func $Double_byteValue (export "Double_byteValue") (param $this i32) (result i32)
     (local $__arr_alloc_ptr i32)
     (local $__arr_alloc_len i32)
@@ -6882,8 +6981,8 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
-    (local $__receiver$19 i32)
-    (local $__receiver$20 i32)
+    (local $__receiver$27 i32)
+    (local $__receiver$28 i32)
     (local $__caught_exc i32)
     local.get $other
     local.set $__obj_tmp
@@ -6952,7 +7051,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
-    (local $__receiver$21 i32)
+    (local $__receiver$29 i32)
     (local $__caught_exc i32)
     local.get $this
     f64.load offset=8
@@ -7018,6 +7117,31 @@
     local.get $value
     call $Float__init
     local.get $__obj_alloc_ptr
+    return
+  )
+  (func $Float_valueOf__53_74_72_69_6e_67_ (export "Float_valueOf__53_74_72_69_6e_67_") (param $text i32) (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
+    (local $__receiver$30 i32)
+    (local $__receiver$31 i32)
+    (local $__caught_exc i32)
+    local.get $text
+    call $__str_parse_f64
+    f32.demote_f64
+    call $Float_valueOf__66_6c_6f_61_74_
     return
   )
   (func $Float_byteValue (export "Float_byteValue") (param $this i32) (result i32)
@@ -7170,8 +7294,8 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
-    (local $__receiver$22 i32)
-    (local $__receiver$23 i32)
+    (local $__receiver$32 i32)
+    (local $__receiver$33 i32)
     (local $__caught_exc i32)
     local.get $other
     local.set $__obj_tmp
@@ -7239,7 +7363,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
-    (local $__receiver$24 i32)
+    (local $__receiver$34 i32)
     (local $__caught_exc i32)
     local.get $this
     f32.load offset=8
@@ -7373,6 +7497,55 @@
     local.get $value
     call $Integer__init
     local.get $__obj_alloc_ptr
+    return
+  )
+  (func $Integer_valueOf__53_74_72_69_6e_67_ (export "Integer_valueOf__53_74_72_69_6e_67_") (param $text i32) (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
+    (local $__receiver$35 i32)
+    (local $__receiver$36 i32)
+    (local $__caught_exc i32)
+    local.get $text
+    call $__str_parse_i32
+    call $Integer_valueOf__69_6e_74_
+    return
+  )
+  (func $Integer_valueOf__53_74_72_69_6e_67___69_6e_74_ (export "Integer_valueOf__53_74_72_69_6e_67___69_6e_74_") (param $text i32) (param $radix i32) (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
+    (local $__receiver$37 i32)
+    (local $__receiver$38 i32)
+    (local $__caught_exc i32)
+    local.get $text
+    local.get $radix
+    call $__str_parse_i32_radix
+    call $Integer_valueOf__69_6e_74_
     return
   )
   (func $Integer_byteValue (export "Integer_byteValue") (param $this i32) (result i32)
@@ -7705,6 +7878,30 @@
     local.get $value
     call $Long__init
     local.get $__obj_alloc_ptr
+    return
+  )
+  (func $Long_valueOf__53_74_72_69_6e_67_ (export "Long_valueOf__53_74_72_69_6e_67_") (param $text i32) (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
+    (local $__receiver$39 i32)
+    (local $__receiver$40 i32)
+    (local $__caught_exc i32)
+    local.get $text
+    call $__str_parse_i64
+    call $Long_valueOf__6c_6f_6e_67_
     return
   )
   (func $Long_byteValue (export "Long_byteValue") (param $this i32) (result i32)
@@ -8043,6 +8240,57 @@
     local.get $value
     call $Short__init
     local.get $__obj_alloc_ptr
+    return
+  )
+  (func $Short_valueOf__53_74_72_69_6e_67_ (export "Short_valueOf__53_74_72_69_6e_67_") (param $text i32) (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
+    (local $__receiver$41 i32)
+    (local $__receiver$42 i32)
+    (local $__caught_exc i32)
+    local.get $text
+    call $__str_parse_i32
+    i32.extend16_s
+    call $Short_valueOf__73_68_6f_72_74_
+    return
+  )
+  (func $Short_valueOf__53_74_72_69_6e_67___69_6e_74_ (export "Short_valueOf__53_74_72_69_6e_67___69_6e_74_") (param $text i32) (param $radix i32) (result i32)
+    (local $__arr_alloc_ptr i32)
+    (local $__arr_alloc_len i32)
+    (local $__str_arg_ptr i32)
+    (local $__str_tmp i32)
+    (local $__str_sub_start i32)
+    (local $__sb_tmp i32)
+    (local $__obj_alloc_ptr i32)
+    (local $__obj_tmp i32)
+    (local $__vtable_tmp i32)
+    (local $__atomic_tmp i32)
+    (local $__atomic_val i32)
+    (local $__simd_tmp v128)
+    (local $__f64_tmp f64)
+    (local $__f32_tmp f32)
+    (local $__i64_tmp i64)
+    (local $__receiver$43 i32)
+    (local $__receiver$44 i32)
+    (local $__caught_exc i32)
+    local.get $text
+    local.get $radix
+    call $__str_parse_i32_radix
+    i32.extend16_s
+    call $Short_valueOf__73_68_6f_72_74_
     return
   )
   (func $Short_byteValue (export "Short_byteValue") (param $this i32) (result i32)

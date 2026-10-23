@@ -1137,7 +1137,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 if (!narrow) throw JavaSourcePreparation.error(expression, "Cannot box " + source + " as " + targetJavaType + "; use a matching primitive type");
             }
             translateExpression(expression, out, locals, elements, javaTypes, TypeMapper.mapType(primitive));
-            out.append("    call ").append(classRegistry.findMethod(wrapper, "valueOf").getFunctionName()).append("\n");
+            out.append("    call ").append(classRegistry.boxingFactory(wrapper).getFunctionName()).append("\n");
         } else translateExpression(expression, out, locals, elements, javaTypes, TypeMapper.mapType(targetJavaType));
     }
 
@@ -2807,7 +2807,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         out.append("    ").append(type).append(".const 1\n    ").append(type)
                 .append(unary.getOperator() == UnaryExpr.Operator.PREFIX_DECREMENT || unary.getOperator() == UnaryExpr.Operator.POSTFIX_DECREMENT ? ".sub\n" : ".add\n");
         emitNarrowing(javaType, out);
-        if (BoxingSupport.boxed(declaredType)) out.append("    call ").append(classRegistry.findMethod(declaredType, "valueOf").getFunctionName()).append("\n");
+        if (BoxingSupport.boxed(declaredType)) out.append("    call ").append(classRegistry.boxingFactory(declaredType).getFunctionName()).append("\n");
         out.append("    local.set $").append(id).append("$new\n");
         if (setter == null) out.append("    local.get $").append(id).append("$address\n");
         out.append("    local.get $").append(id).append("$new\n    ").append(setter == null ? storageType + ".store" : setter).append("\n");
@@ -4564,7 +4564,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         } else if (scope.equals("Boolean")) {
             if (fName.equals("TRUE") || fName.equals("FALSE")) {
                 collector.append("    i32.const ").append(fName.equals("TRUE") ? 1 : 0).append("\n    call ")
-                        .append(classRegistry.findMethod("Boolean", "valueOf").getFunctionName()).append("\n");
+                        .append(classRegistry.boxingFactory("Boolean").getFunctionName()).append("\n");
             }
             else collector.append("    i32.const 0\n");
         }

@@ -26,6 +26,10 @@ class BoxingSupportTest {
       public static long mutation() { Long x = 9007199254740993L; Long old = x++; return old + x; }
       public static boolean values() { Integer x = new Integer(1000); Integer y = 1000; return x.equals(y) && !x.equals(null) && x.hashCode() == y.hashCode(); }
       public static boolean truths() { Boolean x = Boolean.TRUE; return x; }
+      public static long textLong() { var x = Long.valueOf("123456"); return x + 1L; }
+      public static double textFloating() { var x = Double.valueOf("2.5"); var y = Float.valueOf("1.25"); return x + y; }
+      public static int textInteger() { var x = Integer.valueOf("ff", 16); var y = Short.valueOf("2"); var z = Byte.valueOf("3"); return x + y + z; }
+      public static boolean textBoolean() { var x = Boolean.valueOf("true"); return x; }
       public static int accessors() { Integer x = Integer.valueOf(123); return x.intValue(); }
     }
     """, false).getWasm();
@@ -45,6 +49,10 @@ class BoxingSupportTest {
     assert.equal(e.ordering(), 1);
     assert.equal(e.virtualNumber(), 4);
     assert.equal(e.accessors(), 123);
+    assert.equal(e.textLong(), 123457n);
+    assert.equal(e.textFloating(), 3.75);
+    assert.equal(e.textInteger(), 260);
+    assert.equal(e.textBoolean(), 1);
     """);
  }
 }

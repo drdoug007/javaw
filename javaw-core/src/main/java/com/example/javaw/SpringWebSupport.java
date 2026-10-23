@@ -347,7 +347,7 @@ final class SpringWebSupport {
             models.add(quote(name) + ":[" + fields + "]");
         }
         ClassModel exception = registry.getClass("ResponseStatusException");
-        json.append(models).append("},\"boxInteger\":").append(quote(registry.findMethod("Integer", "valueOf").getFunctionName().substring(1))).append(",\"exception\":{\"vtable\":").append(exception.getVtableBase())
+        json.append(models).append("},\"boxInteger\":").append(quote(registry.boxingFactory("Integer").getFunctionName().substring(1))).append(",\"exception\":{\"vtable\":").append(exception.getVtableBase())
                 .append(",\"status\":").append(exception.getField("status").getOffset())
                 .append(",\"reason\":").append(exception.getField("reason").getOffset()).append("}}");
         wat.append("  (@custom \"javaw_spring_web\" \"")

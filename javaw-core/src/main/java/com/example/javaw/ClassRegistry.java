@@ -667,6 +667,10 @@ public class ClassRegistry {
         return expected.equals(method.getParamTypeNames());
     }
 
+    MethodModel boxingFactory(String wrapper) {
+        return getClass(wrapper).getMethod("valueOf(" + BoxingSupport.primitive(wrapper) + ")");
+    }
+
     Map<String, String> classBindings(String owner) {
         TypeDeclaration<?> declaration = sourceTypes.get(GenericTypes.raw(owner));
         return declaration == null ? Map.of() : GenericTypes.bindings(GenericTypes.parameters(declaration), GenericTypes.arguments(owner), this);
