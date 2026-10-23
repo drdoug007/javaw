@@ -3673,7 +3673,19 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
 
     private void translateStringToStack(Expression expr, StringBuilder collector, Map<String, String> localTypes, Map<String, String> localElementTypes, Map<String, String> localJavaTypes) {
         String exprType = inferType(expr, localTypes, localElementTypes, localJavaTypes, null);
-        if (isStringType(expr, localJavaTypes)) {
+        String javaType=getExpressionJavaType(expr,localJavaTypes);
+        if(BoxingSupport.boxed(javaType)) {
+            translateExpression(expr,collector,localTypes,localElementTypes,localJavaTypes,"i32");
+            collector.append("    local.tee $__obj_tmp\n    i32.eqz\n    if (result i32)\n    i32.const ").append(stringPool.get("null").offset).append("\n    else\n    local.get $__obj_tmp\n");
+            emitUnbox(javaType,collector);
+            String primitive=BoxingSupport.primitive(javaType);
+            String function=switch(primitive) { case "long" -> "i64"; case "double", "float" -> "f64"; case "boolean" -> "bool"; case "char" -> "char"; default -> "i32"; };
+            if(primitive.equals("float")) collector.append("    f64.promote_f32\n");
+            collector.append("    call $__str_from_").append(function).append("\n    end\n");
+        } else if ("i64".equals(exprType)) {
+            translateExpression(expr,collector,localTypes,localElementTypes,localJavaTypes,"i64");
+            collector.append("    call $__str_from_i64\n");
+        } else if (isStringType(expr, localJavaTypes)) {
             translateExpression(expr, collector, localTypes, localElementTypes, localJavaTypes, "String");
         } else if ("f64".equals(exprType) || expr.isDoubleLiteralExpr()) {
             translateExpression(expr, collector, localTypes, localElementTypes, localJavaTypes, "f64");

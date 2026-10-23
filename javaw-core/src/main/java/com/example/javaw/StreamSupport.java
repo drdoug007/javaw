@@ -41,25 +41,6 @@ final class StreamSupport {
             }
             """);
         LibrarySupport.add(cu,"java.util.stream", """
-            interface Collector<T,A,R> { public R collect(Stream<T> stream); }
-            class __JavawListCollector<T> implements Collector<T,Object,List<T>> {
-                public __JavawListCollector() {}
-                public List<T> collect(Stream<T> stream) {
-                    Object[] values=stream.toArray(); ArrayList<T> result=new ArrayList<T>();
-                    for(int i=0;i<values.length;i++) result.add((T)values[i]); return result;
-                }
-            }
-            class __JavawSetCollector<T> implements Collector<T,Object,Set<T>> {
-                public __JavawSetCollector() {}
-                public Set<T> collect(Stream<T> stream) {
-                    Object[] values=stream.toArray(); HashSet<T> result=new HashSet<T>();
-                    for(int i=0;i<values.length;i++) result.add((T)values[i]); return result;
-                }
-            }
-            class Collectors {
-                public static <U> Collector<U,Object,List<U>> toList() { return new __JavawListCollector<U>(); }
-                public static <U> Collector<U,Object,Set<U>> toSet() { return new __JavawSetCollector<U>(); }
-            }
             class __JavawStreamIterator<T> implements Iterator<T> {
                 private Stream<T> stream; private boolean prepared; private boolean available;
                 public __JavawStreamIterator(Stream<T> stream) { this.stream=stream; }
@@ -246,7 +227,11 @@ final class StreamSupport {
                     while(advance()) result.add((T)current); return result.toArray();
                 }
                 public <A,R> R collect(Collector<T,A,R> collector) {
-                    if(collector==null) throw new NullPointerException(); available(); return collector.collect(this);
+                    if(collector==null) throw new NullPointerException(); start();
+                    A container=collector.supplier().get();
+                    BiConsumer<A,T> accumulator=collector.accumulator();
+                    while(advance()) accumulator.accept(container,(T)current);
+                    return collector.finisher().apply(container);
                 }
                 public List<T> toList() { return new __JavawReadOnlyList<T>(toArray()); }
                 public Iterator<T> iterator() { start(); return new __JavawStreamIterator<T>(this); }

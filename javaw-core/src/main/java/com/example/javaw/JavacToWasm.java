@@ -375,7 +375,7 @@ public class JavacToWasm {
             }
         }
 
-        String[] defaultStrings = {"@", "true", "false", "class ", "interface ", "Object", "String", "Class", "Thread", "Runnable", "Enum", "int", "long", "double", "float", "boolean", "char", "byte", "short", "void"};
+        String[] defaultStrings = {"null", "@", "true", "false", "class ", "interface ", "Object", "String", "Class", "Thread", "Runnable", "Enum", "int", "long", "double", "float", "boolean", "char", "byte", "short", "void"};
         for (String ds : defaultStrings) {
             if (!pool.containsKey(ds)) {
                 byte[] bytes = ds.getBytes(StandardCharsets.UTF_8);
@@ -499,6 +499,8 @@ public class JavacToWasm {
         CollectionSupport.addTypes(cu);
         StreamSupport.addTypes(cu);
         PrimitiveStreamSupport.addTypes(cu);
+        CollectorSupport.addTypes(cu);
+        JavaSourcePreparation.normalizeTypes(cu, JavaSourcePreparation.typeNames(List.of(cu)));
         BoxingSupport.addWrappers(cu);
         JavaSourcePreparation.normalizeVarargs(cu);
         JavaSourcePreparation.resolveLocalScopes(cu);

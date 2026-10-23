@@ -335,7 +335,7 @@ Checked items elsewhere describe supported subsets, not complete Java/JDK/JVM co
 - [ ] Expand the Phase 2 library subset:
   - [x] Stable sorted (natural/custom comparators), takeWhile, and dropWhile with lazy traversal and short-circuit tests.
   - [x] Core IntStream/LongStream/DoubleStream pipelines, primitive functional interfaces, reference/cross-primitive mapping, ranges, optional primitive results, reductions, arrays, and numeric terminals. Pipeline storage is currently boxed; specialized storage and complete statistics/collector overload coverage remain library follow-ups.
-  - [ ] Full Collector contracts and collector factories.
+  - [x] Standard Collector supplier/accumulator/combiner/finisher/characteristics contracts and Collector.of factories; mutable list/set, joining, counting, numeric summing, reducing, mapping/filtering, and collectingAndThen factories execute in Wasm. Additional JDK factory families remain library coverage work.
   - [ ] Collection bulk operations/views and iterator removal.
   - [x] Inherited/default functional-interface methods, generic SAM substitution, subtype default dispatch, Function composition/identity, Predicate composition/negation, Consumer sequencing, and inherited UnaryOperator/BinaryOperator contracts.
   - [ ] Full wildcard/target typing.

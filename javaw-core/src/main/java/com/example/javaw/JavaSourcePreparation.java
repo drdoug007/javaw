@@ -35,6 +35,15 @@ final class JavaSourcePreparation {
                 names.put(prefix + simple, simple);
             }
         }
+        for (CompilationUnit cu : units) for (TypeDeclaration<?> type : cu.findAll(TypeDeclaration.class)) {
+            String qualified=type.getNameAsString();
+            Node parent=type.getParentNode().orElse(null);
+            while(parent!=null) {
+                if(parent instanceof TypeDeclaration<?> owner) qualified=owner.getNameAsString()+"."+qualified;
+                parent=parent.getParentNode().orElse(null);
+            }
+            names.put(qualified,type.getNameAsString());
+        }
         for (String name : List.of("String", "Object", "Class", "Integer", "Long", "Double", "Float", "Boolean",
                 "Byte", "Short", "Character", "Math", "StrictMath", "RuntimeException", "Exception", "Throwable"))
             names.put("java.lang." + name, name);
