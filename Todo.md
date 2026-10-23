@@ -316,7 +316,8 @@ Checked items elsewhere describe supported subsets, not complete Java/JDK/JVM co
   - Loose invocation conversions, varargs, and generic invocation inference are tracked with the next task. Full JDK facade API coverage remains in Phase 4.
 - [ ] Implement generic inference, boxing/unboxing, and Java numeric conversion/promotion rules with conformance tests, including constant-expression ternary narrowing and typed long/float increment/decrement.
   - [x] Execute primitive promotions, saturating/narrowing casts, typed prefix/postfix mutations on locals/fields/arrays, compound numeric assignments, integral constant-expression ternary narrowing, integer division overflow/zero handling, and floating remainder in Wasm conformance tests.
-  - [ ] Integrate nullable wrapper boxing/unboxing, loose invocation conversions and varargs, and reusable generic class/method inference; validate bounds and unsupported inference diagnostics.
+  - [x] Integrate nullable wrappers in linear memory with assignment/argument/return boxing and unboxing, small-value caches, value equality/hashing, null-unboxing exceptions, wrapper fields/arrays, and strict-before-loose invocation conversions. Preserve boxed Spring IDs through HTTP marshalling.
+  - [ ] Integrate varargs and reusable generic class/method inference; validate bounds and unsupported inference diagnostics.
 
 ### Phase 2: Optional, lambdas, and collections
 

@@ -430,13 +430,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 }
             } else if (returnWasmType != null) {
                 if (body.getStatements().isEmpty() || !body.getStatements().get(body.getStatements().size() - 1).isReturnStmt()) {
-                    if ("f64".equals(returnWasmType)) {
-                        collector.append("    f64.const 0\n");
-                    } else if ("i64".equals(returnWasmType)) {
-                        collector.append("    i64.const 0\n");
-                    } else {
-                        collector.append("    i32.const 0\n");
-                    }
+                    collector.append("    ").append(getWasmZeroConst(returnWasmType)).append("\n");
                 }
             }
         }
@@ -603,7 +597,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                         collector.append("    local.get $").append(varName).append("$").append(c.getName()).append("\n");
                     }
                 } else {
-                    translateExpression(retExpr, collector, localTypes, localElementTypes, localJavaTypes, returnWasmType);
+                    translateValue(retExpr, collector, localTypes, localElementTypes, localJavaTypes, currentCallable instanceof MethodDeclaration method ? method.getTypeAsString() : "void");
                 }
             }
             collector.append("    return\n");
@@ -615,7 +609,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             }
         } else if (stmt.isIfStmt()) {
             IfStmt ifStmt = stmt.asIfStmt();
-            translateExpression(ifStmt.getCondition(), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            translateValue(ifStmt.getCondition(), collector, localTypes, localElementTypes, localJavaTypes, "boolean");
             collector.append("    if\n");
             translateStatement(ifStmt.getThenStmt(), collector, localTypes, localElementTypes, localJavaTypes, returnWasmType);
             if (ifStmt.getElseStmt().isPresent()) {
@@ -632,7 +626,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
 
             collector.append("    (block $").append(breakLabel).append("\n");
             collector.append("      (loop $").append(loopLabel).append("\n");
-            translateExpression(whileStmt.getCondition(), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            translateValue(whileStmt.getCondition(), collector, localTypes, localElementTypes, localJavaTypes, "boolean");
             collector.append("        i32.eqz\n");
             collector.append("        br_if $").append(breakLabel).append("\n");
             translateStatement(whileStmt.getBody(), collector, localTypes, localElementTypes, localJavaTypes, returnWasmType);
@@ -659,7 +653,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             collector.append("    (block $").append(breakLabel).append("\n");
             collector.append("      (loop $").append(loopLabel).append("\n");
             if (forStmt.getCompare().isPresent()) {
-                translateExpression(forStmt.getCompare().get(), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                translateValue(forStmt.getCompare().get(), collector, localTypes, localElementTypes, localJavaTypes, "boolean");
                 collector.append("        i32.eqz\n");
                 collector.append("        br_if $").append(breakLabel).append("\n");
             }
@@ -1102,17 +1096,59 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         }
     }
 
+    private void translateValue(Expression expression, StringBuilder out, Map<String, String> locals,
+            Map<String, String> elements, Map<String, String> javaTypes, String targetJavaType) {
+        String source = getExpressionJavaType(expression, javaTypes);
+        String targetPrimitive = BoxingSupport.primitive(targetJavaType);
+        if (BoxingSupport.boxed(source) && BoxingSupport.wrapper(targetJavaType) != null) {
+            translateExpression(expression, out, locals, elements, javaTypes, "i32");
+            emitUnbox(source, out);
+            emitNumericWidening(TypeMapper.mapType(BoxingSupport.primitive(source)), TypeMapper.mapType(targetPrimitive), out);
+        } else if (BoxingSupport.wrapper(source) != null && (BoxingSupport.boxed(targetJavaType)
+                || "Object".equals(targetJavaType) || "Number".equals(targetJavaType))) {
+            String wrapper = BoxingSupport.boxed(targetJavaType) ? targetJavaType : BoxingSupport.wrapper(source);
+            String primitive = BoxingSupport.primitive(wrapper);
+            if (BoxingSupport.boxed(targetJavaType) && !primitive.equals(source)) {
+                OptionalInt constant = IntegralConstants.evaluate(expression);
+                boolean narrow = constant.isPresent() && switch (primitive) {
+                    case "byte" -> constant.getAsInt() >= -128 && constant.getAsInt() <= 127;
+                    case "short" -> constant.getAsInt() >= -32768 && constant.getAsInt() <= 32767;
+                    case "char" -> constant.getAsInt() >= 0 && constant.getAsInt() <= 65535;
+                    default -> false;
+                };
+                if (!narrow) throw JavaSourcePreparation.error(expression, "Cannot box " + source + " as " + targetJavaType + "; use a matching primitive type");
+            }
+            translateExpression(expression, out, locals, elements, javaTypes, TypeMapper.mapType(primitive));
+            out.append("    call ").append(classRegistry.findMethod(wrapper, "valueOf").getFunctionName()).append("\n");
+        } else translateExpression(expression, out, locals, elements, javaTypes, TypeMapper.mapType(targetJavaType));
+    }
+
+    private void translateNumeric(Expression expression, StringBuilder out, Map<String, String> locals,
+            Map<String, String> elements, Map<String, String> javaTypes, String expected) {
+        String source = getExpressionJavaType(expression, javaTypes);
+        if (BoxingSupport.boxed(source)) {
+            translateExpression(expression, out, locals, elements, javaTypes, "i32");
+            emitUnbox(source, out);
+            emitNumericWidening(TypeMapper.mapType(BoxingSupport.primitive(source)), expected, out);
+        } else translateExpression(expression, out, locals, elements, javaTypes, expected);
+    }
+
+    private void emitUnbox(String wrapper, StringBuilder out) {
+        out.append("    call $__require_nonnull\n    ").append(TypeMapper.mapType(BoxingSupport.primitive(wrapper)))
+                .append(".load offset=").append(classRegistry.getClass(wrapper).getField("__boxedValue").getOffset()).append("\n");
+    }
+
     private void translateExpression(Expression expr, StringBuilder collector, Map<String, String> localTypes, Map<String, String> localElementTypes, Map<String, String> localJavaTypes, String expectedType) {
         if (expr.isBinaryExpr()) {
             BinaryExpr bin = expr.asBinaryExpr();
             if (bin.getOperator() == BinaryExpr.Operator.AND || bin.getOperator() == BinaryExpr.Operator.OR) {
-                translateExpression(bin.getLeft(), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                translateValue(bin.getLeft(), collector, localTypes, localElementTypes, localJavaTypes, "boolean");
                 collector.append("    if (result i32)\n");
                 if (bin.getOperator() == BinaryExpr.Operator.OR) collector.append("    i32.const 1\n");
-                else translateExpression(bin.getRight(), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                else translateValue(bin.getRight(), collector, localTypes, localElementTypes, localJavaTypes, "boolean");
                 collector.append("    else\n");
                 if (bin.getOperator() == BinaryExpr.Operator.AND) collector.append("    i32.const 0\n");
-                else translateExpression(bin.getRight(), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                else translateValue(bin.getRight(), collector, localTypes, localElementTypes, localJavaTypes, "boolean");
                 collector.append("    end\n");
                 return;
             }
@@ -1122,8 +1158,13 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 collector.append("    call $__str_concat\n");
                 return;
             }
-            String leftType = inferType(bin.getLeft(), localTypes, localElementTypes, localJavaTypes, null);
-            String rightType = inferType(bin.getRight(), localTypes, localElementTypes, localJavaTypes, null);
+            String leftJava = getExpressionJavaType(bin.getLeft(), localJavaTypes), rightJava = getExpressionJavaType(bin.getRight(), localJavaTypes);
+            boolean equality = bin.getOperator() == BinaryExpr.Operator.EQUALS || bin.getOperator() == BinaryExpr.Operator.NOT_EQUALS;
+            boolean referenceEquality = equality && BoxingSupport.wrapper(leftJava) == null && BoxingSupport.wrapper(rightJava) == null;
+            String leftType = referenceEquality ? inferType(bin.getLeft(), localTypes, localElementTypes, localJavaTypes, null)
+                    : TypeMapper.mapType(BoxingSupport.primitive(leftJava));
+            String rightType = referenceEquality ? inferType(bin.getRight(), localTypes, localElementTypes, localJavaTypes, null)
+                    : TypeMapper.mapType(BoxingSupport.primitive(rightJava));
             String opType = "i32";
             if (bin.getOperator() == BinaryExpr.Operator.AND || bin.getOperator() == BinaryExpr.Operator.OR) {
                 opType = "i32";
@@ -1143,8 +1184,13 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     bin.getOperator() == BinaryExpr.Operator.GREATER ||
                     bin.getOperator() == BinaryExpr.Operator.GREATER_EQUALS;
             String resultType = isComparison ? "i32" : opType;
-            translateExpression(bin.getLeft(), collector, localTypes, localElementTypes, localJavaTypes, opType);
-            translateExpression(bin.getRight(), collector, localTypes, localElementTypes, localJavaTypes, opType);
+            if (referenceEquality) {
+                translateExpression(bin.getLeft(), collector, localTypes, localElementTypes, localJavaTypes, opType);
+                translateExpression(bin.getRight(), collector, localTypes, localElementTypes, localJavaTypes, opType);
+            } else {
+                translateNumeric(bin.getLeft(), collector, localTypes, localElementTypes, localJavaTypes, opType);
+                translateNumeric(bin.getRight(), collector, localTypes, localElementTypes, localJavaTypes, opType);
+            }
             collector.append("    ").append(getWasmBinaryOp(bin.getOperator(), opType)).append("\n");
             if ("i64".equals(resultType) && ("f64".equals(expectedType) || "f32".equals(expectedType))) {
                 emitNumericWidening(resultType, expectedType, collector);
@@ -1163,28 +1209,28 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             }
         } else if (expr.isUnaryExpr()) {
             UnaryExpr u = expr.asUnaryExpr();
-            String uType = inferType(u.getExpression(), localTypes, localElementTypes, localJavaTypes, expectedType);
+            String uType = TypeMapper.mapType(BoxingSupport.primitive(getExpressionJavaType(u.getExpression(), localJavaTypes)));
             if (u.getOperator() == UnaryExpr.Operator.MINUS) {
                 if ("f64".equals(uType)) {
-                    translateExpression(u.getExpression(), collector, localTypes, localElementTypes, localJavaTypes, uType);
+                    translateNumeric(u.getExpression(), collector, localTypes, localElementTypes, localJavaTypes, uType);
                     collector.append("    f64.neg\n");
                 } else if ("f32".equals(uType)) {
-                    translateExpression(u.getExpression(), collector, localTypes, localElementTypes, localJavaTypes, uType);
+                    translateNumeric(u.getExpression(), collector, localTypes, localElementTypes, localJavaTypes, uType);
                     collector.append("    f32.neg\n");
                 } else if ("i64".equals(uType)) {
                     collector.append("    i64.const 0\n");
-                    translateExpression(u.getExpression(), collector, localTypes, localElementTypes, localJavaTypes, uType);
+                    translateNumeric(u.getExpression(), collector, localTypes, localElementTypes, localJavaTypes, uType);
                     collector.append("    i64.sub\n");
                 } else {
                     collector.append("    i32.const 0\n");
-                    translateExpression(u.getExpression(), collector, localTypes, localElementTypes, localJavaTypes, uType);
+                    translateNumeric(u.getExpression(), collector, localTypes, localElementTypes, localJavaTypes, uType);
                     collector.append("    i32.sub\n");
                 }
             } else if (u.getOperator() == UnaryExpr.Operator.LOGICAL_COMPLEMENT) {
-                translateExpression(u.getExpression(), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                translateValue(u.getExpression(), collector, localTypes, localElementTypes, localJavaTypes, "boolean");
                 collector.append("    i32.eqz\n");
             } else if (u.getOperator() == UnaryExpr.Operator.BITWISE_COMPLEMENT) {
-                translateExpression(u.getExpression(), collector, localTypes, localElementTypes, localJavaTypes, uType);
+                translateNumeric(u.getExpression(), collector, localTypes, localElementTypes, localJavaTypes, uType);
                 if ("i64".equals(uType)) {
                     collector.append("    i64.const -1\n    i64.xor\n");
                 } else {
@@ -1240,11 +1286,11 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             if (resType == null || (!resType.equals("i64") && !resType.equals("f32") && !resType.equals("f64") && !resType.equals("v128"))) {
                 resType = "i32";
             }
-            translateExpression(cond.getCondition(), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            translateValue(cond.getCondition(), collector, localTypes, localElementTypes, localJavaTypes, "boolean");
             collector.append("    if (result ").append(resType).append(")\n");
-            translateExpression(cond.getThenExpr(), collector, localTypes, localElementTypes, localJavaTypes, resType);
+            translateValue(cond.getThenExpr(), collector, localTypes, localElementTypes, localJavaTypes, getExpressionJavaType(cond, localJavaTypes));
             collector.append("    else\n");
-            translateExpression(cond.getElseExpr(), collector, localTypes, localElementTypes, localJavaTypes, resType);
+            translateValue(cond.getElseExpr(), collector, localTypes, localElementTypes, localJavaTypes, getExpressionJavaType(cond, localJavaTypes));
             collector.append("    end\n");
             emitNumericWidening(resType, expectedType, collector);
         } else if (expr.isThisExpr() || expr.isSuperExpr()) {
@@ -1252,8 +1298,11 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         } else if (expr.isCastExpr()) {
             CastExpr ce = expr.asCastExpr();
             String castTarget = TypeMapper.mapType(ce.getType());
-            String innerType = inferType(ce.getExpression(), localTypes, localElementTypes, localJavaTypes, null);
-            translateExpression(ce.getExpression(), collector, localTypes, localElementTypes, localJavaTypes, innerType != null ? innerType : castTarget);
+            boolean numericCast = BoxingSupport.wrapper(ce.getType().asString()) != null;
+            String innerType = TypeMapper.mapType(numericCast ? BoxingSupport.primitive(getExpressionJavaType(ce.getExpression(), localJavaTypes))
+                    : getExpressionJavaType(ce.getExpression(), localJavaTypes));
+            if (numericCast) translateNumeric(ce.getExpression(), collector, localTypes, localElementTypes, localJavaTypes, innerType != null ? innerType : castTarget);
+            else translateValue(ce.getExpression(), collector, localTypes, localElementTypes, localJavaTypes, ce.getType().asString());
             if ("i32".equals(castTarget)) {
                 if ("f64".equals(innerType)) {
                     collector.append("    i32.trunc_sat_f64_s\n");
@@ -1528,7 +1577,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
 
                 for (int i = 0; i < n; i++) {
                     collector.append("    local.get $__arr_alloc_ptr\n");
-                    translateExpression(init.getValues().get(i), collector, localTypes, localElementTypes, localJavaTypes, elemType);
+                    translateValue(init.getValues().get(i), collector, localTypes, localElementTypes, localJavaTypes, ace.getElementType().asString());
                     int offset = headerOffset + i * elemSize;
                     collector.append("    ").append(getStoreInstruction(elemType)).append(" offset=").append(offset).append("\n");
                 }
@@ -1559,7 +1608,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             }
         } else if (expr.isArrayInitializerExpr()) {
             ArrayInitializerExpr init = expr.asArrayInitializerExpr();
-            String elemType = (expectedType != null && !expectedType.equals("i32")) ? expectedType : "i32";
+            String elementJava = expr.findAncestor(VariableDeclarator.class).map(v -> v.getType().asArrayType().getComponentType().asString()).orElse("int");
+            String elemType = TypeMapper.mapType(elementJava);
             int headerOffset = (elemType.equals("f64") || elemType.equals("i64")) ? 8 : 4;
             int elemSize = (elemType.equals("f64") || elemType.equals("i64")) ? 8 : 4;
 
@@ -1580,7 +1630,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
 
             for (int i = 0; i < n; i++) {
                 collector.append("    local.get $__arr_alloc_ptr\n");
-                translateExpression(init.getValues().get(i), collector, localTypes, localElementTypes, localJavaTypes, elemType);
+                translateValue(init.getValues().get(i), collector, localTypes, localElementTypes, localJavaTypes, expr.findAncestor(VariableDeclarator.class).map(v -> v.getType().asArrayType().getComponentType().asString()).orElse("int"));
                 int offset = headerOffset + i * elemSize;
                 collector.append("    ").append(getStoreInstruction(elemType)).append(" offset=").append(offset).append("\n");
             }
@@ -1789,7 +1839,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     FieldModel fm = currentClass.getField(target);
                     if (op == AssignExpr.Operator.ASSIGN) {
                         collector.append("    local.get $this\n");
-                        translateExpression(assign.getValue(), collector, localTypes, localElementTypes, localJavaTypes, fm.getWasmType());
+                        translateValue(assign.getValue(), collector, localTypes, localElementTypes, localJavaTypes, fm.getJavaType());
                         collector.append("    ").append(getStoreInstruction(fm.getWasmType())).append(" offset=").append(fm.getOffset()).append("\n");
                     } else {
                         collector.append("    local.get $this\n");
@@ -1801,7 +1851,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 } else {
                     String targetType = localTypes.getOrDefault(target, isGlobal ? globalVars.get(target).type : "i32");
                     if (op == AssignExpr.Operator.ASSIGN) {
-                        translateExpression(assign.getValue(), collector, localTypes, localElementTypes, localJavaTypes, targetType);
+                        translateValue(assign.getValue(), collector, localTypes, localElementTypes, localJavaTypes, getExpressionJavaType(assign.getTarget(), localJavaTypes));
                         collector.append(isGlobal ? "    global.set $" : "    local.set $").append(target).append("\n");
                     } else if (op == AssignExpr.Operator.PLUS && isStringType(assign.getValue(), localJavaTypes)) {
                         collector.append(isGlobal ? "    global.get $" : "    local.get $").append(target).append("\n");
@@ -1827,7 +1877,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 if (fm != null) {
                     if (op == AssignExpr.Operator.ASSIGN) {
                         translateExpression(fae.getScope(), collector, localTypes, localElementTypes, localJavaTypes, "i32");
-                        translateExpression(assign.getValue(), collector, localTypes, localElementTypes, localJavaTypes, fm.getWasmType());
+                        translateValue(assign.getValue(), collector, localTypes, localElementTypes, localJavaTypes, fm.getJavaType());
                         collector.append("    ").append(getStoreInstruction(fm.getWasmType())).append(" offset=").append(fm.getOffset()).append("\n");
                     } else {
                         translateExpression(fae.getScope(), collector, localTypes, localElementTypes, localJavaTypes, "i32");
@@ -1851,7 +1901,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     collector.append("    i32.const ").append(elemSize).append("\n");
                     collector.append("    i32.mul\n");
                     collector.append("    i32.add\n");
-                    translateExpression(assign.getValue(), collector, localTypes, localElementTypes, localJavaTypes, elemType);
+                    translateValue(assign.getValue(), collector, localTypes, localElementTypes, localJavaTypes, getExpressionJavaType(assign.getTarget(), localJavaTypes));
                     collector.append("    ").append(getStoreInstruction(elemType)).append(" offset=").append(headerOffset).append("\n");
                 } else {
                     translateExpression(aae.getName(), collector, localTypes, localElementTypes, localJavaTypes, "i32");
@@ -1903,7 +1953,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 } else if (vd.getInitializer().isPresent()) {
                     String vType = localTypes.getOrDefault(vd.getNameAsString(), TypeMapper.mapType(vd.getType()));
                     String elemType = localElementTypes.get(vd.getNameAsString());
-                    translateExpression(vd.getInitializer().get(), collector, localTypes, localElementTypes, localJavaTypes, elemType != null ? elemType : vType);
+                    translateValue(vd.getInitializer().get(), collector, localTypes, localElementTypes, localJavaTypes, vTypeName);
                     collector.append("    local.set $").append(vd.getNameAsString()).append("\n");
                 }
             }
@@ -2571,6 +2621,10 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     }
 
     private void emitNumericRuntime(StringBuilder out) {
+        out.append("  (func $__require_nonnull (param $value i32) (result i32) (local $e i32)\n")
+                .append("    local.get $value\n    i32.eqz\n    if\n    i32.const 8\n    call $__heap_alloc\n    local.tee $e\n    i32.const ")
+                .append(classRegistry.getClass("NullPointerException").getVtableBase())
+                .append("\n    i32.store\n    local.get $e\n    throw $Exception\n    end\n    local.get $value\n  )\n");
         int vtable = classRegistry.getClass("ArithmeticException").getVtableBase();
         out.append("  (func $__arithmetic_error (local $e i32)\n    i32.const 8\n    call $__heap_alloc\n    local.tee $e\n    i32.const ")
                 .append(vtable).append("\n    i32.store\n    local.get $e\n    throw $Exception\n  )\n");
@@ -2693,10 +2747,11 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     private void emitMutation(UnaryExpr unary, StringBuilder out, Map<String, String> locals,
             Map<String, String> elements, Map<String, String> javaTypes, String expected) {
         Expression target = unary.getExpression();
-        String javaType = getExpressionJavaType(target, javaTypes);
+        String declaredType = getExpressionJavaType(target, javaTypes);
+        String javaType = BoxingSupport.primitive(declaredType);
         if (!Set.of("byte", "short", "char", "int", "long", "float", "double").contains(javaType == null ? "" : javaType))
             throw JavaSourcePreparation.error(unary, "Increment/decrement requires a numeric variable");
-        String type = TypeMapper.mapType(javaType), id = mutationLocals.get(unary);
+        String type = TypeMapper.mapType(javaType), storageType = TypeMapper.mapType(declaredType), id = mutationLocals.get(unary);
         String getter = null, setter = null;
         FieldModel field = null;
         Expression receiver = null;
@@ -2717,7 +2772,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             }
         } else if (target.isArrayAccessExpr()) {
             var access = target.asArrayAccessExpr();
-            int bytes = type.equals("i64") || type.equals("f64") ? 8 : 4;
+            int bytes = storageType.equals("i64") || storageType.equals("f64") ? 8 : 4;
             translateExpression(access.getName(), out, locals, elements, javaTypes, "i32");
             translateExpression(access.getIndex(), out, locals, elements, javaTypes, "i32");
             out.append("    i32.const ").append(bytes).append("\n    i32.mul\n    i32.add\n    i32.const ")
@@ -2728,16 +2783,19 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             out.append("    i32.const ").append(field.getOffset()).append("\n    i32.add\n    local.set $").append(id).append("$address\n");
         }
         if (getter != null) out.append("    ").append(getter).append("\n");
-        else out.append("    local.get $").append(id).append("$address\n    ").append(type).append(".load\n");
-        out.append("    local.tee $").append(id).append("$old\n    ").append(type).append(".const 1\n    ").append(type)
+        else out.append("    local.get $").append(id).append("$address\n    ").append(storageType).append(".load\n");
+        out.append("    local.tee $").append(id).append("$old\n");
+        if (BoxingSupport.boxed(declaredType)) emitUnbox(declaredType, out);
+        out.append("    ").append(type).append(".const 1\n    ").append(type)
                 .append(unary.getOperator() == UnaryExpr.Operator.PREFIX_DECREMENT || unary.getOperator() == UnaryExpr.Operator.POSTFIX_DECREMENT ? ".sub\n" : ".add\n");
         emitNarrowing(javaType, out);
+        if (BoxingSupport.boxed(declaredType)) out.append("    call ").append(classRegistry.findMethod(declaredType, "valueOf").getFunctionName()).append("\n");
         out.append("    local.set $").append(id).append("$new\n");
         if (setter == null) out.append("    local.get $").append(id).append("$address\n");
-        out.append("    local.get $").append(id).append("$new\n    ").append(setter == null ? type + ".store" : setter).append("\n");
+        out.append("    local.get $").append(id).append("$new\n    ").append(setter == null ? storageType + ".store" : setter).append("\n");
         boolean postfix = unary.getOperator() == UnaryExpr.Operator.POSTFIX_INCREMENT || unary.getOperator() == UnaryExpr.Operator.POSTFIX_DECREMENT;
         out.append("    local.get $").append(id).append(postfix ? "$old\n" : "$new\n");
-        emitNumericWidening(type, expected, out);
+        if (!BoxingSupport.boxed(declaredType)) emitNumericWidening(type, expected, out);
     }
 
     private void emitNumericWidening(String from, String to, StringBuilder out) {
@@ -2753,6 +2811,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     }
 
     private String promotedNumeric(String left, String right) {
+        left = BoxingSupport.primitive(left); right = BoxingSupport.primitive(right);
         Set<String> numeric = Set.of("byte", "short", "char", "int", "long", "float", "double");
         if (left == null || right == null || !numeric.contains(left) || !numeric.contains(right)) return null;
         for (String type : List.of("double", "float", "long")) if (type.equals(left) || type.equals(right)) return type;
@@ -2824,6 +2883,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 for (FieldModel c : record.getComponents()) out.append("    local.get $").append(prefix).append("$").append(c.getName()).append("\n");
             } else if (classRegistry.getClass(method.getClassName()).isOopClass()) {
                 translateExpression(receiver, out, locals, elements, javaTypes, "i32");
+                out.append("    call $__require_nonnull\n");
                 if (dynamic) {
                     out.append("    local.tee $").append(temp).append("\n");
                 }
@@ -2835,7 +2895,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             out.append("    drop\n");
         }
         for (int i = 0; i < call.getArguments().size(); i++)
-            translateExpression(call.getArgument(i), out, locals, elements, javaTypes, method.getParamWasmTypes().get(i));
+            translateValue(call.getArgument(i), out, locals, elements, javaTypes, method.getParamTypeNames().get(i));
         if (dynamic) {
             out.append("    local.get $").append(temp).append("\n    i32.load offset=0\n    i32.const ")
                     .append(method.getVirtualSlotIndex()).append("\n    i32.add\n    call_indirect (type ")
@@ -2907,7 +2967,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         }
         for (int i = 0; i < arguments.size(); i++) {
             String wasmType = selected == null ? "i32" : selected.getParamWasmTypes().get(i);
-            translateExpression(arguments.get(i), collector, localTypes, localElementTypes, localJavaTypes, wasmType);
+            translateValue(arguments.get(i), collector, localTypes, localElementTypes, localJavaTypes, selected == null ? "int" : selected.getParamTypeNames().get(i));
         }
         return selected == null ? "$" + className + "__init" : selected.getFunctionName();
     }
@@ -2948,6 +3008,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             if (unary.getOperator() == UnaryExpr.Operator.LOGICAL_COMPLEMENT) return "boolean";
             String type = getExpressionJavaType(unary.getExpression(), localJavaTypes);
             if (isMutation(unary)) return type;
+            type = BoxingSupport.primitive(type);
             return Set.of("byte", "short", "char").contains(type == null ? "" : type) ? "int" : type;
         }
         if (expr.isArrayCreationExpr()) {
@@ -2977,6 +3038,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         if (expr.isFieldAccessExpr()) {
             FieldAccessExpr fae = expr.asFieldAccessExpr();
             String fName = fae.getNameAsString();
+            if (fae.getScope().toString().equals("Boolean") && Set.of("TRUE", "FALSE").contains(fName)) return "Boolean";
             if (fae.getScope().isNameExpr() && classRegistry != null && classRegistry.hasClass(fae.getScope().asNameExpr().getNameAsString())) {
                 ClassModel cm = classRegistry.getClass(fae.getScope().asNameExpr().getNameAsString());
                 if (cm.isEnum() && cm.getEnumConstants().contains(fName)) {
@@ -4448,8 +4510,10 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             else if (fName.equals("MAX_RADIX")) collector.append("    i32.const 36\n");
             else collector.append("    i32.const 0\n");
         } else if (scope.equals("Boolean")) {
-            if (fName.equals("TRUE")) collector.append("    i32.const 1\n");
-            else if (fName.equals("FALSE")) collector.append("    i32.const 0\n");
+            if (fName.equals("TRUE") || fName.equals("FALSE")) {
+                collector.append("    i32.const ").append(fName.equals("TRUE") ? 1 : 0).append("\n    call ")
+                        .append(classRegistry.findMethod("Boolean", "valueOf").getFunctionName()).append("\n");
+            }
             else collector.append("    i32.const 0\n");
         }
     }
@@ -6755,6 +6819,10 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 collector.append("    i32.store offset=24\n");
             }
         }
+        for (ClassModel model : classRegistry.getClasses().values())
+            for (MethodModel method : model.getMethods().values())
+                if (method.getName().equals("__initialize_wrappers_" + model.getName()))
+                    collector.append("    call ").append(method.getFunctionName()).append("\n");
         collector.append("  )\n");
     }
 }

@@ -43,7 +43,12 @@ async function createSpringWeb(wasmBytes) {
                     value = text === null ? null : Number(text);
                     break;
                 }
-                case 'int': case 'Integer': value = view().getInt32(address, true); break;
+                case 'int': value = view().getInt32(address, true); break;
+                case 'Integer': {
+                    const boxed = view().getInt32(address, true);
+                    value = boxed ? view().getInt32(boxed + field.boxedOffset, true) : null;
+                    break;
+                }
                 default: throw new Error('Unsupported entity field type: ' + field.type);
             }
             return [field.name, value];
@@ -61,7 +66,7 @@ async function createSpringWeb(wasmBytes) {
                 const number = parameter.path && /^-?\d+$/.test(value) ? Number(value) : value;
                 if (!Number.isInteger(number) || number < -2147483648 || number > 2147483647)
                     throw badRequest(parameter.name + ' must be a 32-bit integer');
-                return number;
+                return parameter.type === 'Integer' ? instance.exports[metadata.boxInteger](number) : number;
             }
             case 'BigDecimal':
                 if (value === null || value === undefined) return 0;

@@ -143,6 +143,10 @@ final class SpringWebSupport {
             """.formatted(node, entity, node, node, entity, node, name, node, name,
                 entity, node, key, entity, node, entity, entity, entity, entity, key, key,
                 node, node, key, key, node, node, key, key, node, node, key);
+        if (id.getTypeAsString().equals("Integer")) {
+            source = source.replace("if (value." + key + " == 0)", "if (value." + key + " == null || value." + key + " == 0)")
+                    .replace("row.value." + key + " == value." + key, "(int)row.value." + key + " == (int)value." + key);
+        }
         CompilationUnit generated = StaticJavaParser.parse(source);
         String packageName = repo.containsData(JavaSourcePreparation.PACKAGE) ? repo.getData(JavaSourcePreparation.PACKAGE) : "";
         generated.getTypes().forEach(type -> type.setData(JavaSourcePreparation.PACKAGE, packageName));
@@ -337,12 +341,13 @@ final class SpringWebSupport {
                 if (!field.isStatic() && !VALUE_TYPES.contains(field.getTypeName()))
                     throw unsupported("Entity field " + name + "." + field.getName() + ": " + field.getTypeName());
                 if (!field.isStatic()) fields.add("{\"name\":" + quote(field.getName()) + ",\"type\":" + quote(field.getTypeName())
-                        + ",\"offset\":" + field.getOffset() + "}");
+                        + ",\"offset\":" + field.getOffset() + (field.getTypeName().equals("Integer")
+                            ? ",\"boxedOffset\":" + registry.getClass("Integer").getField("__boxedValue").getOffset() : "") + "}");
             }
             models.add(quote(name) + ":[" + fields + "]");
         }
         ClassModel exception = registry.getClass("ResponseStatusException");
-        json.append(models).append("},\"exception\":{\"vtable\":").append(exception.getVtableBase())
+        json.append(models).append("},\"boxInteger\":").append(quote(registry.findMethod("Integer", "valueOf").getFunctionName().substring(1))).append(",\"exception\":{\"vtable\":").append(exception.getVtableBase())
                 .append(",\"status\":").append(exception.getField("status").getOffset())
                 .append(",\"reason\":").append(exception.getField("reason").getOffset()).append("}}");
         wat.append("  (@custom \"javaw_spring_web\" \"")

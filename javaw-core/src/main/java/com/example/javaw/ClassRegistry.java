@@ -684,7 +684,20 @@ public class ClassRegistry {
                 if (!canWiden(arguments.get(i), m.getParamTypeNames().get(i))) return false;
             return true;
         }).toList();
-        List<MethodModel> best = applicable.stream().filter(m -> applicable.stream().noneMatch(other ->
+        if (applicable.isEmpty()) applicable = candidates.stream().filter(m -> {
+            if (m.getParamTypeNames().size() != arguments.size()) return false;
+            for (int i = 0; i < arguments.size(); i++) {
+                String from = arguments.get(i), to = m.getParamTypeNames().get(i);
+                if (canWiden(from, to)) continue;
+                String boxed = BoxingSupport.wrapper(from);
+                if (boxed != null && canWiden(boxed, to)) continue;
+                if (BoxingSupport.boxed(from) && canWiden(BoxingSupport.primitive(from), to)) continue;
+                return false;
+            }
+            return true;
+        }).toList();
+        List<MethodModel> applicableMethods = applicable;
+        List<MethodModel> best = applicable.stream().filter(m -> applicableMethods.stream().noneMatch(other ->
                 other != m && moreSpecific(other, m))).toList();
         if (best.size() == 1) return best.get(0);
         String signatures = candidates.stream().map(MethodModel::getSignatureKey)

@@ -233,7 +233,7 @@ public class JavacToWasm {
                 String vType = mapType(vd.getType());
                 if (vType == null) vType = "i32";
                 String initVal = "0";
-                if (vd.getInitializer().isPresent()) {
+                if (vd.getInitializer().isPresent() && !BoxingSupport.boxed(vd.getTypeAsString())) {
                     Expression initExpr = vd.getInitializer().get();
                     if (initExpr.isIntegerLiteralExpr()) {
                         initVal = initExpr.asIntegerLiteralExpr().getValue();
@@ -495,6 +495,7 @@ public class JavacToWasm {
         JavaSourcePreparation.markSource(cu, sourceName);
         JavaSourcePreparation.normalizeTypes(cu, JavaSourcePreparation.typeNames(List.of(cu)));
         SpringWebSupport springWeb = SpringWebSupport.lower(cu);
+        BoxingSupport.addWrappers(cu);
         JavaSourcePreparation.resolveLocalScopes(cu);
         ClassRegistry classRegistry = ClassRegistry.build(cu);
         springWeb.emitMetadata(classRegistry, watOutput);
