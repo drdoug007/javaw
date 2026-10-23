@@ -165,6 +165,7 @@ public class ClassRegistry {
             String enumName = ed.getNameAsString();
             ClassModel cm = new ClassModel(enumName, "Enum", false, classIdCounter++);
             cm.setEnum(true);
+            ed.getImplementedTypes().forEach(parent -> cm.addImplementedInterface(parent.getNameAsString()));
             classes.put(enumName, cm);
 
             // Add standard enum instance fields: name at offset 4, ordinal at offset 8
@@ -753,6 +754,8 @@ public class ClassRegistry {
                 Map<String, String> bindings = classBindings(name);
                 for (var parent : type.getExtendedTypes()) pending.add(GenericTypes.substitute(parent.asString(), bindings));
                 for (var parent : type.getImplementedTypes()) pending.add(GenericTypes.substitute(parent.asString(), bindings));
+            } else if(declaration instanceof EnumDeclaration enumeration) {
+                for(var parent:enumeration.getImplementedTypes()) pending.add(parent.asString());
             }
         }
         result.add("Object"); return new ArrayList<>(result);
@@ -781,10 +784,12 @@ public class ClassRegistry {
         if (actual == null) return null;
         if (Objects.equals(GenericTypes.raw(actual), expected)) return actual;
         TypeDeclaration<?> source = sourceTypes.get(GenericTypes.raw(actual));
-        if (!(source instanceof ClassOrInterfaceDeclaration type)) return null;
         Map<String, String> bindings = classBindings(actual);
-        List<com.github.javaparser.ast.type.ClassOrInterfaceType> parents = new ArrayList<>(type.getExtendedTypes());
-        parents.addAll(type.getImplementedTypes());
+        List<com.github.javaparser.ast.type.ClassOrInterfaceType> parents = new ArrayList<>();
+        if(source instanceof ClassOrInterfaceDeclaration type) {
+            parents.addAll(type.getExtendedTypes()); parents.addAll(type.getImplementedTypes());
+        } else if(source instanceof EnumDeclaration enumeration) parents.addAll(enumeration.getImplementedTypes());
+        else return null;
         for (var parent : parents) {
             String found = asSuperType(GenericTypes.substitute(parent.asString(), bindings), expected);
             if (found != null) return found;
@@ -850,6 +855,8 @@ public class ClassRegistry {
         if (declaration instanceof ClassOrInterfaceDeclaration type) {
             for (var parent : type.getExtendedTypes()) collectMethods(GenericTypes.substitute(parent.asString(), bindings), methodName, methods, seen);
             for (var parent : type.getImplementedTypes()) collectMethods(GenericTypes.substitute(parent.asString(), bindings), methodName, methods, seen);
+        } else if(declaration instanceof EnumDeclaration enumeration) {
+            for(var parent:enumeration.getImplementedTypes()) collectMethods(parent.asString(),methodName,methods,seen);
         } else if (hasClass(owner)) collectMethods(getClass(owner).getSuperClassName(), methodName, methods, seen);
     }
 

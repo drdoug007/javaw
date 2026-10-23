@@ -294,4 +294,136 @@ class ReflectionSupportTest {
             assert.equal(e.hostInts(reused),-1);
             """);
     }
+
+    @Test void reflectsEnumFieldsMethodsAndForbiddenConstruction() throws Exception {
+        byte[] wasm=JavacToWasm.compile("EnumReflection.java","""
+            import java.lang.annotation.*;
+            import java.lang.reflect.*;
+            @Retention(RetentionPolicy.RUNTIME) @interface Label { String value(); }
+            interface TaggedTone { public default int marker() { return 5; } }
+            @Label("enum") enum Tone implements TaggedTone {
+                @Label("constant") LOW(2), HIGH(9);
+                private int level;
+                Tone(int level) { this.level=level; }
+                public int level() { return level; }
+                public void fail() { throw new IllegalStateException(); }
+            }
+            class EnumReflection {
+                public static int test() {
+                    Field low=Tone.class.getDeclaredField("LOW");
+                    if(!low.isEnumConstant() || !Modifier.isPublic(low.getModifiers()) || !Modifier.isStatic(low.getModifiers()) || !Modifier.isFinal(low.getModifiers())) return -1;
+                    if(low.get(null)!=Tone.LOW || low.getType()!=Tone.class) return -2;
+                    if(!low.getAnnotation(Label.class).value().equals("constant")) return -3;
+                    if(!Tone.class.getAnnotation(Label.class).value().equals("enum")) return -4;
+                    if(((Integer)Tone.class.getMethod("level").invoke(Tone.HIGH)).intValue()!=9) return -5;
+                    Field level=Tone.class.getDeclaredField("level"); level.setAccessible(true); level.setInt(Tone.HIGH,10);
+                    if(level.getInt(Tone.HIGH)!=10 || level.isEnumConstant()) return -6;
+                    try { low.set(null,Tone.HIGH); return -7; } catch(IllegalAccessException expected) {}
+                    Object[] values=(Object[])Tone.class.getMethod("values").invoke(null);
+                    if(values.length!=2 || values[0]!=Tone.LOW || values[1]!=Tone.HIGH) return -8;
+                    if(Tone.class.getMethod("valueOf",String.class).invoke(null,"HIGH")!=Tone.HIGH) return -9;
+                    if(Tone.class.getConstructors().length!=0) return -10;
+                    Constructor<?> ctor=Tone.class.getDeclaredConstructor(String.class,int.class,int.class);
+                    if(!Modifier.isPrivate(ctor.getModifiers())) return -11;
+                    ctor.setAccessible(true);
+                    try { ctor.newInstance("OTHER",2,3); return -12; } catch(IllegalArgumentException expected) {}
+                    try { Tone.class.getMethod("fail").invoke(Tone.LOW); return -13; } catch(InvocationTargetException expected) {}
+                    if(Tone.class.getRecordComponents()!=null || Tone.class.isRecord()) return -14;
+                    if(((Integer)Tone.class.getMethod("marker").invoke(Tone.LOW)).intValue()!=5) return -19;
+                    try { Tone.class.getMethod("valueOf",String.class).invoke(null,"missing"); return -15; }
+                    catch(InvocationTargetException expected) { if(!(expected.getCause() instanceof IllegalArgumentException)) return -16; }
+                    try { Tone.class.getMethod("valueOf",String.class).invoke(null,(Object)null); return -17; }
+                    catch(InvocationTargetException expected) { if(!(expected.getCause() instanceof NullPointerException)) return -18; }
+                    return 42;
+                }
+            }
+            """,false).getWasm();
+        OverloadResolutionTest.execute(wasm,"assert.equal(e.test(),42);");
+    }
+
+    @Test void constructsAndReflectsObjectBackedRecords() throws Exception {
+        byte[] wasm=JavacToWasm.compile("RecordReflection.java","""
+            import java.lang.annotation.*;
+            import java.lang.reflect.*;
+            @Retention(RetentionPolicy.RUNTIME) @interface Mark { String value(); }
+            @Mark("record") record Point(@Mark("component") int x,String label) {
+                Point { if(x<0) throw new IllegalArgumentException(); }
+                public Point(int x) { this(x,"default"); }
+                public int twice() { return x*2; }
+            }
+            record Empty() {}
+            class RecordReflection {
+                public static int test() {
+                    if(!Point.class.isRecord() || Empty.class.getRecordComponents().length!=0) return -1;
+                    Constructor<?> ctor=Point.class.getDeclaredConstructor(int.class,String.class); ctor.setAccessible(true);
+                    Point point=(Point)ctor.newInstance(21,"Ada");
+                    if(point.x()!=21 || !point.label().equals("Ada")) return -2;
+                    if(((Integer)Point.class.getMethod("twice").invoke(point)).intValue()!=42) return -3;
+                    if(((Integer)Point.class.getMethod("x").invoke(point)).intValue()!=21) return -4;
+                    Field x=Point.class.getDeclaredField("x"); x.setAccessible(true);
+                    if(x.getInt(point)!=21 || !Modifier.isFinal(x.getModifiers())) return -5;
+                    try { x.setInt(point,99); return -6; } catch(IllegalAccessException expected) {}
+                    RecordComponent[] components=Point.class.getRecordComponents();
+                    if(components.length!=2 || !components[0].getName().equals("x") || components[0].getType()!=int.class || components[0].getDeclaringRecord()!=Point.class) return -7;
+                    if(((Integer)components[0].getAccessor().invoke(point)).intValue()!=21) return -8;
+                    if(!components[0].getAnnotation(Mark.class).value().equals("component")) return -9;
+                    if(!Point.class.getAnnotation(Mark.class).value().equals("record")) return -10;
+                    if(!point.equals(new Point(21,"Ada")) || point.hashCode()!=new Point(21,"Ada").hashCode()) return -11;
+                    if(point.equals(new Point(22,"Ada")) || point.equals(null)) return -12;
+                    if(!point.toString().equals("Point[x=21, label=Ada]")) return -13;
+                    if(((Integer)Point.class.getMethod("hashCode").invoke(point)).intValue()!=point.hashCode()) return -14;
+                    if(!((Boolean)Point.class.getMethod("equals",Object.class).invoke(point,new Point(21,"Ada"))).booleanValue()) return -15;
+                    if(Point.class.getConstructor(int.class).newInstance(2)==null) return -16;
+                    try { ctor.newInstance(-1,"bad"); return -17; } catch(InvocationTargetException expected) { if(!(expected.getCause() instanceof IllegalArgumentException)) return -18; }
+                    return 42;
+                }
+            }
+            """,false).getWasm();
+        OverloadResolutionTest.execute(wasm,"assert.equal(e.test(),42);");
+    }
+
+    @Test void preservesRecordConstructorsOverridesAndAnnotationTargets() throws Exception {
+        byte[] wasm=JavacToWasm.compile("RecordContracts.java","""
+            import java.lang.annotation.*;
+            import java.lang.reflect.*;
+            @Retention(RetentionPolicy.RUNTIME) @Target(ElementType.RECORD_COMPONENT) @interface ComponentOnly {}
+            @Retention(RetentionPolicy.RUNTIME) @Target({ElementType.FIELD,ElementType.METHOD}) @interface Property {}
+            public record Value(@ComponentOnly @Property int amount) {
+                public Value(int amount) { this.amount=amount+1; }
+                public int amount() { return amount+10; }
+                public String toString() { return "custom"; }
+            }
+            public record Generic<T>(T value) {}
+            public record Many(int... values) {}
+            public record Pair(double number,String label) {}
+            class RecordContracts {
+                public static int test() {
+                    Value value=(Value)Value.class.getConstructor(int.class).newInstance(1);
+                    if(value.amount()!=12 || !value.toString().equals("custom")) return -1;
+                    Field field=Value.class.getDeclaredField("amount"); field.setAccessible(true);
+                    if(field.getInt(value)!=2 || !field.isAnnotationPresent(Property.class) || field.isAnnotationPresent(ComponentOnly.class)) return -2;
+                    RecordComponent component=Value.class.getRecordComponents()[0];
+                    if(!component.isAnnotationPresent(ComponentOnly.class) || component.isAnnotationPresent(Property.class)) return -3;
+                    if(component.getAccessor().isAnnotationPresent(Property.class)) return -4;
+                    Generic generic=(Generic)Generic.class.getConstructor(Object.class).newInstance("hello");
+                    if(!generic.value().equals("hello")) return -5;
+                    if(Generic.class.getRecordComponents()[0].getType()!=Object.class) return -6;
+                    Object array=new int[]{1,2};
+                    Many many=(Many)Many.class.getConstructor(int[].class).newInstance(array);
+                    if(many.values()!=array || !Many.class.getConstructor(int[].class).isVarArgs()) return -7;
+                    double nan=0.0/0.0; Pair first=new Pair(nan,null), second=new Pair(nan,null);
+                    if(!first.equals(second) || first.hashCode()!=second.hashCode()) return -8;
+                    if(new Pair(0.0,null).equals(new Pair(-0.0,null))) return -9;
+                    return 42;
+                }
+            }
+            """,false).getWasm();
+        OverloadResolutionTest.execute(wasm,"assert.equal(e.test(),42);");
+    }
+
+    @Test void diagnosesEnumConstantBodiesForReflection() {
+        var error=assertThrows(IllegalArgumentException.class,()->JavacToWasm.compile("EnumBody.java",
+                "enum Mode { ONE { public int code() { return 1; } }; } class App { static void run() { Mode.class.getMethods(); } }",false));
+        assertTrue(error.getMessage().contains("enum constant-specific class body"),error.getMessage());
+    }
 }

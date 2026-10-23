@@ -20,6 +20,7 @@ final class ReflectionSupport {
     private final List<Member> members = new ArrayList<>();
     private final Map<String, AnnotationDeclaration> annotations = new LinkedHashMap<>();
     private final List<String> annotationObjects = new ArrayList<>();
+    private final Map<String, RecordDeclaration> records = new LinkedHashMap<>();
     private final Set<String> descriptorTypes = new LinkedHashSet<>();
 
     private ReflectionSupport(List<TypeDeclaration<?>> types) {
@@ -34,7 +35,7 @@ final class ReflectionSupport {
                 throw JavaSourcePreparation.error(type,"Unsupported dynamic class loading; link all source types before Wasm instantiation and use Class.forName");
         boolean needed=cu.findAll(MethodCallExpr.class).stream().anyMatch(c -> Set.of("getDeclaredFields","getDeclaredField","getFields","getField",
                 "getDeclaredMethods","getDeclaredMethod","getMethods","getMethod","getDeclaredConstructors","getDeclaredConstructor",
-                "isAnnotation","isPrimitive","getConstructors","getConstructor","getDeclaredAnnotations","getAnnotations","getAnnotation","isAnnotationPresent","forName").contains(c.getNameAsString()));
+                "isRecord","getRecordComponents","isAnnotation","isPrimitive","getConstructors","getConstructor","getDeclaredAnnotations","getAnnotations","getAnnotation","isAnnotationPresent","forName").contains(c.getNameAsString()));
         if(!needed) return null;
         for(MethodCallExpr call:cu.findAll(MethodCallExpr.class))
             if(call.getNameAsString().equals("forName") && call.getArguments().size()!=1)
@@ -55,7 +56,7 @@ final class ReflectionSupport {
         List<TypeDeclaration<?>> originals=new ArrayList<>();
         cu.findAll(TypeDeclaration.class).forEach(originals::add);
         ReflectionSupport support=new ReflectionSupport(originals.stream().filter(t -> !t.getNameAsString().startsWith("__Javaw")).toList());
-        for(String name:List.of("Field","Method","Constructor","AccessibleObject","AnnotatedElement","Annotation","Modifier","__JavawReflection"))
+        for(String name:List.of("Field","Method","Constructor","AccessibleObject","AnnotatedElement","Annotation","Modifier","RecordComponent","__JavawReflection"))
             if(support.declarations.containsKey(name)) throw JavaSourcePreparation.error(support.declarations.get(name),
                     "Reserved reflection runtime type '"+name+"'; rename the source type");
         support.generate(cu);
@@ -75,41 +76,83 @@ final class ReflectionSupport {
             if(annotation.containsData(JavaSourcePreparation.PACKAGE)) iface.setData(JavaSourcePreparation.PACKAGE,annotation.getData(JavaSourcePreparation.PACKAGE));
             types.set(types.indexOf(annotation),iface); declarations.put(iface.getNameAsString(),iface); annotation.replace(iface);
         }
+        for(var type:new ArrayList<>(types)) if(type instanceof RecordDeclaration record) {
+            records.put(record.getNameAsString(),record);
+            var owner=RecordReflectionSupport.lower(record,this::annotationTarget);
+            types.set(types.indexOf(record),owner); declarations.put(owner.getNameAsString(),owner); record.replace(owner);
+        }
         for(TypeDeclaration<?> type:types) {
             descriptorTypes.add(type.getNameAsString());
-            if(!(type instanceof ClassOrInterfaceDeclaration owner)) continue;
+            if(!(type instanceof ClassOrInterfaceDeclaration) && !(type instanceof EnumDeclaration)) continue;
+            TypeDeclaration<?> owner=type;
+            boolean iface=owner instanceof ClassOrInterfaceDeclaration c && c.isInterface();
             String name=owner.getNameAsString();
+            if(owner instanceof EnumDeclaration enumeration) {
+                for(var constant:enumeration.getEntries()) {
+                    if(!constant.getClassBody().isEmpty()) throw JavaSourcePreparation.error(constant,
+                            "Unsupported enum constant-specific class body in source reflection; move behavior to enum methods");
+                    var member=new Member(members.size()+1,"Field",name,constant.getNameAsString(),name,List.of(),16409,false,constant);
+                    members.add(member); fieldBridge(owner,member);
+                }
+            }
             for(FieldDeclaration field:owner.getFields()) for(VariableDeclarator variable:field.getVariables()) {
                 String fieldType=erased(variable.getTypeAsString(),field);
                 var member=new Member(members.size()+1,"Field",name,variable.getNameAsString(),fieldType,List.of(),
-                        flags(field)|(owner.isInterface()?25:0),false,field);
+                        flags(field)|(iface?25:0),false,field);
                 members.add(member); descriptorTypes.add(fieldType);
                 fieldBridge(owner,member);
             }
             for(MethodDeclaration method:new ArrayList<>(owner.getMethods())) {
                 if(method.getNameAsString().startsWith("__javaw_")) continue;
                 var member=new Member(members.size()+1,"Method",name,method.getNameAsString(),erased(method.getTypeAsString(),method),
-                        parameters(method),flags(method)|(owner.isInterface()&&!method.isPrivate()?1:0)|(owner.isInterface()&&method.getBody().isEmpty()&&!method.isStatic()?1024:0),method.getParameters().stream().anyMatch(Parameter::isVarArgs),method);
+                        parameters(method),flags(method)|(iface&&!method.isPrivate()?1:0)|(iface&&method.getBody().isEmpty()&&!method.isStatic()?1024:0),method.getParameters().stream().anyMatch(Parameter::isVarArgs),method);
                 members.add(member); descriptorTypes.add(member.type); descriptorTypes.addAll(member.parameters);
                 executableBridge(owner,member,method);
             }
-            if(!owner.isInterface()) {
+            if(!iface) {
                 List<ConstructorDeclaration> constructors=new ArrayList<>(owner.getConstructors());
                 if(constructors.isEmpty()) {
-                    var ctor=StaticJavaParser.parseBodyDeclaration((owner.isPublic()?"public ":"")+name+"() {}").asConstructorDeclaration();
+                    var ctor=StaticJavaParser.parseBodyDeclaration((owner instanceof EnumDeclaration?"private ":owner.isPublic()?"public ":"")+name+"() {}").asConstructorDeclaration();
                     // Explicit default construction preserves the same source access and initialization rules.
                     owner.addMember(ctor); constructors.add(ctor);
                 }
                 for(ConstructorDeclaration constructor:constructors) {
-                    var member=new Member(members.size()+1,"Constructor",name,name,name,parameters(constructor),flags(constructor),
+                    var constructorParameters=new ArrayList<>(parameters(constructor));
+                    if(owner instanceof EnumDeclaration) { constructorParameters.add(0,"int"); constructorParameters.add(0,"String"); }
+                    var member=new Member(members.size()+1,"Constructor",name,name,name,constructorParameters,owner instanceof EnumDeclaration?2:flags(constructor),
                             constructor.getParameters().stream().anyMatch(Parameter::isVarArgs),constructor);
                     members.add(member); descriptorTypes.addAll(member.parameters);
                     executableBridge(owner,member,constructor);
                 }
             }
         }
+        for(var type:types) if(type instanceof EnumDeclaration enumeration) {
+            String name=type.getNameAsString();
+            for(String source:List.of("public static "+name+"[] values();","public static "+name+" valueOf(String name);")) {
+                var method=StaticJavaParser.parseBodyDeclaration(source).asMethodDeclaration();
+                if(!enumeration.getMethodsByName(method.getNameAsString()).isEmpty()) continue;
+                var member=new Member(members.size()+1,"Method",name,method.getNameAsString(),method.getTypeAsString(),parameters(method),9,false,method);
+                members.add(member); descriptorTypes.add(member.type); descriptorTypes.addAll(member.parameters);
+                executableBridge(type,member,method);
+            }
+        }
         StringBuilder helper=new StringBuilder("class __JavawReflection {");
         numericConversions(helper);
+        helper.append("public static boolean __javaw_class_isRecord(Class<?> owner) { if(owner==null) throw new NullPointerException(); return ")
+                .append(records.isEmpty()?"false":records.keySet().stream().map(n->"owner=="+n+".class").collect(Collectors.joining("||"))).append("; }");
+        helper.append("public static RecordComponent[] __javaw_class_getRecordComponents(Class<?> owner) { if(owner==null) throw new NullPointerException();");
+        for(var record:records.values()) {
+            helper.append("if(owner==").append(record.getNameAsString()).append(".class) return new RecordComponent[]{");
+            List<String> components=new ArrayList<>();
+            for(var parameter:record.getParameters()) {
+                var member=new Member(members.size()+1,"RecordComponent",record.getNameAsString(),parameter.getNameAsString(),erased(RecordReflectionSupport.componentType(parameter),parameter),List.of(),0,false,parameter);
+                members.add(member);
+                components.add("new RecordComponent("+member.id+","+quote(member.name)+","+classLiteral(member.owner)+","+classLiteral(member.type)+")");
+            }
+            helper.append(String.join(",",components)).append("};");
+        }
+        helper.append("return null; }");
+
         helper.append("public static Class<?> __javaw_reflect_load(String name) { if(name==null) throw new NullPointerException();");
         for(var type:types) {
             String pkg=type.containsData(JavaSourcePreparation.PACKAGE)?type.getData(JavaSourcePreparation.PACKAGE):"";
@@ -126,20 +169,12 @@ final class ReflectionSupport {
             helper.append("public static ").append(kind).append("[] __javaw_class_getDeclared").append(plural).append("(Class<?> owner) { if(owner==null) throw new NullPointerException();");
             for(var type:types) {
                 String name=type.getNameAsString();
-                if (!(type instanceof ClassOrInterfaceDeclaration)) {
-                    helper.append("if(owner==").append(name).append(".class) throw new UnsupportedOperationException(\"Record/enum member reflection is unavailable\");");
-                    continue;
-                }
                 helper.append("if(owner==").append(name).append(".class) return new ").append(kind).append("[]{")
                         .append(members.stream().filter(m -> m.kind.equals(kind)&&m.owner.equals(name)).map(this::descriptor).collect(Collectors.joining(","))).append("};");
             }
             helper.append("return new ").append(kind).append("[0]; }");
             helper.append("public static ").append(kind).append("[] __javaw_class_get").append(plural).append("(Class<?> owner) { if(owner==null) throw new NullPointerException();");
             for(var type:types) {
-                if (!(type instanceof ClassOrInterfaceDeclaration)) {
-                    helper.append("if(owner==").append(type.getNameAsString()).append(".class) throw new UnsupportedOperationException(\"Record/enum member reflection is unavailable\");");
-                    continue;
-                }
                 helper.append("if(owner==").append(type.getNameAsString()).append(".class) return new ").append(kind).append("[]{")
                         .append(publicMembers(type,kind,new HashSet<>()).stream().map(this::descriptor).collect(Collectors.joining(","))).append("};");
             }
@@ -236,11 +271,17 @@ final class ReflectionSupport {
                 for(Member inherited:publicMembers(target,kind,seen))
                     if(kind.equals("Field") || result.stream().noneMatch(m -> m.name.equals(inherited.name)&&m.parameters.equals(inherited.parameters))) result.add(inherited);
             }
+        } else if(!kind.equals("Constructor") && type instanceof EnumDeclaration enumeration) {
+            for(var parent:enumeration.getImplementedTypes()) {
+                var target=declarations.get(parent.getNameAsString()); if(target==null) continue;
+                for(Member inherited:publicMembers(target,kind,seen))
+                    if(kind.equals("Field") || result.stream().noneMatch(m -> m.name.equals(inherited.name)&&m.parameters.equals(inherited.parameters))) result.add(inherited);
+            }
         }
         return result;
     }
 
-    private void fieldBridge(ClassOrInterfaceDeclaration owner,Member member) {
+    private void fieldBridge(TypeDeclaration<?> owner,Member member) {
         String target=(member.modifiers&8)!=0?member.owner:"(("+member.owner+")receiver)";
         String check=receiverCheck(member);
         String get="public static Object __javaw_bridge_field_get_"+member.id+"(Object receiver) {"+check+"return "+box(target+"."+member.name,member.type)+"; }";
@@ -254,18 +295,21 @@ final class ReflectionSupport {
         if((member.modifiers&8)!=0) return "";
         return "if(receiver==null) throw new NullPointerException(); if(!(receiver instanceof "+member.owner+")) throw new IllegalArgumentException();";
     }
-    private void executableBridge(ClassOrInterfaceDeclaration owner,Member member,CallableDeclaration<?> declaration) {
+    private void executableBridge(TypeDeclaration<?> owner,Member member,CallableDeclaration<?> declaration) {
         boolean constructor=member.kind.equals("Constructor");
         String body="public static Object __javaw_bridge_"+(constructor?"construct":"method_invoke")+"_"+member.id+"("+(constructor?"":"Object receiver,")+"Object[] arguments) {";
-        if(constructor && owner.isAbstract()) body+="throw new InstantiationException();";
+        if(constructor && owner instanceof EnumDeclaration) body+="throw new IllegalArgumentException(\"Cannot reflectively create enum objects\");";
+        else if(constructor && owner instanceof ClassOrInterfaceDeclaration c && c.isAbstract()) body+="throw new InstantiationException();";
         else {
             if(!constructor) body+=receiverCheck(member);
             body+="int count=arguments==null?0:arguments.length; if(count!="+member.parameters.size()+") throw new IllegalArgumentException();";
             for(int i=0;i<member.parameters.size();i++) body+=conversion("arguments["+i+"]",member.parameters.get(i),"p"+i);
             String arguments=java.util.stream.IntStream.range(0,member.parameters.size()).mapToObj(i->"p"+i).collect(Collectors.joining(","));
             String call=constructor?"new "+member.owner+"("+arguments+")":((member.modifiers&8)!=0?member.owner:"(("+member.owner+")receiver)")+"."+member.name+"("+arguments+")";
-            body+="try {"+(member.type.equals("void")?call+"; return null;":"return "+box(call,member.type)+";")
-                    +"} catch(Throwable target) { throw new InvocationTargetException(target); }";
+            String invocation=member.type.equals("void")?call+"; return null;":"return "+box(call,member.type)+";";
+            if(owner instanceof EnumDeclaration && member.name.equals("valueOf") && member.parameters.equals(List.of("String")))
+                invocation="if(p0==null) throw new NullPointerException(); "+member.owner+" result="+call+"; if(result==null) throw new IllegalArgumentException(); return result;";
+            body+="try {"+invocation+"} catch(Throwable target) { throw new InvocationTargetException(target); }";
         }
         owner.addMember(StaticJavaParser.parseBodyDeclaration(body+"}"));
     }
@@ -297,7 +341,7 @@ final class ReflectionSupport {
 
     private void annotationMetadata(StringBuilder helper,CompilationUnit cu) {
         helper.append("public static Annotation[] __javaw_member_annotations(int id) {");
-        for(Member member:members) helper.append("if(id==").append(member.id).append(") return ").append(annotationArray(member.declaration)).append(";");
+        for(Member member:members) helper.append("if(id==").append(member.id).append(") return ").append(annotationArray(member.kind.equals("RecordComponent")?declaredAnnotations(member.declaration).stream().filter(a -> annotationTarget(a,"RECORD_COMPONENT")).toList():declaredAnnotations(member.declaration))).append(";");
         helper.append("return new Annotation[0]; }");
         helper.append("public static Annotation[] __javaw_class_getDeclaredAnnotations(Class<?> owner) { if(owner==null) throw new NullPointerException();");
         for(var type:types) helper.append("if(owner==").append(type.getNameAsString()).append(".class) return ").append(annotationArray(type)).append(";");
@@ -320,6 +364,15 @@ final class ReflectionSupport {
             }
         }
         return result;
+    }
+
+    private boolean annotationTarget(AnnotationExpr use,String target) {
+        var schema=annotations.get(use.getName().getIdentifier());
+        if(schema==null) return false;
+        var restriction=schema.getAnnotations().stream().filter(a -> a.getName().getIdentifier().equals("Target")).findFirst();
+        if(restriction.isEmpty()) return true;
+        return restriction.get().findAll(NameExpr.class).stream().anyMatch(n -> n.getNameAsString().equals(target))
+                || restriction.get().findAll(FieldAccessExpr.class).stream().anyMatch(n -> n.getNameAsString().equals(target));
     }
 
     private boolean runtimeAnnotation(AnnotationExpr use) {
@@ -388,7 +441,7 @@ final class ReflectionSupport {
         }
         return value.toString();
     }
-    private static String annotationEqual(String a,String b,String type) {
+    static String annotationEqual(String a,String b,String type) {
         if(type.equals("float")) return "Float.floatToIntBits("+a+")==Float.floatToIntBits("+b+")";
         if(type.equals("double")) return "Double.doubleToLongBits("+a+")==Double.doubleToLongBits("+b+")";
         if(BoxingSupport.wrapper(type)!=null || type.startsWith("Class")) return a+"=="+b;

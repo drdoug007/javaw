@@ -47,8 +47,8 @@ JDK implementations, JNI, automatic class initialization, resources/service
 loading, and multirelease selection are not general compatibility guarantees.
 Dynamic loading of additional code after Wasm instantiation is unsupported.
 Source `Class` descriptors describe linked types. Generated member invocation,
-annotation instances, and reflective construction are available for ordinary
-linked source classes under [the source reflection contract](reflection.md).
+annotation instances, and reflective construction are available for linked
+source classes, enums, and records under [the source reflection contract](reflection.md).
 
 Diagnostics include source file and line when present, class, method descriptor,
 construct/opcode, and remediation. Without debug information, diagnostics say
@@ -80,7 +80,7 @@ mvn -o -pl javaw-bytecode -am test \
 
 ## Remaining Phase 4 and Phase 5 work
 
-Remaining reflection compatibility (enum/record/library members,
+Remaining reflection compatibility (library members,
 full access and Class semantics); worker-safe allocation,
 monitor ownership, blocking wait/notify and thread lifecycle/JMM; comprehensive
 I/O/NIO/network/date-time/regex/serialization; complete JLS conversions and

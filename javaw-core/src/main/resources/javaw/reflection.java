@@ -56,6 +56,7 @@ class Field extends __JavawMember {
         memberId=id; memberName=name; memberOwner=owner; fieldType=type; memberModifiers=modifiers;
     }
     public Class<?> getType() { return fieldType; }
+    public boolean isEnumConstant() { return (memberModifiers & 16384)!=0; }
     public Object get(Object receiver) { __javaw_check_access(memberModifiers); return __JavawReflection.__javaw_field_get(memberId,receiver); }
     public void set(Object receiver,Object value) {
         __javaw_check_access(memberModifiers);
@@ -114,4 +115,15 @@ class Modifier {
     public static boolean isFinal(int flags) { return (flags & 16)!=0; }
     public static boolean isAbstract(int flags) { return (flags & 1024)!=0; }
     public static boolean isInterface(int flags) { return (flags & 512)!=0; }
+}
+
+
+class RecordComponent extends __JavawMember {
+    private Class<?> componentType;
+    public RecordComponent(int id,String name,Class<?> owner,Class<?> type) {
+        memberId=id; memberName=name; memberOwner=owner; componentType=type;
+    }
+    public Class<?> getType() { return componentType; }
+    public Class<?> getDeclaringRecord() { return memberOwner; }
+    public Method getAccessor() { return memberOwner.getDeclaredMethod(memberName); }
 }

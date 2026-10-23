@@ -10,7 +10,7 @@ The broad reflection roadmap item remains open for the limitations below.
 
 ## Available operations
 
-For ordinary linked source classes and interfaces:
+For linked source classes, interfaces, enums, and records:
 
 - Class getDeclaredFields/Methods/Constructors and single-member lookup expose
   source declarations. Public getFields/getMethods include inherited source
@@ -82,11 +82,35 @@ Reflective varargs are passed as a single array argument, not automatically
 repacked. For example, invoke(null, (Object)new int[]{1,2}) passes an int[]
 argument; invoke(null, 1,2) does not call a method taking int... correctly.
 
-Enum and record member lookup/enumeration explicitly throw
-UnsupportedOperationException. Member metadata for compiler-injected library
-facades, JAR classes, and synthesized members is not provided; those types may
-have class descriptors without reflectable members. Runtime annotation inspection
-on linked enum/record declarations is available.
+Enums expose source-declared fields and methods, public static final constants
+(Field.isEnumConstant), generated values/valueOf methods, and private constructor
+metadata with the synthetic String name/int ordinal parameters. Reflective
+construction always fails with IllegalArgumentException after access checks,
+even with setAccessible(true). Reflected valueOf wraps missing-name and null-name
+errors in InvocationTargetException. Constant-specific class bodies are rejected
+with a source diagnostic because their subclass dispatch is not implemented.
+
+Records in reflection-enabled source modules lower to managed objects so they
+can cross Object-based reflection boundaries. Modules without reflection keep
+the existing multi-value record representation; these representations are not a
+cross-module ABI. Canonical, compact, explicit, and varargs constructors,
+immutable private backing fields, public accessors, source methods, and generated
+equals/hashCode/toString methods participate in reflection. User overrides are
+retained. Generic member types use erased Class descriptors. Casts of reflected constructor
+results to wildcard-parameterized types remain subject to the compiler's pending
+generic conversion work; use the raw record type at that boundary.
+
+Class.isRecord and getRecordComponents expose ordered RecordComponent objects
+with name, type, declaring record, accessor, and runtime declaration annotations.
+Generated backing fields/accessors receive component annotations only when the
+annotation's Target permits FIELD/METHOD; explicitly declared accessors retain
+their own annotations. Parameter/type-use annotation APIs remain pending.
+
+Member metadata for compiler-injected library facades, JAR classes, and other
+synthesized members is not provided; those types may have class descriptors
+without reflectable members. Inherited java.lang.Enum/Record library APIs and
+the full Record superclass contract remain follow-ups. The usual source
+compiler conversion and library limits still apply to record method bodies.
 
 The host runtime's writeIntArray, writeDoubleArray, and writeStringArray attach
 the corresponding int[], double[], and String[] tags. Managed allocations from
