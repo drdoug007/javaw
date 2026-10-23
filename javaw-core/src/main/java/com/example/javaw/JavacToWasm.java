@@ -619,6 +619,7 @@ public class JavacToWasm {
                 heapStart = ((end + 65535) / 65536) * 65536;
             }
         }
+        watOutput.append("  (global $__heap_base i32 (i32.const ").append(heapStart).append("))\n");
         watOutput.append("  (global $__heap_ptr (mut i32) (i32.const ").append(heapStart).append("))\n");
         for (String cName : classRegistry.getClasses().keySet()) {
             watOutput.append("  (global $__class_").append(cName).append(" (mut i32) (i32.const 0))\n");
@@ -640,6 +641,7 @@ public class JavacToWasm {
                 .append("\n    call ").append(classRegistry.findMethod("BigDecimal","__javaw_initialize").getFunctionName())
                 .append(")\n  (start $__javaw_initialize)\n");
         } else watOutput.append("  (start ").append(initializer).append(")\n");
+        ManagedHeap.emitCollector(watOutput);
         watOutput.append(")\n");
         return watOutput.toString();
     }

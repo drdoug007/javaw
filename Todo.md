@@ -292,8 +292,8 @@ This roadmap organizes planned features by their utility and return on investmen
 - [x] Emit route/entity metadata for a Node HTTP bridge that marshals parameters and serializes entities without storing rows in JavaScript.
 - [x] Verify compilation, optimized Wasm execution, decimal price round-trips, Unicode/JSON escaping, 404s, deletion, and isolation between Wasm instances without editing `SpringBootApp.java`.
 - [ ] Add general Optional/lambda support, broader dependency injection, repository queries, and transaction semantics.
-- [ ] Add BigDecimal arithmetic and exact decimal JSON serialization beyond JavaScript number precision.
-- [ ] Reclaim repository rows and temporary allocations for long-running services.
+- [x] Add source-backed BigDecimal arithmetic and exact decimal JSON serialization beyond JavaScript number precision; see Phase 3 coverage and remaining JDK overloads.
+- [x] Reclaim unreachable repository rows and request temporaries at explicit host safepoints; verify stable heap size under repeated CRUD workloads.
 - [ ] Support the actual H2 SQL engine and full Spring/Hibernate runtime. Current support is an ahead-of-time API subset with an in-memory repository, not those JVM engines.
 
 
@@ -348,7 +348,7 @@ Checked items elsewhere describe supported subsets, not complete Java/JDK/JVM co
 ### Phase 3: Decimal arithmetic and memory reclamation
 
 - [x] Implement source-backed arbitrary-precision BigInteger and BigDecimal construction, arithmetic, scale, all eight RoundingMode values, comparison, exact integer conversions, and exact decimal JSON marshalling. String/int/long/unscaled and exact binary-double constructors are supported; constant double valueOf factories use JDK shortest formatting at compile time. Runtime double valueOf, MathContext overloads, and the rest of the JDK math API remain library follow-ups.
-- [ ] Reclaim unreachable objects and temporary allocations; validate bounded memory use under repeated CRUD requests.
+- [x] Reclaim unreachable objects, arrays, strings, buffers, and cycles with conservative tracing at explicit host safepoints; reuse/split/coalesce cleared blocks and define counted host retains. Wasm regressions verify static/closure/interior roots, exception cleanup, and stable 500-cycle allocation and 300-cycle CRUD workloads after cache warm-up. Collection during active Wasm calls and concurrent collection remain unsupported.
 - [ ] Evaluate tracing GC, explicit runtime reclamation, and the existing WasmGC backend proposal; define object roots and host-reference ownership.
 
 ### Phase 4: Runtime semantics and standard libraries

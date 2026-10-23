@@ -95,7 +95,33 @@ async function runTests() {
         e.main(0);
         const after = e.ProductController_handleGetAll(e.__javaw_controller_ProductController());
         assert.equal(new DataView(e.memory.buffer).getInt32(after, true), 3);
-        console.log('All WebAssembly controller, repository and HTTP tests passed.');
+        // Exercise the actual bridge's collection boundary while keeping live repository rows.
+        const web = await createSpringWeb(fs.readFileSync(path.join(__dirname, 'SpringBootApp.wasm')));
+        async function invoke(method, route, body) {
+            const { Readable } = require('node:stream');
+            const req = Readable.from(body === undefined ? [] : [JSON.stringify(body)]); req.method = method;
+            let status, text;
+            await web.handle(req, { writeHead(code) { status=code; }, end(value) { text=value; } }, new URL(route, 'http://localhost'));
+            return { status, body: text ? JSON.parse(text) : null };
+        }
+        async function cycle() {
+            const created = await invoke('POST', '/api/products', { name: 'Temporary 雪', price: '12345678901234567890.123456789', stock: 2 });
+            assert.equal(created.status, 201);
+            assert.equal((await invoke('GET', '/api/products/' + created.body.id)).status, 200);
+            assert.equal((await invoke('PUT', '/api/products/' + created.body.id, { name: 'Updated', price: '0.0001', stock: 3 })).status, 200);
+            assert.equal((await invoke('DELETE', '/api/products/' + created.body.id)).status, 204);
+            assert.equal((await invoke('GET', '/api/products/' + created.body.id)).status, 404);
+        }
+        // Warm past the lazy Integer cache (IDs up to 127 are retained intentionally).
+        for (let i=0;i<160;i++) await cycle();
+        const heap=web.instance.exports;
+        const live=heap.__gc_live_bytes(), allocated=heap.__gc_heap_bytes(), pages=heap.memory.buffer.byteLength;
+        for (let i=0;i<300;i++) await cycle();
+        assert.equal(heap.__gc_live_bytes(),live);
+        assert.equal(heap.__gc_heap_bytes(),allocated);
+        assert.equal(heap.memory.buffer.byteLength,pages);
+        assert.equal((await invoke('GET', '/api/products')).body.length,3);
+        console.log('All WebAssembly controller, repository, exact decimal, HTTP and bounded-memory tests passed.');
     } finally {
         await new Promise(resolve => server.close(resolve));
     }

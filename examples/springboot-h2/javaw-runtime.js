@@ -737,6 +737,24 @@
             return Array.from(this.vfs.keys());
         }
 
+        // Call only at a host safepoint: no active Wasm call or concurrent worker.
+        retain(pointer) {
+            return this.instance.exports.__gc_retain(pointer);
+        }
+
+        release(pointer) {
+            this.instance.exports.__gc_release(pointer);
+        }
+
+        collectGarbage() {
+            return this.instance.exports.__gc_collect();
+        }
+
+        getHeapStats() {
+            const e = this.instance.exports;
+            return { liveBytes: e.__gc_live_bytes(), heapBytes: e.__gc_heap_bytes(), memoryBytes: e.memory.buffer.byteLength };
+        }
+
         setInstance(instance) {
             this.instance = instance;
             this.bindExportedClasses();

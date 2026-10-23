@@ -124,8 +124,13 @@ async function createSpringWeb(wasmBytes) {
             if (error instanceof URIError) return send(400, { error: 'Invalid URL encoding' });
             if (!error.status) console.error(error);
             send(error.status || 500, { error: error.status ? error.message : 'Internal server error' });
+        } finally {
+            // Every request has finished all Wasm calls and copied its response into JS text.
+            // Other requests awaiting their body have no temporary Wasm pointers yet.
+            exports.__gc_collect();
         }
     }
+    exports.__gc_collect();
     return { handle, instance, metadata };
 }
 module.exports = { createSpringWeb };

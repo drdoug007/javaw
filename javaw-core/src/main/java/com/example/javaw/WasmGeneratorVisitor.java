@@ -3085,11 +3085,11 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             if (localJavaTypes != null && localJavaTypes.containsKey(name)) {
                 return localJavaTypes.get(name);
             }
-            if (globalVars != null && globalVars.containsKey(name)) {
-                return globalVars.get(name).getJavaType();
-            }
             if (currentClass != null && currentClass.hasField(name)) {
                 return classRegistry.fieldType(currentClass.getName(), name);
+            }
+            if (globalVars != null && globalVars.containsKey(name)) {
+                return globalVars.get(name).getJavaType();
             }
             if (classRegistry != null && (classRegistry.hasClass(name) || classRegistry.isRecord(name))) return name;
             return null;

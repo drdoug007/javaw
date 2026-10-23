@@ -7,31 +7,7 @@ public class WasmRuntime {
     }
 
     public static void emitRuntimeFunctions(StringBuilder watOutput, int trueOffset, int falseOffset, boolean hasWasi) {
-        watOutput.append("  ;; --- Heap Allocation Functions ---\n");
-        watOutput.append("  (func $__heap_alloc (export \"__heap_alloc\") (param $size i32) (result i32)\n");
-        watOutput.append("    (local $ptr i32)\n");
-        watOutput.append("    (local $aligned_size i32)\n");
-        watOutput.append("    (local $i i32)\n");
-        watOutput.append("    global.get $__heap_ptr\n");
-        watOutput.append("    local.set $ptr\n");
-        watOutput.append("    local.get $size\n");
-        watOutput.append("    i32.const 7\n");
-        watOutput.append("    i32.add\n");
-        watOutput.append("    i32.const -8\n");
-        watOutput.append("    i32.and\n");
-        watOutput.append("    local.set $aligned_size\n");
-        watOutput.append("    global.get $__heap_ptr\n");
-        watOutput.append("    local.get $aligned_size\n");
-        watOutput.append("    i32.add\n");
-        watOutput.append("    global.set $__heap_ptr\n");
-        watOutput.append("    global.get $__heap_ptr\n    memory.size\n    i32.const 16\n    i32.shl\n    i32.gt_u\n    if\n");
-        watOutput.append("      global.get $__heap_ptr\n      i32.const 65535\n      i32.add\n      i32.const 16\n      i32.shr_u\n      memory.size\n      i32.sub\n      memory.grow\n      i32.const -1\n      i32.eq\n      if unreachable end\n    end\n");
-        watOutput.append("    local.get $ptr\n");
-        watOutput.append("    i32.const 0\n");
-        watOutput.append("    local.get $aligned_size\n");
-        watOutput.append("    memory.fill\n");
-        watOutput.append("    local.get $ptr\n");
-        watOutput.append("  )\n");
+        ManagedHeap.emitAllocator(watOutput);
         watOutput.append("""
           (func $__javaw_array_alloc (param $length i32) (param $width i32) (param $header i32) (result i32)
             (local $size i64) (local $ptr i32)
@@ -113,20 +89,7 @@ public class WasmRuntime {
         watOutput.append("  (func $__str_alloc (export \"__str_alloc\") (param $len i32) (result i32)\n");
         watOutput.append("    (local $ptr i32)\n");
         watOutput.append("    (local $total_bytes i32)\n");
-        watOutput.append("    global.get $__heap_ptr\n");
-        watOutput.append("    local.set $ptr\n");
-        watOutput.append("    local.get $len\n");
-        watOutput.append("    i32.const 1\n");
-        watOutput.append("    i32.add\n");
-        watOutput.append("    i32.const 3\n");
-        watOutput.append("    i32.add\n");
-        watOutput.append("    i32.const -4\n");
-        watOutput.append("    i32.and\n");
-        watOutput.append("    local.set $total_bytes\n");
-        watOutput.append("    global.get $__heap_ptr\n");
-        watOutput.append("    local.get $total_bytes\n");
-        watOutput.append("    i32.add\n");
-        watOutput.append("    global.set $__heap_ptr\n");
+        watOutput.append("    local.get $len\n    i32.const 1\n    i32.add\n    call $__heap_alloc\n    local.set $ptr\n");
         watOutput.append("    local.get $ptr\n");
         watOutput.append("    local.get $len\n");
         watOutput.append("    i32.add\n");
@@ -1497,48 +1460,25 @@ public class WasmRuntime {
         watOutput.append("  )\n");
 
         watOutput.append("  ;; --- StringBuilder Runtime Functions ---\n");
-        watOutput.append("  (func $__sb_new (export \"__sb_new\") (param $initial_cap i32) (result i32)\n");
-        watOutput.append("    (local $sb i32)\n");
-        watOutput.append("    (local $cap i32)\n");
-        watOutput.append("    (local $alloc_bytes i32)\n");
-        watOutput.append("    local.get $initial_cap\n");
-        watOutput.append("    local.set $cap\n");
-        watOutput.append("    local.get $cap\n");
-        watOutput.append("    i32.const 16\n");
-        watOutput.append("    i32.lt_s\n");
-        watOutput.append("    if\n");
-        watOutput.append("      i32.const 16\n");
-        watOutput.append("      local.set $cap\n");
-        watOutput.append("    end\n");
-        watOutput.append("    global.get $__heap_ptr\n");
-        watOutput.append("    local.set $sb\n");
-        watOutput.append("    local.get $cap\n");
-        watOutput.append("    i32.const 8\n");
-        watOutput.append("    i32.add\n");
-        watOutput.append("    i32.const 3\n");
-        watOutput.append("    i32.add\n");
-        watOutput.append("    i32.const -4\n");
-        watOutput.append("    i32.and\n");
-        watOutput.append("    local.set $alloc_bytes\n");
-        watOutput.append("    global.get $__heap_ptr\n");
-        watOutput.append("    local.get $alloc_bytes\n");
-        watOutput.append("    i32.add\n");
-        watOutput.append("    global.set $__heap_ptr\n");
-        watOutput.append("    local.get $sb\n");
-        watOutput.append("    local.get $cap\n");
-        watOutput.append("    i32.store\n");
-        watOutput.append("    local.get $sb\n");
-        watOutput.append("    i32.const 4\n");
-        watOutput.append("    i32.add\n");
-        watOutput.append("    i32.const 0\n");
-        watOutput.append("    i32.store\n");
-        watOutput.append("    local.get $sb\n");
-        watOutput.append("    i32.const 8\n");
-        watOutput.append("    i32.add\n");
-        watOutput.append("    i32.const 0\n");
-        watOutput.append("    i32.store8\n");
-        watOutput.append("    local.get $sb\n");
-        watOutput.append("  )\n");
+        watOutput.append("""
+          (func $__sb_new (export "__sb_new") (param $cap i32) (result i32)
+            (local $sb i32)
+            local.get $cap i32.const 16 i32.lt_s if i32.const 16 local.set $cap end
+            i32.const 16 call $__heap_alloc local.set $sb
+            local.get $sb local.get $cap i32.store
+            local.get $sb local.get $cap call $__str_alloc i32.store offset=8
+            local.get $sb)
+          (func $__sb_ensure (param $sb i32) (param $need i32)
+            (local $cap i32) (local $buffer i32)
+            local.get $need i32.const 1073741800 i32.gt_u if unreachable end
+            local.get $need local.get $sb i32.load i32.le_u if return end
+            local.get $sb i32.load i32.const 2 i32.mul i32.const 2 i32.add local.set $cap
+            local.get $need local.get $cap i32.gt_u if local.get $need local.set $cap end
+            local.get $cap call $__str_alloc local.set $buffer
+            local.get $buffer local.get $sb i32.load offset=8 local.get $sb i32.load offset=4 memory.copy
+            local.get $sb local.get $buffer i32.store offset=8
+            local.get $sb local.get $cap i32.store)
+            """);
 
         watOutput.append("  (func $__sb_append_str (export \"__sb_append_str\") (param $sb i32) (param $str i32) (result i32)\n");
         watOutput.append("    (local $cur_len i32)\n");
@@ -1557,9 +1497,9 @@ public class WasmRuntime {
         watOutput.append("    local.get $str\n");
         watOutput.append("    call $__str_length\n");
         watOutput.append("    local.set $str_len\n");
+        watOutput.append("    local.get $sb\n    local.get $cur_len\n    local.get $str_len\n    i32.add\n    call $__sb_ensure\n");
         watOutput.append("    local.get $sb\n");
-        watOutput.append("    i32.const 8\n");
-        watOutput.append("    i32.add\n");
+        watOutput.append("    i32.load offset=8\n");
         watOutput.append("    local.get $cur_len\n");
         watOutput.append("    i32.add\n");
         watOutput.append("    local.get $str\n");
@@ -1573,8 +1513,7 @@ public class WasmRuntime {
         watOutput.append("    i32.add\n");
         watOutput.append("    i32.store\n");
         watOutput.append("    local.get $sb\n");
-        watOutput.append("    i32.const 8\n");
-        watOutput.append("    i32.add\n");
+        watOutput.append("    i32.load offset=8\n");
         watOutput.append("    local.get $cur_len\n");
         watOutput.append("    local.get $str_len\n");
         watOutput.append("    i32.add\n");
@@ -1640,6 +1579,7 @@ public class WasmRuntime {
         watOutput.append("    i32.add\n");
         watOutput.append("    i32.load\n");
         watOutput.append("    local.set $cur_len\n");
+        watOutput.append("    local.get $sb\n    local.get $cur_len\n    local.get $str_len\n    i32.add\n    call $__sb_ensure\n");
         watOutput.append("    local.get $offset\n");
         watOutput.append("    local.set $off\n");
         watOutput.append("    local.get $off\n");
@@ -1657,15 +1597,13 @@ public class WasmRuntime {
         watOutput.append("      local.set $off\n");
         watOutput.append("    end\n");
         watOutput.append("    local.get $sb\n");
-        watOutput.append("    i32.const 8\n");
-        watOutput.append("    i32.add\n");
+        watOutput.append("    i32.load offset=8\n");
         watOutput.append("    local.get $off\n");
         watOutput.append("    i32.add\n");
         watOutput.append("    local.get $str_len\n");
         watOutput.append("    i32.add\n");
         watOutput.append("    local.get $sb\n");
-        watOutput.append("    i32.const 8\n");
-        watOutput.append("    i32.add\n");
+        watOutput.append("    i32.load offset=8\n");
         watOutput.append("    local.get $off\n");
         watOutput.append("    i32.add\n");
         watOutput.append("    local.get $cur_len\n");
@@ -1673,8 +1611,7 @@ public class WasmRuntime {
         watOutput.append("    i32.sub\n");
         watOutput.append("    memory.copy\n");
         watOutput.append("    local.get $sb\n");
-        watOutput.append("    i32.const 8\n");
-        watOutput.append("    i32.add\n");
+        watOutput.append("    i32.load offset=8\n");
         watOutput.append("    local.get $off\n");
         watOutput.append("    i32.add\n");
         watOutput.append("    local.get $str\n");
@@ -1688,8 +1625,7 @@ public class WasmRuntime {
         watOutput.append("    i32.add\n");
         watOutput.append("    i32.store\n");
         watOutput.append("    local.get $sb\n");
-        watOutput.append("    i32.const 8\n");
-        watOutput.append("    i32.add\n");
+        watOutput.append("    i32.load offset=8\n");
         watOutput.append("    local.get $cur_len\n");
         watOutput.append("    local.get $str_len\n");
         watOutput.append("    i32.add\n");
@@ -1779,13 +1715,11 @@ public class WasmRuntime {
         watOutput.append("    i32.sub\n");
         watOutput.append("    local.set $del_len\n");
         watOutput.append("    local.get $sb\n");
-        watOutput.append("    i32.const 8\n");
-        watOutput.append("    i32.add\n");
+        watOutput.append("    i32.load offset=8\n");
         watOutput.append("    local.get $s\n");
         watOutput.append("    i32.add\n");
         watOutput.append("    local.get $sb\n");
-        watOutput.append("    i32.const 8\n");
-        watOutput.append("    i32.add\n");
+        watOutput.append("    i32.load offset=8\n");
         watOutput.append("    local.get $e\n");
         watOutput.append("    i32.add\n");
         watOutput.append("    local.get $cur_len\n");
@@ -1800,8 +1734,7 @@ public class WasmRuntime {
         watOutput.append("    i32.sub\n");
         watOutput.append("    i32.store\n");
         watOutput.append("    local.get $sb\n");
-        watOutput.append("    i32.const 8\n");
-        watOutput.append("    i32.add\n");
+        watOutput.append("    i32.load offset=8\n");
         watOutput.append("    local.get $cur_len\n");
         watOutput.append("    local.get $del_len\n");
         watOutput.append("    i32.sub\n");
@@ -1855,29 +1788,25 @@ public class WasmRuntime {
         watOutput.append("        i32.ge_s\n");
         watOutput.append("        br_if $break_rev\n");
         watOutput.append("        local.get $sb\n");
-        watOutput.append("        i32.const 8\n");
-        watOutput.append("        i32.add\n");
+        watOutput.append("        i32.load offset=8\n");
         watOutput.append("        local.get $i\n");
         watOutput.append("        i32.add\n");
         watOutput.append("        i32.load8_u\n");
         watOutput.append("        local.set $ci\n");
         watOutput.append("        local.get $sb\n");
-        watOutput.append("        i32.const 8\n");
-        watOutput.append("        i32.add\n");
+        watOutput.append("        i32.load offset=8\n");
         watOutput.append("        local.get $j\n");
         watOutput.append("        i32.add\n");
         watOutput.append("        i32.load8_u\n");
         watOutput.append("        local.set $cj\n");
         watOutput.append("        local.get $sb\n");
-        watOutput.append("        i32.const 8\n");
-        watOutput.append("        i32.add\n");
+        watOutput.append("        i32.load offset=8\n");
         watOutput.append("        local.get $i\n");
         watOutput.append("        i32.add\n");
         watOutput.append("        local.get $cj\n");
         watOutput.append("        i32.store8\n");
         watOutput.append("        local.get $sb\n");
-        watOutput.append("        i32.const 8\n");
-        watOutput.append("        i32.add\n");
+        watOutput.append("        i32.load offset=8\n");
         watOutput.append("        local.get $j\n");
         watOutput.append("        i32.add\n");
         watOutput.append("        local.get $ci\n");
@@ -1959,8 +1888,7 @@ public class WasmRuntime {
         watOutput.append("    local.set $res\n");
         watOutput.append("    local.get $res\n");
         watOutput.append("    local.get $sb\n");
-        watOutput.append("    i32.const 8\n");
-        watOutput.append("    i32.add\n");
+        watOutput.append("    i32.load offset=8\n");
         watOutput.append("    local.get $s\n");
         watOutput.append("    i32.add\n");
         watOutput.append("    local.get $subLen\n");
@@ -1980,8 +1908,7 @@ public class WasmRuntime {
         watOutput.append("      return\n");
         watOutput.append("    end\n");
         watOutput.append("    local.get $sb\n");
-        watOutput.append("    i32.const 8\n");
-        watOutput.append("    i32.add\n");
+        watOutput.append("    i32.load offset=8\n");
         watOutput.append("    local.get $str\n");
         watOutput.append("    call $__str_indexOf\n");
         watOutput.append("  )\n");
@@ -1999,8 +1926,7 @@ public class WasmRuntime {
         watOutput.append("    local.set $res\n");
         watOutput.append("    local.get $res\n");
         watOutput.append("    local.get $sb\n");
-        watOutput.append("    i32.const 8\n");
-        watOutput.append("    i32.add\n");
+        watOutput.append("    i32.load offset=8\n");
         watOutput.append("    local.get $cur_len\n");
         watOutput.append("    memory.copy\n");
         watOutput.append("    local.get $res\n");
@@ -2020,8 +1946,7 @@ public class WasmRuntime {
 
         watOutput.append("  (func $__sb_charAt (export \"__sb_charAt\") (param $sb i32) (param $idx i32) (result i32)\n");
         watOutput.append("    local.get $sb\n");
-        watOutput.append("    i32.const 8\n");
-        watOutput.append("    i32.add\n");
+        watOutput.append("    i32.load offset=8\n");
         watOutput.append("    local.get $idx\n");
         watOutput.append("    i32.add\n");
         watOutput.append("    i32.load8_u\n");
@@ -2029,8 +1954,7 @@ public class WasmRuntime {
 
         watOutput.append("  (func $__sb_setCharAt (export \"__sb_setCharAt\") (param $sb i32) (param $idx i32) (param $c i32)\n");
         watOutput.append("    local.get $sb\n");
-        watOutput.append("    i32.const 8\n");
-        watOutput.append("    i32.add\n");
+        watOutput.append("    i32.load offset=8\n");
         watOutput.append("    local.get $idx\n");
         watOutput.append("    i32.add\n");
         watOutput.append("    local.get $c\n");

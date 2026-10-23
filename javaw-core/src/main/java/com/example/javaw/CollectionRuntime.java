@@ -3,24 +3,16 @@ package com.example.javaw;
 final class CollectionRuntime {
     static void emit(StringBuilder out) {
         out.append("""
-          (global $__javaw_objects (mut i32) (i32.const 0))
           (func $__javaw_object_alloc (param $size i32) (result i32)
-            (local $object i32) (local $entry i32)
-            local.get $size call $__heap_alloc local.set $object
-            i32.const 8 call $__heap_alloc local.set $entry
-            local.get $entry local.get $object i32.store
-            local.get $entry global.get $__javaw_objects i32.store offset=4
-            local.get $entry global.set $__javaw_objects
+            (local $object i32)
+            local.get $size call $__heap_alloc local.tee $object
+            i32.const 12 i32.sub i32.const 9 i32.store
             local.get $object)
           (func $__javaw_is_object (param $object i32) (result i32)
-            (local $entry i32)
-            global.get $__javaw_objects local.set $entry
-            block $done loop $scan
-              local.get $entry i32.eqz br_if $done
-              local.get $entry i32.load local.get $object i32.eq
-              if i32.const 1 return end
-              local.get $entry i32.load offset=4 local.set $entry br $scan
-            end end i32.const 0)
+            (local $block i32)
+            local.get $object call $__gc_find local.tee $block i32.eqz if i32.const 0 return end
+            local.get $object local.get $block i32.const 16 i32.add i32.eq
+            local.get $block i32.load offset=4 i32.const 8 i32.and i32.const 0 i32.ne i32.and)
           (func $__javaw_same (param $a i32) (param $b i32) (result i32)
             local.get $a local.get $b i32.eq if i32.const 1 return end
             local.get $a i32.eqz local.get $b i32.eqz i32.or if i32.const 0 return end

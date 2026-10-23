@@ -17,8 +17,11 @@ final class DecimalSupport {
             if(!call.getScope().map(Object::toString).orElse("").equals("BigDecimal") || !call.getNameAsString().equals("valueOf") || call.getArguments().size()!=1) continue;
             Expression value=call.getArgument(0);
             if(value.isDoubleLiteralExpr() || value.isUnaryExpr() && value.asUnaryExpr().getExpression().isDoubleLiteralExpr()) {
-                String literal=value.toString().replace("_","").replaceAll("[dDfF]$","");
-                String text=java.math.BigDecimal.valueOf(Double.parseDouble(literal)).toString();
+                String literal=value.toString().replace("_","");
+                boolean single=literal.endsWith("f") || literal.endsWith("F");
+                literal=literal.replaceAll("[dDfF]$","");
+                double number=single ? (double)Float.parseFloat(literal) : Double.parseDouble(literal);
+                String text=java.math.BigDecimal.valueOf(number).toString();
                 call.replace(new ObjectCreationExpr().setType("BigDecimal").addArgument(new StringLiteralExpr(text)));
             }
         }

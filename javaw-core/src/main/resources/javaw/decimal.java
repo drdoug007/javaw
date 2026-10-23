@@ -159,11 +159,12 @@ class BigDecimal {
     public BigDecimal negate() { return new BigDecimal(coefficient.negate(),decimalScale); }
     public BigDecimal abs() { return signum()<0 ? negate() : this; }
     public BigDecimal add(BigDecimal other) {
+        if(other==null) throw new NullPointerException();
         int scale=decimalScale>other.decimalScale ? decimalScale : other.decimalScale;
         return new BigDecimal(coefficient.timesTen(scaleChecked((long)scale-decimalScale)).add(other.coefficient.timesTen(scaleChecked((long)scale-other.decimalScale))),scale);
     }
     public BigDecimal subtract(BigDecimal other) { return add(other.negate()); }
-    public BigDecimal multiply(BigDecimal other) { return new BigDecimal(coefficient.multiply(other.coefficient),scaleChecked((long)decimalScale+other.decimalScale)); }
+    public BigDecimal multiply(BigDecimal other) { if(other==null) throw new NullPointerException(); return new BigDecimal(coefficient.multiply(other.coefficient),scaleChecked((long)decimalScale+other.decimalScale)); }
     private static BigInteger rounded(BigInteger numerator,BigInteger denominator,RoundingMode mode) {
         if(mode==null) throw new NullPointerException();
         BigInteger[] qr=numerator.divideAndRemainder(denominator); if(qr[1].signum()==0) return qr[0];
@@ -179,6 +180,7 @@ class BigDecimal {
         return increment ? qr[0].add(BigInteger.valueOf(sign)) : qr[0];
     }
     public BigDecimal divide(BigDecimal other,int scale,RoundingMode mode) {
+        if(other==null) throw new NullPointerException();
         long shift=(long)scale+other.decimalScale-decimalScale;
         BigInteger numerator=coefficient; BigInteger denominator=other.coefficient;
         if(shift>=0) numerator=numerator.timesTen(scaleChecked(shift)); else denominator=denominator.timesTen(scaleChecked(-shift));
@@ -186,6 +188,7 @@ class BigDecimal {
     }
     public BigDecimal divide(BigDecimal other,RoundingMode mode) { return divide(other,decimalScale,mode); }
     public BigDecimal divide(BigDecimal other) {
+        if(other==null) throw new NullPointerException();
         if(other.signum()==0) throw new ArithmeticException();
         int preferred=scaleChecked((long)decimalScale-other.decimalScale);
         BigInteger gcd=coefficient.gcd(other.coefficient); BigInteger denominator=other.coefficient.abs().divide(gcd);
@@ -210,7 +213,7 @@ class BigDecimal {
         while(value.remainder(BigInteger.TEN).signum()==0) { value=value.divide(BigInteger.TEN); scale=scaleChecked((long)scale-1); }
         return new BigDecimal(value,scale);
     }
-    public BigDecimal pow(int n) { if(n<0 || n>999999999) throw new ArithmeticException(); return new BigDecimal(coefficient.pow(n),scaleChecked((long)decimalScale*n)); }
+    public BigDecimal pow(int n) { if(n<0 || n>999999999) throw new ArithmeticException(); int scale=scaleChecked((long)decimalScale*n); return new BigDecimal(coefficient.pow(n),scale); }
     public int compareTo(Object value) {
         BigDecimal other=(BigDecimal)value; if(other==null) throw new NullPointerException();
         if(signum()!=other.signum()) return signum()<other.signum() ? -1 : 1;
