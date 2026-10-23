@@ -1,6 +1,6 @@
 # javaw (Java to WebAssembly Compiler)
 
-A lightweight, high-performance Java-to-WebAssembly compiler that parses Java source files (`.java`) and compiles them directly into standard WebAssembly Text format (`.wat`) and optimized binary modules (`.wasm`). `javaw` delivers an efficient, standalone runtime pipeline supporting browser Document Object Model (DOM) manipulation, HTML5 Canvas 2D / WebGL graphics, WebAssembly Threads and shared memory atomics, WASI standard I/O, asynchronous timers/fetch, generic JavaScript dynamic interop, standard WebAssembly Exception Handling (`try-catch-finally`, `throw`), and complete object-oriented programming.
+A lightweight, high-performance Java-to-WebAssembly compiler that parses Java source files (`.java`) and compiles them directly into standard WebAssembly Text format (`.wat`) and optimized binary modules (`.wasm`). `javaw` delivers an efficient, standalone runtime pipeline supporting browser Document Object Model (DOM) manipulation, HTML5 Canvas 2D / WebGL graphics, WebAssembly Threads and shared memory atomics, WASI standard I/O, asynchronous timers/fetch, generic JavaScript dynamic interop, standard WebAssembly Exception Handling (`try-catch-finally`, `throw`), and selected object-oriented features.
 
 ---
 
@@ -11,6 +11,27 @@ A lightweight, high-performance Java-to-WebAssembly compiler that parses Java so
 With built-in linear memory allocation, static string constant pooling, dynamic heap management, multithreading shared memory, and a zero-dependency host runtime bridge (`javaw-runtime.js`), developers can author interactive web applications, high-performance computational workloads, and graphical user interfaces natively in Java.
 
 ---
+
+## Java compatibility and current limits
+
+`javaw` implements a Java subset with selected JDK facades and ahead-of-time API translations. Parsing Java 17 syntax, compiling a sample, or caching a dependency does not establish full language, JDK, JVM, or third-party library compatibility. A checked roadmap item describes the implemented subset.
+
+| Area | Current limit |
+| :--- | :--- |
+| Lambdas and method references | General closures, captured variables, functional interfaces, and method references are not implemented; Spring callback patterns have special lowering. |
+| Collections and streams | General JDK collections and Stream pipelines are not implemented. Spring repository lists are lowered to reference arrays. |
+| Optional | Only a repository `findById(...).orElseThrow(...)` pattern is lowered; general Optional operations remain pending. |
+| Decimal arithmetic | BigDecimal passes decimal text through memory; general arithmetic, rounding, and scale semantics are pending. |
+| Memory management | Objects and temporary allocations use a bump allocator without automatic reclamation. |
+| Types and methods | Local `var` inference and inherited/static method return types are being integrated incrementally. Complete overload resolution, generic inference, and boxing semantics remain pending. |
+| Reflection | Basic class descriptors exist; dynamic invocation, reflective construction, runtime annotation inspection, and dynamic class loading remain pending. |
+| Concurrency | Wasm threads and atomics cover a subset; monitors, wait/notify, and complete Java Memory Model semantics remain pending. |
+| JDK APIs | I/O, NIO, networking, date/time, regex, and serialization lack comprehensive compatibility. WASI/JavaScript facades provide selected operations. |
+| Dependencies | Bytecode compilation and caching exist, but arbitrary Maven JAR compatibility is not established. |
+| Spring and persistence | Constructor injection and selected CRUD/controller/startup patterns are lowered. General Spring beans/proxies, transactions, Hibernate, JDBC, and the actual H2 engine remain pending. |
+| Diagnostics | Unsupported features are not consistently rejected at the Java source location; some surface as unresolved symbols or invalid WAT. |
+
+The next priorities are reusable type/method resolution, Optional and lambdas, collections, decimal arithmetic, and memory reclamation. See [the compatibility roadmap](Todo.md#13-java-compatibility-roadmap) for acceptance criteria and remaining work.
 
 ## Features
 

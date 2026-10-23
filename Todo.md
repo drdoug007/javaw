@@ -277,3 +277,43 @@ This roadmap organizes planned features by their utility and return on investmen
 - [x] **Phase 6: Multi-Dependency End-to-End Application Integration**
   - Create integration test suite and example application consuming external third-party JAR dependencies.
   - Verify seamless compilation, local `.m2` caching round-trips, and runtime execution in Node.js and browser environments.
+
+## 13. Java Compatibility Roadmap
+
+Checked items elsewhere describe supported subsets, not complete Java/JDK/JVM compatibility. Each milestone below requires compiler diagnostics and executable Wasm regressions, in addition to WAT generation checks.
+
+### Phase 1: Reusable type inference and method resolution
+
+- [x] Infer `var` locals from primitive/string literals, unary expressions, object creation, arrays, local aliases, and resolved method return types; preserve inferred Wasm storage types.
+- [x] Resolve static factory and inherited method return types through the class registry; verify execution with Node, including entity-style mutation through inferred references.
+- [ ] Complete binary/conditional expression inference, lexical block scoping, package-qualified types, and actionable diagnostics for unresolved inference.
+- [ ] Select method/constructor overloads by argument types and arity; diagnose ambiguity instead of choosing by method name.
+- [ ] Implement generic inference, boxing/unboxing, and Java numeric conversion/promotion rules with conformance tests.
+
+### Phase 2: Optional, lambdas, and collections
+
+- [ ] Implement general Optional construction, presence checks, get/orElse/orElseGet/orElseThrow, map, flatMap, and filter.
+- [ ] Implement reusable lambda objects, captured variables, functional interface dispatch, and method references; replace Spring-specific callback lowering where possible.
+- [ ] Implement ArrayList, HashMap, HashSet, iteration, and collection interfaces with documented null/equality behavior.
+- [ ] Implement sequential Stream pipelines, terminal operations, and short-circuit behavior; track parallel streams separately.
+
+### Phase 3: Decimal arithmetic and memory reclamation
+
+- [ ] Implement BigDecimal constructors/factories, arithmetic, scale, rounding modes, comparison, and exact decimal serialization; add BigInteger support where needed.
+- [ ] Reclaim unreachable objects and temporary allocations; validate bounded memory use under repeated CRUD requests.
+- [ ] Evaluate tracing GC, explicit runtime reclamation, and the existing WasmGC backend proposal; define object roots and host-reference ownership.
+
+### Phase 4: Runtime semantics and standard libraries
+
+- [ ] Extend reflection with constructors, fields, methods, annotation metadata, and invocation; define dynamic class-loading limits.
+- [ ] Implement synchronized monitors, wait/notify, volatile visibility, thread lifecycle, and Java Memory Model guarantees beyond existing atomics.
+- [ ] Expand java.io/NIO, networking, date/time, regex, serialization, and standard exception behavior; document host-specific limitations.
+- [ ] Audit remaining language constructs, including assertions and nested/anonymous classes, with explicit supported/unsupported diagnostics.
+
+### Phase 5: Dependencies, frameworks, and diagnostics
+
+- [ ] Publish a bytecode/opcode compatibility matrix, including invokedynamic and library runtime requirements; test representative Maven libraries rather than assuming JAR compatibility.
+- [ ] Expand Spring dependency injection, general bean lifecycle, annotation processing, proxies, and repository query support.
+- [ ] Integrate JDBC, transactions, Hibernate requirements, and the actual H2 engine; retain the current in-memory subset as a separately documented target.
+- [ ] Reject unsupported Java/bytecode constructs early with file, line, construct, and remediation; prevent successful compilation when code was silently omitted.
+- [ ] Maintain an executable compatibility suite and link README claims to tested cases.

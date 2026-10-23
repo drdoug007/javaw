@@ -412,6 +412,10 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         for (VariableDeclarator vd : varDecls) {
             String vName = vd.getNameAsString();
             String vTypeName = vd.getType().asString();
+            if (vd.getType().isVarType() && vd.getInitializer().isPresent()) {
+                String inferredType = getExpressionJavaType(vd.getInitializer().get(), localJavaTypes);
+                if (inferredType != null) vTypeName = inferredType;
+            }
             if (classRegistry != null && classRegistry.isRecord(vTypeName)) {
                 RecordModel rm = classRegistry.getRecord(vTypeName);
                 localJavaTypes.put(vName, vTypeName);
@@ -425,12 +429,12 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     }
                 }
             } else {
-                String vType = TypeMapper.mapType(vd.getType());
+                String vType = TypeMapper.mapType(vTypeName);
                 if (vType == null) vType = "i32";
                 localTypes.put(vName, vType);
-                localJavaTypes.put(vName, vd.getType().asString());
-                if (vd.getType().isArrayType()) {
-                    localElementTypes.put(vName, TypeMapper.mapType(vd.getType().asArrayType().getComponentType()));
+                localJavaTypes.put(vName, vTypeName);
+                if (vTypeName.endsWith("[]")) {
+                    localElementTypes.put(vName, TypeMapper.mapType(vTypeName.substring(0, vTypeName.length() - 2)));
                 }
                 if (!declaredLocals.contains(vName)) {
                     declaredLocals.add(vName);
@@ -1910,7 +1914,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         } else if (expr.isVariableDeclarationExpr()) {
             VariableDeclarationExpr vde = expr.asVariableDeclarationExpr();
             for (VariableDeclarator vd : vde.getVariables()) {
-                String vTypeName = vd.getType().asString();
+                String vTypeName = localJavaTypes.getOrDefault(vd.getNameAsString(), vd.getType().asString());
                 if (classRegistry != null && classRegistry.isRecord(vTypeName)) {
                     RecordModel rm = classRegistry.getRecord(vTypeName);
                     if (vd.getInitializer().isPresent()) {
@@ -1938,8 +1942,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                         }
                     }
                 } else if (vd.getInitializer().isPresent()) {
-                    String vType = TypeMapper.mapType(vd.getType());
-                    String elemType = vd.getType().isArrayType() ? TypeMapper.mapType(vd.getType().asArrayType().getComponentType()) : null;
+                    String vType = localTypes.getOrDefault(vd.getNameAsString(), TypeMapper.mapType(vd.getType()));
+                    String elemType = localElementTypes.get(vd.getNameAsString());
                     translateExpression(vd.getInitializer().get(), collector, localTypes, localElementTypes, localJavaTypes, elemType != null ? elemType : vType);
                     collector.append("    local.set $").append(vd.getNameAsString()).append("\n");
                 }
@@ -2568,6 +2572,25 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     }
 
     private String getExpressionJavaType(Expression expr, Map<String, String> localJavaTypes) {
+        if (expr.isStringLiteralExpr() || expr.isTextBlockLiteralExpr()) return "String";
+        if (expr.isBooleanLiteralExpr()) return "boolean";
+        if (expr.isCharLiteralExpr()) return "char";
+        if (expr.isIntegerLiteralExpr()) return "int";
+        if (expr.isLongLiteralExpr()) return "long";
+        if (expr.isDoubleLiteralExpr()) {
+            String value = expr.asDoubleLiteralExpr().getValue();
+            return value.endsWith("f") || value.endsWith("F") ? "float" : "double";
+        }
+        if (expr.isUnaryExpr()) {
+            UnaryExpr unary = expr.asUnaryExpr();
+            if (unary.getOperator() == UnaryExpr.Operator.LOGICAL_COMPLEMENT) return "boolean";
+            String type = getExpressionJavaType(unary.getExpression(), localJavaTypes);
+            return Set.of("byte", "short", "char").contains(type == null ? "" : type) ? "int" : type;
+        }
+        if (expr.isArrayCreationExpr()) {
+            ArrayCreationExpr array = expr.asArrayCreationExpr();
+            return array.getElementType().asString() + "[]".repeat(array.getLevels().size());
+        }
         if (expr.isNameExpr()) {
             String name = expr.asNameExpr().getNameAsString();
             if (localJavaTypes != null && localJavaTypes.containsKey(name)) {
@@ -2579,6 +2602,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             if (currentClass != null && currentClass.hasField(name)) {
                 return currentClass.getField(name).getJavaType();
             }
+            if (classRegistry != null && classRegistry.hasClass(name)) return name;
             return null;
         }
         if (expr.isThisExpr()) {
@@ -2906,11 +2930,12 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     MethodModel mm = rm.getMethodByName(mName);
                     if (mm != null) return mm.getReturnTypeName();
                 } else if (scopeType != null && classRegistry != null && classRegistry.hasClass(scopeType)) {
-                    MethodModel mm = classRegistry.getClass(scopeType).getMethodByName(mName);
+                    MethodModel mm = classRegistry.findMethod(scopeType, mName);
                     if (mm != null) return mm.getReturnTypeName();
                 }
             } else if (currentClass != null) {
-                MethodModel mm = currentClass.getMethodByName(mName);
+                MethodModel mm = classRegistry != null ? classRegistry.findMethod(currentClass.getName(), mName)
+                        : currentClass.getMethodByName(mName);
                 if (mm != null) return mm.getReturnTypeName();
             } else if (currentRecord != null) {
                 if (currentRecord.getComponent(mName) != null) {
