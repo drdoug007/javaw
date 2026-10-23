@@ -59,6 +59,21 @@ async function runTests() {
         assert.deepEqual((await request('/api/products')).body, []);
         assert.equal((await request('/api/products', 'POST', payload)).body.id, 7);
 
+        // Preserve every decimal digit on the HTTP wire, including numeric JSON input.
+        for (const price of ['9007199254740993.12345678901234567890', '0.00000000000000000000000012345']) {
+            const response = await fetch(base + '/api/products', {
+                method: 'POST', body: '{"name":"Exact","price":' + price + ',"stock":1}'
+            });
+            assert.equal(response.status, 201);
+            const text = await response.text();
+            const product = JSON.parse(text);
+            const expected = price.startsWith('0.') ? '1.2345E-25' : price;
+            assert.ok(text.includes('"price":' + expected), text);
+            const read = await fetch(base + '/api/products/' + product.id);
+            assert.ok((await read.text()).includes('"price":' + expected));
+            await request('/api/products/' + product.id, 'DELETE');
+        }
+
         for (const id of ['abc', '1abc', '1.5', '2147483648']) {
             assert.equal((await request('/api/products/' + id)).status, 400);
         }

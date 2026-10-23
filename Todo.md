@@ -347,7 +347,7 @@ Checked items elsewhere describe supported subsets, not complete Java/JDK/JVM co
 
 ### Phase 3: Decimal arithmetic and memory reclamation
 
-- [ ] Implement BigDecimal constructors/factories, arithmetic, scale, rounding modes, comparison, and exact decimal serialization; add BigInteger support where needed.
+- [x] Implement source-backed arbitrary-precision BigInteger and BigDecimal construction, arithmetic, scale, all eight RoundingMode values, comparison, exact integer conversions, and exact decimal JSON marshalling. String/int/long/unscaled and exact binary-double constructors are supported; constant double valueOf factories use JDK shortest formatting at compile time. Runtime double valueOf, MathContext overloads, and the rest of the JDK math API remain library follow-ups.
 - [ ] Reclaim unreachable objects and temporary allocations; validate bounded memory use under repeated CRUD requests.
 - [ ] Evaluate tracing GC, explicit runtime reclamation, and the existing WasmGC backend proposal; define object roots and host-reference ownership.
 

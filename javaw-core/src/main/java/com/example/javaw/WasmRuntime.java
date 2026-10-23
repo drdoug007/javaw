@@ -24,12 +24,24 @@ public class WasmRuntime {
         watOutput.append("    local.get $aligned_size\n");
         watOutput.append("    i32.add\n");
         watOutput.append("    global.set $__heap_ptr\n");
+        watOutput.append("    global.get $__heap_ptr\n    memory.size\n    i32.const 16\n    i32.shl\n    i32.gt_u\n    if\n");
+        watOutput.append("      global.get $__heap_ptr\n      i32.const 65535\n      i32.add\n      i32.const 16\n      i32.shr_u\n      memory.size\n      i32.sub\n      memory.grow\n      i32.const -1\n      i32.eq\n      if unreachable end\n    end\n");
         watOutput.append("    local.get $ptr\n");
         watOutput.append("    i32.const 0\n");
         watOutput.append("    local.get $aligned_size\n");
         watOutput.append("    memory.fill\n");
         watOutput.append("    local.get $ptr\n");
         watOutput.append("  )\n");
+        watOutput.append("""
+          (func $__javaw_array_alloc (param $length i32) (param $width i32) (param $header i32) (result i32)
+            (local $size i64) (local $ptr i32)
+            local.get $length i32.const 0 i32.lt_s if unreachable end
+            local.get $length i64.extend_i32_u local.get $width i64.extend_i32_u i64.mul
+            local.get $header i64.extend_i32_u i64.add local.tee $size
+            i64.const 2147483640 i64.gt_u if unreachable end
+            local.get $size i32.wrap_i64 call $__heap_alloc local.tee $ptr
+            local.get $length i32.store local.get $ptr)
+            """);
         watOutput.append("  ;; --- Root Object Functions ---\n");
         watOutput.append("  (func $Object_toString (export \"Object_toString\") (param $this i32) (result i32)\n");
         watOutput.append("    (local $addr_str i32)\n");

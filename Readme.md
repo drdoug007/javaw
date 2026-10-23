@@ -48,7 +48,7 @@ Collections accept null elements, keys, and values. Lists retain insertion order
 
 Sequential streams support `Stream.of/empty/generate/iterate`, collection `stream()`, `map/filter/flatMap/peek/distinct/skip/limit/sorted/takeWhile/dropWhile`, `count/findFirst/findAny`, matching, reductions, `min/max`, `forEach/forEachOrdered`, `toArray`, and unmodifiable `toList`. `collect(Collectors.toList/toSet)` returns mutable collections; explicit witnesses such as `Collectors.<Integer>toList()` may be required. Intermediate stages are lazy; terminals consume each pipeline once, and short-circuiting limits upstream callback execution. Collection sources bind their iterator on traversal. `parallel()` throws `UnsupportedOperationException`; Standard `Collector` contracts, `Collector.of`, joining/counting/summing/reducing, and downstream mapping/filtering/finishing are supported; additional factory families and close handlers remain pending. Primitive pipelines share boxed storage while preserving primitive Wasm arithmetic, exact long values, conversions, ranges, and optional numeric results; complete primitive statistics APIs and specialized storage remain follow-ups. For generic callback chains that need more target inference, assign callbacks to explicitly typed functional-interface locals.
 
-Phase 1 source-resolution foundations and source-backed Optional/closures are implemented for the tested subset. Phase 2 now includes a tested collection and sequential-stream subset. The next priorities are decimal arithmetic and memory reclamation. See [the compatibility roadmap](Todo.md#13-java-compatibility-roadmap) for acceptance criteria and remaining work.
+Phase 1 source-resolution foundations and source-backed Optional/closures are implemented for the tested subset. Phase 2 now includes a tested collection and sequential-stream subset. Phase 3 adds arbitrary-precision decimal arithmetic and host-boundary memory reclamation (see the ownership contract below). See [the compatibility roadmap](Todo.md#13-java-compatibility-roadmap) for acceptance criteria and remaining work.
 
 ## Features
 
@@ -1670,3 +1670,10 @@ Run the Node.js test suite to verify binary execution, string decoding, threads/
 ```bash
 npm test --prefix javaw-core/src/test/node-tests
 ```
+
+
+### Phase 3 decimal support
+
+`BigInteger` and `BigDecimal` execute source-backed arbitrary-precision arithmetic in Wasm. Decimal values retain an integer coefficient and signed scale; addition, subtraction, multiplication, exact/rounded division, scale changes, all eight `RoundingMode` values, comparison, trailing-zero stripping, powers, and exact integer conversions are covered by executable regressions. String, int, long, unscaled-integer, and exact binary-double constructors are supported. `BigDecimal.valueOf` supports long factories and compile-time double constants; dynamic double factories, `MathContext`, and complete JDK math coverage remain pending.
+
+The Spring bridge parses decimal JSON number lexemes directly into Wasm decimal objects and emits their exact text as JSON numbers, including digits beyond JavaScript precision. Send decimal strings when your client already uses JavaScript numbers; `JSON.parse`/ordinary browser number displays can still round a correctly transmitted value. HTTP decimal exponents are limited to ±100000. `DecimalSupportTest` compares rounding against the JDK, and `examples/springboot-h2/test.js` checks exact HTTP round-trips.

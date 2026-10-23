@@ -1,5 +1,6 @@
 // HTTP marshalling only. Controllers, repository rows and generated IDs live in Wasm.
 const { instantiateJavaw } = require('./javaw-runtime.js');
+const { ExactNumber, parseExactJSON, stringifyExactJSON } = require('./exact-json.js');
 
 async function createSpringWeb(wasmBytes) {
     const module = await WebAssembly.compile(wasmBytes);
@@ -39,8 +40,8 @@ async function createSpringWeb(wasmBytes) {
             switch (field.type) {
                 case 'String': value = readString(view().getInt32(address, true)); break;
                 case 'BigDecimal': {
-                    const text = readString(view().getInt32(address, true));
-                    value = text === null ? null : Number(text);
+                    const decimal = view().getInt32(address, true);
+                    value = decimal ? new ExactNumber(readString(exports[metadata.formatDecimal](decimal))) : null;
                     break;
                 }
                 case 'int': value = view().getInt32(address, true); break;
@@ -63,17 +64,22 @@ async function createSpringWeb(wasmBytes) {
                 if (value.includes('\0')) throw badRequest(parameter.name + ' cannot contain NUL');
                 return writeString(value);
             case 'int': case 'Integer': {
-                const number = parameter.path && /^-?\d+$/.test(value) ? Number(value) : value;
+                const number = value instanceof ExactNumber ? Number(value.text) : parameter.path && /^-?\d+$/.test(value) ? Number(value) : value;
                 if (!Number.isInteger(number) || number < -2147483648 || number > 2147483647)
                     throw badRequest(parameter.name + ' must be a 32-bit integer');
                 return parameter.type === 'Integer' ? instance.exports[metadata.boxInteger](number) : number;
             }
-            case 'BigDecimal':
+            case 'BigDecimal': {
                 if (value === null || value === undefined) return 0;
-                if ((typeof value !== 'number' && typeof value !== 'string')
-                    || !/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(String(value)) || !Number.isFinite(Number(value)))
-                    throw badRequest(parameter.name + ' must be a finite decimal');
-                return writeString(String(value));
+                const text = value instanceof ExactNumber ? value.text : typeof value === 'string' ? value : null;
+                if (text === null || !/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(text))
+                    throw badRequest(parameter.name + ' must be a decimal');
+                // Keep request sizes bounded before constructing arbitrary-precision objects.
+                const exponent = /[eE]([+-]?\d+)$/.exec(text);
+                if (exponent && (exponent[1].length > 7 || Math.abs(Number(exponent[1])) > 100000))
+                    throw badRequest(parameter.name + ' exponent exceeds the HTTP limit');
+                return exports[metadata.parseDecimal](writeString(text));
+            }
             default: throw new Error('Unsupported parameter type: ' + parameter.type);
         }
     };
@@ -85,7 +91,7 @@ async function createSpringWeb(wasmBytes) {
     async function handle(req, res, url) {
         const send = (status, body) => {
             res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
-            res.end(body === undefined ? undefined : JSON.stringify(body));
+            res.end(body === undefined ? undefined : stringifyExactJSON(body));
         };
         try {
             const segments = url.pathname.split('/').filter(Boolean).map(decodeURIComponent);
@@ -100,7 +106,7 @@ async function createSpringWeb(wasmBytes) {
                     body += chunk;
                     if (body.length > 1024 * 1024) throw badRequest('Request body too large');
                 }
-                try { payload = JSON.parse(body || '{}'); } catch { throw badRequest('Invalid JSON payload'); }
+                try { payload = parseExactJSON(body || '{}'); } catch { throw badRequest('Invalid JSON payload'); }
                 if (payload === null || Array.isArray(payload) || typeof payload !== 'object') throw badRequest('JSON object required');
             }
             const args = route.params.map(p => encode(p.path ? pathValues[p.name] : payload[p.name], p));

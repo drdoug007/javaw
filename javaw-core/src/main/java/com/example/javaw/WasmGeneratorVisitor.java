@@ -1591,12 +1591,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 int totalBytes = headerOffset + n * elemSize;
                 int alignedBytes = (totalBytes + 7) & ~7;
 
-                collector.append("    global.get $__heap_ptr\n");
-                collector.append("    local.set $__arr_alloc_ptr\n");
-                collector.append("    global.get $__heap_ptr\n");
                 collector.append("    i32.const ").append(alignedBytes).append("\n");
-                collector.append("    i32.add\n");
-                collector.append("    global.set $__heap_ptr\n");
+                collector.append("    call $__heap_alloc\n    local.set $__arr_alloc_ptr\n");
 
                 collector.append("    local.get $__arr_alloc_ptr\n");
                 collector.append("    i32.const ").append(n).append("\n");
@@ -1613,23 +1609,9 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 Expression dimExpr = ace.getLevels().get(0).getDimension().get();
                 translateExpression(dimExpr, collector, localTypes, localElementTypes, localJavaTypes, "i32");
                 collector.append("    local.set $__arr_alloc_len\n");
-                collector.append("    global.get $__heap_ptr\n");
-                collector.append("    local.set $__arr_alloc_ptr\n");
-
-                collector.append("    local.get $__arr_alloc_ptr\n");
-                collector.append("    local.get $__arr_alloc_len\n");
-                collector.append("    i32.store\n");
-
-                collector.append("    global.get $__heap_ptr\n");
-                collector.append("    i32.const ").append(headerOffset + 7).append("\n");
-                collector.append("    local.get $__arr_alloc_len\n");
-                collector.append("    i32.const ").append(elemSize).append("\n");
-                collector.append("    i32.mul\n");
-                collector.append("    i32.add\n");
-                collector.append("    i32.const -8\n");
-                collector.append("    i32.and\n");
-                collector.append("    i32.add\n");
-                collector.append("    global.set $__heap_ptr\n");
+                collector.append("    local.get $__arr_alloc_len\n    i32.const ").append(elemSize)
+                        .append("\n    i32.const ").append(headerOffset)
+                        .append("\n    call $__javaw_array_alloc\n    local.set $__arr_alloc_ptr\n");
 
                 collector.append("    local.get $__arr_alloc_ptr\n");
             }
@@ -1644,12 +1626,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             int totalBytes = headerOffset + n * elemSize;
             int alignedBytes = (totalBytes + 7) & ~7;
 
-            collector.append("    global.get $__heap_ptr\n");
-            collector.append("    local.set $__arr_alloc_ptr\n");
-            collector.append("    global.get $__heap_ptr\n");
             collector.append("    i32.const ").append(alignedBytes).append("\n");
-            collector.append("    i32.add\n");
-            collector.append("    global.set $__heap_ptr\n");
+            collector.append("    call $__heap_alloc\n    local.set $__arr_alloc_ptr\n");
 
             collector.append("    local.get $__arr_alloc_ptr\n");
             collector.append("    i32.const ").append(n).append("\n");
@@ -1664,7 +1642,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             collector.append("    local.get $__arr_alloc_ptr\n");
         } else if (expr.isArrayAccessExpr()) {
             ArrayAccessExpr aae = expr.asArrayAccessExpr();
-            String elemType = getArrayElementType(aae, localElementTypes, expectedType);
+            String elementJavaType=getExpressionJavaType(aae,localJavaTypes);
+            String elemType = elementJavaType==null ? getArrayElementType(aae, localElementTypes, expectedType) : TypeMapper.mapType(elementJavaType);
             int headerOffset = (elemType.equals("f64") || elemType.equals("i64")) ? 8 : 4;
             int elemSize = (elemType.equals("f64") || elemType.equals("i64")) ? 8 : 4;
 
@@ -1674,6 +1653,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             collector.append("    i32.mul\n");
             collector.append("    i32.add\n");
             collector.append("    ").append(getLoadInstruction(elemType)).append(" offset=").append(headerOffset).append("\n");
+            emitNumericWidening(elemType,expectedType,collector);
         } else if (expr.isFieldAccessExpr()) {
             FieldAccessExpr fae = expr.asFieldAccessExpr();
             String fName = fae.getNameAsString();
@@ -2209,7 +2189,6 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                             translateExpression(call.getArgument(1), collector, localTypes, localElementTypes, localJavaTypes, "i32");
                         } else {
                             collector.append("    local.set $__str_sub_start\n");
-                            translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
                             collector.append("    local.set $__sb_tmp\n");
                             collector.append("    local.get $__sb_tmp\n");
                             collector.append("    local.get $__str_sub_start\n");
@@ -2225,7 +2204,6 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                             collector.append("    call $__str_substring\n");
                         } else {
                             collector.append("    local.set $__str_sub_start\n");
-                            translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "String");
                             collector.append("    local.set $__str_tmp\n");
                             collector.append("    local.get $__str_tmp\n");
                             collector.append("    local.get $__str_sub_start\n");

@@ -41,7 +41,6 @@ final class SpringWebSupport {
                 call.replace(new MethodCallExpr("__javaw_boot"));
             }
         }
-        // This subset passes BigDecimal values as decimal text, preserving their digits in memory.
         for (FieldAccessExpr field : cu.findAll(FieldAccessExpr.class)) {
             if (field.getScope().toString().equals("HttpStatus")) {
                 int status = switch (field.getNameAsString()) {
@@ -65,7 +64,7 @@ final class SpringWebSupport {
             """));
         LibrarySupport.add(cu, "org.springframework.boot", "interface ApplicationRunner { public void run(ApplicationArguments args); }");
         support.lowerStartup(cu);
-        support.lowerDecimalConstants(cu);
+
         support.lowerLists(cu);
         support.addBootstrap(cu);
         return support;
@@ -217,26 +216,6 @@ final class SpringWebSupport {
         }
     }
 
-    private void lowerDecimalConstants(CompilationUnit cu) {
-        for (MethodCallExpr call : new ArrayList<>(cu.findAll(MethodCallExpr.class))) {
-            if (!call.getScope().map(Object::toString).orElse("").equals("BigDecimal")
-                    || !call.getNameAsString().equals("valueOf")) continue;
-            if (call.getArguments().size() != 1) throw unsupported("BigDecimal.valueOf requires one numeric constant");
-            Expression value = call.getArgument(0);
-            Expression literal = value.isUnaryExpr() ? value.asUnaryExpr().getExpression() : value;
-            if (!(literal.isIntegerLiteralExpr() || literal.isLongLiteralExpr() || literal.isDoubleLiteralExpr())
-                    || (value.isUnaryExpr() && value.asUnaryExpr().getOperator() != UnaryExpr.Operator.MINUS
-                    && value.asUnaryExpr().getOperator() != UnaryExpr.Operator.PLUS))
-                throw unsupported("BigDecimal.valueOf currently requires a numeric constant");
-            String number = value.toString().replace("_", "").replace(" ", "").replaceAll("[lLdDfF]$", "");
-            try {
-                StringLiteralExpr lowered = new StringLiteralExpr(new java.math.BigDecimal(number).toString());
-                lowered.setData(JavaSourcePreparation.LOWERED_JAVA_TYPE, "BigDecimal");
-                call.replace(lowered);
-            }
-            catch (NumberFormatException error) { throw unsupported("Decimal numeric constant " + value); }
-        }
-    }
 
     private String repositoryArguments(ClassOrInterfaceDeclaration bean) {
         if (bean.getConstructors().isEmpty()) return "";
@@ -343,7 +322,9 @@ final class SpringWebSupport {
             models.add(quote(name) + ":[" + fields + "]");
         }
         ClassModel exception = registry.getClass("ResponseStatusException");
-        json.append(models).append("},\"boxInteger\":").append(quote(registry.boxingFactory("Integer").getFunctionName().substring(1))).append(",\"exception\":{\"vtable\":").append(exception.getVtableBase())
+        json.append(models).append("},\"parseDecimal\":").append(registry.hasClass("BigDecimal") ? quote(registry.findMethod("BigDecimal","__javaw_parse").getFunctionName().substring(1)) : "null")
+                .append(",\"formatDecimal\":").append(registry.hasClass("BigDecimal") ? quote(registry.findMethod("BigDecimal","__javaw_format").getFunctionName().substring(1)) : "null")
+                .append(",\"boxInteger\":").append(quote(registry.boxingFactory("Integer").getFunctionName().substring(1))).append(",\"exception\":{\"vtable\":").append(exception.getVtableBase())
                 .append(",\"status\":").append(exception.getField("status").getOffset())
                 .append(",\"reason\":").append(exception.getField("reason").getOffset()).append("}}");
         wat.append("  (@custom \"javaw_spring_web\" \"")

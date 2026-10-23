@@ -495,6 +495,7 @@ public class JavacToWasm {
         JavaSourcePreparation.markSource(cu, sourceName);
         JavaSourcePreparation.normalizeTypes(cu, JavaSourcePreparation.typeNames(List.of(cu)));
         SpringWebSupport springWeb = SpringWebSupport.lower(cu);
+        DecimalSupport.addTypes(cu);
         LibrarySupport.addTypes(cu);
         CollectionSupport.addTypes(cu);
         StreamSupport.addTypes(cu);
@@ -632,11 +633,13 @@ public class JavacToWasm {
 
         SourceMapTracker tracker = sourceMapGen != null ? new SourceMapTracker(sourceMapGen, sourceName) : null;
         cu.accept(new WasmGeneratorVisitor(stringPool, globalVars, classRegistry, tracker, jsSnippets), watOutput);
-        if (!cu.findAll(com.github.javaparser.ast.body.EnumDeclaration.class).isEmpty()) {
-            watOutput.append("  (start $__init_enums)\n");
-        } else {
-            watOutput.append("  (start $__init_classes)\n");
-        }
+        String initializer=cu.findAll(com.github.javaparser.ast.body.EnumDeclaration.class).isEmpty() ? "$__init_classes" : "$__init_enums";
+        if(cu.getClassByName("BigDecimal").isPresent()) {
+            watOutput.append("  (func $__javaw_initialize\n    call ").append(initializer)
+                .append("\n    call ").append(classRegistry.findMethod("BigInteger","__javaw_initialize").getFunctionName())
+                .append("\n    call ").append(classRegistry.findMethod("BigDecimal","__javaw_initialize").getFunctionName())
+                .append(")\n  (start $__javaw_initialize)\n");
+        } else watOutput.append("  (start ").append(initializer).append(")\n");
         watOutput.append(")\n");
         return watOutput.toString();
     }
