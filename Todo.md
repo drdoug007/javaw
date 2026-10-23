@@ -327,7 +327,8 @@ Checked items elsewhere describe supported subsets, not complete Java/JDK/JVM co
   - Source-backed objects and lazy functional-interface callbacks execute in Wasm; explicit type witnesses may be needed for empty/null factories under the current generic-inference subset.
 - [x] Implement reusable lambda objects, captured variables, functional interface dispatch, and method references; replace Spring-specific callback lowering where possible.
   - Captured effectively-final values and lexical receivers use closure fields; static, bound/unbound, and constructor references lower to interface objects. Spring startup runners share this path. Ambiguous callback targets require explicitly typed locals; complete JLS target typing remains in Phase 4.
-- [ ] Implement ArrayList, HashMap, HashSet, iteration, and collection interfaces with documented null/equality behavior.
+- [x] Implement ArrayList, HashMap, HashSet, iteration, and collection interfaces with documented null/equality behavior.
+  - Growable lists, resizing bucketed maps/sets, live key sets, generic interfaces, enhanced for and fail-fast next() execute in Wasm. Null elements/keys/values are accepted; strings compare by content and source objects use virtual equals/hashCode. Full collection API/view coverage remains a library follow-up.
 - [ ] Implement sequential Stream pipelines, terminal operations, and short-circuit behavior; track parallel streams separately.
 
 ### Phase 3: Decimal arithmetic and memory reclamation

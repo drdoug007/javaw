@@ -2565,6 +2565,48 @@ public class WasmRuntime {
         watOutput.append("    call $RuntimeException_getMessage\n");
         watOutput.append("  )\n");
 
+        watOutput.append("  (func $IndexOutOfBoundsException__init (export \"IndexOutOfBoundsException__init\") (param $this i32)\n");
+        watOutput.append("    local.get $this\n");
+        watOutput.append("    call $RuntimeException__init\n");
+        watOutput.append("  )\n");
+        watOutput.append("  (func $IndexOutOfBoundsException__init_1 (export \"IndexOutOfBoundsException__init_1\") (param $this i32) (param $message i32)\n");
+        watOutput.append("    local.get $this\n");
+        watOutput.append("    local.get $message\n");
+        watOutput.append("    call $RuntimeException__init_1\n");
+        watOutput.append("  )\n");
+        watOutput.append("  (func $IndexOutOfBoundsException_getMessage (export \"IndexOutOfBoundsException_getMessage\") (param $this i32) (result i32)\n");
+        watOutput.append("    local.get $this\n");
+        watOutput.append("    call $RuntimeException_getMessage\n");
+        watOutput.append("  )\n");
+
+        watOutput.append("  (func $ConcurrentModificationException__init (export \"ConcurrentModificationException__init\") (param $this i32)\n");
+        watOutput.append("    local.get $this\n");
+        watOutput.append("    call $RuntimeException__init\n");
+        watOutput.append("  )\n");
+        watOutput.append("  (func $ConcurrentModificationException__init_1 (export \"ConcurrentModificationException__init_1\") (param $this i32) (param $message i32)\n");
+        watOutput.append("    local.get $this\n");
+        watOutput.append("    local.get $message\n");
+        watOutput.append("    call $RuntimeException__init_1\n");
+        watOutput.append("  )\n");
+        watOutput.append("  (func $ConcurrentModificationException_getMessage (export \"ConcurrentModificationException_getMessage\") (param $this i32) (result i32)\n");
+        watOutput.append("    local.get $this\n");
+        watOutput.append("    call $RuntimeException_getMessage\n");
+        watOutput.append("  )\n");
+
+        watOutput.append("  (func $UnsupportedOperationException__init (export \"UnsupportedOperationException__init\") (param $this i32)\n");
+        watOutput.append("    local.get $this\n");
+        watOutput.append("    call $RuntimeException__init\n");
+        watOutput.append("  )\n");
+        watOutput.append("  (func $UnsupportedOperationException__init_1 (export \"UnsupportedOperationException__init_1\") (param $this i32) (param $message i32)\n");
+        watOutput.append("    local.get $this\n");
+        watOutput.append("    local.get $message\n");
+        watOutput.append("    call $RuntimeException__init_1\n");
+        watOutput.append("  )\n");
+        watOutput.append("  (func $UnsupportedOperationException_getMessage (export \"UnsupportedOperationException_getMessage\") (param $this i32) (result i32)\n");
+        watOutput.append("    local.get $this\n");
+        watOutput.append("    call $RuntimeException_getMessage\n");
+        watOutput.append("  )\n");
+
         watOutput.append("  (func $ArithmeticException__init (export \"ArithmeticException__init\") (param $this i32)\n");
         watOutput.append("    local.get $this\n");
         watOutput.append("    call $RuntimeException__init\n");

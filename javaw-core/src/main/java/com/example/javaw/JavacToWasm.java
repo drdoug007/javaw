@@ -496,10 +496,12 @@ public class JavacToWasm {
         JavaSourcePreparation.normalizeTypes(cu, JavaSourcePreparation.typeNames(List.of(cu)));
         SpringWebSupport springWeb = SpringWebSupport.lower(cu);
         LibrarySupport.addTypes(cu);
+        CollectionSupport.addTypes(cu);
         BoxingSupport.addWrappers(cu);
         JavaSourcePreparation.normalizeVarargs(cu);
         JavaSourcePreparation.resolveLocalScopes(cu);
         LambdaSupport.lower(cu);
+        LambdaSupport.lowerLoops(cu);
         JavaSourcePreparation.resolveLocalScopes(cu);
         ClassRegistry classRegistry = ClassRegistry.build(cu);
         GenericTypes.validateSourceTypes(cu, classRegistry);

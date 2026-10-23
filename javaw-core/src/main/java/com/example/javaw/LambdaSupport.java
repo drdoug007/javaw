@@ -14,6 +14,32 @@ final class LambdaSupport {
     private int sequence;
     private LambdaSupport(CompilationUnit cu) { this.cu = cu; }
     static void lower(CompilationUnit cu) { new LambdaSupport(cu).lower(); }
+    static void lowerLoops(CompilationUnit cu) {
+        LambdaSupport support = new LambdaSupport(cu);
+        support.registry = ClassRegistry.build(cu);
+        var loops = new ArrayList<>(cu.findAll(ForEachStmt.class));
+        Collections.reverse(loops);
+        int index=0;
+        for (ForEachStmt loop : loops) {
+            String iterable;
+            try { iterable = support.type(loop.getIterable(),support.locals(loop)); }
+            catch (IllegalArgumentException ignored) { continue; } // Existing array lowering infers other array expressions.
+            if (iterable.endsWith("[]")) continue;
+            String parent=support.registry.asSuperType(iterable,"Iterable");
+            if (parent==null) throw JavaSourcePreparation.error(loop,"Enhanced for requires an array or Iterable");
+            var args=GenericTypes.arguments(parent);
+            String element=args.isEmpty() ? "Object" : args.get(0);
+            String iterator="__javaw_iterator"+index++;
+            var variable=loop.getVariable().clone();
+            if(variable.getVariable(0).getTypeAsString().equals("var")) variable.getVariable(0).setType(element);
+            variable.getVariable(0).setInitializer(new MethodCallExpr(new NameExpr(iterator),"next"));
+            BlockStmt body=new BlockStmt().addStatement(variable).addStatement(loop.getBody().clone());
+            BlockStmt replacement=new BlockStmt();
+            replacement.addStatement(StaticJavaParser.parseStatement("Iterator<"+element+"> "+iterator+" = "+loop.getIterable()+".iterator();"));
+            replacement.addStatement(new WhileStmt(new MethodCallExpr(new NameExpr(iterator),"hasNext"),body));
+            loop.replace(replacement);
+        }
+    }
     private void lower() {
         // Outer callbacks establish parameter types needed by nested callbacks.
         while (true) {
@@ -38,7 +64,13 @@ final class LambdaSupport {
         return result;
     }
     private String type(Expression e, Map<String,String> variables) {
-        if (e.isNameExpr()) return variables.getOrDefault(e.toString(), e.toString());
+        if (e.isNameExpr()) {
+            if (variables.containsKey(e.toString())) return variables.get(e.toString());
+            var owner=e.findAncestor(ClassOrInterfaceDeclaration.class);
+            if(owner.isPresent() && registry.getClass(owner.get().getNameAsString()).getFields().containsKey(e.toString()))
+                return registry.fieldType(owner.get().getNameAsString(),e.toString());
+            return e.toString();
+        }
         if (e.isThisExpr()) return e.findAncestor(ClassOrInterfaceDeclaration.class).orElseThrow().getNameAsString();
         if (e.isTypeExpr()) return variables.getOrDefault(e.asTypeExpr().getTypeAsString(),e.asTypeExpr().getTypeAsString());
         if (e.isObjectCreationExpr()) return e.asObjectCreationExpr().getTypeAsString();
@@ -48,6 +80,10 @@ final class LambdaSupport {
         if (e.isBooleanLiteralExpr()) return "boolean";
         if (e.isNullLiteralExpr()) return "null";
         if (e.isCastExpr()) return e.asCastExpr().getTypeAsString();
+        if (e.isFieldAccessExpr()) {
+            var f=e.asFieldAccessExpr(); return registry.fieldType(type(f.getScope(),variables),f.getNameAsString());
+        }
+        if (e.isArrayCreationExpr()) return e.asArrayCreationExpr().getElementType()+"[]";
         if (e.isMethodCallExpr()) {
             MethodCallExpr call = e.asMethodCallExpr();
             String owner = call.getScope().map(s -> type(s, variables)).orElseGet(() -> e.findAncestor(ClassOrInterfaceDeclaration.class).orElseThrow().getNameAsString());

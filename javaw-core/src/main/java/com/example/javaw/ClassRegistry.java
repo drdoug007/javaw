@@ -110,6 +110,7 @@ public class ClassRegistry {
                     funcName = "$" + className + "_" + mName + "__" + methodSuffix(paramTypeNames.stream().map(t -> GenericTypes.eraseVariables(t, md)).toList());
                 }
 
+                if (cd.isInterface() && Set.of("Iterable", "Iterator").contains(className)) funcName = "$__source_" + className + "_" + mName;
                 MethodModel mm = new MethodModel(mName, className, funcName, retTypeName, retWasmType,
                         paramNames, paramTypeNames, paramWasmTypes, isStatic, false);
                 mm.setDeclaration(md);
@@ -267,6 +268,9 @@ public class ClassRegistry {
                 {"IllegalStateException", "RuntimeException"},
                 {"NullPointerException", "RuntimeException"},
                 {"NoSuchElementException", "RuntimeException"},
+                {"IndexOutOfBoundsException", "RuntimeException"},
+                {"ConcurrentModificationException", "RuntimeException"},
+                {"UnsupportedOperationException", "RuntimeException"},
                 {"ArithmeticException", "RuntimeException"}
         };
         for (String[] def : builtins) {
@@ -611,9 +615,8 @@ public class ClassRegistry {
                                 (overridesParameters(mm, existing) ||
                                  (existing.getName().equals("equals") && mm.getParamTypeNames().size() == 1))) {
                             slots.set(i, mm);
-                            mm.setVirtualSlotIndex(i);
+                            if (!overridden) mm.setVirtualSlotIndex(i);
                             overridden = true;
-                            break;
                         }
                     }
                     if (!overridden) {
@@ -680,7 +683,10 @@ public class ClassRegistry {
         String parent = asSuperType(method.getClassName(), inherited.getClassName());
         List<String> expected = parent == null ? inherited.getParamTypeNames()
                 : inherited.substitute(classBindings(parent)).getParamTypeNames();
-        return expected.equals(method.getParamTypeNames());
+        List<String> actual = method.getParamTypeNames();
+        if (method.getDeclaration() != null) actual = actual.stream().map(t -> GenericTypes.eraseVariables(t,method.getDeclaration())).toList();
+        if (inherited.getDeclaration() != null) expected = expected.stream().map(t -> GenericTypes.eraseVariables(t,inherited.getDeclaration())).toList();
+        return expected.equals(actual);
     }
 
     MethodModel boxingFactory(String wrapper) {

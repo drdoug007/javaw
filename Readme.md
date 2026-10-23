@@ -18,8 +18,8 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
 
 | Area | Current limit |
 | :--- | :--- |
-| Lambdas and method references | General closures, captured variables, functional interfaces, and method references are not implemented; Spring callback patterns have special lowering. |
-| Collections and streams | General JDK collections and Stream pipelines are not implemented. Spring repository lists are lowered to reference arrays. |
+| Collections | Source-backed `ArrayList`, bucketed/resizing `HashMap`, `HashSet`, `List`/`Set`/`Map`/`Collection`/`Iterable`/`Iterator` interfaces, enhanced for, and live map key sets. Basic mutation/query APIs are implemented; complete JDK collection APIs/views remain pending. |
+| Streams | Sequential Stream pipelines remain pending. Spring repository lists still use the existing reference-array adapter. |
 | Lambdas | Reusable closure objects capture effectively-final locals and lexical `this`; functional interfaces and static/bound/unbound/constructor method references use Wasm dispatch. Explicitly typed callback locals resolve ambiguous targets; complete JLS target typing remains pending. |
 | Optional | Source-backed `empty`, `of`, `ofNullable`, presence checks, `get`, eager/lazy defaults, exception suppliers, `map`, `flatMap`, `filter`, and `ifPresent` execute in Wasm. Functional callbacks use interface dispatch; empty/null factories may require explicit type witnesses (`Optional.<String>empty()`). |
 | Decimal arithmetic | BigDecimal passes decimal text through memory; general arithmetic, rounding, and scale semantics are pending. |
@@ -44,7 +44,9 @@ Generic, wrapper, and varargs regressions execute Wasm in `GenericInferenceTest`
 
 Primitive numeric regressions in `NumericConformanceTest` execute typed mutations, compound assignment promotion/narrowing, constant-expression ternaries, saturating float-to-integer casts, division edge cases, and floating remainder entirely in Wasm.
 
-Phase 1 source-resolution foundations and source-backed Optional/closures are implemented for the tested subset. The next priorities are collections, streams, decimal arithmetic, and memory reclamation. See [the compatibility roadmap](Todo.md#13-java-compatibility-roadmap) for acceptance criteria and remaining work.
+Collections accept null elements, keys, and values. Lists retain insertion order; hash collections promise no iteration order. String keys compare by UTF-8 content; boxed values and source objects use virtual `equals`/`hashCode` (keys must obey the Java equality/hash contract). Structural mutation invalidates iterator `next()`; exhausted iteration and invalid list indexes throw standard exceptions. Iterator removal and complete view/bulk APIs are not implemented. An object-identity registry distinguishes source objects from untagged runtime strings; it adds allocation overhead and currently scans recorded object identities. Allocation records and objects are not reclaimed yet (Phase 3).
+
+Phase 1 source-resolution foundations and source-backed Optional/closures are implemented for the tested subset. The next priorities are streams, decimal arithmetic, and memory reclamation. See [the compatibility roadmap](Todo.md#13-java-compatibility-roadmap) for acceptance criteria and remaining work.
 
 ## Features
 

@@ -30,6 +30,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     private final Map<String, Integer> methodCounts = new HashMap<>();
     private final Map<String, Integer> constructorCounts = new HashMap<>();
     private final Map<UnaryExpr, String> mutationLocals = new IdentityHashMap<>();
+    private final Map<ObjectCreationExpr, String> allocationLocals = new IdentityHashMap<>();
     private final Map<MethodCallExpr, String> receiverLocals = new IdentityHashMap<>();
     private CallableDeclaration<?> currentCallable;
     private ClassModel currentClass;
@@ -556,6 +557,11 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             collector.append("    (local $").append(id).append("$address i32)\n");
             collector.append("    (local $").append(id).append("$old ").append(type).append(")\n");
             collector.append("    (local $").append(id).append("$new ").append(type).append(")\n");
+        }
+        for (ObjectCreationExpr creation : body.findAll(ObjectCreationExpr.class)) {
+            String local = "__allocation$" + allocationLocals.size();
+            allocationLocals.put(creation,local);
+            collector.append("    (local $").append(local).append(" i32)\n");
         }
         for (MethodCallExpr call : body.findAll(MethodCallExpr.class)) {
             String local = "__receiver$" + receiverLocals.size();
@@ -1555,22 +1561,23 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     translateExpression(oce.getArgument(i), collector, localTypes, localElementTypes, localJavaTypes, pWasm);
                 }
             } else if (classRegistry != null && classRegistry.hasClass(typeName)) {
+                String allocation = allocationLocals.getOrDefault(oce,"__obj_alloc_ptr");
                 ClassModel cm = classRegistry.getClass(typeName);
                 collector.append("    i32.const ").append(cm.getStructSize()).append("\n");
-                collector.append("    call $__heap_alloc\n");
-                collector.append("    local.set $__obj_alloc_ptr\n");
+                collector.append("    call $__javaw_object_alloc\n");
+                collector.append("    local.set $").append(allocation).append("\n");
 
                 if (!cm.getVtableSlots().isEmpty()) {
-                    collector.append("    local.get $__obj_alloc_ptr\n");
+                    collector.append("    local.get $").append(allocation).append("\n");
                     collector.append("    i32.const ").append(cm.getVtableBase()).append("\n");
                     collector.append("    i32.store offset=0\n");
                 }
 
-                collector.append("    local.get $__obj_alloc_ptr\n");
+                collector.append("    local.get $").append(allocation).append("\n");
                 String initFunc = emitConstructorArguments(typeName, oce.getArguments(), oce,
                         collector, localTypes, localElementTypes, localJavaTypes);
                 collector.append("    call ").append(initFunc).append("\n");
-                collector.append("    local.get $__obj_alloc_ptr\n");
+                collector.append("    local.get $").append(allocation).append("\n");
             }
         } else if (expr.isArrayCreationExpr()) {
             ArrayCreationExpr ace = expr.asArrayCreationExpr();
@@ -2629,7 +2636,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         String promoted = shift ? storageType : TypeMapper.mapType(promotedNumeric(left, right));
         if ("boolean".equals(left)) promoted = "i32";
         emitNumericWidening(storageType, promoted, out);
-        translateExpression(assignment.getValue(), out, locals, elements, javaTypes, promoted);
+        translateNumeric(assignment.getValue(), out, locals, elements, javaTypes, promoted);
         out.append("    ").append(getWasmBinaryOp(operation, promoted)).append("\n");
         if (!storageType.equals(promoted)) {
             if (storageType.equals("i32")) out.append("    ").append(promoted.equals("i64") ? "i32.wrap_i64" : "i32.trunc_sat_" + promoted + "_s").append("\n");
@@ -2641,6 +2648,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     }
 
     private void emitNumericRuntime(StringBuilder out) {
+        CollectionRuntime.emit(out);
         out.append("  (func $__require_nonnull (param $value i32) (result i32) (local $e i32)\n")
                 .append("    local.get $value\n    i32.eqz\n    if\n    i32.const 8\n    call $__heap_alloc\n    local.tee $e\n    i32.const ")
                 .append(classRegistry.getClass("NullPointerException").getVtableBase())
@@ -2898,6 +2906,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             Expression copy = argument.clone();
             List<MethodCallExpr> before = argument.findAll(MethodCallExpr.class), after = copy.findAll(MethodCallExpr.class);
             for (int i = 0; i < before.size(); i++) receiverLocals.put(after.get(i), receiverLocals.get(before.get(i)));
+            List<ObjectCreationExpr> beforeCreation = argument.findAll(ObjectCreationExpr.class), afterCreation = copy.findAll(ObjectCreationExpr.class);
+            for (int i = 0; i < beforeCreation.size(); i++) allocationLocals.put(afterCreation.get(i), allocationLocals.get(beforeCreation.get(i)));
             List<UnaryExpr> beforeUnary = argument.findAll(UnaryExpr.class), afterUnary = copy.findAll(UnaryExpr.class);
             for (int i = 0; i < beforeUnary.size(); i++) if (mutationLocals.containsKey(beforeUnary.get(i)))
                 mutationLocals.put(afterUnary.get(i), mutationLocals.get(beforeUnary.get(i)));
@@ -2923,6 +2933,10 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
 
     private void emitSourceMethod(MethodCallExpr call, MethodModel method, StringBuilder out,
             Map<String, String> locals, Map<String, String> elements, Map<String, String> javaTypes, String expected) {
+        if (method.getClassName().equals("__JavawObjects")) {
+            for (Expression arg : call.getArguments()) translateExpression(arg,out,locals,elements,javaTypes,"i32");
+            out.append("    call $__javaw_").append(method.getName()).append("\n"); return;
+        }
         Expression receiver = call.getScope().orElse(new ThisExpr());
         RecordModel record = classRegistry.getRecord(method.getClassName());
         boolean dynamic = !method.isStatic() && record == null && method.isVirtual()
