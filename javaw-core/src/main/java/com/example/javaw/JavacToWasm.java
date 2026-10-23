@@ -495,6 +495,7 @@ public class JavacToWasm {
         JavaSourcePreparation.markSource(cu, sourceName);
         JavaSourcePreparation.normalizeTypes(cu, JavaSourcePreparation.typeNames(List.of(cu)));
         SourceRuntimeSupport.prepare(cu);
+        ReflectionSupport reflection = ReflectionSupport.prepare(cu);
         SpringWebSupport springWeb = SpringWebSupport.lower(cu);
         DecimalSupport.addTypes(cu);
         LibrarySupport.addTypes(cu);
@@ -505,12 +506,14 @@ public class JavacToWasm {
         CollectorSupport.addTypes(cu);
         JavaSourcePreparation.normalizeTypes(cu, JavaSourcePreparation.typeNames(List.of(cu)));
         BoxingSupport.addWrappers(cu);
+        if (reflection != null) reflection.finish(cu);
         JavaSourcePreparation.normalizeVarargs(cu);
         JavaSourcePreparation.resolveLocalScopes(cu);
         LambdaSupport.lower(cu);
         LambdaSupport.lowerLoops(cu);
         JavaSourcePreparation.resolveLocalScopes(cu);
         ClassRegistry classRegistry = ClassRegistry.build(cu);
+        if (reflection != null) reflection.register(classRegistry);
         GenericTypes.validateSourceTypes(cu, classRegistry);
         springWeb.emitMetadata(classRegistry, watOutput);
 
@@ -624,7 +627,7 @@ public class JavacToWasm {
         watOutput.append("  (global $__heap_base i32 (i32.const ").append(heapStart).append("))\n");
         watOutput.append("  (global $__heap_ptr (mut i32) (i32.const ").append(heapStart).append("))\n");
         for (String cName : classRegistry.getClasses().keySet()) {
-            watOutput.append("  (global $__class_").append(cName).append(" (mut i32) (i32.const 0))\n");
+            watOutput.append("  (global $__class_").append(ClassRegistry.classSymbol(cName)).append(" (mut i32) (i32.const 0))\n");
         }
 
         classRegistry.emitTypeSignaturesAndTable(watOutput);

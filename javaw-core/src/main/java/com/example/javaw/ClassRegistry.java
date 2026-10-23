@@ -11,6 +11,8 @@ import java.util.*;
  * Registry and layout calculator for Java classes, fields, vtables, and function table slots.
  */
 public class ClassRegistry {
+    static String classSymbol(String name) { return name.replace("[", "@L").replace("]", "@R"); }
+
     private final Map<String, TypeDeclaration<?>> sourceTypes = new LinkedHashMap<>();
     private final Map<String, ClassModel> classes = new LinkedHashMap<>();
     private final Map<String, RecordModel> records = new LinkedHashMap<>();
@@ -398,6 +400,14 @@ public class ClassRegistry {
                 ClassModel cm = new ClassModel(pt, null, false, classIdCounter++);
                 classes.put(pt, cm);
             }
+        }
+
+        if (classes.containsKey("__JavawReflection")) {
+            Set<String> descriptorNames = new LinkedHashSet<>(List.of("String", "Object"));
+            for (var literal : cu.findAll(com.github.javaparser.ast.expr.ClassExpr.class))
+                descriptorNames.add(literal.getType().asString().replaceAll("<[^<>]*>", ""));
+            for (String name : descriptorNames) if (!classes.containsKey(name))
+                classes.put(name, new ClassModel(name, null, false, classIdCounter++));
         }
 
         Map<String, List<MethodModel>> symbols = new LinkedHashMap<>();
@@ -969,6 +979,8 @@ public class ClassRegistry {
             String a = from.substring(0, from.length() - 2), b = to.substring(0, to.length() - 2);
             return a.equals(b) || !primitives.contains(a) && !primitives.contains(b) && canWiden(a, b);
         }
+        if (from.endsWith("[]") || to.endsWith("[]"))
+            return from.endsWith("[]") && Set.of("Object", "Cloneable", "java.io.Serializable").contains(to);
         if (to.startsWith("?")) {
             if (to.startsWith("? super ")) return canWiden(from, to.substring(8));
             return false; // captured extends/unbounded types accept only null

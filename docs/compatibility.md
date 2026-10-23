@@ -46,8 +46,9 @@ classes within that JAR. Inherited lookup, linking separate dependency JARs,
 JDK implementations, JNI, automatic class initialization, resources/service
 loading, and multirelease selection are not general compatibility guarantees.
 Dynamic loading of additional code after Wasm instantiation is unsupported.
-Source `Class` descriptors describe linked types; reflective member invocation,
-annotation instances, and reflective construction remain roadmap work.
+Source `Class` descriptors describe linked types. Generated member invocation,
+annotation instances, and reflective construction are available for ordinary
+linked source classes under [the source reflection contract](reflection.md).
 
 Diagnostics include source file and line when present, class, method descriptor,
 construct/opcode, and remediation. Without debug information, diagnostics say
@@ -65,6 +66,7 @@ reused solely because a dependency JAR hash matches.
 | Actual Maven JUnit Jupiter API 5.10.0 JAR | Same suite reads the installed dependency artifact and verifies explicit rejection. Not a supported runtime library |
 | Dependency cache | [LocalM2CacheManagerTest](../javaw-bytecode/src/test/java/com/example/javaw/bytecode/LocalM2CacheManagerTest.java): hash and compiler-revision invalidation |
 | Assertions and source diagnostics | [SourceRuntimeSupportTest](../javaw-core/src/test/java/com/example/javaw/SourceRuntimeSupportTest.java): executes Wasm assertion enable/disable, lazy checks/details, Error/Exception hierarchy, and union catches; verifies source locations and remediation |
+| Linked source reflection | [ReflectionSupportTest](../javaw-core/src/test/java/com/example/javaw/ReflectionSupportTest.java): executes construction, field access, virtual/static invocation, conversions, access/target errors, runtime/nested/array/inherited annotations, linked lookup, and unsupported boundaries in Wasm |
 | Byte streams | [IoSupportTest](../javaw-core/src/test/java/com/example/javaw/IoSupportTest.java): executes byte-stream growth, copy isolation, bulk operations, unsigned reads, mark/reset, skip, bounds/null errors, and no-op close in Wasm |
 | Spring in-memory target | [SpringWebSupportTest](../javaw-core/src/test/java/com/example/javaw/SpringWebSupportTest.java) and [Node integration test](../examples/springboot-h2/test.js): existing lowered CRUD/HTTP, exact decimal, and memory-reclamation subset. Actual Spring/Hibernate/H2 dependency execution is pending |
 
@@ -78,7 +80,8 @@ mvn -o -pl javaw-bytecode -am test \
 
 ## Remaining Phase 4 and Phase 5 work
 
-Member reflection and annotation metadata/invocation; worker-safe allocation,
+Remaining reflection compatibility (array arguments, enum/record/library members,
+full access and Class semantics); worker-safe allocation,
 monitor ownership, blocking wait/notify and thread lifecycle/JMM; comprehensive
 I/O/NIO/network/date-time/regex/serialization; complete JLS conversions and
 inference; general Spring bean lifecycle/proxies/annotation processing/queries;

@@ -354,6 +354,8 @@ Checked items elsewhere describe supported subsets, not complete Java/JDK/JVM co
 ### Phase 4: Runtime semantics and standard libraries
 
 - [ ] Extend reflection with constructors, fields, methods, annotation metadata, and invocation; define dynamic class-loading limits.
+  - [x] Add generated reflection for linked ordinary source classes: constructor invocation, field access, method invocation/virtual dispatch, primitive conversions, public-or-accessible checks, target exception wrapping, runtime annotation values/defaults/inheritance, and linked Class.forName lookup. Executed by ReflectionSupportTest in WebAssembly; see [the supported contract and loading limits](docs/reflection.md).
+  - [ ] Complete array argument/component type checks, enum/record and library member metadata, caller/module access semantics, repeated/parameter/type-use annotations, generic Type APIs, and full JVM Class naming/superclass/array semantics. Non-null reflective array arguments and enum/record member lookup fail explicitly.
 - [ ] Implement synchronized monitors, wait/notify, volatile visibility, thread lifecycle, and Java Memory Model guarantees beyond existing atomics.
 - [ ] Expand java.io/NIO, networking, date/time, regex, serialization, and standard exception behavior; document host-specific limitations.
   - [x] Add host-independent InputStream/OutputStream and ByteArrayInputStream/ByteArrayOutputStream core byte operations, unsigned reads, bounded bulk operations, mark/reset, skip, growth, copy isolation, close semantics, IOException, and bounds/null errors. Executed by `IoSupportTest`; files, charset conversion, sockets, NIO, serialization, and concurrent stream access remain pending.

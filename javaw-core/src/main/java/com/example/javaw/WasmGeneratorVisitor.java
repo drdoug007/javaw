@@ -30,6 +30,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     private final Map<String, Integer> methodCounts = new HashMap<>();
     private final Map<String, Integer> constructorCounts = new HashMap<>();
     private final Map<UnaryExpr, String> mutationLocals = new IdentityHashMap<>();
+    private final Map<Node, String> arrayAllocationLocals = new IdentityHashMap<>();
     private final Map<ObjectCreationExpr, String> allocationLocals = new IdentityHashMap<>();
     private final Map<MethodCallExpr, String> receiverLocals = new IdentityHashMap<>();
     private CallableDeclaration<?> currentCallable;
@@ -296,6 +297,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
 
     @Override
     public void visit(MethodDeclaration n, StringBuilder collector) {
+        if (n.isNative() && n.getNameAsString().equals("__javaw_is_string")
+                && n.findAncestor(ClassOrInterfaceDeclaration.class).map(c -> c.getNameAsString().equals("__JavawReflection")).orElse(false)) return;
         currentCallable = n;
         if (n.getParentNode().isPresent() && n.getParentNode().get() instanceof RecordDeclaration) {
             return;
@@ -558,14 +561,23 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             collector.append("    (local $").append(id).append("$old ").append(type).append(")\n");
             collector.append("    (local $").append(id).append("$new ").append(type).append(")\n");
         }
+        for (Expression array : body.findAll(Expression.class)) if (array.isArrayCreationExpr() || array.isArrayInitializerExpr()) {
+            String local = "__arrayAllocation$" + arrayAllocationLocals.size();
+            arrayAllocationLocals.put(array,local);
+            collector.append("    (local $").append(local).append(" i32)\n");
+        }
         for (ObjectCreationExpr creation : body.findAll(ObjectCreationExpr.class)) {
             String local = "__allocation$" + allocationLocals.size();
             allocationLocals.put(creation,local);
+            arrayAllocationLocals.put(creation,local + "$varargs");
+            collector.append("    (local $").append(local).append("$varargs i32)\n");
             collector.append("    (local $").append(local).append(" i32)\n");
         }
         for (MethodCallExpr call : body.findAll(MethodCallExpr.class)) {
             String local = "__receiver$" + receiverLocals.size();
             receiverLocals.put(call, local);
+            arrayAllocationLocals.put(call,local + "$varargs");
+            collector.append("    (local $").append(local).append("$varargs i32)\n");
             collector.append("    (local $").append(local).append(" i32)\n");
         }
         collector.append("    (local $__caught_exc i32)\n");
@@ -1297,7 +1309,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             if (typeName.contains("<")) {
                 typeName = typeName.substring(0, typeName.indexOf('<')).trim();
             }
-            collector.append("    global.get $__class_").append(typeName).append("\n");
+            collector.append("    global.get $__class_").append(ClassRegistry.classSymbol(typeName)).append("\n");
         } else if (expr.isConditionalExpr()) {
             ConditionalExpr cond = expr.asConditionalExpr();
             String resType = TypeMapper.mapType(getExpressionJavaType(cond, localJavaTypes));
@@ -1573,6 +1585,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             }
         } else if (expr.isArrayCreationExpr()) {
             ArrayCreationExpr ace = expr.asArrayCreationExpr();
+            String array = arrayAllocationLocals.getOrDefault(expr,"__arr_alloc_ptr");
             String elemType = TypeMapper.mapType(ace.getElementType());
             int headerOffset = (elemType.equals("f64") || elemType.equals("i64")) ? 8 : 4;
             int elemSize = (elemType.equals("f64") || elemType.equals("i64")) ? 8 : 4;
@@ -1584,31 +1597,32 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 int alignedBytes = (totalBytes + 7) & ~7;
 
                 collector.append("    i32.const ").append(alignedBytes).append("\n");
-                collector.append("    call $__heap_alloc\n    local.set $__arr_alloc_ptr\n");
+                collector.append("    call $__javaw_array_bytes_alloc\n    local.set $").append(array).append("\n");
 
-                collector.append("    local.get $__arr_alloc_ptr\n");
+                collector.append("    local.get $").append(array).append("\n");
                 collector.append("    i32.const ").append(n).append("\n");
                 collector.append("    i32.store\n");
 
                 for (int i = 0; i < n; i++) {
-                    collector.append("    local.get $__arr_alloc_ptr\n");
+                    collector.append("    local.get $").append(array).append("\n");
                     translateValue(init.getValues().get(i), collector, localTypes, localElementTypes, localJavaTypes, ace.getElementType().asString());
                     int offset = headerOffset + i * elemSize;
                     collector.append("    ").append(getStoreInstruction(elemType)).append(" offset=").append(offset).append("\n");
                 }
-                collector.append("    local.get $__arr_alloc_ptr\n");
+                collector.append("    local.get $").append(array).append("\n");
             } else if (!ace.getLevels().isEmpty() && ace.getLevels().get(0).getDimension().isPresent()) {
                 Expression dimExpr = ace.getLevels().get(0).getDimension().get();
                 translateExpression(dimExpr, collector, localTypes, localElementTypes, localJavaTypes, "i32");
                 collector.append("    local.set $__arr_alloc_len\n");
                 collector.append("    local.get $__arr_alloc_len\n    i32.const ").append(elemSize)
                         .append("\n    i32.const ").append(headerOffset)
-                        .append("\n    call $__javaw_array_alloc\n    local.set $__arr_alloc_ptr\n");
+                        .append("\n    call $__javaw_array_alloc\n    local.set $").append(array).append("\n");
 
-                collector.append("    local.get $__arr_alloc_ptr\n");
+                collector.append("    local.get $").append(array).append("\n");
             }
         } else if (expr.isArrayInitializerExpr()) {
             ArrayInitializerExpr init = expr.asArrayInitializerExpr();
+            String array = arrayAllocationLocals.getOrDefault(expr,"__arr_alloc_ptr");
             String elementJava = expr.findAncestor(VariableDeclarator.class).map(v -> v.getType().asArrayType().getComponentType().asString()).orElse("int");
             String elemType = TypeMapper.mapType(elementJava);
             int headerOffset = (elemType.equals("f64") || elemType.equals("i64")) ? 8 : 4;
@@ -1619,19 +1633,19 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             int alignedBytes = (totalBytes + 7) & ~7;
 
             collector.append("    i32.const ").append(alignedBytes).append("\n");
-            collector.append("    call $__heap_alloc\n    local.set $__arr_alloc_ptr\n");
+            collector.append("    call $__javaw_array_bytes_alloc\n    local.set $").append(array).append("\n");
 
-            collector.append("    local.get $__arr_alloc_ptr\n");
+            collector.append("    local.get $").append(array).append("\n");
             collector.append("    i32.const ").append(n).append("\n");
             collector.append("    i32.store\n");
 
             for (int i = 0; i < n; i++) {
-                collector.append("    local.get $__arr_alloc_ptr\n");
+                collector.append("    local.get $").append(array).append("\n");
                 translateValue(init.getValues().get(i), collector, localTypes, localElementTypes, localJavaTypes, expr.findAncestor(VariableDeclarator.class).map(v -> v.getType().asArrayType().getComponentType().asString()).orElse("int"));
                 int offset = headerOffset + i * elemSize;
                 collector.append("    ").append(getStoreInstruction(elemType)).append(" offset=").append(offset).append("\n");
             }
-            collector.append("    local.get $__arr_alloc_ptr\n");
+            collector.append("    local.get $").append(array).append("\n");
         } else if (expr.isArrayAccessExpr()) {
             ArrayAccessExpr aae = expr.asArrayAccessExpr();
             String elementJavaType=getExpressionJavaType(aae,localJavaTypes);
@@ -2874,7 +2888,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         catch (IllegalArgumentException error) { throw JavaSourcePreparation.error(creation, error.getMessage()); }
     }
 
-    private List<Expression> invocationArguments(MethodModel method, List<Expression> arguments, Map<String, String> javaTypes) {
+    private List<Expression> invocationArguments(MethodModel method, List<Expression> arguments, Map<String, String> javaTypes, Node context) {
         if (!method.isVarargs()) return arguments;
         int fixed = method.getParamTypeNames().size() - 1;
         String array = method.getParamTypeNames().get(fixed);
@@ -2890,10 +2904,14 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             List<UnaryExpr> beforeUnary = argument.findAll(UnaryExpr.class), afterUnary = copy.findAll(UnaryExpr.class);
             for (int i = 0; i < beforeUnary.size(); i++) if (mutationLocals.containsKey(beforeUnary.get(i)))
                 mutationLocals.put(afterUnary.get(i), mutationLocals.get(beforeUnary.get(i)));
+            List<Expression> originals = argument.findAll(Expression.class), copies = copy.findAll(Expression.class);
+            for (int i = 0; i < originals.size(); i++) if (arrayAllocationLocals.containsKey(originals.get(i)))
+                arrayAllocationLocals.put(copies.get(i), arrayAllocationLocals.get(originals.get(i)));
             initializer.getValues().add(copy);
         }
         ArrayCreationExpr packed = new ArrayCreationExpr().setElementType(StaticJavaParser.parseType(array.substring(0, array.length() - 2)))
                 .setLevels(new NodeList<>(new ArrayCreationLevel())).setInitializer(initializer);
+        if (arrayAllocationLocals.containsKey(context)) arrayAllocationLocals.put(packed,arrayAllocationLocals.get(context));
         invocation.add(packed);
         return invocation;
     }
@@ -2940,7 +2958,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             translateExpression(receiver, out, locals, elements, javaTypes, "i32");
             out.append("    drop\n");
         }
-        List<Expression> invocation = invocationArguments(method, call.getArguments(), javaTypes);
+        List<Expression> invocation = invocationArguments(method, call.getArguments(), javaTypes, call);
         for (int i = 0; i < invocation.size(); i++)
             translateValue(invocation.get(i), out, locals, elements, javaTypes, method.getParamTypeNames().get(i));
         if (dynamic) {
@@ -3018,7 +3036,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                             : currentRecord != null ? currentRecord.getName() : "", className, source)).toList(), types); }
             catch (IllegalArgumentException error) { throw JavaSourcePreparation.error(source, error.getMessage()); }
         }
-        List<Expression> invocation = selected == null ? arguments : invocationArguments(selected, arguments, localJavaTypes);
+        List<Expression> invocation = selected == null ? arguments : invocationArguments(selected, arguments, localJavaTypes, source);
         for (int i = 0; i < invocation.size(); i++)
             translateValue(invocation.get(i), collector, localTypes, localElementTypes, localJavaTypes, selected == null ? "int" : selected.getParamTypeNames().get(i));
         return selected == null ? "$" + GenericTypes.raw(className) + "__init" : selected.getFunctionName();
@@ -3114,7 +3132,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             }
         }
         if (expr.isClassExpr()) {
-            return "Class";
+            var type = expr.asClassExpr().getType();
+            return type.isPrimitiveType() || type.isVoidType() ? "Class<?>" : "Class<" + type.asString() + ">";
         }
         if (expr.isCastExpr()) {
             return expr.asCastExpr().getType().asString();
@@ -5401,8 +5420,10 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     private void translateClassStaticCall(MethodCallExpr call, StringBuilder collector, Map<String, String> localTypes, Map<String, String> localElementTypes, Map<String, String> localJavaTypes) {
         String mName = call.getNameAsString();
         if (mName.equals("forName")) {
-            translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
-            collector.append("    call $Class_forName\n");
+            translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            boolean wrapper = classRegistry != null && classRegistry.hasClass("__JavawReflection")
+                    && (currentClass == null || !currentClass.getName().equals("__JavawReflection"));
+            collector.append(wrapper ? "    call $__javaw_reflect_load\n" : "    call $Class_forName\n");
         }
     }
 
@@ -6495,7 +6516,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             if (getCls != null && getCls.isSynthetic()) {
                 collector.append("  ;; Default getClass() for ").append(cm.getName()).append("\n");
                 collector.append("  (func $").append(cm.getName()).append("_getClass (export \"").append(cm.getName()).append("_getClass\") (param $this i32) (result i32)\n");
-                collector.append("    global.get $__class_").append(cm.getName()).append("\n");
+                collector.append("    global.get $__class_").append(ClassRegistry.classSymbol(cm.getName())).append("\n");
                 collector.append("  )\n");
             }
         }
@@ -6538,7 +6559,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             collector.append("  (func $").append(enumName).append("_values (export \"").append(enumName).append("_values\") (result i32)\n");
             collector.append("    (local $arr i32)\n");
             collector.append("    i32.const ").append(4 + count * 4).append("\n");
-            collector.append("    call $__heap_alloc\n");
+            collector.append("    call $__javaw_array_bytes_alloc\n");
             collector.append("    local.set $arr\n");
             collector.append("    local.get $arr\n");
             collector.append("    i32.const ").append(count).append("\n");
@@ -6605,7 +6626,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                             .map(arg -> getExpressionJavaType(arg, Collections.emptyMap())).toList()); }
                     catch (IllegalArgumentException error) { throw JavaSourcePreparation.error(ed, error.getMessage()); }
                     collector.append("    local.get $inst\n");
-                    List<Expression> invocation = invocationArguments(constructor, args, Collections.emptyMap());
+                    List<Expression> invocation = invocationArguments(constructor, args, Collections.emptyMap(), ed);
                     for (int argument = 0; argument < invocation.size(); argument++)
                         translateValue(invocation.get(argument), collector, Collections.emptyMap(), Collections.emptyMap(),
                                 Collections.emptyMap(), constructor.getParamTypeNames().get(argument));
@@ -6621,6 +6642,19 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
 
     private void emitClassInitializersAndHelpers(CompilationUnit cu, StringBuilder collector) {
         if (classRegistry == null) return;
+
+        if (classRegistry.hasClass("__JavawReflection")) {
+            collector.append("  (func $__javaw_is_string (param $value i32) (result i32) (local $block i32)\n")
+                    .append("    local.get $value i32.eqz if i32.const 0 return end\n")
+                    .append("    local.get $value call $__javaw_is_object if i32.const 0 return end\n")
+                    .append("    local.get $value call $__gc_find local.tee $block\n")
+                    .append("    if\n")
+                    .append("      local.get $value local.get $block i32.const 16 i32.add i32.eq\n")
+                    .append("      local.get $block i32.load offset=12 i32.eqz i32.and return\n    end\n");
+            for (StringConstant string : stringPool.values())
+                collector.append("    local.get $value i32.const ").append(string.offset).append(" i32.eq if i32.const 1 return end\n");
+            collector.append("    i32.const 0\n  )\n");
+        }
 
         // Class methods: $Class_getName, $Class_getSimpleName, $Class_getId, $Class_isInterface, $Class_isEnum, $Class_isArray, $Class_getSuperclass, $Class_isInstance, $Class_forName
         collector.append("  ;; --- Class Reflection Methods ---\n");
@@ -6645,12 +6679,12 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         collector.append("    i32.load offset=20\n");
         collector.append("  )\n");
         collector.append("  (func $Class_isArray (export \"Class_isArray\") (param $this i32) (result i32)\n");
-        collector.append("    local.get $this\n");
-        collector.append("    i32.load offset=4\n");
-        collector.append("    i32.load8_u\n");
-        collector.append("    i32.const 91\n"); // '['
-        collector.append("    i32.eq\n");
-        collector.append("  )\n");
+        for (ClassModel model : classRegistry.getClasses().values()) {
+            if (!model.getName().endsWith("[]")) continue;
+            collector.append("    local.get $this\n    global.get $__class_").append(ClassRegistry.classSymbol(model.getName()))
+                    .append("\n    i32.eq\n    if\n      i32.const 1\n      return\n    end\n");
+        }
+        collector.append("    i32.const 0\n  )\n");
         collector.append("  (func $Class_getSuperclass (export \"Class_getSuperclass\") (param $this i32) (result i32)\n");
         collector.append("    local.get $this\n");
         collector.append("    i32.load offset=24\n");
@@ -6697,7 +6731,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             collector.append("    i32.const ").append(scOffset).append("\n");
             collector.append("    call $__str_equals\n");
             collector.append("    if\n");
-            collector.append("      global.get $__class_").append(cName).append("\n");
+            collector.append("      global.get $__class_").append(ClassRegistry.classSymbol(cName)).append("\n");
             collector.append("      return\n");
             collector.append("    end\n");
         }
@@ -6712,7 +6746,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 collector.append("    i32.const ").append(cm.getVtableBase()).append("\n");
                 collector.append("    i32.eq\n");
                 collector.append("    if\n");
-                collector.append("      global.get $__class_").append(cm.getName()).append("\n");
+                collector.append("      global.get $__class_").append(ClassRegistry.classSymbol(cm.getName())).append("\n");
                 collector.append("      return\n");
                 collector.append("    end\n");
             }
@@ -6855,7 +6889,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             int simpleOffset = simpleSc != null ? simpleSc.offset : 0;
 
             collector.append("    i32.const 32\n");
-            collector.append("    call $__heap_alloc\n");
+            collector.append("    call $__javaw_object_alloc\n");
             collector.append("    local.set $inst\n");
             collector.append("    local.get $inst\n");
             collector.append("    i32.const ").append(classVtable).append("\n");
@@ -6879,14 +6913,14 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             collector.append("    i32.const 0\n");
             collector.append("    i32.store offset=24\n");
             collector.append("    local.get $inst\n");
-            collector.append("    global.set $__class_").append(cName).append("\n");
+            collector.append("    global.set $__class_").append(ClassRegistry.classSymbol(cName)).append("\n");
         }
 
         // Second pass: set superclass pointers
         for (ClassModel cm : classRegistry.getClasses().values()) {
             if (cm.getSuperClassName() != null && classRegistry.hasClass(cm.getSuperClassName())) {
-                collector.append("    global.get $__class_").append(cm.getName()).append("\n");
-                collector.append("    global.get $__class_").append(cm.getSuperClassName()).append("\n");
+                collector.append("    global.get $__class_").append(ClassRegistry.classSymbol(cm.getName())).append("\n");
+                collector.append("    global.get $__class_").append(ClassRegistry.classSymbol(cm.getSuperClassName())).append("\n");
                 collector.append("    i32.store offset=24\n");
             }
         }

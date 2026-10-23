@@ -315,7 +315,7 @@
             const byteSize = 4 + len * 4;
             let ptr = 0;
             if (this.instance && typeof this.instance.exports.__heap_alloc === 'function') {
-                ptr = this.instance.exports.__heap_alloc(byteSize);
+                ptr = (this.instance.exports.__javaw_array_bytes_alloc || this.instance.exports.__heap_alloc)(byteSize);
             }
             if (ptr > 0) {
                 const view = new DataView(this.getMemory().buffer);
@@ -333,7 +333,7 @@
             const byteSize = 8 + len * 8;
             let ptr = 0;
             if (this.instance && typeof this.instance.exports.__heap_alloc === 'function') {
-                ptr = this.instance.exports.__heap_alloc(byteSize);
+                ptr = (this.instance.exports.__javaw_array_bytes_alloc || this.instance.exports.__heap_alloc)(byteSize);
             }
             if (ptr > 0) {
                 const view = new DataView(this.getMemory().buffer);
@@ -351,7 +351,7 @@
             const byteSize = 4 + len * 4;
             let ptr = 0;
             if (this.instance && typeof this.instance.exports.__heap_alloc === 'function') {
-                ptr = this.instance.exports.__heap_alloc(byteSize);
+                ptr = (this.instance.exports.__javaw_array_bytes_alloc || this.instance.exports.__heap_alloc)(byteSize);
             }
             if (ptr > 0) {
                 const view = new DataView(this.getMemory().buffer);
@@ -848,7 +848,7 @@
             const byteSize = 4 + count * 4;
             let ptr = 0;
             if (this.instance && typeof this.instance.exports.__heap_alloc === 'function') {
-                ptr = this.instance.exports.__heap_alloc(byteSize);
+                ptr = (this.instance.exports.__javaw_array_bytes_alloc || this.instance.exports.__heap_alloc)(byteSize);
             }
             if (ptr > 0) {
                 const view = new DataView(this.getMemory().buffer);

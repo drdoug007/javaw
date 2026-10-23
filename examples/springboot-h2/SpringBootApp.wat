@@ -581,13 +581,17 @@
   end end local.get $total)
 (func $__gc_heap_bytes (export "__gc_heap_bytes") (result i32)
   global.get $__heap_ptr global.get $__heap_base i32.sub)
+(func $__javaw_array_bytes_alloc (export "__javaw_array_bytes_alloc") (param $bytes i32) (result i32) (local $ptr i32)
+  local.get $bytes call $__heap_alloc local.tee $ptr
+  i32.const 4 i32.sub i32.const 1 i32.store
+  local.get $ptr)
 (func $__javaw_array_alloc (param $length i32) (param $width i32) (param $header i32) (result i32)
   (local $size i64) (local $ptr i32)
   local.get $length i32.const 0 i32.lt_s if unreachable end
   local.get $length i64.extend_i32_u local.get $width i64.extend_i32_u i64.mul
   local.get $header i64.extend_i32_u i64.add local.tee $size
   i64.const 2147483640 i64.gt_u if unreachable end
-  local.get $size i32.wrap_i64 call $__heap_alloc local.tee $ptr
+  local.get $size i32.wrap_i64 call $__javaw_array_bytes_alloc local.tee $ptr
   local.get $length i32.store local.get $ptr)
   ;; --- Root Object Functions ---
   (func $Object_toString (export "Object_toString") (param $this i32) (result i32)
@@ -2633,7 +2637,7 @@
     i32.add
     local.set $totalBytes
     local.get $totalBytes
-    call $__heap_alloc
+    call $__javaw_array_bytes_alloc
     local.set $newArr
     local.get $newArr
     local.get $newLen
@@ -2682,7 +2686,7 @@
     i32.add
     local.set $totalBytes
     local.get $totalBytes
-    call $__heap_alloc
+    call $__javaw_array_bytes_alloc
     local.set $newArr
     local.get $newArr
     local.get $newLen
@@ -2738,7 +2742,7 @@
     i32.shl
     i32.const 4
     i32.add
-    call $__heap_alloc
+    call $__javaw_array_bytes_alloc
     local.set $newArr
     local.get $newArr
     local.get $newLen
@@ -2786,7 +2790,7 @@
     i32.shl
     i32.const 8
     i32.add
-    call $__heap_alloc
+    call $__javaw_array_bytes_alloc
     local.set $newArr
     local.get $newArr
     local.get $newLen
@@ -5374,6 +5378,7 @@
     (local $__mutation$1$address i32)
     (local $__mutation$1$old i32)
     (local $__mutation$1$new i32)
+    (local $__arrayAllocation$0 i32)
     (local $__caught_exc i32)
     i32.const 0
     local.set $size
@@ -5408,8 +5413,8 @@
     i32.const 4
     i32.const 4
     call $__javaw_array_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    local.set $__arrayAllocation$0
+    local.get $__arrayAllocation$0
     local.set $values
     local.get $this
     i32.load offset=4
@@ -5471,6 +5476,7 @@
     (local $__mutation$2$address i32)
     (local $__mutation$2$old i32)
     (local $__mutation$2$new i32)
+    (local $__allocation$0$varargs i32)
     (local $__allocation$0 i32)
     (local $__caught_exc i32)
     local.get $value
@@ -5692,6 +5698,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$0$varargs i32)
     (local $__receiver$0 i32)
     (local $__caught_exc i32)
     call $__javaw_boot
@@ -5712,6 +5719,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$1$varargs i32)
     (local $__allocation$1 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -5743,7 +5751,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$2$varargs i32)
     (local $__allocation$2 i32)
+    (local $__receiver$1$varargs i32)
     (local $__receiver$1 i32)
     (local $__caught_exc i32)
     i32.const 24
@@ -5788,7 +5798,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$2$varargs i32)
     (local $__receiver$2 i32)
+    (local $__receiver$3$varargs i32)
     (local $__receiver$3 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -5846,6 +5858,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$4$varargs i32)
     (local $__receiver$4 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -5875,7 +5888,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$5$varargs i32)
     (local $__receiver$5 i32)
+    (local $__receiver$6$varargs i32)
     (local $__receiver$6 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -5909,7 +5924,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$3$varargs i32)
     (local $__allocation$3 i32)
+    (local $__receiver$7$varargs i32)
     (local $__receiver$7 i32)
     (local $__caught_exc i32)
     i32.const 24
@@ -5955,11 +5972,17 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$8$varargs i32)
     (local $__receiver$8 i32)
+    (local $__receiver$9$varargs i32)
     (local $__receiver$9 i32)
+    (local $__receiver$10$varargs i32)
     (local $__receiver$10 i32)
+    (local $__receiver$11$varargs i32)
     (local $__receiver$11 i32)
+    (local $__receiver$12$varargs i32)
     (local $__receiver$12 i32)
+    (local $__receiver$13$varargs i32)
     (local $__receiver$13 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -6033,8 +6056,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$14$varargs i32)
     (local $__receiver$14 i32)
+    (local $__receiver$15$varargs i32)
     (local $__receiver$15 i32)
+    (local $__receiver$16$varargs i32)
     (local $__receiver$16 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -6077,6 +6103,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$4$varargs i32)
     (local $__allocation$4 i32)
     (local $__caught_exc i32)
     local.get $__value
@@ -6118,6 +6145,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$5$varargs i32)
     (local $__allocation$5 i32)
     (local $__caught_exc i32)
     local.get $__value
@@ -6159,6 +6187,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$6$varargs i32)
     (local $__allocation$6 i32)
     (local $__caught_exc i32)
     local.get $__value
@@ -6260,9 +6289,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$7$varargs i32)
     (local $__allocation$7 i32)
+    (local $__allocation$8$varargs i32)
     (local $__allocation$8 i32)
+    (local $__allocation$9$varargs i32)
     (local $__allocation$9 i32)
+    (local $__receiver$17$varargs i32)
     (local $__receiver$17 i32)
     (local $__caught_exc i32)
     global.get $__repo_ProductRepository
@@ -6383,8 +6416,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$10$varargs i32)
     (local $__allocation$10 i32)
+    (local $__allocation$11$varargs i32)
     (local $__allocation$11 i32)
+    (local $__allocation$12$varargs i32)
     (local $__allocation$12 i32)
     (local $__caught_exc i32)
     i32.const 16
@@ -6449,15 +6485,26 @@
     (local $__mutation$4$address i32)
     (local $__mutation$4$old i32)
     (local $__mutation$4$new i32)
+    (local $__arrayAllocation$32 i32)
+    (local $__allocation$13$varargs i32)
     (local $__allocation$13 i32)
+    (local $__allocation$14$varargs i32)
     (local $__allocation$14 i32)
+    (local $__allocation$15$varargs i32)
     (local $__allocation$15 i32)
+    (local $__allocation$16$varargs i32)
     (local $__allocation$16 i32)
+    (local $__receiver$18$varargs i32)
     (local $__receiver$18 i32)
+    (local $__receiver$19$varargs i32)
     (local $__receiver$19 i32)
+    (local $__receiver$20$varargs i32)
     (local $__receiver$20 i32)
+    (local $__receiver$21$varargs i32)
     (local $__receiver$21 i32)
+    (local $__receiver$22$varargs i32)
     (local $__receiver$22 i32)
+    (local $__receiver$23$varargs i32)
     (local $__receiver$23 i32)
     (local $__caught_exc i32)
     local.get $text
@@ -6558,8 +6605,8 @@
     i32.const 4
     i32.const 4
     call $__javaw_array_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    local.set $__arrayAllocation$32
+    local.get $__arrayAllocation$32
     local.set $d
     local.get $start
     local.set $i
@@ -6645,6 +6692,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$24$varargs i32)
     (local $__receiver$24 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -6677,6 +6725,7 @@
     (local $__mutation$6$address i32)
     (local $__mutation$6$old i32)
     (local $__mutation$6$new i32)
+    (local $__arrayAllocation$44 i32)
     (local $__caught_exc i32)
     local.get $d
     i32.load
@@ -6721,8 +6770,8 @@
     i32.const 4
     i32.const 4
     call $__javaw_array_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    local.set $__arrayAllocation$44
+    local.get $__arrayAllocation$44
     i32.store offset=4
     i32.const 0
     local.set $i
@@ -6799,6 +6848,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$17$varargs i32)
     (local $__allocation$17 i32)
     (local $__caught_exc i32)
     i32.const 16
@@ -6875,6 +6925,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$18$varargs i32)
     (local $__allocation$18 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -6915,6 +6966,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$19$varargs i32)
     (local $__allocation$19 i32)
     (local $__caught_exc i32)
     i32.const 16
@@ -7066,7 +7118,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$20$varargs i32)
     (local $__allocation$20 i32)
+    (local $__receiver$25$varargs i32)
     (local $__receiver$25 i32)
     (local $__caught_exc i32)
     local.get $value
@@ -7131,6 +7185,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$26$varargs i32)
     (local $__receiver$26 i32)
     (local $__caught_exc i32)
     local.get $other
@@ -7261,9 +7316,14 @@
     (local $__mutation$9$address i32)
     (local $__mutation$9$old i32)
     (local $__mutation$9$new i32)
+    (local $__arrayAllocation$51 i32)
+    (local $__allocation$21$varargs i32)
     (local $__allocation$21 i32)
+    (local $__allocation$22$varargs i32)
     (local $__allocation$22 i32)
+    (local $__receiver$27$varargs i32)
     (local $__receiver$27 i32)
+    (local $__receiver$28$varargs i32)
     (local $__receiver$28 i32)
     (local $__caught_exc i32)
     local.get $other
@@ -7346,8 +7406,8 @@
     i32.const 4
     i32.const 4
     call $__javaw_array_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    local.set $__arrayAllocation$51
+    local.get $__arrayAllocation$51
     local.set $result
     i32.const 0
     local.set $carry
@@ -7474,11 +7534,18 @@
     (local $__mutation$10$address i32)
     (local $__mutation$10$old i32)
     (local $__mutation$10$new i32)
+    (local $__arrayAllocation$56 i32)
+    (local $__allocation$23$varargs i32)
     (local $__allocation$23 i32)
+    (local $__allocation$24$varargs i32)
     (local $__allocation$24 i32)
+    (local $__receiver$29$varargs i32)
     (local $__receiver$29 i32)
+    (local $__receiver$30$varargs i32)
     (local $__receiver$30 i32)
+    (local $__receiver$31$varargs i32)
     (local $__receiver$31 i32)
+    (local $__receiver$32$varargs i32)
     (local $__receiver$32 i32)
     (local $__caught_exc i32)
     local.get $other
@@ -7581,8 +7648,8 @@
     i32.const 4
     i32.const 4
     call $__javaw_array_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    local.set $__arrayAllocation$56
+    local.get $__arrayAllocation$56
     local.set $result
     i32.const 0
     local.set $borrow
@@ -7714,7 +7781,10 @@
     (local $__mutation$12$address i32)
     (local $__mutation$12$old i32)
     (local $__mutation$12$new i32)
+    (local $__arrayAllocation$63 i32)
+    (local $__allocation$25$varargs i32)
     (local $__allocation$25 i32)
+    (local $__allocation$26$varargs i32)
     (local $__allocation$26 i32)
     (local $__caught_exc i32)
     local.get $other
@@ -7744,8 +7814,8 @@
     i32.const 4
     i32.const 4
     call $__javaw_array_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    local.set $__arrayAllocation$63
+    local.get $__arrayAllocation$63
     local.set $result
     i32.const 0
     local.set $i
@@ -7897,15 +7967,27 @@
     (local $__mutation$14$address i32)
     (local $__mutation$14$old i32)
     (local $__mutation$14$new i32)
+    (local $__arrayAllocation$66 i32)
+    (local $__arrayAllocation$67 i32)
+    (local $__allocation$27$varargs i32)
     (local $__allocation$27 i32)
+    (local $__allocation$28$varargs i32)
     (local $__allocation$28 i32)
+    (local $__allocation$29$varargs i32)
     (local $__allocation$29 i32)
+    (local $__receiver$33$varargs i32)
     (local $__receiver$33 i32)
+    (local $__receiver$34$varargs i32)
     (local $__receiver$34 i32)
+    (local $__receiver$35$varargs i32)
     (local $__receiver$35 i32)
+    (local $__receiver$36$varargs i32)
     (local $__receiver$36 i32)
+    (local $__receiver$37$varargs i32)
     (local $__receiver$37 i32)
+    (local $__receiver$38$varargs i32)
     (local $__receiver$38 i32)
+    (local $__receiver$39$varargs i32)
     (local $__receiver$39 i32)
     (local $__caught_exc i32)
     local.get $other
@@ -7958,8 +8040,8 @@
     i32.const 4
     i32.const 4
     call $__javaw_array_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    local.set $__arrayAllocation$66
+    local.get $__arrayAllocation$66
     local.set $quotient
     local.get $this
     i32.load offset=4
@@ -8061,8 +8143,8 @@
     i32.const 4
     i32.const 4
     call $__javaw_array_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    local.set $__arrayAllocation$67
+    local.get $__arrayAllocation$67
     local.set $result
     local.get $result
     i32.const 0
@@ -8126,6 +8208,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$40$varargs i32)
     (local $__receiver$40 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -8160,6 +8243,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$41$varargs i32)
     (local $__receiver$41 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -8197,8 +8281,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$42$varargs i32)
     (local $__receiver$42 i32)
+    (local $__receiver$43$varargs i32)
     (local $__receiver$43 i32)
+    (local $__receiver$44$varargs i32)
     (local $__receiver$44 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -8265,8 +8352,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$30$varargs i32)
     (local $__allocation$30 i32)
+    (local $__receiver$45$varargs i32)
     (local $__receiver$45 i32)
+    (local $__receiver$46$varargs i32)
     (local $__receiver$46 i32)
     (local $__caught_exc i32)
     local.get $exponent
@@ -8358,7 +8448,10 @@
     (local $__mutation$15$address i32)
     (local $__mutation$15$old i32)
     (local $__mutation$15$new i32)
+    (local $__arrayAllocation$86 i32)
+    (local $__allocation$31$varargs i32)
     (local $__allocation$31 i32)
+    (local $__allocation$32$varargs i32)
     (local $__allocation$32 i32)
     (local $__caught_exc i32)
     local.get $exponent
@@ -8412,8 +8505,8 @@
     i32.const 4
     i32.const 4
     call $__javaw_array_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    local.set $__arrayAllocation$86
+    local.get $__arrayAllocation$86
     local.set $result
     i32.const 0
     local.set $i
@@ -8521,9 +8614,13 @@
     (local $__mutation$16$address i32)
     (local $__mutation$16$old i32)
     (local $__mutation$16$new i32)
+    (local $__allocation$33$varargs i32)
     (local $__allocation$33 i32)
+    (local $__receiver$47$varargs i32)
     (local $__receiver$47 i32)
+    (local $__receiver$48$varargs i32)
     (local $__receiver$48 i32)
+    (local $__receiver$49$varargs i32)
     (local $__receiver$49 i32)
     (local $__caught_exc i32)
     i32.const 16
@@ -8679,6 +8776,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$50$varargs i32)
     (local $__receiver$50 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -8709,9 +8807,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$34$varargs i32)
     (local $__allocation$34 i32)
+    (local $__receiver$51$varargs i32)
     (local $__receiver$51 i32)
+    (local $__receiver$52$varargs i32)
     (local $__receiver$52 i32)
+    (local $__receiver$53$varargs i32)
     (local $__receiver$53 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -8766,9 +8868,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$35$varargs i32)
     (local $__allocation$35 i32)
+    (local $__receiver$54$varargs i32)
     (local $__receiver$54 i32)
+    (local $__receiver$55$varargs i32)
     (local $__receiver$55 i32)
+    (local $__receiver$56$varargs i32)
     (local $__receiver$56 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -8824,8 +8930,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$36$varargs i32)
     (local $__allocation$36 i32)
+    (local $__allocation$37$varargs i32)
     (local $__allocation$37 i32)
+    (local $__allocation$38$varargs i32)
     (local $__allocation$38 i32)
     (local $__caught_exc i32)
     i32.const 16
@@ -8878,6 +8987,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$39$varargs i32)
     (local $__allocation$39 i32)
     (local $__caught_exc i32)
     local.get $value
@@ -8940,6 +9050,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$57$varargs i32)
     (local $__receiver$57 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -8965,6 +9076,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$58$varargs i32)
     (local $__receiver$58 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -9009,14 +9121,23 @@
     (local $__mutation$21$address i32)
     (local $__mutation$21$old i32)
     (local $__mutation$21$new i32)
+    (local $__allocation$40$varargs i32)
     (local $__allocation$40 i32)
+    (local $__receiver$59$varargs i32)
     (local $__receiver$59 i32)
+    (local $__receiver$60$varargs i32)
     (local $__receiver$60 i32)
+    (local $__receiver$61$varargs i32)
     (local $__receiver$61 i32)
+    (local $__receiver$62$varargs i32)
     (local $__receiver$62 i32)
+    (local $__receiver$63$varargs i32)
     (local $__receiver$63 i32)
+    (local $__receiver$64$varargs i32)
     (local $__receiver$64 i32)
+    (local $__receiver$65$varargs i32)
     (local $__receiver$65 i32)
+    (local $__receiver$66$varargs i32)
     (local $__receiver$66 i32)
     (local $__caught_exc i32)
     local.get $value
@@ -9317,28 +9438,51 @@
     (local $__mutation$28$address i32)
     (local $__mutation$28$old i32)
     (local $__mutation$28$new i32)
+    (local $__allocation$41$varargs i32)
     (local $__allocation$41 i32)
+    (local $__allocation$42$varargs i32)
     (local $__allocation$42 i32)
+    (local $__allocation$43$varargs i32)
     (local $__allocation$43 i32)
+    (local $__allocation$44$varargs i32)
     (local $__allocation$44 i32)
+    (local $__allocation$45$varargs i32)
     (local $__allocation$45 i32)
+    (local $__allocation$46$varargs i32)
     (local $__allocation$46 i32)
+    (local $__allocation$47$varargs i32)
     (local $__allocation$47 i32)
+    (local $__allocation$48$varargs i32)
     (local $__allocation$48 i32)
+    (local $__allocation$49$varargs i32)
     (local $__allocation$49 i32)
+    (local $__allocation$50$varargs i32)
     (local $__allocation$50 i32)
+    (local $__receiver$67$varargs i32)
     (local $__receiver$67 i32)
+    (local $__receiver$68$varargs i32)
     (local $__receiver$68 i32)
+    (local $__receiver$69$varargs i32)
     (local $__receiver$69 i32)
+    (local $__receiver$70$varargs i32)
     (local $__receiver$70 i32)
+    (local $__receiver$71$varargs i32)
     (local $__receiver$71 i32)
+    (local $__receiver$72$varargs i32)
     (local $__receiver$72 i32)
+    (local $__receiver$73$varargs i32)
     (local $__receiver$73 i32)
+    (local $__receiver$74$varargs i32)
     (local $__receiver$74 i32)
+    (local $__receiver$75$varargs i32)
     (local $__receiver$75 i32)
+    (local $__receiver$76$varargs i32)
     (local $__receiver$76 i32)
+    (local $__receiver$77$varargs i32)
     (local $__receiver$77 i32)
+    (local $__receiver$78$varargs i32)
     (local $__receiver$78 i32)
+    (local $__receiver$79$varargs i32)
     (local $__receiver$79 i32)
     (local $__caught_exc i32)
     local.get $text
@@ -9751,6 +9895,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$51$varargs i32)
     (local $__allocation$51 i32)
     (local $__caught_exc i32)
     i32.const 16
@@ -9781,7 +9926,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$52$varargs i32)
     (local $__allocation$52 i32)
+    (local $__receiver$80$varargs i32)
     (local $__receiver$80 i32)
     (local $__caught_exc i32)
     i32.const 16
@@ -9835,6 +9982,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$81$varargs i32)
     (local $__receiver$81 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -9864,6 +10012,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$82$varargs i32)
     (local $__receiver$82 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -9914,6 +10063,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$53$varargs i32)
     (local $__allocation$53 i32)
     (local $__caught_exc i32)
     local.get $value
@@ -9960,7 +10110,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$54$varargs i32)
     (local $__allocation$54 i32)
+    (local $__receiver$83$varargs i32)
     (local $__receiver$83 i32)
     (local $__caught_exc i32)
     i32.const 16
@@ -10001,7 +10153,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$84$varargs i32)
     (local $__receiver$84 i32)
+    (local $__receiver$85$varargs i32)
     (local $__receiver$85 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -10045,12 +10199,19 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$55$varargs i32)
     (local $__allocation$55 i32)
+    (local $__allocation$56$varargs i32)
     (local $__allocation$56 i32)
+    (local $__receiver$86$varargs i32)
     (local $__receiver$86 i32)
+    (local $__receiver$87$varargs i32)
     (local $__receiver$87 i32)
+    (local $__receiver$88$varargs i32)
     (local $__receiver$88 i32)
+    (local $__receiver$89$varargs i32)
     (local $__receiver$89 i32)
+    (local $__receiver$90$varargs i32)
     (local $__receiver$90 i32)
     (local $__caught_exc i32)
     local.get $other
@@ -10148,7 +10309,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$91$varargs i32)
     (local $__receiver$91 i32)
+    (local $__receiver$92$varargs i32)
     (local $__receiver$92 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -10185,9 +10348,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$57$varargs i32)
     (local $__allocation$57 i32)
+    (local $__allocation$58$varargs i32)
     (local $__allocation$58 i32)
+    (local $__receiver$93$varargs i32)
     (local $__receiver$93 i32)
+    (local $__receiver$94$varargs i32)
     (local $__receiver$94 i32)
     (local $__caught_exc i32)
     local.get $other
@@ -10255,19 +10422,33 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$59$varargs i32)
     (local $__allocation$59 i32)
+    (local $__allocation$60$varargs i32)
     (local $__allocation$60 i32)
+    (local $__receiver$95$varargs i32)
     (local $__receiver$95 i32)
+    (local $__receiver$96$varargs i32)
     (local $__receiver$96 i32)
+    (local $__receiver$97$varargs i32)
     (local $__receiver$97 i32)
+    (local $__receiver$98$varargs i32)
     (local $__receiver$98 i32)
+    (local $__receiver$99$varargs i32)
     (local $__receiver$99 i32)
+    (local $__receiver$100$varargs i32)
     (local $__receiver$100 i32)
+    (local $__receiver$101$varargs i32)
     (local $__receiver$101 i32)
+    (local $__receiver$102$varargs i32)
     (local $__receiver$102 i32)
+    (local $__receiver$103$varargs i32)
     (local $__receiver$103 i32)
+    (local $__receiver$104$varargs i32)
     (local $__receiver$104 i32)
+    (local $__receiver$105$varargs i32)
     (local $__receiver$105 i32)
+    (local $__receiver$106$varargs i32)
     (local $__receiver$106 i32)
     (local $__caught_exc i32)
     local.get $mode
@@ -10515,12 +10696,19 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$61$varargs i32)
     (local $__allocation$61 i32)
+    (local $__allocation$62$varargs i32)
     (local $__allocation$62 i32)
+    (local $__receiver$107$varargs i32)
     (local $__receiver$107 i32)
+    (local $__receiver$108$varargs i32)
     (local $__receiver$108 i32)
+    (local $__receiver$109$varargs i32)
     (local $__receiver$109 i32)
+    (local $__receiver$110$varargs i32)
     (local $__receiver$110 i32)
+    (local $__receiver$111$varargs i32)
     (local $__receiver$111 i32)
     (local $__caught_exc i32)
     local.get $other
@@ -10618,6 +10806,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$112$varargs i32)
     (local $__receiver$112 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -10664,24 +10853,43 @@
     (local $__mutation$30$address i32)
     (local $__mutation$30$old i32)
     (local $__mutation$30$new i32)
+    (local $__allocation$63$varargs i32)
     (local $__allocation$63 i32)
+    (local $__allocation$64$varargs i32)
     (local $__allocation$64 i32)
+    (local $__allocation$65$varargs i32)
     (local $__allocation$65 i32)
+    (local $__receiver$113$varargs i32)
     (local $__receiver$113 i32)
+    (local $__receiver$114$varargs i32)
     (local $__receiver$114 i32)
+    (local $__receiver$115$varargs i32)
     (local $__receiver$115 i32)
+    (local $__receiver$116$varargs i32)
     (local $__receiver$116 i32)
+    (local $__receiver$117$varargs i32)
     (local $__receiver$117 i32)
+    (local $__receiver$118$varargs i32)
     (local $__receiver$118 i32)
+    (local $__receiver$119$varargs i32)
     (local $__receiver$119 i32)
+    (local $__receiver$120$varargs i32)
     (local $__receiver$120 i32)
+    (local $__receiver$121$varargs i32)
     (local $__receiver$121 i32)
+    (local $__receiver$122$varargs i32)
     (local $__receiver$122 i32)
+    (local $__receiver$123$varargs i32)
     (local $__receiver$123 i32)
+    (local $__receiver$124$varargs i32)
     (local $__receiver$124 i32)
+    (local $__receiver$125$varargs i32)
     (local $__receiver$125 i32)
+    (local $__receiver$126$varargs i32)
     (local $__receiver$126 i32)
+    (local $__receiver$127$varargs i32)
     (local $__receiver$127 i32)
+    (local $__receiver$128$varargs i32)
     (local $__receiver$128 i32)
     (local $__caught_exc i32)
     local.get $other
@@ -10925,6 +11133,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$129$varargs i32)
     (local $__receiver$129 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -10956,13 +11165,21 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$66$varargs i32)
     (local $__allocation$66 i32)
+    (local $__allocation$67$varargs i32)
     (local $__allocation$67 i32)
+    (local $__allocation$68$varargs i32)
     (local $__allocation$68 i32)
+    (local $__receiver$130$varargs i32)
     (local $__receiver$130 i32)
+    (local $__receiver$131$varargs i32)
     (local $__receiver$131 i32)
+    (local $__receiver$132$varargs i32)
     (local $__receiver$132 i32)
+    (local $__receiver$133$varargs i32)
     (local $__receiver$133 i32)
+    (local $__receiver$134$varargs i32)
     (local $__receiver$134 i32)
     (local $__caught_exc i32)
     local.get $mode
@@ -11059,7 +11276,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$69$varargs i32)
     (local $__allocation$69 i32)
+    (local $__receiver$135$varargs i32)
     (local $__receiver$135 i32)
     (local $__caught_exc i32)
     i32.const 16
@@ -11100,8 +11319,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$70$varargs i32)
     (local $__allocation$70 i32)
+    (local $__receiver$136$varargs i32)
     (local $__receiver$136 i32)
+    (local $__receiver$137$varargs i32)
     (local $__receiver$137 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -11161,8 +11383,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$71$varargs i32)
     (local $__allocation$71 i32)
+    (local $__receiver$138$varargs i32)
     (local $__receiver$138 i32)
+    (local $__receiver$139$varargs i32)
     (local $__receiver$139 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -11222,11 +11447,17 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$72$varargs i32)
     (local $__allocation$72 i32)
+    (local $__receiver$140$varargs i32)
     (local $__receiver$140 i32)
+    (local $__receiver$141$varargs i32)
     (local $__receiver$141 i32)
+    (local $__receiver$142$varargs i32)
     (local $__receiver$142 i32)
+    (local $__receiver$143$varargs i32)
     (local $__receiver$143 i32)
+    (local $__receiver$144$varargs i32)
     (local $__receiver$144 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -11321,9 +11552,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$73$varargs i32)
     (local $__allocation$73 i32)
+    (local $__allocation$74$varargs i32)
     (local $__allocation$74 i32)
+    (local $__receiver$145$varargs i32)
     (local $__receiver$145 i32)
+    (local $__receiver$146$varargs i32)
     (local $__receiver$146 i32)
     (local $__caught_exc i32)
     local.get $n
@@ -11398,19 +11633,33 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$75$varargs i32)
     (local $__allocation$75 i32)
+    (local $__receiver$147$varargs i32)
     (local $__receiver$147 i32)
+    (local $__receiver$148$varargs i32)
     (local $__receiver$148 i32)
+    (local $__receiver$149$varargs i32)
     (local $__receiver$149 i32)
+    (local $__receiver$150$varargs i32)
     (local $__receiver$150 i32)
+    (local $__receiver$151$varargs i32)
     (local $__receiver$151 i32)
+    (local $__receiver$152$varargs i32)
     (local $__receiver$152 i32)
+    (local $__receiver$153$varargs i32)
     (local $__receiver$153 i32)
+    (local $__receiver$154$varargs i32)
     (local $__receiver$154 i32)
+    (local $__receiver$155$varargs i32)
     (local $__receiver$155 i32)
+    (local $__receiver$156$varargs i32)
     (local $__receiver$156 i32)
+    (local $__receiver$157$varargs i32)
     (local $__receiver$157 i32)
+    (local $__receiver$158$varargs i32)
     (local $__receiver$158 i32)
+    (local $__receiver$159$varargs i32)
     (local $__receiver$159 i32)
     (local $__caught_exc i32)
     local.get $value
@@ -11612,6 +11861,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$160$varargs i32)
     (local $__receiver$160 i32)
     (local $__caught_exc i32)
     local.get $other
@@ -11675,6 +11925,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$161$varargs i32)
     (local $__receiver$161 i32)
     (local $__caught_exc i32)
     i32.const 31
@@ -11709,6 +11960,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$162$varargs i32)
     (local $__receiver$162 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -11745,6 +11997,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$163$varargs i32)
     (local $__receiver$163 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -11791,26 +12044,47 @@
     (local $__mutation$32$address i32)
     (local $__mutation$32$old i32)
     (local $__mutation$32$new i32)
+    (local $__allocation$76$varargs i32)
     (local $__allocation$76 i32)
+    (local $__receiver$164$varargs i32)
     (local $__receiver$164 i32)
+    (local $__receiver$165$varargs i32)
     (local $__receiver$165 i32)
+    (local $__receiver$166$varargs i32)
     (local $__receiver$166 i32)
+    (local $__receiver$167$varargs i32)
     (local $__receiver$167 i32)
+    (local $__receiver$168$varargs i32)
     (local $__receiver$168 i32)
+    (local $__receiver$169$varargs i32)
     (local $__receiver$169 i32)
+    (local $__receiver$170$varargs i32)
     (local $__receiver$170 i32)
+    (local $__receiver$171$varargs i32)
     (local $__receiver$171 i32)
+    (local $__receiver$172$varargs i32)
     (local $__receiver$172 i32)
+    (local $__receiver$173$varargs i32)
     (local $__receiver$173 i32)
+    (local $__receiver$174$varargs i32)
     (local $__receiver$174 i32)
+    (local $__receiver$175$varargs i32)
     (local $__receiver$175 i32)
+    (local $__receiver$176$varargs i32)
     (local $__receiver$176 i32)
+    (local $__receiver$177$varargs i32)
     (local $__receiver$177 i32)
+    (local $__receiver$178$varargs i32)
     (local $__receiver$178 i32)
+    (local $__receiver$179$varargs i32)
     (local $__receiver$179 i32)
+    (local $__receiver$180$varargs i32)
     (local $__receiver$180 i32)
+    (local $__receiver$181$varargs i32)
     (local $__receiver$181 i32)
+    (local $__receiver$182$varargs i32)
     (local $__receiver$182 i32)
+    (local $__receiver$183$varargs i32)
     (local $__receiver$183 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -12004,22 +12278,39 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$77$varargs i32)
     (local $__allocation$77 i32)
+    (local $__receiver$184$varargs i32)
     (local $__receiver$184 i32)
+    (local $__receiver$185$varargs i32)
     (local $__receiver$185 i32)
+    (local $__receiver$186$varargs i32)
     (local $__receiver$186 i32)
+    (local $__receiver$187$varargs i32)
     (local $__receiver$187 i32)
+    (local $__receiver$188$varargs i32)
     (local $__receiver$188 i32)
+    (local $__receiver$189$varargs i32)
     (local $__receiver$189 i32)
+    (local $__receiver$190$varargs i32)
     (local $__receiver$190 i32)
+    (local $__receiver$191$varargs i32)
     (local $__receiver$191 i32)
+    (local $__receiver$192$varargs i32)
     (local $__receiver$192 i32)
+    (local $__receiver$193$varargs i32)
     (local $__receiver$193 i32)
+    (local $__receiver$194$varargs i32)
     (local $__receiver$194 i32)
+    (local $__receiver$195$varargs i32)
     (local $__receiver$195 i32)
+    (local $__receiver$196$varargs i32)
     (local $__receiver$196 i32)
+    (local $__receiver$197$varargs i32)
     (local $__receiver$197 i32)
+    (local $__receiver$198$varargs i32)
     (local $__receiver$198 i32)
+    (local $__receiver$199$varargs i32)
     (local $__receiver$199 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -12171,9 +12462,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$200$varargs i32)
     (local $__receiver$200 i32)
+    (local $__receiver$201$varargs i32)
     (local $__receiver$201 i32)
+    (local $__receiver$202$varargs i32)
     (local $__receiver$202 i32)
+    (local $__receiver$203$varargs i32)
     (local $__receiver$203 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -12235,6 +12530,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$204$varargs i32)
     (local $__receiver$204 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -12265,7 +12561,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$205$varargs i32)
     (local $__receiver$205 i32)
+    (local $__receiver$206$varargs i32)
     (local $__receiver$206 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -12301,7 +12599,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$207$varargs i32)
     (local $__receiver$207 i32)
+    (local $__receiver$208$varargs i32)
     (local $__receiver$208 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -12337,7 +12637,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$209$varargs i32)
     (local $__receiver$209 i32)
+    (local $__receiver$210$varargs i32)
     (local $__receiver$210 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -12373,7 +12675,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$211$varargs i32)
     (local $__receiver$211 i32)
+    (local $__receiver$212$varargs i32)
     (local $__receiver$212 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -12409,6 +12713,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$78$varargs i32)
     (local $__allocation$78 i32)
     (local $__caught_exc i32)
     i32.const 16
@@ -12439,6 +12744,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$213$varargs i32)
     (local $__receiver$213 i32)
     (local $__caught_exc i32)
     local.get $value
@@ -12475,7 +12781,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$79$varargs i32)
     (local $__allocation$79 i32)
+    (local $__allocation$80$varargs i32)
     (local $__allocation$80 i32)
     (local $__caught_exc i32)
     local.get $after
@@ -12522,7 +12830,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$81$varargs i32)
     (local $__allocation$81 i32)
+    (local $__allocation$82$varargs i32)
     (local $__allocation$82 i32)
     (local $__caught_exc i32)
     local.get $before
@@ -12569,6 +12879,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$83$varargs i32)
     (local $__allocation$83 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -12602,6 +12913,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$84$varargs i32)
     (local $__allocation$84 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -12632,7 +12944,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$85$varargs i32)
     (local $__allocation$85 i32)
+    (local $__allocation$86$varargs i32)
     (local $__allocation$86 i32)
     (local $__caught_exc i32)
     local.get $other
@@ -12680,7 +12994,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$87$varargs i32)
     (local $__allocation$87 i32)
+    (local $__allocation$88$varargs i32)
     (local $__allocation$88 i32)
     (local $__caught_exc i32)
     local.get $other
@@ -12732,7 +13048,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$89$varargs i32)
     (local $__allocation$89 i32)
+    (local $__allocation$90$varargs i32)
     (local $__allocation$90 i32)
     (local $__caught_exc i32)
     local.get $after
@@ -12814,7 +13132,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$214$varargs i32)
     (local $__receiver$214 i32)
+    (local $__receiver$215$varargs i32)
     (local $__receiver$215 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -12915,6 +13235,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$216$varargs i32)
     (local $__receiver$216 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -12974,9 +13295,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$217$varargs i32)
     (local $__receiver$217 i32)
+    (local $__receiver$218$varargs i32)
     (local $__receiver$218 i32)
+    (local $__receiver$219$varargs i32)
     (local $__receiver$219 i32)
+    (local $__receiver$220$varargs i32)
     (local $__receiver$220 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -13075,7 +13400,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$221$varargs i32)
     (local $__receiver$221 i32)
+    (local $__receiver$222$varargs i32)
     (local $__receiver$222 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -13137,6 +13464,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$91$varargs i32)
     (local $__allocation$91 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -13167,7 +13495,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$92$varargs i32)
     (local $__allocation$92 i32)
+    (local $__allocation$93$varargs i32)
     (local $__allocation$93 i32)
     (local $__caught_exc i32)
     local.get $value
@@ -13213,6 +13543,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$94$varargs i32)
     (local $__allocation$94 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -13289,6 +13620,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$95$varargs i32)
     (local $__allocation$95 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -13356,6 +13688,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$223$varargs i32)
     (local $__receiver$223 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -13393,6 +13726,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$224$varargs i32)
     (local $__receiver$224 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -13421,6 +13755,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$225$varargs i32)
     (local $__receiver$225 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -13458,9 +13793,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$96$varargs i32)
     (local $__allocation$96 i32)
+    (local $__receiver$226$varargs i32)
     (local $__receiver$226 i32)
+    (local $__receiver$227$varargs i32)
     (local $__receiver$227 i32)
+    (local $__receiver$228$varargs i32)
     (local $__receiver$228 i32)
     (local $__caught_exc i32)
     local.get $mapper
@@ -13516,9 +13855,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$97$varargs i32)
     (local $__allocation$97 i32)
+    (local $__allocation$98$varargs i32)
     (local $__allocation$98 i32)
+    (local $__receiver$229$varargs i32)
     (local $__receiver$229 i32)
+    (local $__receiver$230$varargs i32)
     (local $__receiver$230 i32)
     (local $__caught_exc i32)
     local.get $mapper
@@ -13589,8 +13932,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$99$varargs i32)
     (local $__allocation$99 i32)
+    (local $__receiver$231$varargs i32)
     (local $__receiver$231 i32)
+    (local $__receiver$232$varargs i32)
     (local $__receiver$232 i32)
     (local $__caught_exc i32)
     local.get $predicate
@@ -13649,6 +13995,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$233$varargs i32)
     (local $__receiver$233 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -13689,10 +14036,15 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$100$varargs i32)
     (local $__allocation$100 i32)
+    (local $__receiver$234$varargs i32)
     (local $__receiver$234 i32)
+    (local $__receiver$235$varargs i32)
     (local $__receiver$235 i32)
+    (local $__receiver$236$varargs i32)
     (local $__receiver$236 i32)
+    (local $__receiver$237$varargs i32)
     (local $__receiver$237 i32)
     (local $__caught_exc i32)
     local.get $action
@@ -13774,6 +14126,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$101$varargs i32)
     (local $__allocation$101 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -13803,9 +14156,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$102$varargs i32)
     (local $__allocation$102 i32)
+    (local $__receiver$238$varargs i32)
     (local $__receiver$238 i32)
+    (local $__receiver$239$varargs i32)
     (local $__receiver$239 i32)
+    (local $__receiver$240$varargs i32)
     (local $__receiver$240 i32)
     (local $__caught_exc i32)
     local.get $action
@@ -13894,10 +14251,15 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$103$varargs i32)
     (local $__allocation$103 i32)
+    (local $__receiver$241$varargs i32)
     (local $__receiver$241 i32)
+    (local $__receiver$242$varargs i32)
     (local $__receiver$242 i32)
+    (local $__receiver$243$varargs i32)
     (local $__receiver$243 i32)
+    (local $__receiver$244$varargs i32)
     (local $__receiver$244 i32)
     (local $__caught_exc i32)
     local.get $other
@@ -13985,8 +14347,11 @@
     (local $__mutation$33$address i32)
     (local $__mutation$33$old i32)
     (local $__mutation$33$new i32)
+    (local $__allocation$104$varargs i32)
     (local $__allocation$104 i32)
+    (local $__receiver$245$varargs i32)
     (local $__receiver$245 i32)
+    (local $__receiver$246$varargs i32)
     (local $__receiver$246 i32)
     (local $__caught_exc i32)
     local.get $other
@@ -14078,11 +14443,17 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$105$varargs i32)
     (local $__allocation$105 i32)
+    (local $__receiver$247$varargs i32)
     (local $__receiver$247 i32)
+    (local $__receiver$248$varargs i32)
     (local $__receiver$248 i32)
+    (local $__receiver$249$varargs i32)
     (local $__receiver$249 i32)
+    (local $__receiver$250$varargs i32)
     (local $__receiver$250 i32)
+    (local $__receiver$251$varargs i32)
     (local $__receiver$251 i32)
     (local $__caught_exc i32)
     local.get $other
@@ -14175,11 +14546,17 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$106$varargs i32)
     (local $__allocation$106 i32)
+    (local $__receiver$252$varargs i32)
     (local $__receiver$252 i32)
+    (local $__receiver$253$varargs i32)
     (local $__receiver$253 i32)
+    (local $__receiver$254$varargs i32)
     (local $__receiver$254 i32)
+    (local $__receiver$255$varargs i32)
     (local $__receiver$255 i32)
+    (local $__receiver$256$varargs i32)
     (local $__receiver$256 i32)
     (local $__caught_exc i32)
     local.get $other
@@ -14273,11 +14650,17 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$107$varargs i32)
     (local $__allocation$107 i32)
+    (local $__receiver$257$varargs i32)
     (local $__receiver$257 i32)
+    (local $__receiver$258$varargs i32)
     (local $__receiver$258 i32)
+    (local $__receiver$259$varargs i32)
     (local $__receiver$259 i32)
+    (local $__receiver$260$varargs i32)
     (local $__receiver$260 i32)
+    (local $__receiver$261$varargs i32)
     (local $__receiver$261 i32)
     (local $__caught_exc i32)
     local.get $predicate
@@ -14374,9 +14757,14 @@
     (local $__mutation$34$address i32)
     (local $__mutation$34$old i32)
     (local $__mutation$34$new i32)
+    (local $__arrayAllocation$379 i32)
+    (local $__receiver$262$varargs i32)
     (local $__receiver$262 i32)
+    (local $__receiver$263$varargs i32)
     (local $__receiver$263 i32)
+    (local $__receiver$264$varargs i32)
     (local $__receiver$264 i32)
+    (local $__receiver$265$varargs i32)
     (local $__receiver$265 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -14392,8 +14780,8 @@
     i32.const 4
     i32.const 4
     call $__javaw_array_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    local.set $__arrayAllocation$379
+    local.get $__arrayAllocation$379
     local.set $values
     local.get $this
     call $__require_nonnull
@@ -14483,8 +14871,11 @@
     (local $__mutation$35$address i32)
     (local $__mutation$35$old i32)
     (local $__mutation$35$new i32)
+    (local $__receiver$266$varargs i32)
     (local $__receiver$266 i32)
+    (local $__receiver$267$varargs i32)
     (local $__receiver$267 i32)
+    (local $__receiver$268$varargs i32)
     (local $__receiver$268 i32)
     (local $__caught_exc i32)
     i32.const 0
@@ -14557,8 +14948,11 @@
     (local $__mutation$36$address i32)
     (local $__mutation$36$old i32)
     (local $__mutation$36$new i32)
+    (local $__receiver$269$varargs i32)
     (local $__receiver$269 i32)
+    (local $__receiver$270$varargs i32)
     (local $__receiver$270 i32)
+    (local $__receiver$271$varargs i32)
     (local $__receiver$271 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -14634,10 +15028,15 @@
     (local $__mutation$37$address i32)
     (local $__mutation$37$old i32)
     (local $__mutation$37$new i32)
+    (local $__allocation$108$varargs i32)
     (local $__allocation$108 i32)
+    (local $__allocation$109$varargs i32)
     (local $__allocation$109 i32)
+    (local $__receiver$272$varargs i32)
     (local $__receiver$272 i32)
+    (local $__receiver$273$varargs i32)
     (local $__receiver$273 i32)
+    (local $__receiver$274$varargs i32)
     (local $__receiver$274 i32)
     (local $__caught_exc i32)
     local.get $index
@@ -14760,10 +15159,15 @@
     (local $__mutation$38$address i32)
     (local $__mutation$38$old i32)
     (local $__mutation$38$new i32)
+    (local $__allocation$110$varargs i32)
     (local $__allocation$110 i32)
+    (local $__receiver$275$varargs i32)
     (local $__receiver$275 i32)
+    (local $__receiver$276$varargs i32)
     (local $__receiver$276 i32)
+    (local $__receiver$277$varargs i32)
     (local $__receiver$277 i32)
+    (local $__receiver$278$varargs i32)
     (local $__receiver$278 i32)
     (local $__caught_exc i32)
     local.get $operator
@@ -14864,13 +15268,21 @@
     (local $__mutation$40$address i32)
     (local $__mutation$40$old i32)
     (local $__mutation$40$new i32)
+    (local $__allocation$111$varargs i32)
     (local $__allocation$111 i32)
+    (local $__receiver$279$varargs i32)
     (local $__receiver$279 i32)
+    (local $__receiver$280$varargs i32)
     (local $__receiver$280 i32)
+    (local $__receiver$281$varargs i32)
     (local $__receiver$281 i32)
+    (local $__receiver$282$varargs i32)
     (local $__receiver$282 i32)
+    (local $__receiver$283$varargs i32)
     (local $__receiver$283 i32)
+    (local $__receiver$284$varargs i32)
     (local $__receiver$284 i32)
+    (local $__receiver$285$varargs i32)
     (local $__receiver$285 i32)
     (local $__caught_exc i32)
     local.get $comparator
@@ -15066,7 +15478,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$286$varargs i32)
     (local $__receiver$286 i32)
+    (local $__receiver$287$varargs i32)
     (local $__receiver$287 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -15104,7 +15518,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$288$varargs i32)
     (local $__receiver$288 i32)
+    (local $__receiver$289$varargs i32)
     (local $__receiver$289 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -15158,13 +15574,21 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$112$varargs i32)
     (local $__allocation$112 i32)
+    (local $__receiver$290$varargs i32)
     (local $__receiver$290 i32)
+    (local $__receiver$291$varargs i32)
     (local $__receiver$291 i32)
+    (local $__receiver$292$varargs i32)
     (local $__receiver$292 i32)
+    (local $__receiver$293$varargs i32)
     (local $__receiver$293 i32)
+    (local $__receiver$294$varargs i32)
     (local $__receiver$294 i32)
+    (local $__receiver$295$varargs i32)
     (local $__receiver$295 i32)
+    (local $__receiver$296$varargs i32)
     (local $__receiver$296 i32)
     (local $__caught_exc i32)
     local.get $other
@@ -15265,7 +15689,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$297$varargs i32)
     (local $__receiver$297 i32)
+    (local $__receiver$298$varargs i32)
     (local $__receiver$298 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -15313,9 +15739,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$299$varargs i32)
     (local $__receiver$299 i32)
+    (local $__receiver$300$varargs i32)
     (local $__receiver$300 i32)
+    (local $__receiver$301$varargs i32)
     (local $__receiver$301 i32)
+    (local $__receiver$302$varargs i32)
     (local $__receiver$302 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -15377,7 +15807,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$303$varargs i32)
     (local $__receiver$303 i32)
+    (local $__receiver$304$varargs i32)
     (local $__receiver$304 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -15422,9 +15854,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$305$varargs i32)
     (local $__receiver$305 i32)
+    (local $__receiver$306$varargs i32)
     (local $__receiver$306 i32)
+    (local $__receiver$307$varargs i32)
     (local $__receiver$307 i32)
+    (local $__receiver$308$varargs i32)
     (local $__receiver$308 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -15489,12 +15925,19 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$113$varargs i32)
     (local $__allocation$113 i32)
+    (local $__receiver$309$varargs i32)
     (local $__receiver$309 i32)
+    (local $__receiver$310$varargs i32)
     (local $__receiver$310 i32)
+    (local $__receiver$311$varargs i32)
     (local $__receiver$311 i32)
+    (local $__receiver$312$varargs i32)
     (local $__receiver$312 i32)
+    (local $__receiver$313$varargs i32)
     (local $__receiver$313 i32)
+    (local $__receiver$314$varargs i32)
     (local $__receiver$314 i32)
     (local $__caught_exc i32)
     local.get $action
@@ -15589,13 +16032,21 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$114$varargs i32)
     (local $__allocation$114 i32)
+    (local $__receiver$315$varargs i32)
     (local $__receiver$315 i32)
+    (local $__receiver$316$varargs i32)
     (local $__receiver$316 i32)
+    (local $__receiver$317$varargs i32)
     (local $__receiver$317 i32)
+    (local $__receiver$318$varargs i32)
     (local $__receiver$318 i32)
+    (local $__receiver$319$varargs i32)
     (local $__receiver$319 i32)
+    (local $__receiver$320$varargs i32)
     (local $__receiver$320 i32)
+    (local $__receiver$321$varargs i32)
     (local $__receiver$321 i32)
     (local $__caught_exc i32)
     local.get $function
@@ -15700,9 +16151,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$115$varargs i32)
     (local $__allocation$115 i32)
+    (local $__receiver$322$varargs i32)
     (local $__receiver$322 i32)
+    (local $__receiver$323$varargs i32)
     (local $__receiver$323 i32)
+    (local $__receiver$324$varargs i32)
     (local $__receiver$324 i32)
     (local $__caught_exc i32)
     local.get $function
@@ -15784,10 +16239,15 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$116$varargs i32)
     (local $__allocation$116 i32)
+    (local $__receiver$325$varargs i32)
     (local $__receiver$325 i32)
+    (local $__receiver$326$varargs i32)
     (local $__receiver$326 i32)
+    (local $__receiver$327$varargs i32)
     (local $__receiver$327 i32)
+    (local $__receiver$328$varargs i32)
     (local $__receiver$328 i32)
     (local $__caught_exc i32)
     local.get $function
@@ -15880,10 +16340,15 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$117$varargs i32)
     (local $__allocation$117 i32)
+    (local $__receiver$329$varargs i32)
     (local $__receiver$329 i32)
+    (local $__receiver$330$varargs i32)
     (local $__receiver$330 i32)
+    (local $__receiver$331$varargs i32)
     (local $__receiver$331 i32)
+    (local $__receiver$332$varargs i32)
     (local $__receiver$332 i32)
     (local $__caught_exc i32)
     local.get $function
@@ -15968,10 +16433,15 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$118$varargs i32)
     (local $__allocation$118 i32)
+    (local $__receiver$333$varargs i32)
     (local $__receiver$333 i32)
+    (local $__receiver$334$varargs i32)
     (local $__receiver$334 i32)
+    (local $__receiver$335$varargs i32)
     (local $__receiver$335 i32)
+    (local $__receiver$336$varargs i32)
     (local $__receiver$336 i32)
     (local $__caught_exc i32)
     local.get $function
@@ -16132,6 +16602,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__arrayAllocation$466 i32)
     (local $__caught_exc i32)
     local.get $this
     i32.const 8
@@ -16140,8 +16611,8 @@
     i32.const 4
     i32.const 4
     call $__javaw_array_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    local.set $__arrayAllocation$466
+    local.get $__arrayAllocation$466
     i32.store offset=4
   )
   (func $ArrayList__init_1 (export "ArrayList__init_1") (param $this i32) (param $capacity i32)
@@ -16160,6 +16631,8 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__arrayAllocation$467 i32)
+    (local $__allocation$119$varargs i32)
     (local $__allocation$119 i32)
     (local $__caught_exc i32)
     local.get $capacity
@@ -16184,8 +16657,8 @@
     i32.const 4
     i32.const 4
     call $__javaw_array_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    local.set $__arrayAllocation$467
+    local.get $__arrayAllocation$467
     i32.store offset=4
   )
   (func $ArrayList_size (export "ArrayList_size") (param $this i32) (result i32)
@@ -16259,6 +16732,7 @@
     (local $__mutation$43$address i32)
     (local $__mutation$43$old i32)
     (local $__mutation$43$new i32)
+    (local $__arrayAllocation$469 i32)
     (local $__caught_exc i32)
     local.get $this
     i32.load offset=8
@@ -16278,8 +16752,8 @@
     i32.const 4
     i32.const 4
     call $__javaw_array_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    local.set $__arrayAllocation$469
+    local.get $__arrayAllocation$469
     local.set $next
     i32.const 0
     local.set $i
@@ -16384,7 +16858,9 @@
     (local $__mutation$44$address i32)
     (local $__mutation$44$old i32)
     (local $__mutation$44$new i32)
+    (local $__allocation$120$varargs i32)
     (local $__allocation$120 i32)
+    (local $__receiver$337$varargs i32)
     (local $__receiver$337 i32)
     (local $__caught_exc i32)
     local.get $index
@@ -16487,6 +16963,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$121$varargs i32)
     (local $__allocation$121 i32)
     (local $__caught_exc i32)
     i32.const 24
@@ -16520,6 +16997,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$122$varargs i32)
     (local $__allocation$122 i32)
     (local $__caught_exc i32)
     local.get $index
@@ -16562,6 +17040,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$338$varargs i32)
     (local $__receiver$338 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -16594,6 +17073,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$339$varargs i32)
     (local $__receiver$339 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -16646,6 +17126,7 @@
     (local $__mutation$47$address i32)
     (local $__mutation$47$old i32)
     (local $__mutation$47$new i32)
+    (local $__receiver$340$varargs i32)
     (local $__receiver$340 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -16764,6 +17245,7 @@
     (local $__mutation$48$address i32)
     (local $__mutation$48$old i32)
     (local $__mutation$48$new i32)
+    (local $__receiver$341$varargs i32)
     (local $__receiver$341 i32)
     (local $__caught_exc i32)
     i32.const 0
@@ -16824,6 +17306,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$342$varargs i32)
     (local $__receiver$342 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -16856,7 +17339,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$343$varargs i32)
     (local $__receiver$343 i32)
+    (local $__receiver$344$varargs i32)
     (local $__receiver$344 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -16980,6 +17465,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$123$varargs i32)
     (local $__allocation$123 i32)
     (local $__caught_exc i32)
     i32.const 24
@@ -17010,6 +17496,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$345$varargs i32)
     (local $__receiver$345 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -17037,6 +17524,7 @@
     (local $__mutation$51$address i32)
     (local $__mutation$51$old i32)
     (local $__mutation$51$new i32)
+    (local $__arrayAllocation$483 i32)
     (local $__caught_exc i32)
     local.get $this
     i32.load offset=8
@@ -17045,8 +17533,8 @@
     i32.const 4
     i32.const 4
     call $__javaw_array_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    local.set $__arrayAllocation$483
+    local.get $__arrayAllocation$483
     local.set $result
     i32.const 0
     local.set $i
@@ -17171,6 +17659,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$346$varargs i32)
     (local $__receiver$346 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -17207,9 +17696,13 @@
     (local $__mutation$52$address i32)
     (local $__mutation$52$old i32)
     (local $__mutation$52$new i32)
+    (local $__allocation$124$varargs i32)
     (local $__allocation$124 i32)
+    (local $__allocation$125$varargs i32)
     (local $__allocation$125 i32)
+    (local $__receiver$347$varargs i32)
     (local $__receiver$347 i32)
+    (local $__receiver$348$varargs i32)
     (local $__receiver$348 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -17301,8 +17794,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$126$varargs i32)
     (local $__allocation$126 i32)
+    (local $__allocation$127$varargs i32)
     (local $__allocation$127 i32)
+    (local $__receiver$349$varargs i32)
     (local $__receiver$349 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -17414,9 +17910,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$350$varargs i32)
     (local $__receiver$350 i32)
+    (local $__receiver$351$varargs i32)
     (local $__receiver$351 i32)
+    (local $__receiver$352$varargs i32)
     (local $__receiver$352 i32)
+    (local $__receiver$353$varargs i32)
     (local $__receiver$353 i32)
     (local $__caught_exc i32)
     local.get $other
@@ -17490,7 +17990,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$354$varargs i32)
     (local $__receiver$354 i32)
+    (local $__receiver$355$varargs i32)
     (local $__receiver$355 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -17588,6 +18090,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__arrayAllocation$498 i32)
     (local $__caught_exc i32)
     local.get $this
     i32.const 32
@@ -17596,8 +18099,8 @@
     i32.const 4
     i32.const 4
     call $__javaw_array_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    local.set $__arrayAllocation$498
+    local.get $__arrayAllocation$498
     i32.store offset=4
   )
   (func $HashMap_size (export "HashMap_size") (param $this i32) (result i32)
@@ -17687,7 +18190,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$356$varargs i32)
     (local $__receiver$356 i32)
+    (local $__receiver$357$varargs i32)
     (local $__receiver$357 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -17749,7 +18254,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$358$varargs i32)
     (local $__receiver$358 i32)
+    (local $__receiver$359$varargs i32)
     (local $__receiver$359 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -17776,6 +18283,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$128$varargs i32)
     (local $__allocation$128 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -17806,6 +18314,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$129$varargs i32)
     (local $__allocation$129 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -17837,7 +18346,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$360$varargs i32)
     (local $__receiver$360 i32)
+    (local $__receiver$361$varargs i32)
     (local $__receiver$361 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -17874,7 +18385,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$362$varargs i32)
     (local $__receiver$362 i32)
+    (local $__receiver$363$varargs i32)
     (local $__receiver$363 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -17913,10 +18426,15 @@
     (local $__mutation$54$address i32)
     (local $__mutation$54$old i32)
     (local $__mutation$54$new i32)
+    (local $__allocation$130$varargs i32)
     (local $__allocation$130 i32)
+    (local $__receiver$364$varargs i32)
     (local $__receiver$364 i32)
+    (local $__receiver$365$varargs i32)
     (local $__receiver$365 i32)
+    (local $__receiver$366$varargs i32)
     (local $__receiver$366 i32)
+    (local $__receiver$367$varargs i32)
     (local $__receiver$367 i32)
     (local $__caught_exc i32)
     local.get $key
@@ -18044,6 +18562,8 @@
     (local $__mutation$55$address i32)
     (local $__mutation$55$old i32)
     (local $__mutation$55$new i32)
+    (local $__arrayAllocation$514 i32)
+    (local $__receiver$368$varargs i32)
     (local $__receiver$368 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -18059,8 +18579,8 @@
     i32.const 4
     i32.const 4
     call $__javaw_array_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    local.set $__arrayAllocation$514
+    local.get $__arrayAllocation$514
     i32.store offset=4
     i32.const 0
     local.set $i
@@ -18158,8 +18678,11 @@
     (local $__mutation$57$address i32)
     (local $__mutation$57$old i32)
     (local $__mutation$57$new i32)
+    (local $__receiver$369$varargs i32)
     (local $__receiver$369 i32)
+    (local $__receiver$370$varargs i32)
     (local $__receiver$370 i32)
+    (local $__receiver$371$varargs i32)
     (local $__receiver$371 i32)
     (local $__caught_exc i32)
     local.get $key
@@ -18356,6 +18879,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$131$varargs i32)
     (local $__allocation$131 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -18386,6 +18910,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$132$varargs i32)
     (local $__allocation$132 i32)
     (local $__caught_exc i32)
     i32.const 32
@@ -18419,6 +18944,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$372$varargs i32)
     (local $__receiver$372 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -18542,8 +19068,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$133$varargs i32)
     (local $__allocation$133 i32)
+    (local $__allocation$134$varargs i32)
     (local $__allocation$134 i32)
+    (local $__receiver$373$varargs i32)
     (local $__receiver$373 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -18617,8 +19146,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$135$varargs i32)
     (local $__allocation$135 i32)
+    (local $__allocation$136$varargs i32)
     (local $__allocation$136 i32)
+    (local $__receiver$374$varargs i32)
     (local $__receiver$374 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -18713,6 +19245,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$375$varargs i32)
     (local $__receiver$375 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -18742,6 +19275,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$376$varargs i32)
     (local $__receiver$376 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -18771,6 +19305,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$377$varargs i32)
     (local $__receiver$377 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -18802,7 +19337,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$378$varargs i32)
     (local $__receiver$378 i32)
+    (local $__receiver$379$varargs i32)
     (local $__receiver$379 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -18846,6 +19383,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$137$varargs i32)
     (local $__allocation$137 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -18876,6 +19414,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$380$varargs i32)
     (local $__receiver$380 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -18904,6 +19443,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$381$varargs i32)
     (local $__receiver$381 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -18933,6 +19473,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$382$varargs i32)
     (local $__receiver$382 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -18956,6 +19497,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$138$varargs i32)
     (local $__allocation$138 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -18986,6 +19528,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$383$varargs i32)
     (local $__receiver$383 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -19015,6 +19558,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$384$varargs i32)
     (local $__receiver$384 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -19044,6 +19588,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$385$varargs i32)
     (local $__receiver$385 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -19075,7 +19620,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$386$varargs i32)
     (local $__receiver$386 i32)
+    (local $__receiver$387$varargs i32)
     (local $__receiver$387 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -19123,7 +19670,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$388$varargs i32)
     (local $__receiver$388 i32)
+    (local $__receiver$389$varargs i32)
     (local $__receiver$389 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -19167,6 +19716,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$390$varargs i32)
     (local $__receiver$390 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -19195,6 +19745,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$391$varargs i32)
     (local $__receiver$391 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -19224,6 +19775,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$392$varargs i32)
     (local $__receiver$392 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -19248,9 +19800,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$139$varargs i32)
     (local $__allocation$139 i32)
+    (local $__allocation$140$varargs i32)
     (local $__allocation$140 i32)
+    (local $__receiver$393$varargs i32)
     (local $__receiver$393 i32)
+    (local $__receiver$394$varargs i32)
     (local $__receiver$394 i32)
     (local $__caught_exc i32)
     local.get $parent
@@ -19358,6 +19914,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$141$varargs i32)
     (local $__allocation$141 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -19395,7 +19952,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$142$varargs i32)
     (local $__allocation$142 i32)
+    (local $__receiver$395$varargs i32)
     (local $__receiver$395 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -19488,6 +20047,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$396$varargs i32)
     (local $__receiver$396 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -19513,6 +20073,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$397$varargs i32)
     (local $__receiver$397 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -19543,7 +20104,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$398$varargs i32)
     (local $__receiver$398 i32)
+    (local $__receiver$399$varargs i32)
     (local $__receiver$399 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -19581,7 +20144,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$400$varargs i32)
     (local $__receiver$400 i32)
+    (local $__receiver$401$varargs i32)
     (local $__receiver$401 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -19620,7 +20185,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$402$varargs i32)
     (local $__receiver$402 i32)
+    (local $__receiver$403$varargs i32)
     (local $__receiver$403 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -19659,9 +20226,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$143$varargs i32)
     (local $__allocation$143 i32)
+    (local $__receiver$404$varargs i32)
     (local $__receiver$404 i32)
+    (local $__receiver$405$varargs i32)
     (local $__receiver$405 i32)
+    (local $__receiver$406$varargs i32)
     (local $__receiver$406 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -19726,8 +20297,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$407$varargs i32)
     (local $__receiver$407 i32)
+    (local $__receiver$408$varargs i32)
     (local $__receiver$408 i32)
+    (local $__receiver$409$varargs i32)
     (local $__receiver$409 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -19773,6 +20347,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$410$varargs i32)
     (local $__receiver$410 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -19805,7 +20380,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$411$varargs i32)
     (local $__receiver$411 i32)
+    (local $__receiver$412$varargs i32)
     (local $__receiver$412 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -19854,7 +20431,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$413$varargs i32)
     (local $__receiver$413 i32)
+    (local $__receiver$414$varargs i32)
     (local $__receiver$414 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -19901,7 +20480,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$144$varargs i32)
     (local $__allocation$144 i32)
+    (local $__receiver$415$varargs i32)
     (local $__receiver$415 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -19939,7 +20520,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$145$varargs i32)
     (local $__allocation$145 i32)
+    (local $__receiver$416$varargs i32)
     (local $__receiver$416 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -19975,6 +20558,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$417$varargs i32)
     (local $__receiver$417 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -19998,6 +20582,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$418$varargs i32)
     (local $__receiver$418 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -20030,6 +20615,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$419$varargs i32)
     (local $__receiver$419 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -20059,7 +20645,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$420$varargs i32)
     (local $__receiver$420 i32)
+    (local $__receiver$421$varargs i32)
     (local $__receiver$421 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -20098,6 +20686,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$422$varargs i32)
     (local $__receiver$422 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -20148,6 +20737,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$423$varargs i32)
     (local $__receiver$423 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -20177,6 +20767,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$424$varargs i32)
     (local $__receiver$424 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -20206,6 +20797,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$425$varargs i32)
     (local $__receiver$425 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -20234,6 +20826,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$146$varargs i32)
     (local $__allocation$146 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -20264,6 +20857,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$147$varargs i32)
     (local $__allocation$147 i32)
     (local $__caught_exc i32)
     i32.const 16
@@ -20296,9 +20890,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$426$varargs i32)
     (local $__receiver$426 i32)
+    (local $__receiver$427$varargs i32)
     (local $__receiver$427 i32)
+    (local $__receiver$428$varargs i32)
     (local $__receiver$428 i32)
+    (local $__receiver$429$varargs i32)
     (local $__receiver$429 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -20359,10 +20957,15 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$430$varargs i32)
     (local $__receiver$430 i32)
+    (local $__receiver$431$varargs i32)
     (local $__receiver$431 i32)
+    (local $__receiver$432$varargs i32)
     (local $__receiver$432 i32)
+    (local $__receiver$433$varargs i32)
     (local $__receiver$433 i32)
+    (local $__receiver$434$varargs i32)
     (local $__receiver$434 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -20430,6 +21033,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$435$varargs i32)
     (local $__receiver$435 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -20453,6 +21057,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$436$varargs i32)
     (local $__receiver$436 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -20485,6 +21090,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$437$varargs i32)
     (local $__receiver$437 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -20514,7 +21120,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$438$varargs i32)
     (local $__receiver$438 i32)
+    (local $__receiver$439$varargs i32)
     (local $__receiver$439 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -20553,6 +21161,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$440$varargs i32)
     (local $__receiver$440 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -20603,6 +21212,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$441$varargs i32)
     (local $__receiver$441 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -20632,6 +21242,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$442$varargs i32)
     (local $__receiver$442 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -20661,6 +21272,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$443$varargs i32)
     (local $__receiver$443 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -20689,6 +21301,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$148$varargs i32)
     (local $__allocation$148 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -20720,11 +21333,17 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$444$varargs i32)
     (local $__receiver$444 i32)
+    (local $__receiver$445$varargs i32)
     (local $__receiver$445 i32)
+    (local $__receiver$446$varargs i32)
     (local $__receiver$446 i32)
+    (local $__receiver$447$varargs i32)
     (local $__receiver$447 i32)
+    (local $__receiver$448$varargs i32)
     (local $__receiver$448 i32)
+    (local $__receiver$449$varargs i32)
     (local $__receiver$449 i32)
     (local $__caught_exc i32)
     local.get $value
@@ -20820,8 +21439,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$450$varargs i32)
     (local $__receiver$450 i32)
+    (local $__receiver$451$varargs i32)
     (local $__receiver$451 i32)
+    (local $__receiver$452$varargs i32)
     (local $__receiver$452 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -20877,6 +21499,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$149$varargs i32)
     (local $__allocation$149 i32)
     (local $__caught_exc i32)
     i32.const 16
@@ -20908,6 +21531,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$453$varargs i32)
     (local $__receiver$453 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -20952,6 +21576,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$454$varargs i32)
     (local $__receiver$454 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -20981,6 +21606,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$455$varargs i32)
     (local $__receiver$455 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -21033,6 +21659,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$456$varargs i32)
     (local $__receiver$456 i32)
     (local $__caught_exc i32)
     local.get $left
@@ -21107,7 +21734,9 @@
     (local $__mutation$61$address i32)
     (local $__mutation$61$old i32)
     (local $__mutation$61$new i32)
+    (local $__allocation$150$varargs i32)
     (local $__allocation$150 i32)
+    (local $__receiver$457$varargs i32)
     (local $__receiver$457 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -21216,6 +21845,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$458$varargs i32)
     (local $__receiver$458 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -21293,6 +21923,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$459$varargs i32)
     (local $__receiver$459 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -21337,6 +21968,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$151$varargs i32)
     (local $__allocation$151 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -21366,6 +21998,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$152$varargs i32)
     (local $__allocation$152 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -21396,6 +22029,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$153$varargs i32)
     (local $__allocation$153 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -21426,6 +22060,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$154$varargs i32)
     (local $__allocation$154 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -21456,6 +22091,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$155$varargs i32)
     (local $__allocation$155 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -21486,6 +22122,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$156$varargs i32)
     (local $__allocation$156 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -21516,6 +22153,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$157$varargs i32)
     (local $__allocation$157 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -21545,6 +22183,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$158$varargs i32)
     (local $__allocation$158 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -21578,6 +22217,7 @@
     (local $__mutation$62$address i32)
     (local $__mutation$62$old i32)
     (local $__mutation$62$new i32)
+    (local $__receiver$460$varargs i32)
     (local $__receiver$460 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -21633,6 +22273,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$159$varargs i32)
     (local $__allocation$159 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -21663,6 +22304,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$160$varargs i32)
     (local $__allocation$160 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -21693,6 +22335,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$161$varargs i32)
     (local $__allocation$161 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -21723,6 +22366,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$162$varargs i32)
     (local $__allocation$162 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -21753,6 +22397,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$163$varargs i32)
     (local $__allocation$163 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -21804,6 +22449,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$461$varargs i32)
     (local $__receiver$461 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -21845,8 +22491,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$164$varargs i32)
     (local $__allocation$164 i32)
+    (local $__receiver$462$varargs i32)
     (local $__receiver$462 i32)
+    (local $__receiver$463$varargs i32)
     (local $__receiver$463 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -21946,8 +22595,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$165$varargs i32)
     (local $__allocation$165 i32)
+    (local $__allocation$166$varargs i32)
     (local $__allocation$166 i32)
+    (local $__allocation$167$varargs i32)
     (local $__allocation$167 i32)
     (local $__caught_exc i32)
     local.get $values
@@ -22002,15 +22654,16 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$464$varargs i32)
     (local $__receiver$464 i32)
     (local $__caught_exc i32)
     i32.const 8
-    call $__heap_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    call $__javaw_array_bytes_alloc
+    local.set $__receiver$464$varargs
+    local.get $__receiver$464$varargs
     i32.const 0
     i32.store
-    local.get $__arr_alloc_ptr
+    local.get $__receiver$464$varargs
     call $Stream_of
     return
   )
@@ -22030,6 +22683,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$168$varargs i32)
     (local $__allocation$168 i32)
     (local $__caught_exc i32)
     i32.const 80
@@ -22061,6 +22715,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$169$varargs i32)
     (local $__allocation$169 i32)
     (local $__caught_exc i32)
     i32.const 80
@@ -22096,8 +22751,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$170$varargs i32)
     (local $__allocation$170 i32)
+    (local $__allocation$171$varargs i32)
     (local $__allocation$171 i32)
+    (local $__allocation$172$varargs i32)
     (local $__allocation$172 i32)
     (local $__caught_exc i32)
     local.get $supplier
@@ -22152,8 +22810,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$173$varargs i32)
     (local $__allocation$173 i32)
+    (local $__allocation$174$varargs i32)
     (local $__allocation$174 i32)
+    (local $__allocation$175$varargs i32)
     (local $__allocation$175 i32)
     (local $__caught_exc i32)
     local.get $nextValue
@@ -22209,6 +22870,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$176$varargs i32)
     (local $__allocation$176 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -22248,6 +22910,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$465$varargs i32)
     (local $__receiver$465 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -22273,7 +22936,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$177$varargs i32)
     (local $__allocation$177 i32)
+    (local $__receiver$466$varargs i32)
     (local $__receiver$466 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -22309,8 +22974,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$178$varargs i32)
     (local $__allocation$178 i32)
+    (local $__allocation$179$varargs i32)
     (local $__allocation$179 i32)
+    (local $__receiver$467$varargs i32)
     (local $__receiver$467 i32)
     (local $__caught_exc i32)
     local.get $mapper
@@ -22366,7 +23034,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$180$varargs i32)
     (local $__allocation$180 i32)
+    (local $__receiver$468$varargs i32)
     (local $__receiver$468 i32)
     (local $__caught_exc i32)
     local.get $predicate
@@ -22412,7 +23082,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$181$varargs i32)
     (local $__allocation$181 i32)
+    (local $__receiver$469$varargs i32)
     (local $__receiver$469 i32)
     (local $__caught_exc i32)
     local.get $observer
@@ -22458,7 +23130,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$182$varargs i32)
     (local $__allocation$182 i32)
+    (local $__receiver$470$varargs i32)
     (local $__receiver$470 i32)
     (local $__caught_exc i32)
     local.get $count
@@ -22505,7 +23179,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$183$varargs i32)
     (local $__allocation$183 i32)
+    (local $__receiver$471$varargs i32)
     (local $__receiver$471 i32)
     (local $__caught_exc i32)
     local.get $count
@@ -22552,7 +23228,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$184$varargs i32)
     (local $__allocation$184 i32)
+    (local $__receiver$472$varargs i32)
     (local $__receiver$472 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -22591,8 +23269,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$185$varargs i32)
     (local $__allocation$185 i32)
+    (local $__allocation$186$varargs i32)
     (local $__allocation$186 i32)
+    (local $__receiver$473$varargs i32)
     (local $__receiver$473 i32)
     (local $__caught_exc i32)
     local.get $mapper
@@ -22647,7 +23328,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$187$varargs i32)
     (local $__allocation$187 i32)
+    (local $__receiver$474$varargs i32)
     (local $__receiver$474 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -22686,7 +23369,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$188$varargs i32)
     (local $__allocation$188 i32)
+    (local $__receiver$475$varargs i32)
     (local $__receiver$475 i32)
     (local $__caught_exc i32)
     local.get $comparator
@@ -22732,7 +23417,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$189$varargs i32)
     (local $__allocation$189 i32)
+    (local $__receiver$476$varargs i32)
     (local $__receiver$476 i32)
     (local $__caught_exc i32)
     local.get $predicate
@@ -22778,7 +23465,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$190$varargs i32)
     (local $__allocation$190 i32)
+    (local $__receiver$477$varargs i32)
     (local $__receiver$477 i32)
     (local $__caught_exc i32)
     local.get $predicate
@@ -22842,33 +23531,61 @@
     (local $__mutation$67$address i32)
     (local $__mutation$67$old i64)
     (local $__mutation$67$new i64)
+    (local $__allocation$191$varargs i32)
     (local $__allocation$191 i32)
+    (local $__allocation$192$varargs i32)
     (local $__allocation$192 i32)
+    (local $__receiver$478$varargs i32)
     (local $__receiver$478 i32)
+    (local $__receiver$479$varargs i32)
     (local $__receiver$479 i32)
+    (local $__receiver$480$varargs i32)
     (local $__receiver$480 i32)
+    (local $__receiver$481$varargs i32)
     (local $__receiver$481 i32)
+    (local $__receiver$482$varargs i32)
     (local $__receiver$482 i32)
+    (local $__receiver$483$varargs i32)
     (local $__receiver$483 i32)
+    (local $__receiver$484$varargs i32)
     (local $__receiver$484 i32)
+    (local $__receiver$485$varargs i32)
     (local $__receiver$485 i32)
+    (local $__receiver$486$varargs i32)
     (local $__receiver$486 i32)
+    (local $__receiver$487$varargs i32)
     (local $__receiver$487 i32)
+    (local $__receiver$488$varargs i32)
     (local $__receiver$488 i32)
+    (local $__receiver$489$varargs i32)
     (local $__receiver$489 i32)
+    (local $__receiver$490$varargs i32)
     (local $__receiver$490 i32)
+    (local $__receiver$491$varargs i32)
     (local $__receiver$491 i32)
+    (local $__receiver$492$varargs i32)
     (local $__receiver$492 i32)
+    (local $__receiver$493$varargs i32)
     (local $__receiver$493 i32)
+    (local $__receiver$494$varargs i32)
     (local $__receiver$494 i32)
+    (local $__receiver$495$varargs i32)
     (local $__receiver$495 i32)
+    (local $__receiver$496$varargs i32)
     (local $__receiver$496 i32)
+    (local $__receiver$497$varargs i32)
     (local $__receiver$497 i32)
+    (local $__receiver$498$varargs i32)
     (local $__receiver$498 i32)
+    (local $__receiver$499$varargs i32)
     (local $__receiver$499 i32)
+    (local $__receiver$500$varargs i32)
     (local $__receiver$500 i32)
+    (local $__receiver$501$varargs i32)
     (local $__receiver$501 i32)
+    (local $__receiver$502$varargs i32)
     (local $__receiver$502 i32)
+    (local $__receiver$503$varargs i32)
     (local $__receiver$503 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -23498,7 +24215,9 @@
     (local $__mutation$68$address i32)
     (local $__mutation$68$old i64)
     (local $__mutation$68$new i64)
+    (local $__receiver$504$varargs i32)
     (local $__receiver$504 i32)
+    (local $__receiver$505$varargs i32)
     (local $__receiver$505 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -23545,9 +24264,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$506$varargs i32)
     (local $__receiver$506 i32)
+    (local $__receiver$507$varargs i32)
     (local $__receiver$507 i32)
+    (local $__receiver$508$varargs i32)
     (local $__receiver$508 i32)
+    (local $__receiver$509$varargs i32)
     (local $__receiver$509 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -23581,6 +24304,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$510$varargs i32)
     (local $__receiver$510 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -23609,9 +24333,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$193$varargs i32)
     (local $__allocation$193 i32)
+    (local $__receiver$511$varargs i32)
     (local $__receiver$511 i32)
+    (local $__receiver$512$varargs i32)
     (local $__receiver$512 i32)
+    (local $__receiver$513$varargs i32)
     (local $__receiver$513 i32)
     (local $__caught_exc i32)
     local.get $predicate
@@ -23675,9 +24403,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$194$varargs i32)
     (local $__allocation$194 i32)
+    (local $__receiver$514$varargs i32)
     (local $__receiver$514 i32)
+    (local $__receiver$515$varargs i32)
     (local $__receiver$515 i32)
+    (local $__receiver$516$varargs i32)
     (local $__receiver$516 i32)
     (local $__caught_exc i32)
     local.get $predicate
@@ -23742,9 +24474,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$195$varargs i32)
     (local $__allocation$195 i32)
+    (local $__receiver$517$varargs i32)
     (local $__receiver$517 i32)
+    (local $__receiver$518$varargs i32)
     (local $__receiver$518 i32)
+    (local $__receiver$519$varargs i32)
     (local $__receiver$519 i32)
     (local $__caught_exc i32)
     local.get $predicate
@@ -23808,9 +24544,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$196$varargs i32)
     (local $__allocation$196 i32)
+    (local $__receiver$520$varargs i32)
     (local $__receiver$520 i32)
+    (local $__receiver$521$varargs i32)
     (local $__receiver$521 i32)
+    (local $__receiver$522$varargs i32)
     (local $__receiver$522 i32)
     (local $__caught_exc i32)
     local.get $action
@@ -23868,6 +24608,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$523$varargs i32)
     (local $__receiver$523 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -23897,9 +24638,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$197$varargs i32)
     (local $__allocation$197 i32)
+    (local $__receiver$524$varargs i32)
     (local $__receiver$524 i32)
+    (local $__receiver$525$varargs i32)
     (local $__receiver$525 i32)
+    (local $__receiver$526$varargs i32)
     (local $__receiver$526 i32)
     (local $__caught_exc i32)
     local.get $accumulator
@@ -23964,12 +24709,19 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$198$varargs i32)
     (local $__allocation$198 i32)
+    (local $__receiver$527$varargs i32)
     (local $__receiver$527 i32)
+    (local $__receiver$528$varargs i32)
     (local $__receiver$528 i32)
+    (local $__receiver$529$varargs i32)
     (local $__receiver$529 i32)
+    (local $__receiver$530$varargs i32)
     (local $__receiver$530 i32)
+    (local $__receiver$531$varargs i32)
     (local $__receiver$531 i32)
+    (local $__receiver$532$varargs i32)
     (local $__receiver$532 i32)
     (local $__caught_exc i32)
     local.get $accumulator
@@ -24044,12 +24796,19 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$199$varargs i32)
     (local $__allocation$199 i32)
+    (local $__receiver$533$varargs i32)
     (local $__receiver$533 i32)
+    (local $__receiver$534$varargs i32)
     (local $__receiver$534 i32)
+    (local $__receiver$535$varargs i32)
     (local $__receiver$535 i32)
+    (local $__receiver$536$varargs i32)
     (local $__receiver$536 i32)
+    (local $__receiver$537$varargs i32)
     (local $__receiver$537 i32)
+    (local $__receiver$538$varargs i32)
     (local $__receiver$538 i32)
     (local $__caught_exc i32)
     local.get $comparator
@@ -24130,12 +24889,19 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$200$varargs i32)
     (local $__allocation$200 i32)
+    (local $__receiver$539$varargs i32)
     (local $__receiver$539 i32)
+    (local $__receiver$540$varargs i32)
     (local $__receiver$540 i32)
+    (local $__receiver$541$varargs i32)
     (local $__receiver$541 i32)
+    (local $__receiver$542$varargs i32)
     (local $__receiver$542 i32)
+    (local $__receiver$543$varargs i32)
     (local $__receiver$543 i32)
+    (local $__receiver$544$varargs i32)
     (local $__receiver$544 i32)
     (local $__caught_exc i32)
     local.get $comparator
@@ -24216,10 +24982,15 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$201$varargs i32)
     (local $__allocation$201 i32)
+    (local $__receiver$545$varargs i32)
     (local $__receiver$545 i32)
+    (local $__receiver$546$varargs i32)
     (local $__receiver$546 i32)
+    (local $__receiver$547$varargs i32)
     (local $__receiver$547 i32)
+    (local $__receiver$548$varargs i32)
     (local $__receiver$548 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -24284,14 +25055,23 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$202$varargs i32)
     (local $__allocation$202 i32)
+    (local $__receiver$549$varargs i32)
     (local $__receiver$549 i32)
+    (local $__receiver$550$varargs i32)
     (local $__receiver$550 i32)
+    (local $__receiver$551$varargs i32)
     (local $__receiver$551 i32)
+    (local $__receiver$552$varargs i32)
     (local $__receiver$552 i32)
+    (local $__receiver$553$varargs i32)
     (local $__receiver$553 i32)
+    (local $__receiver$554$varargs i32)
     (local $__receiver$554 i32)
+    (local $__receiver$555$varargs i32)
     (local $__receiver$555 i32)
+    (local $__receiver$556$varargs i32)
     (local $__receiver$556 i32)
     (local $__caught_exc i32)
     local.get $collector
@@ -24392,7 +25172,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$203$varargs i32)
     (local $__allocation$203 i32)
+    (local $__receiver$557$varargs i32)
     (local $__receiver$557 i32)
     (local $__caught_exc i32)
     i32.const 16
@@ -24430,7 +25212,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$204$varargs i32)
     (local $__allocation$204 i32)
+    (local $__receiver$558$varargs i32)
     (local $__receiver$558 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -24464,6 +25248,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$559$varargs i32)
     (local $__receiver$559 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -24508,9 +25293,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$205$varargs i32)
     (local $__allocation$205 i32)
+    (local $__allocation$206$varargs i32)
     (local $__allocation$206 i32)
+    (local $__allocation$207$varargs i32)
     (local $__allocation$207 i32)
+    (local $__receiver$560$varargs i32)
     (local $__receiver$560 i32)
     (local $__caught_exc i32)
     local.get $mapper
@@ -24573,9 +25362,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$208$varargs i32)
     (local $__allocation$208 i32)
+    (local $__allocation$209$varargs i32)
     (local $__allocation$209 i32)
+    (local $__allocation$210$varargs i32)
     (local $__allocation$210 i32)
+    (local $__receiver$561$varargs i32)
     (local $__receiver$561 i32)
     (local $__caught_exc i32)
     local.get $mapper
@@ -24638,9 +25431,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$211$varargs i32)
     (local $__allocation$211 i32)
+    (local $__allocation$212$varargs i32)
     (local $__allocation$212 i32)
+    (local $__allocation$213$varargs i32)
     (local $__allocation$213 i32)
+    (local $__receiver$562$varargs i32)
     (local $__receiver$562 i32)
     (local $__caught_exc i32)
     local.get $mapper
@@ -24723,6 +25520,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$563$varargs i32)
     (local $__receiver$563 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -24747,6 +25545,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$214$varargs i32)
     (local $__allocation$214 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -24777,7 +25576,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$564$varargs i32)
     (local $__receiver$564 i32)
+    (local $__receiver$565$varargs i32)
     (local $__receiver$565 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -24883,6 +25684,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$215$varargs i32)
     (local $__allocation$215 i32)
     (local $__caught_exc i32)
     i32.const 16
@@ -24914,6 +25716,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$216$varargs i32)
     (local $__allocation$216 i32)
     (local $__caught_exc i32)
     i32.const 16
@@ -24988,6 +25791,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$217$varargs i32)
     (local $__allocation$217 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -25052,6 +25856,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$566$varargs i32)
     (local $__receiver$566 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -25087,6 +25892,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$567$varargs i32)
     (local $__receiver$567 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -25115,6 +25921,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$568$varargs i32)
     (local $__receiver$568 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -25199,7 +26006,9 @@
     (local $__mutation$69$address i32)
     (local $__mutation$69$old i32)
     (local $__mutation$69$new i32)
+    (local $__allocation$218$varargs i32)
     (local $__allocation$218 i32)
+    (local $__receiver$569$varargs i32)
     (local $__receiver$569 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -25289,6 +26098,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$570$varargs i32)
     (local $__receiver$570 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -25344,6 +26154,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$571$varargs i32)
     (local $__receiver$571 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -25398,6 +26209,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$572$varargs i32)
     (local $__receiver$572 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -25451,6 +26263,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$573$varargs i32)
     (local $__receiver$573 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -25503,6 +26316,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$574$varargs i32)
     (local $__receiver$574 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -25558,6 +26372,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$575$varargs i32)
     (local $__receiver$575 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -25612,6 +26427,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$576$varargs i32)
     (local $__receiver$576 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -25666,6 +26482,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$577$varargs i32)
     (local $__receiver$577 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -25730,9 +26547,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$219$varargs i32)
     (local $__allocation$219 i32)
+    (local $__allocation$220$varargs i32)
     (local $__allocation$220 i32)
+    (local $__allocation$221$varargs i32)
     (local $__allocation$221 i32)
+    (local $__receiver$578$varargs i32)
     (local $__receiver$578 i32)
     (local $__caught_exc i32)
     local.get $values
@@ -25788,15 +26609,16 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$579$varargs i32)
     (local $__receiver$579 i32)
     (local $__caught_exc i32)
     i32.const 8
-    call $__heap_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    call $__javaw_array_bytes_alloc
+    local.set $__receiver$579$varargs
+    local.get $__receiver$579$varargs
     i32.const 0
     i32.store
-    local.get $__arr_alloc_ptr
+    local.get $__receiver$579$varargs
     call $IntStream_of
     return
   )
@@ -25816,9 +26638,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$222$varargs i32)
     (local $__allocation$222 i32)
+    (local $__allocation$223$varargs i32)
     (local $__allocation$223 i32)
+    (local $__allocation$224$varargs i32)
     (local $__allocation$224 i32)
+    (local $__receiver$580$varargs i32)
     (local $__receiver$580 i32)
     (local $__caught_exc i32)
     local.get $supplier
@@ -25875,9 +26701,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$225$varargs i32)
     (local $__allocation$225 i32)
+    (local $__allocation$226$varargs i32)
     (local $__allocation$226 i32)
+    (local $__allocation$227$varargs i32)
     (local $__allocation$227 i32)
+    (local $__receiver$581$varargs i32)
     (local $__receiver$581 i32)
     (local $__caught_exc i32)
     local.get $operator
@@ -25937,9 +26767,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$228$varargs i32)
     (local $__allocation$228 i32)
+    (local $__allocation$229$varargs i32)
     (local $__allocation$229 i32)
+    (local $__allocation$230$varargs i32)
     (local $__allocation$230 i32)
+    (local $__receiver$582$varargs i32)
     (local $__receiver$582 i32)
     (local $__caught_exc i32)
     local.get $mapper
@@ -26003,9 +26837,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$231$varargs i32)
     (local $__allocation$231 i32)
+    (local $__allocation$232$varargs i32)
     (local $__allocation$232 i32)
+    (local $__allocation$233$varargs i32)
     (local $__allocation$233 i32)
+    (local $__receiver$583$varargs i32)
     (local $__receiver$583 i32)
     (local $__caught_exc i32)
     local.get $predicate
@@ -26069,9 +26907,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$234$varargs i32)
     (local $__allocation$234 i32)
+    (local $__allocation$235$varargs i32)
     (local $__allocation$235 i32)
+    (local $__allocation$236$varargs i32)
     (local $__allocation$236 i32)
+    (local $__receiver$584$varargs i32)
     (local $__receiver$584 i32)
     (local $__caught_exc i32)
     local.get $consumer
@@ -26135,9 +26977,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$237$varargs i32)
     (local $__allocation$237 i32)
+    (local $__allocation$238$varargs i32)
     (local $__allocation$238 i32)
+    (local $__allocation$239$varargs i32)
     (local $__allocation$239 i32)
+    (local $__receiver$585$varargs i32)
     (local $__receiver$585 i32)
     (local $__caught_exc i32)
     local.get $predicate
@@ -26201,9 +27047,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$240$varargs i32)
     (local $__allocation$240 i32)
+    (local $__allocation$241$varargs i32)
     (local $__allocation$241 i32)
+    (local $__allocation$242$varargs i32)
     (local $__allocation$242 i32)
+    (local $__receiver$586$varargs i32)
     (local $__receiver$586 i32)
     (local $__caught_exc i32)
     local.get $predicate
@@ -26267,9 +27117,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$243$varargs i32)
     (local $__allocation$243 i32)
+    (local $__allocation$244$varargs i32)
     (local $__allocation$244 i32)
+    (local $__allocation$245$varargs i32)
     (local $__allocation$245 i32)
+    (local $__receiver$587$varargs i32)
     (local $__receiver$587 i32)
     (local $__caught_exc i32)
     local.get $mapper
@@ -26333,8 +27187,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$246$varargs i32)
     (local $__allocation$246 i32)
+    (local $__allocation$247$varargs i32)
     (local $__allocation$247 i32)
+    (local $__receiver$588$varargs i32)
     (local $__receiver$588 i32)
     (local $__caught_exc i32)
     local.get $mapper
@@ -26389,7 +27246,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$248$varargs i32)
     (local $__allocation$248 i32)
+    (local $__receiver$589$varargs i32)
     (local $__receiver$589 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -26429,7 +27288,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$249$varargs i32)
     (local $__allocation$249 i32)
+    (local $__receiver$590$varargs i32)
     (local $__receiver$590 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -26469,7 +27330,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$250$varargs i32)
     (local $__allocation$250 i32)
+    (local $__receiver$591$varargs i32)
     (local $__receiver$591 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -26508,7 +27371,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$251$varargs i32)
     (local $__allocation$251 i32)
+    (local $__receiver$592$varargs i32)
     (local $__receiver$592 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -26568,6 +27433,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$593$varargs i32)
     (local $__receiver$593 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -26598,10 +27464,15 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$594$varargs i32)
     (local $__receiver$594 i32)
+    (local $__receiver$595$varargs i32)
     (local $__receiver$595 i32)
+    (local $__receiver$596$varargs i32)
     (local $__receiver$596 i32)
+    (local $__receiver$597$varargs i32)
     (local $__receiver$597 i32)
+    (local $__receiver$598$varargs i32)
     (local $__receiver$598 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -26655,6 +27526,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$599$varargs i32)
     (local $__receiver$599 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -26683,8 +27555,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$252$varargs i32)
     (local $__allocation$252 i32)
+    (local $__allocation$253$varargs i32)
     (local $__allocation$253 i32)
+    (local $__receiver$600$varargs i32)
     (local $__receiver$600 i32)
     (local $__caught_exc i32)
     local.get $predicate
@@ -26739,8 +27614,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$254$varargs i32)
     (local $__allocation$254 i32)
+    (local $__allocation$255$varargs i32)
     (local $__allocation$255 i32)
+    (local $__receiver$601$varargs i32)
     (local $__receiver$601 i32)
     (local $__caught_exc i32)
     local.get $predicate
@@ -26795,8 +27673,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$256$varargs i32)
     (local $__allocation$256 i32)
+    (local $__allocation$257$varargs i32)
     (local $__allocation$257 i32)
+    (local $__receiver$602$varargs i32)
     (local $__receiver$602 i32)
     (local $__caught_exc i32)
     local.get $predicate
@@ -26851,8 +27732,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$258$varargs i32)
     (local $__allocation$258 i32)
+    (local $__allocation$259$varargs i32)
     (local $__allocation$259 i32)
+    (local $__receiver$603$varargs i32)
     (local $__receiver$603 i32)
     (local $__caught_exc i32)
     local.get $consumer
@@ -26906,6 +27790,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$604$varargs i32)
     (local $__receiver$604 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -26936,8 +27821,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$605$varargs i32)
     (local $__receiver$605 i32)
+    (local $__receiver$606$varargs i32)
     (local $__receiver$606 i32)
+    (local $__receiver$607$varargs i32)
     (local $__receiver$607 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -27005,10 +27893,15 @@
     (local $__mutation$70$address i32)
     (local $__mutation$70$old i64)
     (local $__mutation$70$new i64)
+    (local $__receiver$608$varargs i32)
     (local $__receiver$608 i32)
+    (local $__receiver$609$varargs i32)
     (local $__receiver$609 i32)
+    (local $__receiver$610$varargs i32)
     (local $__receiver$610 i32)
+    (local $__receiver$611$varargs i32)
     (local $__receiver$611 i32)
+    (local $__receiver$612$varargs i32)
     (local $__receiver$612 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -27097,6 +27990,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$613$varargs i32)
     (local $__receiver$613 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -27121,6 +28015,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$614$varargs i32)
     (local $__receiver$614 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -27148,12 +28043,19 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$615$varargs i32)
     (local $__receiver$615 i32)
+    (local $__receiver$616$varargs i32)
     (local $__receiver$616 i32)
+    (local $__receiver$617$varargs i32)
     (local $__receiver$617 i32)
+    (local $__receiver$618$varargs i32)
     (local $__receiver$618 i32)
+    (local $__receiver$619$varargs i32)
     (local $__receiver$619 i32)
+    (local $__receiver$620$varargs i32)
     (local $__receiver$620 i32)
+    (local $__receiver$621$varargs i32)
     (local $__receiver$621 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -27252,10 +28154,15 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$260$varargs i32)
     (local $__allocation$260 i32)
+    (local $__receiver$622$varargs i32)
     (local $__receiver$622 i32)
+    (local $__receiver$623$varargs i32)
     (local $__receiver$623 i32)
+    (local $__receiver$624$varargs i32)
     (local $__receiver$624 i32)
+    (local $__receiver$625$varargs i32)
     (local $__receiver$625 i32)
     (local $__caught_exc i32)
     local.get $accumulator
@@ -27341,14 +28248,23 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$261$varargs i32)
     (local $__allocation$261 i32)
+    (local $__receiver$626$varargs i32)
     (local $__receiver$626 i32)
+    (local $__receiver$627$varargs i32)
     (local $__receiver$627 i32)
+    (local $__receiver$628$varargs i32)
     (local $__receiver$628 i32)
+    (local $__receiver$629$varargs i32)
     (local $__receiver$629 i32)
+    (local $__receiver$630$varargs i32)
     (local $__receiver$630 i32)
+    (local $__receiver$631$varargs i32)
     (local $__receiver$631 i32)
+    (local $__receiver$632$varargs i32)
     (local $__receiver$632 i32)
+    (local $__receiver$633$varargs i32)
     (local $__receiver$633 i32)
     (local $__caught_exc i32)
     local.get $accumulator
@@ -27461,9 +28377,14 @@
     (local $__mutation$71$address i32)
     (local $__mutation$71$old i32)
     (local $__mutation$71$new i32)
+    (local $__arrayAllocation$914 i32)
+    (local $__receiver$634$varargs i32)
     (local $__receiver$634 i32)
+    (local $__receiver$635$varargs i32)
     (local $__receiver$635 i32)
+    (local $__receiver$636$varargs i32)
     (local $__receiver$636 i32)
+    (local $__receiver$637$varargs i32)
     (local $__receiver$637 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -27489,8 +28410,8 @@
     i32.const 4
     i32.const 4
     call $__javaw_array_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    local.set $__arrayAllocation$914
+    local.get $__arrayAllocation$914
     local.set $result
     i32.const 0
     local.set $i
@@ -27558,6 +28479,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$638$varargs i32)
     (local $__receiver$638 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -27587,6 +28509,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$639$varargs i32)
     (local $__receiver$639 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -27618,6 +28541,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$640$varargs i32)
     (local $__receiver$640 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -27649,6 +28573,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$641$varargs i32)
     (local $__receiver$641 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -27677,8 +28602,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$262$varargs i32)
     (local $__allocation$262 i32)
+    (local $__allocation$263$varargs i32)
     (local $__allocation$263 i32)
+    (local $__receiver$642$varargs i32)
     (local $__receiver$642 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -27721,8 +28649,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$264$varargs i32)
     (local $__allocation$264 i32)
+    (local $__allocation$265$varargs i32)
     (local $__allocation$265 i32)
+    (local $__receiver$643$varargs i32)
     (local $__receiver$643 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -27765,9 +28696,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$266$varargs i32)
     (local $__allocation$266 i32)
+    (local $__allocation$267$varargs i32)
     (local $__allocation$267 i32)
+    (local $__allocation$268$varargs i32)
     (local $__allocation$268 i32)
+    (local $__receiver$644$varargs i32)
     (local $__receiver$644 i32)
     (local $__caught_exc i32)
     local.get $mapper
@@ -27831,7 +28766,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$269$varargs i32)
     (local $__allocation$269 i32)
+    (local $__receiver$645$varargs i32)
     (local $__receiver$645 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -27869,9 +28806,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$270$varargs i32)
     (local $__allocation$270 i32)
+    (local $__allocation$271$varargs i32)
     (local $__allocation$271 i32)
+    (local $__allocation$272$varargs i32)
     (local $__allocation$272 i32)
+    (local $__receiver$646$varargs i32)
     (local $__receiver$646 i32)
     (local $__caught_exc i32)
     local.get $mapper
@@ -27935,7 +28876,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$273$varargs i32)
     (local $__allocation$273 i32)
+    (local $__receiver$647$varargs i32)
     (local $__receiver$647 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -28051,7 +28994,9 @@
     (local $__mutation$72$address i32)
     (local $__mutation$72$old i32)
     (local $__mutation$72$new i32)
+    (local $__allocation$274$varargs i32)
     (local $__allocation$274 i32)
+    (local $__receiver$648$varargs i32)
     (local $__receiver$648 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -28177,6 +29122,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$275$varargs i32)
     (local $__allocation$275 i32)
     (local $__caught_exc i32)
     i32.const 24
@@ -28209,6 +29155,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$276$varargs i32)
     (local $__allocation$276 i32)
     (local $__caught_exc i32)
     i32.const 24
@@ -28283,6 +29230,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$277$varargs i32)
     (local $__allocation$277 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -28347,6 +29295,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$649$varargs i32)
     (local $__receiver$649 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -28382,6 +29331,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$650$varargs i32)
     (local $__receiver$650 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -28410,6 +29360,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$651$varargs i32)
     (local $__receiver$651 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -28494,7 +29445,9 @@
     (local $__mutation$73$address i32)
     (local $__mutation$73$old i32)
     (local $__mutation$73$new i32)
+    (local $__allocation$278$varargs i32)
     (local $__allocation$278 i32)
+    (local $__receiver$652$varargs i32)
     (local $__receiver$652 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -28584,6 +29537,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$653$varargs i32)
     (local $__receiver$653 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -28639,6 +29593,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$654$varargs i32)
     (local $__receiver$654 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -28693,6 +29648,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$655$varargs i32)
     (local $__receiver$655 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -28746,6 +29702,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$656$varargs i32)
     (local $__receiver$656 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -28798,6 +29755,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$657$varargs i32)
     (local $__receiver$657 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -28853,6 +29811,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$658$varargs i32)
     (local $__receiver$658 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -28907,6 +29866,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$659$varargs i32)
     (local $__receiver$659 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -28961,6 +29921,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$660$varargs i32)
     (local $__receiver$660 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -29025,9 +29986,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$279$varargs i32)
     (local $__allocation$279 i32)
+    (local $__allocation$280$varargs i32)
     (local $__allocation$280 i32)
+    (local $__allocation$281$varargs i32)
     (local $__allocation$281 i32)
+    (local $__receiver$661$varargs i32)
     (local $__receiver$661 i32)
     (local $__caught_exc i32)
     local.get $values
@@ -29083,15 +30048,16 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$662$varargs i32)
     (local $__receiver$662 i32)
     (local $__caught_exc i32)
     i32.const 8
-    call $__heap_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    call $__javaw_array_bytes_alloc
+    local.set $__receiver$662$varargs
+    local.get $__receiver$662$varargs
     i32.const 0
     i32.store
-    local.get $__arr_alloc_ptr
+    local.get $__receiver$662$varargs
     call $LongStream_of
     return
   )
@@ -29111,9 +30077,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$282$varargs i32)
     (local $__allocation$282 i32)
+    (local $__allocation$283$varargs i32)
     (local $__allocation$283 i32)
+    (local $__allocation$284$varargs i32)
     (local $__allocation$284 i32)
+    (local $__receiver$663$varargs i32)
     (local $__receiver$663 i32)
     (local $__caught_exc i32)
     local.get $supplier
@@ -29170,9 +30140,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$285$varargs i32)
     (local $__allocation$285 i32)
+    (local $__allocation$286$varargs i32)
     (local $__allocation$286 i32)
+    (local $__allocation$287$varargs i32)
     (local $__allocation$287 i32)
+    (local $__receiver$664$varargs i32)
     (local $__receiver$664 i32)
     (local $__caught_exc i32)
     local.get $operator
@@ -29232,9 +30206,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$288$varargs i32)
     (local $__allocation$288 i32)
+    (local $__allocation$289$varargs i32)
     (local $__allocation$289 i32)
+    (local $__allocation$290$varargs i32)
     (local $__allocation$290 i32)
+    (local $__receiver$665$varargs i32)
     (local $__receiver$665 i32)
     (local $__caught_exc i32)
     local.get $mapper
@@ -29298,9 +30276,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$291$varargs i32)
     (local $__allocation$291 i32)
+    (local $__allocation$292$varargs i32)
     (local $__allocation$292 i32)
+    (local $__allocation$293$varargs i32)
     (local $__allocation$293 i32)
+    (local $__receiver$666$varargs i32)
     (local $__receiver$666 i32)
     (local $__caught_exc i32)
     local.get $predicate
@@ -29364,9 +30346,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$294$varargs i32)
     (local $__allocation$294 i32)
+    (local $__allocation$295$varargs i32)
     (local $__allocation$295 i32)
+    (local $__allocation$296$varargs i32)
     (local $__allocation$296 i32)
+    (local $__receiver$667$varargs i32)
     (local $__receiver$667 i32)
     (local $__caught_exc i32)
     local.get $consumer
@@ -29430,9 +30416,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$297$varargs i32)
     (local $__allocation$297 i32)
+    (local $__allocation$298$varargs i32)
     (local $__allocation$298 i32)
+    (local $__allocation$299$varargs i32)
     (local $__allocation$299 i32)
+    (local $__receiver$668$varargs i32)
     (local $__receiver$668 i32)
     (local $__caught_exc i32)
     local.get $predicate
@@ -29496,9 +30486,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$300$varargs i32)
     (local $__allocation$300 i32)
+    (local $__allocation$301$varargs i32)
     (local $__allocation$301 i32)
+    (local $__allocation$302$varargs i32)
     (local $__allocation$302 i32)
+    (local $__receiver$669$varargs i32)
     (local $__receiver$669 i32)
     (local $__caught_exc i32)
     local.get $predicate
@@ -29562,9 +30556,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$303$varargs i32)
     (local $__allocation$303 i32)
+    (local $__allocation$304$varargs i32)
     (local $__allocation$304 i32)
+    (local $__allocation$305$varargs i32)
     (local $__allocation$305 i32)
+    (local $__receiver$670$varargs i32)
     (local $__receiver$670 i32)
     (local $__caught_exc i32)
     local.get $mapper
@@ -29628,8 +30626,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$306$varargs i32)
     (local $__allocation$306 i32)
+    (local $__allocation$307$varargs i32)
     (local $__allocation$307 i32)
+    (local $__receiver$671$varargs i32)
     (local $__receiver$671 i32)
     (local $__caught_exc i32)
     local.get $mapper
@@ -29684,7 +30685,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$308$varargs i32)
     (local $__allocation$308 i32)
+    (local $__receiver$672$varargs i32)
     (local $__receiver$672 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -29724,7 +30727,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$309$varargs i32)
     (local $__allocation$309 i32)
+    (local $__receiver$673$varargs i32)
     (local $__receiver$673 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -29764,7 +30769,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$310$varargs i32)
     (local $__allocation$310 i32)
+    (local $__receiver$674$varargs i32)
     (local $__receiver$674 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -29803,7 +30810,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$311$varargs i32)
     (local $__allocation$311 i32)
+    (local $__receiver$675$varargs i32)
     (local $__receiver$675 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -29863,6 +30872,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$676$varargs i32)
     (local $__receiver$676 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -29893,10 +30903,15 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$677$varargs i32)
     (local $__receiver$677 i32)
+    (local $__receiver$678$varargs i32)
     (local $__receiver$678 i32)
+    (local $__receiver$679$varargs i32)
     (local $__receiver$679 i32)
+    (local $__receiver$680$varargs i32)
     (local $__receiver$680 i32)
+    (local $__receiver$681$varargs i32)
     (local $__receiver$681 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -29950,6 +30965,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$682$varargs i32)
     (local $__receiver$682 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -29978,8 +30994,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$312$varargs i32)
     (local $__allocation$312 i32)
+    (local $__allocation$313$varargs i32)
     (local $__allocation$313 i32)
+    (local $__receiver$683$varargs i32)
     (local $__receiver$683 i32)
     (local $__caught_exc i32)
     local.get $predicate
@@ -30034,8 +31053,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$314$varargs i32)
     (local $__allocation$314 i32)
+    (local $__allocation$315$varargs i32)
     (local $__allocation$315 i32)
+    (local $__receiver$684$varargs i32)
     (local $__receiver$684 i32)
     (local $__caught_exc i32)
     local.get $predicate
@@ -30090,8 +31112,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$316$varargs i32)
     (local $__allocation$316 i32)
+    (local $__allocation$317$varargs i32)
     (local $__allocation$317 i32)
+    (local $__receiver$685$varargs i32)
     (local $__receiver$685 i32)
     (local $__caught_exc i32)
     local.get $predicate
@@ -30146,8 +31171,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$318$varargs i32)
     (local $__allocation$318 i32)
+    (local $__allocation$319$varargs i32)
     (local $__allocation$319 i32)
+    (local $__receiver$686$varargs i32)
     (local $__receiver$686 i32)
     (local $__caught_exc i32)
     local.get $consumer
@@ -30201,6 +31229,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$687$varargs i32)
     (local $__receiver$687 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -30231,8 +31260,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$688$varargs i32)
     (local $__receiver$688 i32)
+    (local $__receiver$689$varargs i32)
     (local $__receiver$689 i32)
+    (local $__receiver$690$varargs i32)
     (local $__receiver$690 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -30301,10 +31333,15 @@
     (local $__mutation$74$address i32)
     (local $__mutation$74$old i64)
     (local $__mutation$74$new i64)
+    (local $__receiver$691$varargs i32)
     (local $__receiver$691 i32)
+    (local $__receiver$692$varargs i32)
     (local $__receiver$692 i32)
+    (local $__receiver$693$varargs i32)
     (local $__receiver$693 i32)
+    (local $__receiver$694$varargs i32)
     (local $__receiver$694 i32)
+    (local $__receiver$695$varargs i32)
     (local $__receiver$695 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -30392,6 +31429,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$696$varargs i32)
     (local $__receiver$696 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -30416,6 +31454,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$697$varargs i32)
     (local $__receiver$697 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -30443,12 +31482,19 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$698$varargs i32)
     (local $__receiver$698 i32)
+    (local $__receiver$699$varargs i32)
     (local $__receiver$699 i32)
+    (local $__receiver$700$varargs i32)
     (local $__receiver$700 i32)
+    (local $__receiver$701$varargs i32)
     (local $__receiver$701 i32)
+    (local $__receiver$702$varargs i32)
     (local $__receiver$702 i32)
+    (local $__receiver$703$varargs i32)
     (local $__receiver$703 i32)
+    (local $__receiver$704$varargs i32)
     (local $__receiver$704 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -30547,10 +31593,15 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$320$varargs i32)
     (local $__allocation$320 i32)
+    (local $__receiver$705$varargs i32)
     (local $__receiver$705 i32)
+    (local $__receiver$706$varargs i32)
     (local $__receiver$706 i32)
+    (local $__receiver$707$varargs i32)
     (local $__receiver$707 i32)
+    (local $__receiver$708$varargs i32)
     (local $__receiver$708 i32)
     (local $__caught_exc i32)
     local.get $accumulator
@@ -30636,14 +31687,23 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$321$varargs i32)
     (local $__allocation$321 i32)
+    (local $__receiver$709$varargs i32)
     (local $__receiver$709 i32)
+    (local $__receiver$710$varargs i32)
     (local $__receiver$710 i32)
+    (local $__receiver$711$varargs i32)
     (local $__receiver$711 i32)
+    (local $__receiver$712$varargs i32)
     (local $__receiver$712 i32)
+    (local $__receiver$713$varargs i32)
     (local $__receiver$713 i32)
+    (local $__receiver$714$varargs i32)
     (local $__receiver$714 i32)
+    (local $__receiver$715$varargs i32)
     (local $__receiver$715 i32)
+    (local $__receiver$716$varargs i32)
     (local $__receiver$716 i32)
     (local $__caught_exc i32)
     local.get $accumulator
@@ -30756,9 +31816,14 @@
     (local $__mutation$75$address i32)
     (local $__mutation$75$old i32)
     (local $__mutation$75$new i32)
+    (local $__arrayAllocation$1059 i32)
+    (local $__receiver$717$varargs i32)
     (local $__receiver$717 i32)
+    (local $__receiver$718$varargs i32)
     (local $__receiver$718 i32)
+    (local $__receiver$719$varargs i32)
     (local $__receiver$719 i32)
+    (local $__receiver$720$varargs i32)
     (local $__receiver$720 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -30784,8 +31849,8 @@
     i32.const 8
     i32.const 8
     call $__javaw_array_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    local.set $__arrayAllocation$1059
+    local.get $__arrayAllocation$1059
     local.set $result
     i32.const 0
     local.set $i
@@ -30853,6 +31918,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$721$varargs i32)
     (local $__receiver$721 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -30882,6 +31948,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$722$varargs i32)
     (local $__receiver$722 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -30913,6 +31980,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$723$varargs i32)
     (local $__receiver$723 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -30944,6 +32012,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$724$varargs i32)
     (local $__receiver$724 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -30972,8 +32041,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$322$varargs i32)
     (local $__allocation$322 i32)
+    (local $__allocation$323$varargs i32)
     (local $__allocation$323 i32)
+    (local $__receiver$725$varargs i32)
     (local $__receiver$725 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -31016,8 +32088,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$324$varargs i32)
     (local $__allocation$324 i32)
+    (local $__allocation$325$varargs i32)
     (local $__allocation$325 i32)
+    (local $__receiver$726$varargs i32)
     (local $__receiver$726 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -31060,9 +32135,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$326$varargs i32)
     (local $__allocation$326 i32)
+    (local $__allocation$327$varargs i32)
     (local $__allocation$327 i32)
+    (local $__allocation$328$varargs i32)
     (local $__allocation$328 i32)
+    (local $__receiver$727$varargs i32)
     (local $__receiver$727 i32)
     (local $__caught_exc i32)
     local.get $mapper
@@ -31126,9 +32205,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$329$varargs i32)
     (local $__allocation$329 i32)
+    (local $__allocation$330$varargs i32)
     (local $__allocation$330 i32)
+    (local $__allocation$331$varargs i32)
     (local $__allocation$331 i32)
+    (local $__receiver$728$varargs i32)
     (local $__receiver$728 i32)
     (local $__caught_exc i32)
     local.get $mapper
@@ -31192,7 +32275,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$332$varargs i32)
     (local $__allocation$332 i32)
+    (local $__receiver$729$varargs i32)
     (local $__receiver$729 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -31308,7 +32393,9 @@
     (local $__mutation$76$address i32)
     (local $__mutation$76$old i64)
     (local $__mutation$76$new i64)
+    (local $__allocation$333$varargs i32)
     (local $__allocation$333 i32)
+    (local $__receiver$730$varargs i32)
     (local $__receiver$730 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -31434,6 +32521,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$334$varargs i32)
     (local $__allocation$334 i32)
     (local $__caught_exc i32)
     i32.const 24
@@ -31466,6 +32554,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$335$varargs i32)
     (local $__allocation$335 i32)
     (local $__caught_exc i32)
     i32.const 24
@@ -31540,6 +32629,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$336$varargs i32)
     (local $__allocation$336 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -31604,6 +32694,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$731$varargs i32)
     (local $__receiver$731 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -31639,6 +32730,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$732$varargs i32)
     (local $__receiver$732 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -31667,6 +32759,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$733$varargs i32)
     (local $__receiver$733 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -31751,7 +32844,9 @@
     (local $__mutation$77$address i32)
     (local $__mutation$77$old i32)
     (local $__mutation$77$new i32)
+    (local $__allocation$337$varargs i32)
     (local $__allocation$337 i32)
+    (local $__receiver$734$varargs i32)
     (local $__receiver$734 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -31841,6 +32936,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$735$varargs i32)
     (local $__receiver$735 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -31896,6 +32992,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$736$varargs i32)
     (local $__receiver$736 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -31950,6 +33047,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$737$varargs i32)
     (local $__receiver$737 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -32003,6 +33101,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$738$varargs i32)
     (local $__receiver$738 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -32055,6 +33154,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$739$varargs i32)
     (local $__receiver$739 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -32110,6 +33210,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$740$varargs i32)
     (local $__receiver$740 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -32164,6 +33265,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$741$varargs i32)
     (local $__receiver$741 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -32218,6 +33320,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$742$varargs i32)
     (local $__receiver$742 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -32282,9 +33385,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$338$varargs i32)
     (local $__allocation$338 i32)
+    (local $__allocation$339$varargs i32)
     (local $__allocation$339 i32)
+    (local $__allocation$340$varargs i32)
     (local $__allocation$340 i32)
+    (local $__receiver$743$varargs i32)
     (local $__receiver$743 i32)
     (local $__caught_exc i32)
     local.get $values
@@ -32340,15 +33447,16 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$744$varargs i32)
     (local $__receiver$744 i32)
     (local $__caught_exc i32)
     i32.const 8
-    call $__heap_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    call $__javaw_array_bytes_alloc
+    local.set $__receiver$744$varargs
+    local.get $__receiver$744$varargs
     i32.const 0
     i32.store
-    local.get $__arr_alloc_ptr
+    local.get $__receiver$744$varargs
     call $DoubleStream_of
     return
   )
@@ -32368,9 +33476,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$341$varargs i32)
     (local $__allocation$341 i32)
+    (local $__allocation$342$varargs i32)
     (local $__allocation$342 i32)
+    (local $__allocation$343$varargs i32)
     (local $__allocation$343 i32)
+    (local $__receiver$745$varargs i32)
     (local $__receiver$745 i32)
     (local $__caught_exc i32)
     local.get $supplier
@@ -32427,9 +33539,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$344$varargs i32)
     (local $__allocation$344 i32)
+    (local $__allocation$345$varargs i32)
     (local $__allocation$345 i32)
+    (local $__allocation$346$varargs i32)
     (local $__allocation$346 i32)
+    (local $__receiver$746$varargs i32)
     (local $__receiver$746 i32)
     (local $__caught_exc i32)
     local.get $operator
@@ -32489,9 +33605,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$347$varargs i32)
     (local $__allocation$347 i32)
+    (local $__allocation$348$varargs i32)
     (local $__allocation$348 i32)
+    (local $__allocation$349$varargs i32)
     (local $__allocation$349 i32)
+    (local $__receiver$747$varargs i32)
     (local $__receiver$747 i32)
     (local $__caught_exc i32)
     local.get $mapper
@@ -32555,9 +33675,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$350$varargs i32)
     (local $__allocation$350 i32)
+    (local $__allocation$351$varargs i32)
     (local $__allocation$351 i32)
+    (local $__allocation$352$varargs i32)
     (local $__allocation$352 i32)
+    (local $__receiver$748$varargs i32)
     (local $__receiver$748 i32)
     (local $__caught_exc i32)
     local.get $predicate
@@ -32621,9 +33745,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$353$varargs i32)
     (local $__allocation$353 i32)
+    (local $__allocation$354$varargs i32)
     (local $__allocation$354 i32)
+    (local $__allocation$355$varargs i32)
     (local $__allocation$355 i32)
+    (local $__receiver$749$varargs i32)
     (local $__receiver$749 i32)
     (local $__caught_exc i32)
     local.get $consumer
@@ -32687,9 +33815,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$356$varargs i32)
     (local $__allocation$356 i32)
+    (local $__allocation$357$varargs i32)
     (local $__allocation$357 i32)
+    (local $__allocation$358$varargs i32)
     (local $__allocation$358 i32)
+    (local $__receiver$750$varargs i32)
     (local $__receiver$750 i32)
     (local $__caught_exc i32)
     local.get $predicate
@@ -32753,9 +33885,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$359$varargs i32)
     (local $__allocation$359 i32)
+    (local $__allocation$360$varargs i32)
     (local $__allocation$360 i32)
+    (local $__allocation$361$varargs i32)
     (local $__allocation$361 i32)
+    (local $__receiver$751$varargs i32)
     (local $__receiver$751 i32)
     (local $__caught_exc i32)
     local.get $predicate
@@ -32819,9 +33955,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$362$varargs i32)
     (local $__allocation$362 i32)
+    (local $__allocation$363$varargs i32)
     (local $__allocation$363 i32)
+    (local $__allocation$364$varargs i32)
     (local $__allocation$364 i32)
+    (local $__receiver$752$varargs i32)
     (local $__receiver$752 i32)
     (local $__caught_exc i32)
     local.get $mapper
@@ -32885,8 +34025,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$365$varargs i32)
     (local $__allocation$365 i32)
+    (local $__allocation$366$varargs i32)
     (local $__allocation$366 i32)
+    (local $__receiver$753$varargs i32)
     (local $__receiver$753 i32)
     (local $__caught_exc i32)
     local.get $mapper
@@ -32941,7 +34084,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$367$varargs i32)
     (local $__allocation$367 i32)
+    (local $__receiver$754$varargs i32)
     (local $__receiver$754 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -32981,7 +34126,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$368$varargs i32)
     (local $__allocation$368 i32)
+    (local $__receiver$755$varargs i32)
     (local $__receiver$755 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -33021,7 +34168,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$369$varargs i32)
     (local $__allocation$369 i32)
+    (local $__receiver$756$varargs i32)
     (local $__receiver$756 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -33060,7 +34209,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$370$varargs i32)
     (local $__allocation$370 i32)
+    (local $__receiver$757$varargs i32)
     (local $__receiver$757 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -33120,6 +34271,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$758$varargs i32)
     (local $__receiver$758 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -33150,10 +34302,15 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$759$varargs i32)
     (local $__receiver$759 i32)
+    (local $__receiver$760$varargs i32)
     (local $__receiver$760 i32)
+    (local $__receiver$761$varargs i32)
     (local $__receiver$761 i32)
+    (local $__receiver$762$varargs i32)
     (local $__receiver$762 i32)
+    (local $__receiver$763$varargs i32)
     (local $__receiver$763 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -33207,6 +34364,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$764$varargs i32)
     (local $__receiver$764 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -33235,8 +34393,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$371$varargs i32)
     (local $__allocation$371 i32)
+    (local $__allocation$372$varargs i32)
     (local $__allocation$372 i32)
+    (local $__receiver$765$varargs i32)
     (local $__receiver$765 i32)
     (local $__caught_exc i32)
     local.get $predicate
@@ -33291,8 +34452,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$373$varargs i32)
     (local $__allocation$373 i32)
+    (local $__allocation$374$varargs i32)
     (local $__allocation$374 i32)
+    (local $__receiver$766$varargs i32)
     (local $__receiver$766 i32)
     (local $__caught_exc i32)
     local.get $predicate
@@ -33347,8 +34511,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$375$varargs i32)
     (local $__allocation$375 i32)
+    (local $__allocation$376$varargs i32)
     (local $__allocation$376 i32)
+    (local $__receiver$767$varargs i32)
     (local $__receiver$767 i32)
     (local $__caught_exc i32)
     local.get $predicate
@@ -33403,8 +34570,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$377$varargs i32)
     (local $__allocation$377 i32)
+    (local $__allocation$378$varargs i32)
     (local $__allocation$378 i32)
+    (local $__receiver$768$varargs i32)
     (local $__receiver$768 i32)
     (local $__caught_exc i32)
     local.get $consumer
@@ -33458,6 +34628,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$769$varargs i32)
     (local $__receiver$769 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -33488,8 +34659,11 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$770$varargs i32)
     (local $__receiver$770 i32)
+    (local $__receiver$771$varargs i32)
     (local $__receiver$771 i32)
+    (local $__receiver$772$varargs i32)
     (local $__receiver$772 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -33558,10 +34732,15 @@
     (local $__mutation$78$address i32)
     (local $__mutation$78$old i64)
     (local $__mutation$78$new i64)
+    (local $__receiver$773$varargs i32)
     (local $__receiver$773 i32)
+    (local $__receiver$774$varargs i32)
     (local $__receiver$774 i32)
+    (local $__receiver$775$varargs i32)
     (local $__receiver$775 i32)
+    (local $__receiver$776$varargs i32)
     (local $__receiver$776 i32)
+    (local $__receiver$777$varargs i32)
     (local $__receiver$777 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -33647,6 +34826,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$778$varargs i32)
     (local $__receiver$778 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -33671,6 +34851,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$779$varargs i32)
     (local $__receiver$779 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -33698,16 +34879,27 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$780$varargs i32)
     (local $__receiver$780 i32)
+    (local $__receiver$781$varargs i32)
     (local $__receiver$781 i32)
+    (local $__receiver$782$varargs i32)
     (local $__receiver$782 i32)
+    (local $__receiver$783$varargs i32)
     (local $__receiver$783 i32)
+    (local $__receiver$784$varargs i32)
     (local $__receiver$784 i32)
+    (local $__receiver$785$varargs i32)
     (local $__receiver$785 i32)
+    (local $__receiver$786$varargs i32)
     (local $__receiver$786 i32)
+    (local $__receiver$787$varargs i32)
     (local $__receiver$787 i32)
+    (local $__receiver$788$varargs i32)
     (local $__receiver$788 i32)
+    (local $__receiver$789$varargs i32)
     (local $__receiver$789 i32)
+    (local $__receiver$790$varargs i32)
     (local $__receiver$790 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -33852,10 +35044,15 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$379$varargs i32)
     (local $__allocation$379 i32)
+    (local $__receiver$791$varargs i32)
     (local $__receiver$791 i32)
+    (local $__receiver$792$varargs i32)
     (local $__receiver$792 i32)
+    (local $__receiver$793$varargs i32)
     (local $__receiver$793 i32)
+    (local $__receiver$794$varargs i32)
     (local $__receiver$794 i32)
     (local $__caught_exc i32)
     local.get $accumulator
@@ -33941,14 +35138,23 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$380$varargs i32)
     (local $__allocation$380 i32)
+    (local $__receiver$795$varargs i32)
     (local $__receiver$795 i32)
+    (local $__receiver$796$varargs i32)
     (local $__receiver$796 i32)
+    (local $__receiver$797$varargs i32)
     (local $__receiver$797 i32)
+    (local $__receiver$798$varargs i32)
     (local $__receiver$798 i32)
+    (local $__receiver$799$varargs i32)
     (local $__receiver$799 i32)
+    (local $__receiver$800$varargs i32)
     (local $__receiver$800 i32)
+    (local $__receiver$801$varargs i32)
     (local $__receiver$801 i32)
+    (local $__receiver$802$varargs i32)
     (local $__receiver$802 i32)
     (local $__caught_exc i32)
     local.get $accumulator
@@ -34061,9 +35267,14 @@
     (local $__mutation$79$address i32)
     (local $__mutation$79$old i32)
     (local $__mutation$79$new i32)
+    (local $__arrayAllocation$1206 i32)
+    (local $__receiver$803$varargs i32)
     (local $__receiver$803 i32)
+    (local $__receiver$804$varargs i32)
     (local $__receiver$804 i32)
+    (local $__receiver$805$varargs i32)
     (local $__receiver$805 i32)
+    (local $__receiver$806$varargs i32)
     (local $__receiver$806 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -34089,8 +35300,8 @@
     i32.const 8
     i32.const 8
     call $__javaw_array_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    local.set $__arrayAllocation$1206
+    local.get $__arrayAllocation$1206
     local.set $result
     i32.const 0
     local.set $i
@@ -34158,6 +35369,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$807$varargs i32)
     (local $__receiver$807 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -34187,6 +35399,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$808$varargs i32)
     (local $__receiver$808 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -34218,6 +35431,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$809$varargs i32)
     (local $__receiver$809 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -34249,6 +35463,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$810$varargs i32)
     (local $__receiver$810 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -34277,9 +35492,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$381$varargs i32)
     (local $__allocation$381 i32)
+    (local $__allocation$382$varargs i32)
     (local $__allocation$382 i32)
+    (local $__allocation$383$varargs i32)
     (local $__allocation$383 i32)
+    (local $__receiver$811$varargs i32)
     (local $__receiver$811 i32)
     (local $__caught_exc i32)
     local.get $mapper
@@ -34343,9 +35562,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$384$varargs i32)
     (local $__allocation$384 i32)
+    (local $__allocation$385$varargs i32)
     (local $__allocation$385 i32)
+    (local $__allocation$386$varargs i32)
     (local $__allocation$386 i32)
+    (local $__receiver$812$varargs i32)
     (local $__receiver$812 i32)
     (local $__caught_exc i32)
     local.get $mapper
@@ -34435,6 +35658,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$813$varargs i32)
     (local $__receiver$813 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -34534,6 +35758,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$814$varargs i32)
     (local $__receiver$814 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -34633,6 +35858,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$815$varargs i32)
     (local $__receiver$815 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -34692,6 +35918,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$816$varargs i32)
     (local $__receiver$816 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -34791,6 +36018,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$817$varargs i32)
     (local $__receiver$817 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -34850,6 +36078,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$818$varargs i32)
     (local $__receiver$818 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -34902,7 +36131,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$387$varargs i32)
     (local $__allocation$387 i32)
+    (local $__allocation$388$varargs i32)
     (local $__allocation$388 i32)
     (local $__caught_exc i32)
     i32.const 24
@@ -34946,6 +36177,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$389$varargs i32)
     (local $__allocation$389 i32)
     (local $__caught_exc i32)
     i32.const 24
@@ -35025,10 +36257,15 @@
     (local $__mutation$80$address i32)
     (local $__mutation$80$old i32)
     (local $__mutation$80$new i32)
+    (local $__allocation$390$varargs i32)
     (local $__allocation$390 i32)
+    (local $__allocation$391$varargs i32)
     (local $__allocation$391 i32)
+    (local $__allocation$392$varargs i32)
     (local $__allocation$392 i32)
+    (local $__receiver$819$varargs i32)
     (local $__receiver$819 i32)
+    (local $__receiver$820$varargs i32)
     (local $__receiver$820 i32)
     (local $__caught_exc i32)
     local.get $values
@@ -35159,10 +36396,16 @@
     (local $__mutation$82$address i32)
     (local $__mutation$82$old i32)
     (local $__mutation$82$new i32)
+    (local $__arrayAllocation$1237 i32)
+    (local $__receiver$821$varargs i32)
     (local $__receiver$821 i32)
+    (local $__receiver$822$varargs i32)
     (local $__receiver$822 i32)
+    (local $__receiver$823$varargs i32)
     (local $__receiver$823 i32)
+    (local $__receiver$824$varargs i32)
     (local $__receiver$824 i32)
+    (local $__receiver$825$varargs i32)
     (local $__receiver$825 i32)
     (local $__caught_exc i32)
     local.get $source
@@ -35205,8 +36448,8 @@
     i32.const 4
     i32.const 4
     call $__javaw_array_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    local.set $__arrayAllocation$1237
+    local.get $__arrayAllocation$1237
     local.set $result
     i32.const 0
     local.set $i
@@ -35289,6 +36532,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$826$varargs i32)
     (local $__receiver$826 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -35318,6 +36562,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$827$varargs i32)
     (local $__receiver$827 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -35347,6 +36592,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$828$varargs i32)
     (local $__receiver$828 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -35377,6 +36623,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$393$varargs i32)
     (local $__allocation$393 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -35407,6 +36654,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$394$varargs i32)
     (local $__allocation$394 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -35437,6 +36685,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$395$varargs i32)
     (local $__allocation$395 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -35466,7 +36715,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$396$varargs i32)
     (local $__allocation$396 i32)
+    (local $__receiver$829$varargs i32)
     (local $__receiver$829 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -35505,6 +36756,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$830$varargs i32)
     (local $__receiver$830 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -35528,7 +36780,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$397$varargs i32)
     (local $__allocation$397 i32)
+    (local $__allocation$398$varargs i32)
     (local $__allocation$398 i32)
     (local $__caught_exc i32)
     local.get $source
@@ -35733,6 +36987,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$399$varargs i32)
     (local $__allocation$399 i32)
     (local $__caught_exc i32)
     i32.const 16
@@ -35781,6 +37036,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$831$varargs i32)
     (local $__receiver$831 i32)
     (local $__caught_exc i32)
     local.get $list
@@ -35830,9 +37086,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$832$varargs i32)
     (local $__receiver$832 i32)
+    (local $__receiver$833$varargs i32)
     (local $__receiver$833 i32)
+    (local $__receiver$834$varargs i32)
     (local $__receiver$834 i32)
+    (local $__receiver$835$varargs i32)
     (local $__receiver$835 i32)
     (local $__caught_exc i32)
     local.get $second
@@ -35914,6 +37174,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$400$varargs i32)
     (local $__allocation$400 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -35962,6 +37223,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$836$varargs i32)
     (local $__receiver$836 i32)
     (local $__caught_exc i32)
     local.get $set
@@ -36011,9 +37273,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$837$varargs i32)
     (local $__receiver$837 i32)
+    (local $__receiver$838$varargs i32)
     (local $__receiver$838 i32)
+    (local $__receiver$839$varargs i32)
     (local $__receiver$839 i32)
+    (local $__receiver$840$varargs i32)
     (local $__receiver$840 i32)
     (local $__caught_exc i32)
     local.get $second
@@ -36185,6 +37451,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$401$varargs i32)
     (local $__allocation$401 i32)
     (local $__caught_exc i32)
     i32.const 16
@@ -36235,6 +37502,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$841$varargs i32)
     (local $__receiver$841 i32)
     (local $__caught_exc i32)
     local.get $buffer
@@ -36414,7 +37682,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$842$varargs i32)
     (local $__receiver$842 i32)
+    (local $__receiver$843$varargs i32)
     (local $__receiver$843 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -36479,7 +37749,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$844$varargs i32)
     (local $__receiver$844 i32)
+    (local $__receiver$845$varargs i32)
     (local $__receiver$845 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -36604,6 +37876,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__arrayAllocation$1272 i32)
     (local $__caught_exc i32)
     i32.const 2
     local.set $__arr_alloc_len
@@ -36611,8 +37884,8 @@
     i32.const 4
     i32.const 4
     call $__javaw_array_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    local.set $__arrayAllocation$1272
+    local.get $__arrayAllocation$1272
     local.set $result
     local.get $result
     i32.const 0
@@ -36674,6 +37947,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$846$varargs i32)
     (local $__receiver$846 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -36773,6 +38047,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$847$varargs i32)
     (local $__receiver$847 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -36939,7 +38214,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$848$varargs i32)
     (local $__receiver$848 i32)
+    (local $__receiver$849$varargs i32)
     (local $__receiver$849 i32)
     (local $__caught_exc i32)
     local.get $value
@@ -36980,10 +38257,16 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__arrayAllocation$1277 i32)
+    (local $__allocation$402$varargs i32)
     (local $__allocation$402 i32)
+    (local $__allocation$403$varargs i32)
     (local $__allocation$403 i32)
+    (local $__allocation$404$varargs i32)
     (local $__allocation$404 i32)
+    (local $__allocation$405$varargs i32)
     (local $__allocation$405 i32)
+    (local $__allocation$406$varargs i32)
     (local $__allocation$406 i32)
     (local $__caught_exc i32)
     i32.const 24
@@ -37035,8 +38318,8 @@
     i32.const 4
     i32.const 4
     call $__javaw_array_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    local.set $__arrayAllocation$1277
+    local.get $__arrayAllocation$1277
     i32.const 0
     call $__JavawCollector__init
     local.get $__allocation$402
@@ -37058,11 +38341,18 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__arrayAllocation$1283 i32)
+    (local $__allocation$407$varargs i32)
     (local $__allocation$407 i32)
+    (local $__allocation$408$varargs i32)
     (local $__allocation$408 i32)
+    (local $__allocation$409$varargs i32)
     (local $__allocation$409 i32)
+    (local $__allocation$410$varargs i32)
     (local $__allocation$410 i32)
+    (local $__allocation$411$varargs i32)
     (local $__allocation$411 i32)
+    (local $__allocation$412$varargs i32)
     (local $__allocation$412 i32)
     (local $__caught_exc i32)
     local.get $operator
@@ -37134,8 +38424,8 @@
     i32.const 4
     i32.const 4
     call $__javaw_array_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    local.set $__arrayAllocation$1283
+    local.get $__arrayAllocation$1283
     i32.const 0
     call $__JavawCollector__init
     local.get $__allocation$408
@@ -37157,11 +38447,18 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__arrayAllocation$1290 i32)
+    (local $__allocation$413$varargs i32)
     (local $__allocation$413 i32)
+    (local $__allocation$414$varargs i32)
     (local $__allocation$414 i32)
+    (local $__allocation$415$varargs i32)
     (local $__allocation$415 i32)
+    (local $__allocation$416$varargs i32)
     (local $__allocation$416 i32)
+    (local $__allocation$417$varargs i32)
     (local $__allocation$417 i32)
+    (local $__allocation$418$varargs i32)
     (local $__allocation$418 i32)
     (local $__caught_exc i32)
     local.get $operator
@@ -37233,8 +38530,8 @@
     i32.const 4
     i32.const 4
     call $__javaw_array_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    local.set $__arrayAllocation$1290
+    local.get $__arrayAllocation$1290
     i32.const 0
     call $__JavawCollector__init
     local.get $__allocation$414
@@ -37256,10 +38553,16 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__arrayAllocation$1297 i32)
+    (local $__allocation$419$varargs i32)
     (local $__allocation$419 i32)
+    (local $__allocation$420$varargs i32)
     (local $__allocation$420 i32)
+    (local $__allocation$421$varargs i32)
     (local $__allocation$421 i32)
+    (local $__allocation$422$varargs i32)
     (local $__allocation$422 i32)
+    (local $__allocation$423$varargs i32)
     (local $__allocation$423 i32)
     (local $__caught_exc i32)
     i32.const 24
@@ -37311,8 +38614,8 @@
     i32.const 4
     i32.const 4
     call $__javaw_array_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    local.set $__arrayAllocation$1297
+    local.get $__arrayAllocation$1297
     i32.const 1
     call $__JavawCollector__init
     local.get $__allocation$419
@@ -37335,10 +38638,16 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__arrayAllocation$1303 i32)
+    (local $__allocation$424$varargs i32)
     (local $__allocation$424 i32)
+    (local $__allocation$425$varargs i32)
     (local $__allocation$425 i32)
+    (local $__allocation$426$varargs i32)
     (local $__allocation$426 i32)
+    (local $__allocation$427$varargs i32)
     (local $__allocation$427 i32)
+    (local $__allocation$428$varargs i32)
     (local $__allocation$428 i32)
     (local $__caught_exc i32)
     i32.const 1
@@ -37347,8 +38656,8 @@
     i32.const 4
     i32.const 4
     call $__javaw_array_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    local.set $__arrayAllocation$1303
+    local.get $__arrayAllocation$1303
     local.set $flags
     local.get $flags
     i32.const 0
@@ -37422,6 +38731,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$850$varargs i32)
     (local $__receiver$850 i32)
     (local $__caught_exc i32)
     i32.const 4159
@@ -37444,6 +38754,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$851$varargs i32)
     (local $__receiver$851 i32)
     (local $__caught_exc i32)
     local.get $delimiter
@@ -37468,11 +38779,18 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__arrayAllocation$1311 i32)
+    (local $__allocation$429$varargs i32)
     (local $__allocation$429 i32)
+    (local $__allocation$430$varargs i32)
     (local $__allocation$430 i32)
+    (local $__allocation$431$varargs i32)
     (local $__allocation$431 i32)
+    (local $__allocation$432$varargs i32)
     (local $__allocation$432 i32)
+    (local $__allocation$433$varargs i32)
     (local $__allocation$433 i32)
+    (local $__allocation$434$varargs i32)
     (local $__allocation$434 i32)
     (local $__caught_exc i32)
     local.get $delimiter
@@ -37556,8 +38874,8 @@
     i32.const 4
     i32.const 4
     call $__javaw_array_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    local.set $__arrayAllocation$1311
+    local.get $__arrayAllocation$1311
     i32.const 0
     call $__JavawCollector__init
     local.get $__allocation$430
@@ -37579,14 +38897,23 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$435$varargs i32)
     (local $__allocation$435 i32)
+    (local $__allocation$436$varargs i32)
     (local $__allocation$436 i32)
+    (local $__allocation$437$varargs i32)
     (local $__allocation$437 i32)
+    (local $__receiver$852$varargs i32)
     (local $__receiver$852 i32)
+    (local $__receiver$853$varargs i32)
     (local $__receiver$853 i32)
+    (local $__receiver$854$varargs i32)
     (local $__receiver$854 i32)
+    (local $__receiver$855$varargs i32)
     (local $__receiver$855 i32)
+    (local $__receiver$856$varargs i32)
     (local $__receiver$856 i32)
+    (local $__receiver$857$varargs i32)
     (local $__receiver$857 i32)
     (local $__caught_exc i32)
     local.get $mapper
@@ -37691,14 +39018,23 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$438$varargs i32)
     (local $__allocation$438 i32)
+    (local $__allocation$439$varargs i32)
     (local $__allocation$439 i32)
+    (local $__allocation$440$varargs i32)
     (local $__allocation$440 i32)
+    (local $__receiver$858$varargs i32)
     (local $__receiver$858 i32)
+    (local $__receiver$859$varargs i32)
     (local $__receiver$859 i32)
+    (local $__receiver$860$varargs i32)
     (local $__receiver$860 i32)
+    (local $__receiver$861$varargs i32)
     (local $__receiver$861 i32)
+    (local $__receiver$862$varargs i32)
     (local $__receiver$862 i32)
+    (local $__receiver$863$varargs i32)
     (local $__receiver$863 i32)
     (local $__caught_exc i32)
     local.get $predicate
@@ -37803,14 +39139,23 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$441$varargs i32)
     (local $__allocation$441 i32)
+    (local $__allocation$442$varargs i32)
     (local $__allocation$442 i32)
+    (local $__receiver$864$varargs i32)
     (local $__receiver$864 i32)
+    (local $__receiver$865$varargs i32)
     (local $__receiver$865 i32)
+    (local $__receiver$866$varargs i32)
     (local $__receiver$866 i32)
+    (local $__receiver$867$varargs i32)
     (local $__receiver$867 i32)
+    (local $__receiver$868$varargs i32)
     (local $__receiver$868 i32)
+    (local $__receiver$869$varargs i32)
     (local $__receiver$869 i32)
+    (local $__receiver$870$varargs i32)
     (local $__receiver$870 i32)
     (local $__caught_exc i32)
     local.get $downstream
@@ -37913,11 +39258,18 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__arrayAllocation$1345 i32)
+    (local $__allocation$443$varargs i32)
     (local $__allocation$443 i32)
+    (local $__allocation$444$varargs i32)
     (local $__allocation$444 i32)
+    (local $__allocation$445$varargs i32)
     (local $__allocation$445 i32)
+    (local $__allocation$446$varargs i32)
     (local $__allocation$446 i32)
+    (local $__allocation$447$varargs i32)
     (local $__allocation$447 i32)
+    (local $__allocation$448$varargs i32)
     (local $__allocation$448 i32)
     (local $__caught_exc i32)
     local.get $mapper
@@ -37985,8 +39337,8 @@
     i32.const 4
     i32.const 4
     call $__javaw_array_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    local.set $__arrayAllocation$1345
+    local.get $__arrayAllocation$1345
     i32.const 0
     call $__JavawCollector__init
     local.get $__allocation$444
@@ -38008,11 +39360,18 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__arrayAllocation$1352 i32)
+    (local $__allocation$449$varargs i32)
     (local $__allocation$449 i32)
+    (local $__allocation$450$varargs i32)
     (local $__allocation$450 i32)
+    (local $__allocation$451$varargs i32)
     (local $__allocation$451 i32)
+    (local $__allocation$452$varargs i32)
     (local $__allocation$452 i32)
+    (local $__allocation$453$varargs i32)
     (local $__allocation$453 i32)
+    (local $__allocation$454$varargs i32)
     (local $__allocation$454 i32)
     (local $__caught_exc i32)
     local.get $mapper
@@ -38080,8 +39439,8 @@
     i32.const 4
     i32.const 4
     call $__javaw_array_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    local.set $__arrayAllocation$1352
+    local.get $__arrayAllocation$1352
     i32.const 0
     call $__JavawCollector__init
     local.get $__allocation$450
@@ -38103,11 +39462,18 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__arrayAllocation$1359 i32)
+    (local $__allocation$455$varargs i32)
     (local $__allocation$455 i32)
+    (local $__allocation$456$varargs i32)
     (local $__allocation$456 i32)
+    (local $__allocation$457$varargs i32)
     (local $__allocation$457 i32)
+    (local $__allocation$458$varargs i32)
     (local $__allocation$458 i32)
+    (local $__allocation$459$varargs i32)
     (local $__allocation$459 i32)
+    (local $__allocation$460$varargs i32)
     (local $__allocation$460 i32)
     (local $__caught_exc i32)
     local.get $mapper
@@ -38175,8 +39541,8 @@
     i32.const 4
     i32.const 4
     call $__javaw_array_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    local.set $__arrayAllocation$1359
+    local.get $__arrayAllocation$1359
     i32.const 0
     call $__JavawCollector__init
     local.get $__allocation$456
@@ -38217,6 +39583,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__arrayAllocation$1366 i32)
     (local $__caught_exc i32)
     i32.const 1
     local.set $__arr_alloc_len
@@ -38224,8 +39591,8 @@
     i32.const 4
     i32.const 4
     call $__javaw_array_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    local.set $__arrayAllocation$1366
+    local.get $__arrayAllocation$1366
     return
   )
   ;; Class/Interface: __JavawIntSumAcc
@@ -38266,6 +39633,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$871$varargs i32)
     (local $__receiver$871 i32)
     (local $__caught_exc i32)
     local.get $sum
@@ -38426,6 +39794,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__arrayAllocation$1368 i32)
     (local $__caught_exc i32)
     i32.const 1
     local.set $__arr_alloc_len
@@ -38433,8 +39802,8 @@
     i32.const 8
     i32.const 8
     call $__javaw_array_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    local.set $__arrayAllocation$1368
+    local.get $__arrayAllocation$1368
     return
   )
   ;; Class/Interface: __JavawLongSumAcc
@@ -38475,6 +39844,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$872$varargs i32)
     (local $__receiver$872 i32)
     (local $__caught_exc i32)
     local.get $sum
@@ -38635,6 +40005,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__arrayAllocation$1370 i32)
     (local $__caught_exc i32)
     i32.const 1
     local.set $__arr_alloc_len
@@ -38642,8 +40013,8 @@
     i32.const 8
     i32.const 8
     call $__javaw_array_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    local.set $__arrayAllocation$1370
+    local.get $__arrayAllocation$1370
     return
   )
   ;; Class/Interface: __JavawDoubleSumAcc
@@ -38684,6 +40055,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$873$varargs i32)
     (local $__receiver$873 i32)
     (local $__caught_exc i32)
     local.get $sum
@@ -38844,6 +40216,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$461$varargs i32)
     (local $__allocation$461 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -38874,6 +40247,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$462$varargs i32)
     (local $__allocation$462 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -38904,6 +40278,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$463$varargs i32)
     (local $__allocation$463 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -38934,6 +40309,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$464$varargs i32)
     (local $__allocation$464 i32)
     (local $__caught_exc i32)
     i32.const 8
@@ -38986,7 +40362,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$465$varargs i32)
     (local $__allocation$465 i32)
+    (local $__allocation$466$varargs i32)
     (local $__allocation$466 i32)
     (local $__caught_exc i32)
     local.get $value
@@ -39045,7 +40423,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$874$varargs i32)
     (local $__receiver$874 i32)
+    (local $__receiver$875$varargs i32)
     (local $__receiver$875 i32)
     (local $__caught_exc i32)
     local.get $text
@@ -39230,7 +40610,10 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__arrayAllocation$1380 i32)
+    (local $__allocation$467$varargs i32)
     (local $__allocation$467 i32)
+    (local $__allocation$468$varargs i32)
     (local $__allocation$468 i32)
     (local $__caught_exc i32)
     local.get $value
@@ -39256,8 +40639,8 @@
     i32.const 4
     i32.const 4
     call $__javaw_array_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    local.set $__arrayAllocation$1380
+    local.get $__arrayAllocation$1380
     global.set $__cache_Byte
     end
     local.get $value
@@ -39325,7 +40708,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$876$varargs i32)
     (local $__receiver$876 i32)
+    (local $__receiver$877$varargs i32)
     (local $__receiver$877 i32)
     (local $__caught_exc i32)
     local.get $text
@@ -39350,7 +40735,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$878$varargs i32)
     (local $__receiver$878 i32)
+    (local $__receiver$879$varargs i32)
     (local $__receiver$879 i32)
     (local $__caught_exc i32)
     local.get $text
@@ -39643,7 +41030,10 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__arrayAllocation$1387 i32)
+    (local $__allocation$469$varargs i32)
     (local $__allocation$469 i32)
+    (local $__allocation$470$varargs i32)
     (local $__allocation$470 i32)
     (local $__caught_exc i32)
     local.get $value
@@ -39667,8 +41057,8 @@
     i32.const 4
     i32.const 4
     call $__javaw_array_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    local.set $__arrayAllocation$1387
+    local.get $__arrayAllocation$1387
     global.set $__cache_Character
     end
     local.get $value
@@ -39893,6 +41283,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$471$varargs i32)
     (local $__allocation$471 i32)
     (local $__caught_exc i32)
     i32.const 16
@@ -39923,7 +41314,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$880$varargs i32)
     (local $__receiver$880 i32)
+    (local $__receiver$881$varargs i32)
     (local $__receiver$881 i32)
     (local $__caught_exc i32)
     local.get $text
@@ -40081,9 +41474,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$882$varargs i32)
     (local $__receiver$882 i32)
+    (local $__receiver$883$varargs i32)
     (local $__receiver$883 i32)
+    (local $__receiver$884$varargs i32)
     (local $__receiver$884 i32)
+    (local $__receiver$885$varargs i32)
     (local $__receiver$885 i32)
     (local $__caught_exc i32)
     local.get $other
@@ -40181,7 +41578,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$886$varargs i32)
     (local $__receiver$886 i32)
+    (local $__receiver$887$varargs i32)
     (local $__receiver$887 i32)
     (local $__caught_exc i32)
     local.get $other
@@ -40251,6 +41650,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$888$varargs i32)
     (local $__receiver$888 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -40306,6 +41706,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__allocation$472$varargs i32)
     (local $__allocation$472 i32)
     (local $__caught_exc i32)
     i32.const 16
@@ -40336,7 +41737,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$889$varargs i32)
     (local $__receiver$889 i32)
+    (local $__receiver$890$varargs i32)
     (local $__receiver$890 i32)
     (local $__caught_exc i32)
     local.get $text
@@ -40495,9 +41898,13 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$891$varargs i32)
     (local $__receiver$891 i32)
+    (local $__receiver$892$varargs i32)
     (local $__receiver$892 i32)
+    (local $__receiver$893$varargs i32)
     (local $__receiver$893 i32)
+    (local $__receiver$894$varargs i32)
     (local $__receiver$894 i32)
     (local $__caught_exc i32)
     local.get $other
@@ -40595,7 +42002,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$895$varargs i32)
     (local $__receiver$895 i32)
+    (local $__receiver$896$varargs i32)
     (local $__receiver$896 i32)
     (local $__caught_exc i32)
     local.get $other
@@ -40664,6 +42073,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$897$varargs i32)
     (local $__receiver$897 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -40713,7 +42123,10 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__arrayAllocation$1410 i32)
+    (local $__allocation$473$varargs i32)
     (local $__allocation$473 i32)
+    (local $__allocation$474$varargs i32)
     (local $__allocation$474 i32)
     (local $__caught_exc i32)
     local.get $value
@@ -40739,8 +42152,8 @@
     i32.const 4
     i32.const 4
     call $__javaw_array_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    local.set $__arrayAllocation$1410
+    local.get $__arrayAllocation$1410
     global.set $__cache_Integer
     end
     local.get $value
@@ -40808,7 +42221,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$898$varargs i32)
     (local $__receiver$898 i32)
+    (local $__receiver$899$varargs i32)
     (local $__receiver$899 i32)
     (local $__caught_exc i32)
     local.get $text
@@ -40832,7 +42247,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$900$varargs i32)
     (local $__receiver$900 i32)
+    (local $__receiver$901$varargs i32)
     (local $__receiver$901 i32)
     (local $__caught_exc i32)
     local.get $text
@@ -41126,7 +42543,10 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__arrayAllocation$1417 i32)
+    (local $__allocation$475$varargs i32)
     (local $__allocation$475 i32)
+    (local $__allocation$476$varargs i32)
     (local $__allocation$476 i32)
     (local $__caught_exc i32)
     local.get $value
@@ -41154,8 +42574,8 @@
     i32.const 4
     i32.const 4
     call $__javaw_array_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    local.set $__arrayAllocation$1417
+    local.get $__arrayAllocation$1417
     global.set $__cache_Long
     end
     local.get $value
@@ -41224,7 +42644,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$902$varargs i32)
     (local $__receiver$902 i32)
+    (local $__receiver$903$varargs i32)
     (local $__receiver$903 i32)
     (local $__caught_exc i32)
     local.get $text
@@ -41526,7 +42948,10 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__arrayAllocation$1422 i32)
+    (local $__allocation$477$varargs i32)
     (local $__allocation$477 i32)
+    (local $__allocation$478$varargs i32)
     (local $__allocation$478 i32)
     (local $__caught_exc i32)
     local.get $value
@@ -41552,8 +42977,8 @@
     i32.const 4
     i32.const 4
     call $__javaw_array_alloc
-    local.set $__arr_alloc_ptr
-    local.get $__arr_alloc_ptr
+    local.set $__arrayAllocation$1422
+    local.get $__arrayAllocation$1422
     global.set $__cache_Short
     end
     local.get $value
@@ -41621,7 +43046,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$904$varargs i32)
     (local $__receiver$904 i32)
+    (local $__receiver$905$varargs i32)
     (local $__receiver$905 i32)
     (local $__caught_exc i32)
     local.get $text
@@ -41646,7 +43073,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$906$varargs i32)
     (local $__receiver$906 i32)
+    (local $__receiver$907$varargs i32)
     (local $__receiver$907 i32)
     (local $__caught_exc i32)
     local.get $text
@@ -41916,11 +43345,17 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$908$varargs i32)
     (local $__receiver$908 i32)
+    (local $__receiver$909$varargs i32)
     (local $__receiver$909 i32)
+    (local $__receiver$910$varargs i32)
     (local $__receiver$910 i32)
+    (local $__receiver$911$varargs i32)
     (local $__receiver$911 i32)
+    (local $__receiver$912$varargs i32)
     (local $__receiver$912 i32)
+    (local $__receiver$913$varargs i32)
     (local $__receiver$913 i32)
     (local $__caught_exc i32)
     local.get $this
@@ -44802,11 +46237,7 @@
     i32.load offset=20
   )
   (func $Class_isArray (export "Class_isArray") (param $this i32) (result i32)
-    local.get $this
-    i32.load offset=4
-    i32.load8_u
-    i32.const 91
-    i32.eq
+    i32.const 0
   )
   (func $Class_getSuperclass (export "Class_getSuperclass") (param $this i32) (result i32)
     local.get $this
@@ -47716,7 +49147,7 @@
   (func $__init_classes (export "__init_classes")
     (local $inst i32)
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -47742,7 +49173,7 @@
     local.get $inst
     global.set $__class_Product
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -47768,7 +49199,7 @@
     local.get $inst
     global.set $__class_SpringBootApp
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -47794,7 +49225,7 @@
     local.get $inst
     global.set $__class_ProductController
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -47820,7 +49251,7 @@
     local.get $inst
     global.set $__class_ProductRepository
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -47846,7 +49277,7 @@
     local.get $inst
     global.set $__class___JavawRow_ProductRepository
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -47872,7 +49303,7 @@
     local.get $inst
     global.set $__class_ResponseStatusException
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -47898,7 +49329,7 @@
     local.get $inst
     global.set $__class_ApplicationRunner
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -47924,7 +49355,7 @@
     local.get $inst
     global.set $__class___JavawSpringContext
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -47950,7 +49381,7 @@
     local.get $inst
     global.set $__class_NumberFormatException
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -47976,7 +49407,7 @@
     local.get $inst
     global.set $__class_BigInteger
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -48002,7 +49433,7 @@
     local.get $inst
     global.set $__class_BigDecimal
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -48028,7 +49459,7 @@
     local.get $inst
     global.set $__class_Supplier
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -48054,7 +49485,7 @@
     local.get $inst
     global.set $__class_Function
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -48080,7 +49511,7 @@
     local.get $inst
     global.set $__class_Predicate
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -48106,7 +49537,7 @@
     local.get $inst
     global.set $__class_Consumer
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -48132,7 +49563,7 @@
     local.get $inst
     global.set $__class_UnaryOperator
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -48158,7 +49589,7 @@
     local.get $inst
     global.set $__class_BiFunction
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -48184,7 +49615,7 @@
     local.get $inst
     global.set $__class_BiConsumer
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -48210,7 +49641,7 @@
     local.get $inst
     global.set $__class_BinaryOperator
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -48236,7 +49667,7 @@
     local.get $inst
     global.set $__class___JavawCompose
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -48262,7 +49693,7 @@
     local.get $inst
     global.set $__class___JavawIdentity
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -48288,7 +49719,7 @@
     local.get $inst
     global.set $__class___JavawNegate
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -48314,7 +49745,7 @@
     local.get $inst
     global.set $__class___JavawPredicatePair
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -48340,7 +49771,7 @@
     local.get $inst
     global.set $__class___JavawConsumerPair
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -48366,7 +49797,7 @@
     local.get $inst
     global.set $__class_Optional
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -48392,7 +49823,7 @@
     local.get $inst
     global.set $__class_Iterable
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -48418,7 +49849,7 @@
     local.get $inst
     global.set $__class_Iterator
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -48444,7 +49875,7 @@
     local.get $inst
     global.set $__class_Collection
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -48470,7 +49901,7 @@
     local.get $inst
     global.set $__class_List
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -48496,7 +49927,7 @@
     local.get $inst
     global.set $__class_Set
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -48522,7 +49953,7 @@
     local.get $inst
     global.set $__class_Map
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -48548,7 +49979,7 @@
     local.get $inst
     global.set $__class_Entry
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -48574,7 +50005,7 @@
     local.get $inst
     global.set $__class___JavawObjects
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -48600,7 +50031,7 @@
     local.get $inst
     global.set $__class_ArrayList
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -48626,7 +50057,7 @@
     local.get $inst
     global.set $__class___JavawListIterator
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -48652,7 +50083,7 @@
     local.get $inst
     global.set $__class___JavawMapEntry
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -48678,7 +50109,7 @@
     local.get $inst
     global.set $__class_HashMap
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -48704,7 +50135,7 @@
     local.get $inst
     global.set $__class___JavawKeyIterator
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -48730,7 +50161,7 @@
     local.get $inst
     global.set $__class___JavawKeySet
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -48756,7 +50187,7 @@
     local.get $inst
     global.set $__class_HashSet
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -48782,7 +50213,7 @@
     local.get $inst
     global.set $__class___JavawSubList
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -48808,7 +50239,7 @@
     local.get $inst
     global.set $__class___JavawMapValueIterator
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -48834,7 +50265,7 @@
     local.get $inst
     global.set $__class___JavawMapValues
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -48860,7 +50291,7 @@
     local.get $inst
     global.set $__class___JavawEntryIterator
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -48886,7 +50317,7 @@
     local.get $inst
     global.set $__class___JavawEntrySet
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -48912,7 +50343,7 @@
     local.get $inst
     global.set $__class___JavawReadOnlyIterator
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -48938,7 +50369,7 @@
     local.get $inst
     global.set $__class_Comparator
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -48964,7 +50395,7 @@
     local.get $inst
     global.set $__class___JavawNaturalComparator
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -48990,7 +50421,7 @@
     local.get $inst
     global.set $__class___JavawArrayIterator
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -49016,7 +50447,7 @@
     local.get $inst
     global.set $__class___JavawGenerateIterator
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -49042,7 +50473,7 @@
     local.get $inst
     global.set $__class___JavawIterateIterator
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -49068,7 +50499,7 @@
     local.get $inst
     global.set $__class___JavawReadOnlyList
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -49094,7 +50525,7 @@
     local.get $inst
     global.set $__class___JavawStreamIterator
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -49120,7 +50551,7 @@
     local.get $inst
     global.set $__class_Stream
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -49146,7 +50577,7 @@
     local.get $inst
     global.set $__class_IntUnaryOperator
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -49172,7 +50603,7 @@
     local.get $inst
     global.set $__class_IntBinaryOperator
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -49198,7 +50629,7 @@
     local.get $inst
     global.set $__class_IntPredicate
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -49224,7 +50655,7 @@
     local.get $inst
     global.set $__class_IntConsumer
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -49250,7 +50681,7 @@
     local.get $inst
     global.set $__class_IntSupplier
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -49276,7 +50707,7 @@
     local.get $inst
     global.set $__class_IntFunction
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -49302,7 +50733,7 @@
     local.get $inst
     global.set $__class_ToIntFunction
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -49328,7 +50759,7 @@
     local.get $inst
     global.set $__class_OptionalInt
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -49354,7 +50785,7 @@
     local.get $inst
     global.set $__class___JavawIntArrayIterator
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -49380,7 +50811,7 @@
     local.get $inst
     global.set $__class___JavawIntMap
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -49406,7 +50837,7 @@
     local.get $inst
     global.set $__class___JavawIntFilter
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -49432,7 +50863,7 @@
     local.get $inst
     global.set $__class___JavawIntConsumer
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -49458,7 +50889,7 @@
     local.get $inst
     global.set $__class___JavawIntGenerate
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -49484,7 +50915,7 @@
     local.get $inst
     global.set $__class___JavawIntIterate
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -49510,7 +50941,7 @@
     local.get $inst
     global.set $__class___JavawIntToObj
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -49536,7 +50967,7 @@
     local.get $inst
     global.set $__class___JavawToInt
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -49562,7 +50993,7 @@
     local.get $inst
     global.set $__class___JavawIntFlatMap
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -49588,7 +51019,7 @@
     local.get $inst
     global.set $__class_IntStream
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -49614,7 +51045,7 @@
     local.get $inst
     global.set $__class___JavawIntRange
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -49640,7 +51071,7 @@
     local.get $inst
     global.set $__class_LongUnaryOperator
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -49666,7 +51097,7 @@
     local.get $inst
     global.set $__class_LongBinaryOperator
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -49692,7 +51123,7 @@
     local.get $inst
     global.set $__class_LongPredicate
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -49718,7 +51149,7 @@
     local.get $inst
     global.set $__class_LongConsumer
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -49744,7 +51175,7 @@
     local.get $inst
     global.set $__class_LongSupplier
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -49770,7 +51201,7 @@
     local.get $inst
     global.set $__class_LongFunction
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -49796,7 +51227,7 @@
     local.get $inst
     global.set $__class_ToLongFunction
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -49822,7 +51253,7 @@
     local.get $inst
     global.set $__class_OptionalLong
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -49848,7 +51279,7 @@
     local.get $inst
     global.set $__class___JavawLongArrayIterator
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -49874,7 +51305,7 @@
     local.get $inst
     global.set $__class___JavawLongMap
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -49900,7 +51331,7 @@
     local.get $inst
     global.set $__class___JavawLongFilter
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -49926,7 +51357,7 @@
     local.get $inst
     global.set $__class___JavawLongConsumer
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -49952,7 +51383,7 @@
     local.get $inst
     global.set $__class___JavawLongGenerate
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -49978,7 +51409,7 @@
     local.get $inst
     global.set $__class___JavawLongIterate
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -50004,7 +51435,7 @@
     local.get $inst
     global.set $__class___JavawLongToObj
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -50030,7 +51461,7 @@
     local.get $inst
     global.set $__class___JavawToLong
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -50056,7 +51487,7 @@
     local.get $inst
     global.set $__class___JavawLongFlatMap
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -50082,7 +51513,7 @@
     local.get $inst
     global.set $__class_LongStream
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -50108,7 +51539,7 @@
     local.get $inst
     global.set $__class___JavawLongRange
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -50134,7 +51565,7 @@
     local.get $inst
     global.set $__class_DoubleUnaryOperator
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -50160,7 +51591,7 @@
     local.get $inst
     global.set $__class_DoubleBinaryOperator
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -50186,7 +51617,7 @@
     local.get $inst
     global.set $__class_DoublePredicate
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -50212,7 +51643,7 @@
     local.get $inst
     global.set $__class_DoubleConsumer
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -50238,7 +51669,7 @@
     local.get $inst
     global.set $__class_DoubleSupplier
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -50264,7 +51695,7 @@
     local.get $inst
     global.set $__class_DoubleFunction
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -50290,7 +51721,7 @@
     local.get $inst
     global.set $__class_ToDoubleFunction
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -50316,7 +51747,7 @@
     local.get $inst
     global.set $__class_OptionalDouble
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -50342,7 +51773,7 @@
     local.get $inst
     global.set $__class___JavawDoubleArrayIterator
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -50368,7 +51799,7 @@
     local.get $inst
     global.set $__class___JavawDoubleMap
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -50394,7 +51825,7 @@
     local.get $inst
     global.set $__class___JavawDoubleFilter
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -50420,7 +51851,7 @@
     local.get $inst
     global.set $__class___JavawDoubleConsumer
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -50446,7 +51877,7 @@
     local.get $inst
     global.set $__class___JavawDoubleGenerate
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -50472,7 +51903,7 @@
     local.get $inst
     global.set $__class___JavawDoubleIterate
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -50498,7 +51929,7 @@
     local.get $inst
     global.set $__class___JavawDoubleToObj
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -50524,7 +51955,7 @@
     local.get $inst
     global.set $__class___JavawToDouble
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -50550,7 +51981,7 @@
     local.get $inst
     global.set $__class___JavawDoubleFlatMap
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -50576,7 +52007,7 @@
     local.get $inst
     global.set $__class_DoubleStream
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -50602,7 +52033,7 @@
     local.get $inst
     global.set $__class_IntToLongFunction
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -50628,7 +52059,7 @@
     local.get $inst
     global.set $__class___JavawIntToLongFunction
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -50654,7 +52085,7 @@
     local.get $inst
     global.set $__class___JavawIntWidenLong
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -50680,7 +52111,7 @@
     local.get $inst
     global.set $__class_IntToDoubleFunction
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -50706,7 +52137,7 @@
     local.get $inst
     global.set $__class___JavawIntToDoubleFunction
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -50732,7 +52163,7 @@
     local.get $inst
     global.set $__class___JavawIntWidenDouble
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -50758,7 +52189,7 @@
     local.get $inst
     global.set $__class_LongToIntFunction
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -50784,7 +52215,7 @@
     local.get $inst
     global.set $__class___JavawLongToIntFunction
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -50810,7 +52241,7 @@
     local.get $inst
     global.set $__class_LongToDoubleFunction
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -50836,7 +52267,7 @@
     local.get $inst
     global.set $__class___JavawLongToDoubleFunction
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -50862,7 +52293,7 @@
     local.get $inst
     global.set $__class___JavawLongWidenDouble
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -50888,7 +52319,7 @@
     local.get $inst
     global.set $__class_DoubleToIntFunction
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -50914,7 +52345,7 @@
     local.get $inst
     global.set $__class___JavawDoubleToIntFunction
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -50940,7 +52371,7 @@
     local.get $inst
     global.set $__class_DoubleToLongFunction
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -50966,7 +52397,7 @@
     local.get $inst
     global.set $__class___JavawDoubleToLongFunction
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -50992,7 +52423,7 @@
     local.get $inst
     global.set $__class_Collector
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -51018,7 +52449,7 @@
     local.get $inst
     global.set $__class___JavawCastIdentity
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -51044,7 +52475,7 @@
     local.get $inst
     global.set $__class___JavawCharacteristics
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -51070,7 +52501,7 @@
     local.get $inst
     global.set $__class___JavawCollector
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -51096,7 +52527,7 @@
     local.get $inst
     global.set $__class___JavawListSource
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -51122,7 +52553,7 @@
     local.get $inst
     global.set $__class___JavawListAcc
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -51148,7 +52579,7 @@
     local.get $inst
     global.set $__class___JavawListMerge
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -51174,7 +52605,7 @@
     local.get $inst
     global.set $__class___JavawSetSource
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -51200,7 +52631,7 @@
     local.get $inst
     global.set $__class___JavawSetAcc
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -51226,7 +52657,7 @@
     local.get $inst
     global.set $__class___JavawSetMerge
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -51252,7 +52683,7 @@
     local.get $inst
     global.set $__class___JavawJoinBuffer
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -51278,7 +52709,7 @@
     local.get $inst
     global.set $__class___JavawJoinSource
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -51304,7 +52735,7 @@
     local.get $inst
     global.set $__class___JavawJoinAcc
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -51330,7 +52761,7 @@
     local.get $inst
     global.set $__class___JavawJoinMerge
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -51356,7 +52787,7 @@
     local.get $inst
     global.set $__class___JavawJoinFinish
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -51382,7 +52813,7 @@
     local.get $inst
     global.set $__class___JavawMappingAcc
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -51408,7 +52839,7 @@
     local.get $inst
     global.set $__class___JavawFilteringAcc
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -51434,7 +52865,7 @@
     local.get $inst
     global.set $__class___JavawCountAcc
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -51460,7 +52891,7 @@
     local.get $inst
     global.set $__class___JavawReduceSource
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -51486,7 +52917,7 @@
     local.get $inst
     global.set $__class___JavawReduceAcc
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -51512,7 +52943,7 @@
     local.get $inst
     global.set $__class___JavawReduceMerge
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -51538,7 +52969,7 @@
     local.get $inst
     global.set $__class___JavawReduceFinish
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -51564,7 +52995,7 @@
     local.get $inst
     global.set $__class___JavawOptionalReduceFinish
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -51590,7 +53021,7 @@
     local.get $inst
     global.set $__class_Collectors
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -51616,7 +53047,7 @@
     local.get $inst
     global.set $__class___JavawIntSumSource
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -51642,7 +53073,7 @@
     local.get $inst
     global.set $__class___JavawIntSumAcc
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -51668,7 +53099,7 @@
     local.get $inst
     global.set $__class___JavawIntSumMerge
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -51694,7 +53125,7 @@
     local.get $inst
     global.set $__class___JavawIntSumFinish
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -51720,7 +53151,7 @@
     local.get $inst
     global.set $__class___JavawLongSumSource
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -51746,7 +53177,7 @@
     local.get $inst
     global.set $__class___JavawLongSumAcc
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -51772,7 +53203,7 @@
     local.get $inst
     global.set $__class___JavawLongSumMerge
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -51798,7 +53229,7 @@
     local.get $inst
     global.set $__class___JavawLongSumFinish
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -51824,7 +53255,7 @@
     local.get $inst
     global.set $__class___JavawDoubleSumSource
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -51850,7 +53281,7 @@
     local.get $inst
     global.set $__class___JavawDoubleSumAcc
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -51876,7 +53307,7 @@
     local.get $inst
     global.set $__class___JavawDoubleSumMerge
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -51902,7 +53333,7 @@
     local.get $inst
     global.set $__class___JavawDoubleSumFinish
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -51928,7 +53359,7 @@
     local.get $inst
     global.set $__class_Number
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -51954,7 +53385,7 @@
     local.get $inst
     global.set $__class_Boolean
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -51980,7 +53411,7 @@
     local.get $inst
     global.set $__class_Byte
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -52006,7 +53437,7 @@
     local.get $inst
     global.set $__class_Character
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -52032,7 +53463,7 @@
     local.get $inst
     global.set $__class_Double
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -52058,7 +53489,7 @@
     local.get $inst
     global.set $__class_Float
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -52084,7 +53515,7 @@
     local.get $inst
     global.set $__class_Integer
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -52110,7 +53541,7 @@
     local.get $inst
     global.set $__class_Long
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -52136,7 +53567,7 @@
     local.get $inst
     global.set $__class_Short
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -52162,7 +53593,7 @@
     local.get $inst
     global.set $__class___JavawLambda0
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -52188,7 +53619,7 @@
     local.get $inst
     global.set $__class_RoundingMode
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -52214,7 +53645,7 @@
     local.get $inst
     global.set $__class_Characteristics
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -52240,7 +53671,7 @@
     local.get $inst
     global.set $__class_Throwable
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -52266,7 +53697,7 @@
     local.get $inst
     global.set $__class_Error
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -52292,7 +53723,7 @@
     local.get $inst
     global.set $__class_AssertionError
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -52318,7 +53749,7 @@
     local.get $inst
     global.set $__class_Exception
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -52344,7 +53775,7 @@
     local.get $inst
     global.set $__class_RuntimeException
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -52370,7 +53801,7 @@
     local.get $inst
     global.set $__class_IllegalArgumentException
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -52396,7 +53827,7 @@
     local.get $inst
     global.set $__class_IllegalStateException
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -52422,7 +53853,7 @@
     local.get $inst
     global.set $__class_NullPointerException
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -52448,7 +53879,7 @@
     local.get $inst
     global.set $__class_NoSuchElementException
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -52474,7 +53905,7 @@
     local.get $inst
     global.set $__class_IndexOutOfBoundsException
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -52500,7 +53931,7 @@
     local.get $inst
     global.set $__class_ConcurrentModificationException
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -52526,7 +53957,7 @@
     local.get $inst
     global.set $__class_UnsupportedOperationException
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -52552,7 +53983,7 @@
     local.get $inst
     global.set $__class_ArithmeticException
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -52578,7 +54009,7 @@
     local.get $inst
     global.set $__class_WASIFile
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -52604,7 +54035,7 @@
     local.get $inst
     global.set $__class_CharSequence
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -52630,7 +54061,7 @@
     local.get $inst
     global.set $__class_StringBuilder
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -52656,7 +54087,7 @@
     local.get $inst
     global.set $__class_AutoCloseable
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -52682,7 +54113,7 @@
     local.get $inst
     global.set $__class_Comparable
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -52708,7 +54139,7 @@
     local.get $inst
     global.set $__class_Runnable
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -52734,7 +54165,7 @@
     local.get $inst
     global.set $__class_Thread
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -52760,7 +54191,7 @@
     local.get $inst
     global.set $__class_Class
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -52786,7 +54217,7 @@
     local.get $inst
     global.set $__class_int
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -52812,7 +54243,7 @@
     local.get $inst
     global.set $__class_long
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -52838,7 +54269,7 @@
     local.get $inst
     global.set $__class_double
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -52864,7 +54295,7 @@
     local.get $inst
     global.set $__class_float
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -52890,7 +54321,7 @@
     local.get $inst
     global.set $__class_boolean
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -52916,7 +54347,7 @@
     local.get $inst
     global.set $__class_char
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -52942,7 +54373,7 @@
     local.get $inst
     global.set $__class_byte
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -52968,7 +54399,7 @@
     local.get $inst
     global.set $__class_short
     i32.const 32
-    call $__heap_alloc
+    call $__javaw_object_alloc
     local.set $inst
     local.get $inst
     i32.const 15928
@@ -53091,7 +54522,7 @@
   (func $RoundingMode_values (export "RoundingMode_values") (result i32)
     (local $arr i32)
     i32.const 36
-    call $__heap_alloc
+    call $__javaw_array_bytes_alloc
     local.set $arr
     local.get $arr
     i32.const 8
@@ -53200,7 +54631,7 @@
   (func $Characteristics_values (export "Characteristics_values") (result i32)
     (local $arr i32)
     i32.const 16
-    call $__heap_alloc
+    call $__javaw_array_bytes_alloc
     local.set $arr
     local.get $arr
     i32.const 3
