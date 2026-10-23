@@ -3,6 +3,8 @@ package com.example.javaw;
 import com.example.javaw.js.JsAnnotationHelper;
 import com.example.javaw.sourcemap.SourceMapTracker;
 import com.github.javaparser.ast.Node;
+import com.github.javaparser.ast.ArrayCreationLevel;
+import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.*;
@@ -2860,6 +2862,28 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         };
     }
 
+    private List<Expression> invocationArguments(MethodModel method, List<Expression> arguments, Map<String, String> javaTypes) {
+        if (!method.isVarargs()) return arguments;
+        int fixed = method.getParamTypeNames().size() - 1;
+        String array = method.getParamTypeNames().get(fixed);
+        if (arguments.size() == fixed + 1 && classRegistry.looseConversion(getExpressionJavaType(arguments.get(fixed), javaTypes), array)) return arguments;
+        List<Expression> invocation = new ArrayList<>(arguments.subList(0, fixed));
+        ArrayInitializerExpr initializer = new ArrayInitializerExpr();
+        for (Expression argument : arguments.subList(fixed, arguments.size())) {
+            Expression copy = argument.clone();
+            List<MethodCallExpr> before = argument.findAll(MethodCallExpr.class), after = copy.findAll(MethodCallExpr.class);
+            for (int i = 0; i < before.size(); i++) receiverLocals.put(after.get(i), receiverLocals.get(before.get(i)));
+            List<UnaryExpr> beforeUnary = argument.findAll(UnaryExpr.class), afterUnary = copy.findAll(UnaryExpr.class);
+            for (int i = 0; i < beforeUnary.size(); i++) if (mutationLocals.containsKey(beforeUnary.get(i)))
+                mutationLocals.put(afterUnary.get(i), mutationLocals.get(beforeUnary.get(i)));
+            initializer.getValues().add(copy);
+        }
+        ArrayCreationExpr packed = new ArrayCreationExpr().setElementType(StaticJavaParser.parseType(array.substring(0, array.length() - 2)))
+                .setLevels(new NodeList<>(new ArrayCreationLevel())).setInitializer(initializer);
+        invocation.add(packed);
+        return invocation;
+    }
+
     private MethodModel sourceMethod(MethodCallExpr call, Map<String, String> locals) {
         if (classRegistry == null) return null;
         String owner = call.getScope().isPresent() ? getExpressionJavaType(call.getScope().get(), locals)
@@ -2894,8 +2918,9 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             translateExpression(receiver, out, locals, elements, javaTypes, "i32");
             out.append("    drop\n");
         }
-        for (int i = 0; i < call.getArguments().size(); i++)
-            translateValue(call.getArgument(i), out, locals, elements, javaTypes, method.getParamTypeNames().get(i));
+        List<Expression> invocation = invocationArguments(method, call.getArguments(), javaTypes);
+        for (int i = 0; i < invocation.size(); i++)
+            translateValue(invocation.get(i), out, locals, elements, javaTypes, method.getParamTypeNames().get(i));
         if (dynamic) {
             out.append("    local.get $").append(temp).append("\n    i32.load offset=0\n    i32.const ")
                     .append(method.getVirtualSlotIndex()).append("\n    i32.add\n    call_indirect (type ")
@@ -2965,10 +2990,9 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                             : currentRecord != null ? currentRecord.getName() : "", className, source)).toList(), types); }
             catch (IllegalArgumentException error) { throw JavaSourcePreparation.error(source, error.getMessage()); }
         }
-        for (int i = 0; i < arguments.size(); i++) {
-            String wasmType = selected == null ? "i32" : selected.getParamWasmTypes().get(i);
-            translateValue(arguments.get(i), collector, localTypes, localElementTypes, localJavaTypes, selected == null ? "int" : selected.getParamTypeNames().get(i));
-        }
+        List<Expression> invocation = selected == null ? arguments : invocationArguments(selected, arguments, localJavaTypes);
+        for (int i = 0; i < invocation.size(); i++)
+            translateValue(invocation.get(i), collector, localTypes, localElementTypes, localJavaTypes, selected == null ? "int" : selected.getParamTypeNames().get(i));
         return selected == null ? "$" + className + "__init" : selected.getFunctionName();
     }
 
@@ -6535,9 +6559,10 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                             .map(arg -> getExpressionJavaType(arg, Collections.emptyMap())).toList()); }
                     catch (IllegalArgumentException error) { throw JavaSourcePreparation.error(ed, error.getMessage()); }
                     collector.append("    local.get $inst\n");
-                    for (int argument = 0; argument < args.size(); argument++)
-                        translateExpression(args.get(argument), collector, Collections.emptyMap(), Collections.emptyMap(),
-                                Collections.emptyMap(), constructor.getParamWasmTypes().get(argument));
+                    List<Expression> invocation = invocationArguments(constructor, args, Collections.emptyMap());
+                    for (int argument = 0; argument < invocation.size(); argument++)
+                        translateValue(invocation.get(argument), collector, Collections.emptyMap(), Collections.emptyMap(),
+                                Collections.emptyMap(), constructor.getParamTypeNames().get(argument));
                     collector.append("    call ").append(constructor.getFunctionName()).append("\n");
                 }
 

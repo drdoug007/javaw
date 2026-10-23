@@ -696,9 +696,16 @@ public class ClassRegistry {
             }
             return true;
         }).toList();
+        boolean varargsPhase = applicable.isEmpty();
+        if (varargsPhase) applicable = candidates.stream().filter(m -> {
+            if (!m.isVarargs() || arguments.size() < m.getParamTypeNames().size() - 1) return false;
+            for (int i = 0; i < arguments.size(); i++)
+                if (!looseConversion(arguments.get(i), invocationParameter(m, i, true))) return false;
+            return true;
+        }).toList();
         List<MethodModel> applicableMethods = applicable;
         List<MethodModel> best = applicable.stream().filter(m -> applicableMethods.stream().noneMatch(other ->
-                other != m && moreSpecific(other, m))).toList();
+                other != m && moreSpecific(other, m, varargsPhase, arguments.size()))).toList();
         if (best.size() == 1) return best.get(0);
         String signatures = candidates.stream().map(MethodModel::getSignatureKey)
                 .collect(java.util.stream.Collectors.joining(", "));
@@ -706,17 +713,35 @@ public class ClassRegistry {
                 + " for arguments " + arguments + "; candidates: " + signatures);
     }
 
-    private boolean moreSpecific(MethodModel first, MethodModel second) {
+    private boolean moreSpecific(MethodModel first, MethodModel second, boolean varargs, int argumentCount) {
         boolean strict = false;
-        for (int i = 0; i < first.getParamTypeNames().size(); i++) {
-            String a = first.getParamTypeNames().get(i), b = second.getParamTypeNames().get(i);
+        int count = varargs ? Math.max(argumentCount, Math.max(first.getParamTypeNames().size(), second.getParamTypeNames().size())) : first.getParamTypeNames().size();
+        if (!varargs && first.getParamTypeNames().size() != second.getParamTypeNames().size()) return false;
+        for (int i = 0; i < count; i++) {
+            String a = invocationParameter(first, i, varargs), b = invocationParameter(second, i, varargs);
             if (!canWiden(a, b)) return false;
             strict |= !a.equals(b);
         }
         return strict;
     }
 
-    private boolean canWiden(String from, String to) {
+    String invocationParameter(MethodModel method, int index, boolean expanded) {
+        var parameters = method.getParamTypeNames();
+        int last = parameters.size() - 1;
+        if (expanded && method.isVarargs() && index >= last) {
+            String array = parameters.get(last);
+            return array.substring(0, array.length() - 2);
+        }
+        return parameters.get(index);
+    }
+
+    boolean looseConversion(String from, String to) {
+        if (canWiden(from, to)) return true;
+        String boxed = BoxingSupport.wrapper(from);
+        return boxed != null && canWiden(boxed, to) || BoxingSupport.boxed(from) && canWiden(BoxingSupport.primitive(from), to);
+    }
+
+    boolean canWiden(String from, String to) {
         if (from == null || to == null) return false;
         if (from.equals(to)) return true;
         Set<String> primitives = Set.of("boolean", "byte", "short", "char", "int", "long", "float", "double", "void");
@@ -730,6 +755,10 @@ public class ClassRegistry {
                 case "float" -> to.equals("double");
                 default -> false;
             };
+        }
+        if (from.endsWith("[]") && to.endsWith("[]")) {
+            String a = from.substring(0, from.length() - 2), b = to.substring(0, to.length() - 2);
+            return a.equals(b) || !primitives.contains(a) && !primitives.contains(b) && canWiden(a, b);
         }
         if (to.equals("Object")) return true;
         Set<String> visited = new HashSet<>();

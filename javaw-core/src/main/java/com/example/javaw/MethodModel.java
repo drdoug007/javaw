@@ -42,6 +42,12 @@ public class MethodModel {
     void setDeclaration(com.github.javaparser.ast.body.CallableDeclaration<?> node) { declaration = node; }
     com.github.javaparser.ast.body.CallableDeclaration<?> getDeclaration() { return declaration; }
 
+    boolean isVarargs() {
+        if (declaration == null || declaration.getParameters().isEmpty()) return false;
+        var last = declaration.getParameter(declaration.getParameters().size() - 1);
+        return last.isVarArgs() || last.containsData(JavaSourcePreparation.VARARGS);
+    }
+
     public String getName() {
         return name;
     }

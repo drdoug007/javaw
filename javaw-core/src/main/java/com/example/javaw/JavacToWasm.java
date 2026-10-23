@@ -496,6 +496,7 @@ public class JavacToWasm {
         JavaSourcePreparation.normalizeTypes(cu, JavaSourcePreparation.typeNames(List.of(cu)));
         SpringWebSupport springWeb = SpringWebSupport.lower(cu);
         BoxingSupport.addWrappers(cu);
+        JavaSourcePreparation.normalizeVarargs(cu);
         JavaSourcePreparation.resolveLocalScopes(cu);
         ClassRegistry classRegistry = ClassRegistry.build(cu);
         springWeb.emitMetadata(classRegistry, watOutput);

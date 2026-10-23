@@ -317,7 +317,8 @@ Checked items elsewhere describe supported subsets, not complete Java/JDK/JVM co
 - [ ] Implement generic inference, boxing/unboxing, and Java numeric conversion/promotion rules with conformance tests, including constant-expression ternary narrowing and typed long/float increment/decrement.
   - [x] Execute primitive promotions, saturating/narrowing casts, typed prefix/postfix mutations on locals/fields/arrays, compound numeric assignments, integral constant-expression ternary narrowing, integer division overflow/zero handling, and floating remainder in Wasm conformance tests.
   - [x] Integrate nullable wrappers in linear memory with assignment/argument/return boxing and unboxing, small-value caches, value equality/hashing, null-unboxing exceptions, wrapper fields/arrays, and strict-before-loose invocation conversions. Preserve boxed Spring IDs through HTTP marshalling.
-  - [ ] Integrate varargs and reusable generic class/method inference; validate bounds and unsupported inference diagnostics.
+  - [x] Resolve and pack primitive/reference varargs after fixed-arity strict and loose invocation phases; preserve explicit arrays, constructor calls, element boxing, and ambiguous-call diagnostics.
+  - [ ] Integrate reusable generic class/method inference; validate bounds and unsupported inference diagnostics.
 
 ### Phase 2: Optional, lambdas, and collections
 

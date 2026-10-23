@@ -11,6 +11,7 @@ import java.util.*;
 /** Resolves source names before function-wide Wasm local allocation. */
 final class JavaSourcePreparation {
     static final DataKey<String> LOWERED_JAVA_TYPE = new DataKey<>() {};
+    static final DataKey<Boolean> VARARGS = new DataKey<>() {};
     static final DataKey<String> PACKAGE = new DataKey<>() {};
     private static final DataKey<String> SOURCE = new DataKey<>() {};
 
@@ -57,6 +58,14 @@ final class JavaSourcePreparation {
         if (node.containsData(SOURCE)) source = node.getData(SOURCE);
         String location = node.getBegin().map(p -> ":" + p.line + ":" + p.column).orElse("");
         return new IllegalArgumentException(source + location + ": " + message);
+    }
+
+    static void normalizeVarargs(CompilationUnit cu) {
+        for (Parameter parameter : cu.findAll(Parameter.class)) if (parameter.isVarArgs()) {
+            parameter.setType(new com.github.javaparser.ast.type.ArrayType(parameter.getType().clone()));
+            parameter.setVarArgs(false);
+            parameter.setData(VARARGS, true);
+        }
     }
 
     static void resolveLocalScopes(CompilationUnit cu) {
