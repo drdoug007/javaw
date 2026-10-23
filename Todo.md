@@ -332,6 +332,9 @@ Checked items elsewhere describe supported subsets, not complete Java/JDK/JVM co
 - [x] Implement sequential Stream pipelines, terminal operations, and short-circuit behavior; track parallel streams separately.
   - Lazy pull pipelines support finite/collection and infinite generated/iterated sources, map/filter/flatMap/peek/distinct/skip/limit, reduction, matching, find, count, min/max, forEach, arrays, unmodifiable toList, and mutable Collectors.toList/toSet. Wasm execution verifies callback counts, short-circuiting, null results, and single-use errors.
 - [ ] Implement parallel stream execution and scheduling; parallel() currently throws UnsupportedOperationException.
+  - [ ] Replace the current same-instance timer-based thread bridge with actual worker execution and define Node/browser coordination.
+  - [ ] Make shared heap allocation, object identity, and module/class initialization safe across workers; exported shared memory alone does not share per-instance globals.
+  - [ ] Partition stream traversal and combine results with ordering, exception propagation, cancellation, and executable tests proving overlapping worker execution.
 - [ ] Expand the Phase 2 library subset:
   - [x] Stable sorted (natural/custom comparators), takeWhile, and dropWhile with lazy traversal and short-circuit tests.
   - [x] Core IntStream/LongStream/DoubleStream pipelines, primitive functional interfaces, reference/cross-primitive mapping, ranges, optional primitive results, reductions, arrays, and numeric terminals. Pipeline storage is currently boxed; specialized storage and complete statistics/collector overload coverage remain library follow-ups.
