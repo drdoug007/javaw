@@ -332,6 +332,16 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             exportName = methodName;
         }
 
+        if (currentClass != null) {
+            String key = methodName + "(" + n.getParameters().stream().map(p -> p.getType().asString())
+                    .collect(java.util.stream.Collectors.joining(",")) + ")";
+            MethodModel declaration = currentClass.getMethod(key);
+            if (declaration != null) {
+                funcName = declaration.getFunctionName();
+                exportName = funcName.substring(1);
+            }
+        }
+
         if (sourceMapTracker != null) {
             sourceMapTracker.track(collector, n, exportName);
         }
@@ -2406,11 +2416,13 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     collector.append("    call $Object_clone\n");
                 } else if (scope.isSuperExpr()) {
                     String superClassName = currentClass != null ? currentClass.getSuperClassName() : null;
-                    collector.append("    local.get $this\n");
-                    for (Expression arg : call.getArguments()) {
-                        translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, null);
+                    MethodModel method = resolveMethodCall(superClassName, call, localJavaTypes);
+                    if (!method.isStatic()) collector.append("    local.get $this\n");
+                    for (int i = 0; i < call.getArguments().size(); i++) {
+                        translateExpression(call.getArgument(i), collector, localTypes, localElementTypes,
+                                localJavaTypes, method.getParamWasmTypes().get(i));
                     }
-                    collector.append("    call $").append(superClassName).append("_").append(mName).append("\n");
+                    collector.append("    call ").append(method.getFunctionName()).append("\n");
                 } else {
                     String targetType = getExpressionJavaType(scope, localJavaTypes);
                     if (scope.isNameExpr() && classRegistry != null && classRegistry.hasClass(scope.asNameExpr().getNameAsString())) {
@@ -2470,7 +2482,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                         return;
                     }
                     ClassModel targetCm = (targetType != null && classRegistry != null) ? classRegistry.getClass(targetType) : null;
-                    MethodModel targetMm = (targetType != null && classRegistry != null) ? classRegistry.findMethod(targetType, mName) : (targetCm != null ? targetCm.getMethodByName(mName) : null);
+                    MethodModel targetMm = (targetType != null && classRegistry != null) ? resolveMethodCall(targetType, call, localJavaTypes) : (targetCm != null ? targetCm.getMethodByName(mName) : null);
                     if (targetMm == null && ("toString".equals(mName) || "equals".equals(mName) || "hashCode".equals(mName) ||
                             "close".equals(mName) || "compareTo".equals(mName) || "iterator".equals(mName) || "hasNext".equals(mName) || "next".equals(mName)) && classRegistry != null) {
                         targetMm = classRegistry.findMethod("Object", mName);
@@ -2548,8 +2560,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                         translateDomStringArg(arg, collector, localTypes, localElementTypes, localJavaTypes);
                     }
                     collector.append("    call $dom_").append(mName).append("\n");
-                } else if (currentClass != null && currentClass.getMethodByName(mName) != null) {
-                    MethodModel mm = currentClass.getMethodByName(mName);
+                } else if (currentClass != null && !classRegistry.methodCandidates(currentClass.getName(), mName).isEmpty()) {
+                    MethodModel mm = resolveMethodCall(currentClass.getName(), call, localJavaTypes);
                     if (mm.isVirtual() && currentClass.isOopClass()) {
                         collector.append("    local.get $this\n");
                         for (int i = 0; i < call.getArguments().size(); i++) {
@@ -2663,6 +2675,19 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         } catch (NumberFormatException ignored) { return false; }
     }
 
+    private MethodModel resolveMethodCall(String owner, MethodCallExpr call, Map<String, String> localJavaTypes) {
+        List<MethodModel> candidates = classRegistry.methodCandidates(owner, call.getNameAsString());
+        if (candidates.isEmpty()) return classRegistry.findMethod(owner, call.getNameAsString());
+        // Class-qualified invocation cannot select an instance method.
+        if (call.getScope().filter(e -> e.isNameExpr() && !localJavaTypes.containsKey(e.asNameExpr().getNameAsString())
+                && classRegistry.hasClass(e.asNameExpr().getNameAsString())).isPresent())
+            candidates = candidates.stream().filter(MethodModel::isStatic).toList();
+        List<String> arguments = call.getArguments().stream().map(a -> a.isNullLiteralExpr() ? "null"
+                : getExpressionJavaType(a, localJavaTypes)).toList();
+        try { return classRegistry.resolveOverload(candidates, arguments); }
+        catch (IllegalArgumentException error) { throw JavaSourcePreparation.error(call, error.getMessage()); }
+    }
+
     private String emitConstructorArguments(String className, NodeList<Expression> arguments, Node source,
             StringBuilder collector, Map<String, String> localTypes, Map<String, String> localElementTypes,
             Map<String, String> localJavaTypes) {
@@ -2682,6 +2707,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     }
 
     private String getExpressionJavaType(Expression expr, Map<String, String> localJavaTypes) {
+        if (expr.containsData(JavaSourcePreparation.LOWERED_JAVA_TYPE))
+            return expr.getData(JavaSourcePreparation.LOWERED_JAVA_TYPE);
         if (expr.isNullLiteralExpr()) return "null";
         if (expr.isConditionalExpr()) {
             ConditionalExpr conditional = expr.asConditionalExpr();
@@ -2734,6 +2761,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             if (classRegistry != null && classRegistry.hasClass(name)) return name;
             return null;
         }
+        if (expr.isSuperExpr()) return currentClass == null ? null : currentClass.getSuperClassName();
         if (expr.isThisExpr()) {
             if (currentRecord != null) return currentRecord.getName();
             if (localJavaTypes != null && localJavaTypes.containsKey("this")) return localJavaTypes.get("this");
@@ -3059,11 +3087,11 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     MethodModel mm = rm.getMethodByName(mName);
                     if (mm != null) return mm.getReturnTypeName();
                 } else if (scopeType != null && classRegistry != null && classRegistry.hasClass(scopeType)) {
-                    MethodModel mm = classRegistry.findMethod(scopeType, mName);
+                    MethodModel mm = resolveMethodCall(scopeType, call, localJavaTypes);
                     if (mm != null) return mm.getReturnTypeName();
                 }
             } else if (currentClass != null) {
-                MethodModel mm = classRegistry != null ? classRegistry.findMethod(currentClass.getName(), mName)
+                MethodModel mm = classRegistry != null ? resolveMethodCall(currentClass.getName(), call, localJavaTypes)
                         : currentClass.getMethodByName(mName);
                 if (mm != null) return mm.getReturnTypeName();
             } else if (currentRecord != null) {
@@ -3200,11 +3228,11 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             if (call.getScope().isPresent()) {
                 String targetType = getExpressionJavaType(call.getScope().get(), localJavaTypes);
                 if (targetType != null && classRegistry != null && classRegistry.hasClass(targetType)) {
-                    MethodModel mm = classRegistry.getClass(targetType).getMethodByName(mName);
+                    MethodModel mm = resolveMethodCall(targetType, call, localJavaTypes);
                     if (mm != null && mm.getReturnWasmType() != null) return true;
                 }
             } else if (currentClass != null) {
-                MethodModel mm = currentClass.getMethodByName(mName);
+                MethodModel mm = resolveMethodCall(currentClass.getName(), call, localJavaTypes);
                 if (mm != null && mm.getReturnWasmType() != null) return true;
             }
         }

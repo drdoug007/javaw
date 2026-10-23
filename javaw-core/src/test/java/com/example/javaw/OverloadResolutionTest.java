@@ -39,6 +39,52 @@ class OverloadResolutionTest {
         assertTrue(error.getMessage().contains("Ambiguous overload"), error.getMessage());
     }
 
+    @Test void executesOverloadedMethodsAndVirtualDispatch() throws Exception {
+        byte[] wasm = JavacToWasm.compile("MethodsApp.java", """
+            class ParentMethods {
+                int marker;
+                public double pick(double x) { return x + 0.5; }
+                public int pick(int x) { return x + 1; }
+                public double inheritedCall() { return pick(2.5); }
+            }
+            class ChildMethods extends ParentMethods {
+                public double pick(double x) { return x + 10.5; }
+                public double parentCall() { return super.pick(2.5); }
+            }
+            class MethodsApp {
+                public static double choose(double x) { return x + 0.25; }
+                public static long choose(long x) { return x + 1L; }
+                public static int choose(int x, int y) { return x + y; }
+                public static double inferred() { var x = choose(2.5); return x; }
+                public static long wide() { var x = MethodsApp.choose(9007199254740993L); return x; }
+                public static int arity() { return choose(2, 3); }
+                public static double dispatch() { ParentMethods x = new ChildMethods(); return x.pick(2.5); }
+                public static int inheritedOverload() { var x = new ChildMethods(); return x.pick(2); }
+                public static double implicitDispatch() { var x = new ChildMethods(); return x.inheritedCall(); }
+                public static double directSuper() { var x = new ChildMethods(); return x.parentCall(); }
+            }
+            """, false).getWasm();
+        execute(wasm, """
+            assert.equal(e.inferred(), 2.75);
+            assert.equal(e.wide(), 9007199254740994n);
+            assert.equal(e.arity(), 5);
+            assert.equal(e.dispatch(), 13);
+            assert.equal(e.inheritedOverload(), 3);
+            assert.equal(e.implicitDispatch(), 13);
+            assert.equal(e.directSuper(), 3);
+            """);
+    }
+
+    @Test void rejectsAmbiguousAndInapplicableMethodCalls() {
+        for (String argument : List.of("null", "true")) {
+            var error = assertThrows(IllegalArgumentException.class, () -> JavacToWasm.compile("BadMethod.java",
+                    "class BadMethod { static int pick(String x) { return 1; } static int pick(Integer x) { return 2; } public static int test() { return pick("
+                            + argument + "); } }", false));
+            assertTrue(error.getMessage().contains("BadMethod.java:1:"), error.getMessage());
+            assertTrue(error.getMessage().contains(argument.equals("null") ? "Ambiguous overload" : "No applicable overload"), error.getMessage());
+        }
+    }
+
     @Test void executesTypedConstructorsAndConstructorChaining() throws Exception {
         byte[] wasm = JavacToWasm.compile("ConstructorApp.java", """
             class Value {
@@ -56,16 +102,22 @@ class OverloadResolutionTest {
                 public static double inherited() { var v = new Child(); return v.read(); }
             }
             """, false).getWasm();
+        execute(wasm, """
+            assert.equal(e.integer(), 12);
+            assert.equal(e.decimal(), 2.75);
+            assert.equal(e.chained(), 2.75);
+            assert.equal(e.inherited(), 3.75);
+            """);
+    }
+
+    private void execute(byte[] wasm, String assertions) throws Exception {
         assertNotNull(wasm);
         String script = """
             const assert = require('node:assert/strict');
             const {instantiateJavaw} = require(process.argv[1]);
             instantiateJavaw(new WebAssembly.Module(require('node:fs').readFileSync(0)))
               .then(({instance: {exports: e}}) => {
-                assert.equal(e.integer(), 12);
-                assert.equal(e.decimal(), 2.75);
-                assert.equal(e.chained(), 2.75);
-                assert.equal(e.inherited(), 3.75);
+            """ + assertions + """
               }).catch(error => { console.error(error); process.exitCode = 1; });
             """;
         Process node = new ProcessBuilder("node", "-e", script,

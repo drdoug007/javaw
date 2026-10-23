@@ -102,6 +102,10 @@ public class ClassRegistry {
                     funcName = "$" + className + "_" + mName;
                 }
 
+                if (cd.getMethodsByName(mName).size() > 1) {
+                    funcName = "$" + className + "_" + mName + "__" + methodSuffix(paramTypeNames);
+                }
+
                 MethodModel mm = new MethodModel(mName, className, funcName, retTypeName, retWasmType,
                         paramNames, paramTypeNames, paramWasmTypes, isStatic, false);
                 cm.addMethod(mm);
@@ -631,6 +635,28 @@ public class ClassRegistry {
 
     public boolean hasClass(String name) {
         return classes.containsKey(name);
+    }
+
+    static String methodSuffix(List<String> types) {
+        if (types.isEmpty()) return "noargs";
+        return types.stream().map(t -> t.chars().mapToObj(c -> Integer.toHexString(c) + "_")
+                .collect(java.util.stream.Collectors.joining())).collect(java.util.stream.Collectors.joining("__"));
+    }
+
+    public List<MethodModel> methodCandidates(String className, String methodName) {
+        Map<String, MethodModel> methods = new LinkedHashMap<>();
+        collectMethods(className, methodName, methods, new HashSet<>());
+        return new ArrayList<>(methods.values());
+    }
+
+    private void collectMethods(String name, String methodName, Map<String, MethodModel> methods, Set<String> seen) {
+        if (name == null || !seen.add(name)) return;
+        ClassModel model = classes.get(name);
+        if (model == null) return;
+        model.getMethods().values().stream().filter(m -> m.getName().equals(methodName))
+                .forEach(m -> methods.putIfAbsent(m.getSignatureKey(), m));
+        collectMethods(model.getSuperClassName(), methodName, methods, seen);
+        for (String iface : model.getImplementedInterfaces()) collectMethods(iface, methodName, methods, seen);
     }
 
     /** Strict invocation conversions: identity, primitive widening, and reference widening. */

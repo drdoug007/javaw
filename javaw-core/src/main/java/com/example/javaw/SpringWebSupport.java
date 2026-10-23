@@ -227,7 +227,11 @@ final class SpringWebSupport {
                     && value.asUnaryExpr().getOperator() != UnaryExpr.Operator.PLUS))
                 throw unsupported("BigDecimal.valueOf currently requires a numeric constant");
             String number = value.toString().replace("_", "").replace(" ", "").replaceAll("[lLdDfF]$", "");
-            try { call.replace(new StringLiteralExpr(new java.math.BigDecimal(number).toString())); }
+            try {
+                StringLiteralExpr lowered = new StringLiteralExpr(new java.math.BigDecimal(number).toString());
+                lowered.setData(JavaSourcePreparation.LOWERED_JAVA_TYPE, "BigDecimal");
+                call.replace(lowered);
+            }
             catch (NumberFormatException error) { throw unsupported("Decimal numeric constant " + value); }
         }
     }

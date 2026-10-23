@@ -72,12 +72,16 @@ class SpringWebSupportTest {
                     ApplicationRunner initialize() {
                         return args -> { var book = new Book(null, "Seed"); books.save(book); };
                     }
+                    public static int decimalKind(BigDecimal value) { return 1; }
+                    public static int decimalKind(String value) { return 2; }
+                    public static int seedKind() { return decimalKind(BigDecimal.valueOf(19.95)); }
                     public static String seedPrice() { return BigDecimal.valueOf(19.95); }
                     public static void main
                 """);
         String wat = JavacToWasm.generateWat(List.of(StaticJavaParser.parse(MODEL), StaticJavaParser.parse(REPOSITORY), StaticJavaParser.parse(app)));
         assertTrue(wat.contains("__javaw_runner_LibraryApp_initialize"));
         assertFalse(wat.contains("call $valueOf\n"));
+        assertTrue(wat.contains("call $LibraryApp_decimalKind__" + ClassRegistry.methodSuffix(List.of("BigDecimal")) + "\n"));
         assertNotNull(JavacToWasm.assembleWasm(wat, false));
     }
 
