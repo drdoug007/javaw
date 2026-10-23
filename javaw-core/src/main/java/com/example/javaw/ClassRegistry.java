@@ -262,7 +262,8 @@ public class ClassRegistry {
                 {"RuntimeException", "Exception"},
                 {"IllegalArgumentException", "RuntimeException"},
                 {"IllegalStateException", "RuntimeException"},
-                {"NullPointerException", "RuntimeException"}
+                {"NullPointerException", "RuntimeException"},
+                {"ArithmeticException", "RuntimeException"}
         };
         for (String[] def : builtins) {
             String cName = def[0];

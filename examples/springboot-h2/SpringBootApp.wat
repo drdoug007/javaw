@@ -58,6 +58,7 @@
   (global $__class_IllegalArgumentException (mut i32) (i32.const 0))
   (global $__class_IllegalStateException (mut i32) (i32.const 0))
   (global $__class_NullPointerException (mut i32) (i32.const 0))
+  (global $__class_ArithmeticException (mut i32) (i32.const 0))
   (global $__class_WASIFile (mut i32) (i32.const 0))
   (global $__class_CharSequence (mut i32) (i32.const 0))
   (global $__class_StringBuilder (mut i32) (i32.const 0))
@@ -86,8 +87,8 @@
   (type $t_sig_6 (func (param i32 i32 i32 i32) (result i32)))
   (type $t_sig_7 (func (param i32 i32 i32 i32 i32) (result i32)))
   ;; --- WebAssembly Function Table (VTable) ---
-  (table (export "__vtable") 184 funcref)
-  (elem (i32.const 0) $Product_toString $Product_equals $Product_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Product_run $Product_getClass $Product_getName $Product_setName $Product_getPrice $Product_setPrice $Product_getStock $Product_setStock $SpringBootApp_toString $SpringBootApp_equals $SpringBootApp_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $SpringBootApp_run $SpringBootApp_getClass $SpringBootApp___javaw_runner_SpringBootApp_init $SpringBootApp_addProduct $ProductController_toString $ProductController_equals $ProductController_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $ProductController_run $ProductController_getClass $ProductController_handleGetAll $ProductController_handleGetById $ProductController_handleCreate $ProductController_handleUpdate $ProductController_handleDelete $ProductRepository_toString $ProductRepository_equals $ProductRepository_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $ProductRepository_run $ProductRepository_getClass $ProductRepository_findById $ProductRepository_findAll $ProductRepository_save $ProductRepository_deleteById $__JavawRow_ProductRepository_toString $__JavawRow_ProductRepository_equals $__JavawRow_ProductRepository_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $__JavawRow_ProductRepository_run $__JavawRow_ProductRepository_getClass $Throwable_toString $Throwable_equals $Throwable_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Throwable_run $Throwable_getClass $Throwable_getMessage $Throwable_toString $Throwable_equals $Throwable_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Throwable_run $Throwable_getClass $Exception_getMessage $Throwable_toString $Throwable_equals $Throwable_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Throwable_run $Throwable_getClass $RuntimeException_getMessage $Throwable_toString $Throwable_equals $Throwable_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Throwable_run $Throwable_getClass $RuntimeException_getMessage $__JavawSpringContext_toString $__JavawSpringContext_equals $__JavawSpringContext_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $__JavawSpringContext_run $__JavawSpringContext_getClass $Throwable_toString $Throwable_equals $Throwable_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Throwable_run $Throwable_getClass $IllegalArgumentException_getMessage $Throwable_toString $Throwable_equals $Throwable_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Throwable_run $Throwable_getClass $IllegalStateException_getMessage $Throwable_toString $Throwable_equals $Throwable_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Throwable_run $Throwable_getClass $NullPointerException_getMessage $WASIFile_toString $WASIFile_equals $WASIFile_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $WASIFile_run $WASIFile_getClass $Thread_toString $Thread_equals $Thread_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Thread_run $Thread_getClass $Class_toString $Class_equals $Class_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Class_run $Class_getClass)
+  (table (export "__vtable") 195 funcref)
+  (elem (i32.const 0) $Product_toString $Product_equals $Product_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Product_run $Product_getClass $Product_getName $Product_setName $Product_getPrice $Product_setPrice $Product_getStock $Product_setStock $SpringBootApp_toString $SpringBootApp_equals $SpringBootApp_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $SpringBootApp_run $SpringBootApp_getClass $SpringBootApp___javaw_runner_SpringBootApp_init $SpringBootApp_addProduct $ProductController_toString $ProductController_equals $ProductController_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $ProductController_run $ProductController_getClass $ProductController_handleGetAll $ProductController_handleGetById $ProductController_handleCreate $ProductController_handleUpdate $ProductController_handleDelete $ProductRepository_toString $ProductRepository_equals $ProductRepository_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $ProductRepository_run $ProductRepository_getClass $ProductRepository_findById $ProductRepository_findAll $ProductRepository_save $ProductRepository_deleteById $__JavawRow_ProductRepository_toString $__JavawRow_ProductRepository_equals $__JavawRow_ProductRepository_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $__JavawRow_ProductRepository_run $__JavawRow_ProductRepository_getClass $Throwable_toString $Throwable_equals $Throwable_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Throwable_run $Throwable_getClass $Throwable_getMessage $Throwable_toString $Throwable_equals $Throwable_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Throwable_run $Throwable_getClass $Exception_getMessage $Throwable_toString $Throwable_equals $Throwable_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Throwable_run $Throwable_getClass $RuntimeException_getMessage $Throwable_toString $Throwable_equals $Throwable_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Throwable_run $Throwable_getClass $RuntimeException_getMessage $__JavawSpringContext_toString $__JavawSpringContext_equals $__JavawSpringContext_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $__JavawSpringContext_run $__JavawSpringContext_getClass $Throwable_toString $Throwable_equals $Throwable_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Throwable_run $Throwable_getClass $IllegalArgumentException_getMessage $Throwable_toString $Throwable_equals $Throwable_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Throwable_run $Throwable_getClass $IllegalStateException_getMessage $Throwable_toString $Throwable_equals $Throwable_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Throwable_run $Throwable_getClass $NullPointerException_getMessage $Throwable_toString $Throwable_equals $Throwable_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Throwable_run $Throwable_getClass $ArithmeticException_getMessage $WASIFile_toString $WASIFile_equals $WASIFile_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $WASIFile_run $WASIFile_getClass $Thread_toString $Thread_equals $Thread_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Thread_run $Thread_getClass $Class_toString $Class_equals $Class_hashCode $AutoCloseable_close $Comparable_compareTo $Iterable_iterator $Iterator_hasNext $Iterator_next $Class_run $Class_getClass)
   ;; --- Heap Allocation Functions ---
   (func $__heap_alloc (export "__heap_alloc") (param $size i32) (result i32)
     (local $ptr i32)
@@ -2597,6 +2598,19 @@
     local.get $this
     call $RuntimeException_getMessage
   )
+  (func $ArithmeticException__init (export "ArithmeticException__init") (param $this i32)
+    local.get $this
+    call $RuntimeException__init
+  )
+  (func $ArithmeticException__init_1 (export "ArithmeticException__init_1") (param $this i32) (param $message i32)
+    local.get $this
+    local.get $message
+    call $RuntimeException__init_1
+  )
+  (func $ArithmeticException_getMessage (export "ArithmeticException_getMessage") (param $this i32) (result i32)
+    local.get $this
+    call $RuntimeException_getMessage
+  )
   (func $WASIFile__init (export "WASIFile__init") (param $this i32) (param $path i32)
     local.get $this
     local.get $path
@@ -4839,6 +4853,12 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__mutation$0$address i32)
+    (local $__mutation$0$old i32)
+    (local $__mutation$0$new i32)
+    (local $__mutation$1$address i32)
+    (local $__mutation$1$old i32)
+    (local $__mutation$1$new i32)
     (local $__caught_exc i32)
     i32.const 0
     local.set $size
@@ -4853,9 +4873,14 @@
         i32.eqz
         br_if $break_while_2
     local.get $size
+    local.tee $__mutation$0$old
     i32.const 1
     i32.add
+    local.set $__mutation$0$new
+    local.get $__mutation$0$new
     local.set $size
+    local.get $__mutation$0$old
+    drop
     local.get $row
     i32.load offset=8
     local.set $row
@@ -4902,9 +4927,14 @@
     i32.load offset=4
     i32.store offset=4
     local.get $index
+    local.tee $__mutation$1$old
     i32.const 1
     i32.add
+    local.set $__mutation$1$new
+    local.get $__mutation$1$new
     local.set $index
+    local.get $__mutation$1$old
+    drop
     local.get $row
     i32.load offset=8
     local.set $row
@@ -4933,6 +4963,9 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__mutation$2$address i32)
+    (local $__mutation$2$old i32)
+    (local $__mutation$2$new i32)
     (local $__caught_exc i32)
     local.get $value
     i32.load offset=4
@@ -4944,13 +4977,20 @@
     i32.load offset=8
     i32.store offset=4
     local.get $this
-    local.set $__obj_tmp
-    local.get $__obj_tmp
-    local.get $__obj_tmp
-    i32.load offset=8
+    i32.const 8
+    i32.add
+    local.set $__mutation$2$address
+    local.get $__mutation$2$address
+    i32.load
+    local.tee $__mutation$2$old
     i32.const 1
     i32.add
-    i32.store offset=8
+    local.set $__mutation$2$new
+    local.get $__mutation$2$address
+    local.get $__mutation$2$new
+    i32.store
+    local.get $__mutation$2$old
+    drop
     end
     local.get $this
     i32.load offset=4
@@ -5736,6 +5776,162 @@
     global.get $__controller_ProductController
     return
   )
+  (func $__arithmetic_error (local $e i32)
+    i32.const 8
+    call $__heap_alloc
+    local.tee $e
+    i32.const 154
+    i32.store
+    local.get $e
+    throw $Exception
+  )
+  (func $__java_i32_div (param $x i32) (param $y i32) (result i32)
+    local.get $y
+    i32.eqz
+    if
+    call $__arithmetic_error
+    end
+    local.get $x
+    i32.const -2147483648
+    i32.eq
+    local.get $y
+    i32.const -1
+    i32.eq
+    i32.and
+    if
+    i32.const -2147483648
+    return
+    end
+    local.get $x
+    local.get $y
+    i32.div_s
+  )
+  (func $__java_i32_rem (param $x i32) (param $y i32) (result i32)
+    local.get $y
+    i32.eqz
+    if
+    call $__arithmetic_error
+    end
+    local.get $x
+    local.get $y
+    i32.rem_s
+  )
+  (func $__java_i64_div (param $x i64) (param $y i64) (result i64)
+    local.get $y
+    i64.eqz
+    if
+    call $__arithmetic_error
+    end
+    local.get $x
+    i64.const -9223372036854775808
+    i64.eq
+    local.get $y
+    i64.const -1
+    i64.eq
+    i32.and
+    if
+    i64.const -9223372036854775808
+    return
+    end
+    local.get $x
+    local.get $y
+    i64.div_s
+  )
+  (func $__java_i64_rem (param $x i64) (param $y i64) (result i64)
+    local.get $y
+    i64.eqz
+    if
+    call $__arithmetic_error
+    end
+    local.get $x
+    local.get $y
+    i64.rem_s
+  )
+  (func $__java_f64_rem (param $x f64) (param $y f64) (result f64)
+    (local $a f64) (local $b f64) (local $scaled f64)
+    local.get $x
+    f64.abs
+    local.set $a
+    local.get $y
+    f64.abs
+    local.set $b
+    local.get $b
+    f64.const 0
+    f64.eq
+    local.get $a
+    f64.const inf
+    f64.eq
+    i32.or
+    local.get $x
+    local.get $x
+    f64.ne
+    i32.or
+    local.get $y
+    local.get $y
+    f64.ne
+    i32.or
+    if
+      f64.const nan
+      return
+    end
+    local.get $a
+    local.get $b
+    f64.lt
+    if
+      local.get $x
+      return
+    end
+    local.get $b
+    local.set $scaled
+    (block $scaled_up
+      (loop $scale
+        local.get $scaled
+        f64.const 2
+        f64.mul
+        local.get $a
+        f64.gt
+        br_if $scaled_up
+        local.get $scaled
+        f64.const 2
+        f64.mul
+        local.set $scaled
+        br $scale
+      )
+    )
+    (block $done
+      (loop $subtract
+        local.get $a
+        local.get $scaled
+        f64.ge
+        if
+          local.get $a
+          local.get $scaled
+          f64.sub
+          local.set $a
+        end
+        local.get $scaled
+        local.get $b
+        f64.le
+        br_if $done
+        local.get $scaled
+        f64.const 2
+        f64.div
+        local.set $scaled
+        br $subtract
+      )
+    )
+    local.get $a
+    local.get $x
+    f64.copysign
+  )
+  (func $__java_f32_rem (param $x f32) (param $y f32) (result f32)
+    local.get $x
+    f64.promote_f32
+    local.get $y
+    f64.promote_f32
+    call $__java_f64_rem
+    f32.demote_f64
+  )
   ;; Default toString() for Product
   (func $Product_toString (export "Product_toString") (param $this i32) (result i32)
     local.get $this
@@ -6113,6 +6309,13 @@
     i32.const 0
     call $__str_equals
     if
+      global.get $__class_ArithmeticException
+      return
+    end
+    local.get $name
+    i32.const 0
+    call $__str_equals
+    if
       global.get $__class_WASIFile
       return
     end
@@ -6340,18 +6543,25 @@
     i32.const 154
     i32.eq
     if
+      global.get $__class_ArithmeticException
+      return
+    end
+    local.get $vtableBase
+    i32.const 165
+    i32.eq
+    if
       global.get $__class_WASIFile
       return
     end
     local.get $vtableBase
-    i32.const 164
+    i32.const 175
     i32.eq
     if
       global.get $__class_Thread
       return
     end
     local.get $vtableBase
-    i32.const 174
+    i32.const 185
     i32.eq
     if
       global.get $__class_Class
@@ -6447,7 +6657,7 @@
     call $__heap_alloc
     local.set $t
     local.get $t
-    i32.const 164
+    i32.const 175
     i32.store offset=0
     local.get $t
     i32.const 0
@@ -6470,7 +6680,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 174
+    i32.const 185
     i32.store offset=0
     local.get $inst
     i32.const 4211
@@ -6496,7 +6706,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 174
+    i32.const 185
     i32.store offset=0
     local.get $inst
     i32.const 4219
@@ -6522,7 +6732,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 174
+    i32.const 185
     i32.store offset=0
     local.get $inst
     i32.const 4233
@@ -6548,7 +6758,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 174
+    i32.const 185
     i32.store offset=0
     local.get $inst
     i32.const 4251
@@ -6574,7 +6784,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 174
+    i32.const 185
     i32.store offset=0
     local.get $inst
     i32.const 4269
@@ -6600,7 +6810,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 174
+    i32.const 185
     i32.store offset=0
     local.get $inst
     i32.const 4298
@@ -6626,7 +6836,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 174
+    i32.const 185
     i32.store offset=0
     local.get $inst
     i32.const 4322
@@ -6652,7 +6862,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 174
+    i32.const 185
     i32.store offset=0
     local.get $inst
     i32.const 0
@@ -6678,7 +6888,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 174
+    i32.const 185
     i32.store offset=0
     local.get $inst
     i32.const 0
@@ -6704,7 +6914,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 174
+    i32.const 185
     i32.store offset=0
     local.get $inst
     i32.const 0
@@ -6730,7 +6940,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 174
+    i32.const 185
     i32.store offset=0
     local.get $inst
     i32.const 0
@@ -6756,7 +6966,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 174
+    i32.const 185
     i32.store offset=0
     local.get $inst
     i32.const 0
@@ -6782,7 +6992,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 174
+    i32.const 185
     i32.store offset=0
     local.get $inst
     i32.const 0
@@ -6808,7 +7018,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 174
+    i32.const 185
     i32.store offset=0
     local.get $inst
     i32.const 0
@@ -6829,12 +7039,12 @@
     i32.const 0
     i32.store offset=24
     local.get $inst
-    global.set $__class_WASIFile
+    global.set $__class_ArithmeticException
     i32.const 32
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 174
+    i32.const 185
     i32.store offset=0
     local.get $inst
     i32.const 0
@@ -6844,6 +7054,32 @@
     i32.store offset=8
     local.get $inst
     i32.const 15
+    i32.store offset=12
+    local.get $inst
+    i32.const 0
+    i32.store offset=16
+    local.get $inst
+    i32.const 0
+    i32.store offset=20
+    local.get $inst
+    i32.const 0
+    i32.store offset=24
+    local.get $inst
+    global.set $__class_WASIFile
+    i32.const 32
+    call $__heap_alloc
+    local.set $inst
+    local.get $inst
+    i32.const 185
+    i32.store offset=0
+    local.get $inst
+    i32.const 0
+    i32.store offset=4
+    local.get $inst
+    i32.const 0
+    i32.store offset=8
+    local.get $inst
+    i32.const 16
     i32.store offset=12
     local.get $inst
     i32.const 1
@@ -6860,7 +7096,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 174
+    i32.const 185
     i32.store offset=0
     local.get $inst
     i32.const 0
@@ -6869,7 +7105,7 @@
     i32.const 0
     i32.store offset=8
     local.get $inst
-    i32.const 16
+    i32.const 17
     i32.store offset=12
     local.get $inst
     i32.const 0
@@ -6886,33 +7122,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 174
-    i32.store offset=0
-    local.get $inst
-    i32.const 0
-    i32.store offset=4
-    local.get $inst
-    i32.const 0
-    i32.store offset=8
-    local.get $inst
-    i32.const 17
-    i32.store offset=12
-    local.get $inst
-    i32.const 1
-    i32.store offset=16
-    local.get $inst
-    i32.const 0
-    i32.store offset=20
-    local.get $inst
-    i32.const 0
-    i32.store offset=24
-    local.get $inst
-    global.set $__class_AutoCloseable
-    i32.const 32
-    call $__heap_alloc
-    local.set $inst
-    local.get $inst
-    i32.const 174
+    i32.const 185
     i32.store offset=0
     local.get $inst
     i32.const 0
@@ -6933,12 +7143,12 @@
     i32.const 0
     i32.store offset=24
     local.get $inst
-    global.set $__class_Comparable
+    global.set $__class_AutoCloseable
     i32.const 32
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 174
+    i32.const 185
     i32.store offset=0
     local.get $inst
     i32.const 0
@@ -6959,12 +7169,12 @@
     i32.const 0
     i32.store offset=24
     local.get $inst
-    global.set $__class_Iterable
+    global.set $__class_Comparable
     i32.const 32
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 174
+    i32.const 185
     i32.store offset=0
     local.get $inst
     i32.const 0
@@ -6985,12 +7195,38 @@
     i32.const 0
     i32.store offset=24
     local.get $inst
+    global.set $__class_Iterable
+    i32.const 32
+    call $__heap_alloc
+    local.set $inst
+    local.get $inst
+    i32.const 185
+    i32.store offset=0
+    local.get $inst
+    i32.const 0
+    i32.store offset=4
+    local.get $inst
+    i32.const 0
+    i32.store offset=8
+    local.get $inst
+    i32.const 21
+    i32.store offset=12
+    local.get $inst
+    i32.const 1
+    i32.store offset=16
+    local.get $inst
+    i32.const 0
+    i32.store offset=20
+    local.get $inst
+    i32.const 0
+    i32.store offset=24
+    local.get $inst
     global.set $__class_Iterator
     i32.const 32
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 174
+    i32.const 185
     i32.store offset=0
     local.get $inst
     i32.const 4401
@@ -6999,7 +7235,7 @@
     i32.const 4401
     i32.store offset=8
     local.get $inst
-    i32.const 21
+    i32.const 22
     i32.store offset=12
     local.get $inst
     i32.const 1
@@ -7016,7 +7252,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 174
+    i32.const 185
     i32.store offset=0
     local.get $inst
     i32.const 4394
@@ -7025,7 +7261,7 @@
     i32.const 4394
     i32.store offset=8
     local.get $inst
-    i32.const 22
+    i32.const 23
     i32.store offset=12
     local.get $inst
     i32.const 0
@@ -7042,7 +7278,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 174
+    i32.const 185
     i32.store offset=0
     local.get $inst
     i32.const 4388
@@ -7051,7 +7287,7 @@
     i32.const 4388
     i32.store offset=8
     local.get $inst
-    i32.const 23
+    i32.const 24
     i32.store offset=12
     local.get $inst
     i32.const 0
@@ -7068,7 +7304,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 174
+    i32.const 185
     i32.store offset=0
     local.get $inst
     i32.const 4415
@@ -7077,7 +7313,7 @@
     i32.const 4415
     i32.store offset=8
     local.get $inst
-    i32.const 24
+    i32.const 25
     i32.store offset=12
     local.get $inst
     i32.const 0
@@ -7094,7 +7330,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 174
+    i32.const 185
     i32.store offset=0
     local.get $inst
     i32.const 4419
@@ -7103,7 +7339,7 @@
     i32.const 4419
     i32.store offset=8
     local.get $inst
-    i32.const 25
+    i32.const 26
     i32.store offset=12
     local.get $inst
     i32.const 0
@@ -7120,7 +7356,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 174
+    i32.const 185
     i32.store offset=0
     local.get $inst
     i32.const 4424
@@ -7129,7 +7365,7 @@
     i32.const 4424
     i32.store offset=8
     local.get $inst
-    i32.const 26
+    i32.const 27
     i32.store offset=12
     local.get $inst
     i32.const 0
@@ -7146,7 +7382,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 174
+    i32.const 185
     i32.store offset=0
     local.get $inst
     i32.const 4431
@@ -7155,7 +7391,7 @@
     i32.const 4431
     i32.store offset=8
     local.get $inst
-    i32.const 27
+    i32.const 28
     i32.store offset=12
     local.get $inst
     i32.const 0
@@ -7172,7 +7408,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 174
+    i32.const 185
     i32.store offset=0
     local.get $inst
     i32.const 4437
@@ -7181,7 +7417,7 @@
     i32.const 4437
     i32.store offset=8
     local.get $inst
-    i32.const 28
+    i32.const 29
     i32.store offset=12
     local.get $inst
     i32.const 0
@@ -7198,7 +7434,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 174
+    i32.const 185
     i32.store offset=0
     local.get $inst
     i32.const 4445
@@ -7207,7 +7443,7 @@
     i32.const 4445
     i32.store offset=8
     local.get $inst
-    i32.const 29
+    i32.const 30
     i32.store offset=12
     local.get $inst
     i32.const 0
@@ -7224,7 +7460,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 174
+    i32.const 185
     i32.store offset=0
     local.get $inst
     i32.const 4450
@@ -7233,7 +7469,7 @@
     i32.const 4450
     i32.store offset=8
     local.get $inst
-    i32.const 30
+    i32.const 31
     i32.store offset=12
     local.get $inst
     i32.const 0
@@ -7250,7 +7486,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 174
+    i32.const 185
     i32.store offset=0
     local.get $inst
     i32.const 4455
@@ -7259,7 +7495,7 @@
     i32.const 4455
     i32.store offset=8
     local.get $inst
-    i32.const 31
+    i32.const 32
     i32.store offset=12
     local.get $inst
     i32.const 0
@@ -7276,7 +7512,7 @@
     call $__heap_alloc
     local.set $inst
     local.get $inst
-    i32.const 174
+    i32.const 185
     i32.store offset=0
     local.get $inst
     i32.const 4461
@@ -7285,7 +7521,7 @@
     i32.const 4461
     i32.store offset=8
     local.get $inst
-    i32.const 32
+    i32.const 33
     i32.store offset=12
     local.get $inst
     i32.const 0
@@ -7314,6 +7550,9 @@
     global.get $__class_RuntimeException
     i32.store offset=24
     global.get $__class_NullPointerException
+    global.get $__class_RuntimeException
+    i32.store offset=24
+    global.get $__class_ArithmeticException
     global.get $__class_RuntimeException
     i32.store offset=24
   )

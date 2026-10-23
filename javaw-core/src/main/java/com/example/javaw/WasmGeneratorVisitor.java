@@ -27,6 +27,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     private final Deque<String> switchEnumStack = new ArrayDeque<>();
     private final Map<String, Integer> methodCounts = new HashMap<>();
     private final Map<String, Integer> constructorCounts = new HashMap<>();
+    private final Map<UnaryExpr, String> mutationLocals = new IdentityHashMap<>();
     private final Map<MethodCallExpr, String> receiverLocals = new IdentityHashMap<>();
     private CallableDeclaration<?> currentCallable;
     private ClassModel currentClass;
@@ -59,6 +60,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     @Override
     public void visit(CompilationUnit n, StringBuilder collector) {
         super.visit(n, collector);
+        emitNumericRuntime(collector);
         emitDefaultRootVirtualMethods(collector);
         emitClassInitializersAndHelpers(n, collector);
         emitEnumInitializersAndHelpers(n, collector);
@@ -549,6 +551,15 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     collector.append("    (local $").append(pName).append(" i32)\n");
                 }
             }
+        }
+        for (UnaryExpr unary : body.findAll(UnaryExpr.class)) {
+            if (!isMutation(unary)) continue;
+            String id = "__mutation$" + mutationLocals.size();
+            mutationLocals.put(unary, id);
+            String type = TypeMapper.mapType(getExpressionJavaType(unary.getExpression(), localJavaTypes));
+            collector.append("    (local $").append(id).append("$address i32)\n");
+            collector.append("    (local $").append(id).append("$old ").append(type).append(")\n");
+            collector.append("    (local $").append(id).append("$new ").append(type).append(")\n");
         }
         for (MethodCallExpr call : body.findAll(MethodCallExpr.class)) {
             String local = "__receiver$" + receiverLocals.size();
@@ -1116,7 +1127,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             String opType = "i32";
             if (bin.getOperator() == BinaryExpr.Operator.AND || bin.getOperator() == BinaryExpr.Operator.OR) {
                 opType = "i32";
-            } else if ("f64".equals(leftType) || "f64".equals(rightType) || "f64".equals(opType) || ("f32".equals(leftType) && ("f64".equals(rightType) || bin.getRight().isDoubleLiteralExpr())) || ("f32".equals(rightType) && ("f64".equals(leftType) || bin.getLeft().isDoubleLiteralExpr()))) {
+            } else if ("f64".equals(leftType) || "f64".equals(rightType) || "f64".equals(opType)) {
                 opType = "f64";
             } else if ("f32".equals(leftType) || "f32".equals(rightType)) {
                 opType = "f32";
@@ -1179,120 +1190,33 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 } else {
                     collector.append("    i32.const -1\n    i32.xor\n");
                 }
-            } else if (u.getOperator() == UnaryExpr.Operator.POSTFIX_INCREMENT || u.getOperator() == UnaryExpr.Operator.PREFIX_INCREMENT) {
-                if (u.getExpression().isNameExpr()) {
-                    String var = u.getExpression().asNameExpr().getNameAsString();
-                    boolean isGlobal = globalVars != null && globalVars.containsKey(var) && !localTypes.containsKey(var);
-                    FieldModel fm = (currentClass != null && !localTypes.containsKey(var)) ? currentClass.getField(var) : null;
-                    if (fm != null && !fm.isStatic()) {
-                        collector.append("    local.get $this\n");
-                        collector.append("    local.get $this\n");
-                        collector.append("    ").append(fm.getWasmType()).append(".load offset=").append(fm.getOffset()).append("\n");
-                        collector.append("    i32.const 1\n");
-                        collector.append("    i32.add\n");
-                        collector.append("    ").append(fm.getWasmType()).append(".store offset=").append(fm.getOffset()).append("\n");
-                    } else {
-                        collector.append(isGlobal ? "    global.get $" : "    local.get $").append(var).append("\n");
-                        collector.append("    i32.const 1\n");
-                        collector.append("    i32.add\n");
-                        collector.append(isGlobal ? "    global.set $" : "    local.set $").append(var).append("\n");
-                    }
-                } else if (u.getExpression().isFieldAccessExpr()) {
-                    FieldAccessExpr fae = u.getExpression().asFieldAccessExpr();
-                    String fName = fae.getNameAsString();
-                    String targetType = getExpressionJavaType(fae.getScope(), localJavaTypes);
-                    FieldModel fm = null;
-                    if (targetType != null && classRegistry != null && classRegistry.hasClass(targetType)) {
-                        fm = classRegistry.getClass(targetType).getField(fName);
-                    } else if (currentClass != null && currentClass.getField(fName) != null) {
-                        fm = currentClass.getField(fName);
-                    }
-                    if (fm != null && !fm.isStatic()) {
-                        translateExpression(fae.getScope(), collector, localTypes, localElementTypes, localJavaTypes, "i32");
-                        collector.append("    local.set $__obj_tmp\n");
-                        collector.append("    local.get $__obj_tmp\n");
-                        collector.append("    local.get $__obj_tmp\n");
-                        collector.append("    ").append(fm.getWasmType()).append(".load offset=").append(fm.getOffset()).append("\n");
-                        collector.append("    i32.const 1\n");
-                        collector.append("    i32.add\n");
-                        collector.append("    ").append(fm.getWasmType()).append(".store offset=").append(fm.getOffset()).append("\n");
-                    }
-                }
-            } else if (u.getOperator() == UnaryExpr.Operator.POSTFIX_DECREMENT || u.getOperator() == UnaryExpr.Operator.PREFIX_DECREMENT) {
-                if (u.getExpression().isNameExpr()) {
-                    String var = u.getExpression().asNameExpr().getNameAsString();
-                    boolean isGlobal = globalVars != null && globalVars.containsKey(var) && !localTypes.containsKey(var);
-                    FieldModel fm = (currentClass != null && !localTypes.containsKey(var)) ? currentClass.getField(var) : null;
-                    if (fm != null && !fm.isStatic()) {
-                        collector.append("    local.get $this\n");
-                        collector.append("    local.get $this\n");
-                        collector.append("    ").append(fm.getWasmType()).append(".load offset=").append(fm.getOffset()).append("\n");
-                        collector.append("    i32.const 1\n");
-                        collector.append("    i32.sub\n");
-                        collector.append("    ").append(fm.getWasmType()).append(".store offset=").append(fm.getOffset()).append("\n");
-                    } else {
-                        collector.append(isGlobal ? "    global.get $" : "    local.get $").append(var).append("\n");
-                        collector.append("    i32.const 1\n");
-                        collector.append("    i32.sub\n");
-                        collector.append(isGlobal ? "    global.set $" : "    local.set $").append(var).append("\n");
-                    }
-                } else if (u.getExpression().isFieldAccessExpr()) {
-                    FieldAccessExpr fae = u.getExpression().asFieldAccessExpr();
-                    String fName = fae.getNameAsString();
-                    String targetType = getExpressionJavaType(fae.getScope(), localJavaTypes);
-                    FieldModel fm = null;
-                    if (targetType != null && classRegistry != null && classRegistry.hasClass(targetType)) {
-                        fm = classRegistry.getClass(targetType).getField(fName);
-                    } else if (currentClass != null && currentClass.getField(fName) != null) {
-                        fm = currentClass.getField(fName);
-                    }
-                    if (fm != null && !fm.isStatic()) {
-                        translateExpression(fae.getScope(), collector, localTypes, localElementTypes, localJavaTypes, "i32");
-                        collector.append("    local.set $__obj_tmp\n");
-                        collector.append("    local.get $__obj_tmp\n");
-                        collector.append("    local.get $__obj_tmp\n");
-                        collector.append("    ").append(fm.getWasmType()).append(".load offset=").append(fm.getOffset()).append("\n");
-                        collector.append("    i32.const 1\n");
-                        collector.append("    i32.sub\n");
-                        collector.append("    ").append(fm.getWasmType()).append(".store offset=").append(fm.getOffset()).append("\n");
-                    }
-                }
+            } else if (isMutation(u)) {
+                emitMutation(u, collector, localTypes, localElementTypes, localJavaTypes, expectedType);
+                return;
             } else {
                 translateExpression(u.getExpression(), collector, localTypes, localElementTypes, localJavaTypes, expectedType);
             }
+            if (u.getOperator() != UnaryExpr.Operator.PLUS) emitNumericWidening(uType, expectedType, collector);
         } else if (expr.isIntegerLiteralExpr()) {
-            if ("f64".equals(expectedType)) {
-                String val = expr.asIntegerLiteralExpr().getValue();
-                if (!val.contains(".")) val += ".0";
-                collector.append("    f64.const ").append(val).append("\n");
-            } else if ("f32".equals(expectedType)) {
-                String val = expr.asIntegerLiteralExpr().getValue();
-                if (!val.contains(".")) val += ".0";
-                collector.append("    f32.const ").append(val).append("\n");
-            } else if ("i64".equals(expectedType)) {
-                collector.append("    i64.const ").append(expr.asIntegerLiteralExpr().getValue()).append("\n");
-            } else {
-                collector.append("    i32.const ").append(expr.asIntegerLiteralExpr().getValue()).append("\n");
-            }
+            collector.append("    i32.const ").append(expr.asIntegerLiteralExpr().asNumber().intValue()).append("\n");
+            emitNumericWidening("i32", expectedType, collector);
         } else if (expr.isLongLiteralExpr()) {
-            String val = expr.asLongLiteralExpr().getValue().replaceAll("[lL]", "");
-            collector.append("    i64.const ").append(val).append("\n");
+            collector.append("    i64.const ").append(expr.asLongLiteralExpr().asNumber().longValue()).append("\n");
             if ("i32".equals(expectedType)) collector.append("    i32.wrap_i64\n");
             else emitNumericWidening("i64", expectedType, collector);
         } else if (expr.isDoubleLiteralExpr()) {
             String raw = expr.asDoubleLiteralExpr().getValue();
-            boolean isExplicitFloat = raw.endsWith("f") || raw.endsWith("F");
-            String dVal = raw.replaceAll("[fFdD]", "");
-            if (!dVal.contains(".")) dVal += ".0";
-            if ("f32".equals(expectedType) || (isExplicitFloat && expectedType == null)) {
-                collector.append("    f32.const ").append(dVal).append("\n");
-            } else {
-                collector.append("    f64.const ").append(dVal).append("\n");
-            }
+            boolean isFloat = raw.endsWith("f") || raw.endsWith("F");
+            String value = raw.replace("_", "").replaceAll("[fFdD]$", "");
+            String type = isFloat ? "f32" : "f64";
+            collector.append("    ").append(type).append(".const ").append(value).append("\n");
+            if ("f32".equals(expectedType) && !isFloat) collector.append("    f32.demote_f64\n");
+            else emitNumericWidening(type, expectedType, collector);
         } else if (expr.isBooleanLiteralExpr()) {
             collector.append("    i32.const ").append(expr.asBooleanLiteralExpr().getValue() ? "1" : "0").append("\n");
         } else if (expr.isCharLiteralExpr()) {
             collector.append("    i32.const ").append(JavacToWasm.unescapeChar(expr.asCharLiteralExpr().getValue())).append("\n");
+            emitNumericWidening("i32", expectedType, collector);
         } else if (expr.isStringLiteralExpr()) {
             String val = JavacToWasm.unescapeString(expr.asStringLiteralExpr().getValue());
             StringConstant sc = stringPool != null ? stringPool.get(val) : null;
@@ -1332,9 +1256,9 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             translateExpression(ce.getExpression(), collector, localTypes, localElementTypes, localJavaTypes, innerType != null ? innerType : castTarget);
             if ("i32".equals(castTarget)) {
                 if ("f64".equals(innerType)) {
-                    collector.append("    i32.trunc_f64_s\n");
+                    collector.append("    i32.trunc_sat_f64_s\n");
                 } else if ("f32".equals(innerType)) {
-                    collector.append("    i32.trunc_f32_s\n");
+                    collector.append("    i32.trunc_sat_f32_s\n");
                 } else if ("i64".equals(innerType)) {
                     collector.append("    i32.wrap_i64\n");
                 }
@@ -1342,9 +1266,9 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 if ("i32".equals(innerType)) {
                     collector.append("    i64.extend_i32_s\n");
                 } else if ("f64".equals(innerType)) {
-                    collector.append("    i64.trunc_f64_s\n");
+                    collector.append("    i64.trunc_sat_f64_s\n");
                 } else if ("f32".equals(innerType)) {
-                    collector.append("    i64.trunc_f32_s\n");
+                    collector.append("    i64.trunc_sat_f32_s\n");
                 }
             } else if ("f64".equals(castTarget)) {
                 if ("i32".equals(innerType)) {
@@ -1363,6 +1287,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     collector.append("    f32.demote_f64\n");
                 }
             }
+            emitNarrowing(ce.getType().asString(), collector);
             if (expectedType != null && !expectedType.equals(castTarget)) {
                 if ("f64".equals(expectedType) && "i32".equals(castTarget)) {
                     collector.append("    f64.convert_i32_s\n");
@@ -1377,9 +1302,9 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 } else if ("f32".equals(expectedType) && "i64".equals(castTarget)) {
                     collector.append("    f32.convert_i64_s\n");
                 } else if ("i32".equals(expectedType) && "f64".equals(castTarget)) {
-                    collector.append("    i32.trunc_f64_s\n");
+                    collector.append("    i32.trunc_sat_f64_s\n");
                 } else if ("i32".equals(expectedType) && "f32".equals(castTarget)) {
-                    collector.append("    i32.trunc_f32_s\n");
+                    collector.append("    i32.trunc_sat_f32_s\n");
                 } else if ("i32".equals(expectedType) && "i64".equals(castTarget)) {
                     collector.append("    i32.wrap_i64\n");
                 } else if ("i64".equals(expectedType) && "i32".equals(castTarget)) {
@@ -1870,11 +1795,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                         collector.append("    local.get $this\n");
                         collector.append("    local.get $this\n");
                         collector.append("    ").append(getLoadInstruction(fm.getWasmType())).append(" offset=").append(fm.getOffset()).append("\n");
-                        translateExpression(assign.getValue(), collector, localTypes, localElementTypes, localJavaTypes, fm.getWasmType());
-                        BinaryExpr.Operator binOp = mapAssignOpToBinaryOp(op);
-                        if (binOp != null) {
-                            collector.append("    ").append(getWasmBinaryOp(binOp, fm.getWasmType())).append("\n");
-                        }
+                        emitCompoundOperation(assign, collector, localTypes, localElementTypes, localJavaTypes, fm.getWasmType());
                         collector.append("    ").append(getStoreInstruction(fm.getWasmType())).append(" offset=").append(fm.getOffset()).append("\n");
                     }
                 } else {
@@ -1889,11 +1810,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                         collector.append(isGlobal ? "    global.set $" : "    local.set $").append(target).append("\n");
                     } else {
                         collector.append(isGlobal ? "    global.get $" : "    local.get $").append(target).append("\n");
-                        translateExpression(assign.getValue(), collector, localTypes, localElementTypes, localJavaTypes, targetType);
-                        BinaryExpr.Operator binOp = mapAssignOpToBinaryOp(op);
-                        if (binOp != null) {
-                            collector.append("    ").append(getWasmBinaryOp(binOp, targetType)).append("\n");
-                        }
+                        emitCompoundOperation(assign, collector, localTypes, localElementTypes, localJavaTypes, targetType);
                         collector.append(isGlobal ? "    global.set $" : "    local.set $").append(target).append("\n");
                     }
                 }
@@ -1918,11 +1835,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                         collector.append("    local.get $__obj_tmp\n");
                         collector.append("    local.get $__obj_tmp\n");
                         collector.append("    ").append(getLoadInstruction(fm.getWasmType())).append(" offset=").append(fm.getOffset()).append("\n");
-                        translateExpression(assign.getValue(), collector, localTypes, localElementTypes, localJavaTypes, fm.getWasmType());
-                        BinaryExpr.Operator binOp = mapAssignOpToBinaryOp(op);
-                        if (binOp != null) {
-                            collector.append("    ").append(getWasmBinaryOp(binOp, fm.getWasmType())).append("\n");
-                        }
+                        emitCompoundOperation(assign, collector, localTypes, localElementTypes, localJavaTypes, fm.getWasmType());
                         collector.append("    ").append(getStoreInstruction(fm.getWasmType())).append(" offset=").append(fm.getOffset()).append("\n");
                     }
                 }
@@ -1951,11 +1864,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     collector.append("    local.get $__arr_alloc_ptr\n");
                     collector.append("    local.get $__arr_alloc_ptr\n");
                     collector.append("    ").append(getLoadInstruction(elemType)).append(" offset=").append(headerOffset).append("\n");
-                    translateExpression(assign.getValue(), collector, localTypes, localElementTypes, localJavaTypes, elemType);
-                    BinaryExpr.Operator binOp = mapAssignOpToBinaryOp(op);
-                    if (binOp != null) {
-                        collector.append("    ").append(getWasmBinaryOp(binOp, elemType)).append("\n");
-                    }
+                    emitCompoundOperation(assign, collector, localTypes, localElementTypes, localJavaTypes, elemType);
                     collector.append("    ").append(getStoreInstruction(elemType)).append(" offset=").append(headerOffset).append("\n");
                 }
             } else {
@@ -2640,6 +2549,197 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         }
     }
 
+    private void emitCompoundOperation(AssignExpr assignment, StringBuilder out, Map<String, String> locals,
+            Map<String, String> elements, Map<String, String> javaTypes, String storageType) {
+        String left = getExpressionJavaType(assignment.getTarget(), javaTypes);
+        String right = getExpressionJavaType(assignment.getValue(), javaTypes);
+        BinaryExpr.Operator operation = mapAssignOpToBinaryOp(assignment.getOperator());
+        boolean shift = operation == BinaryExpr.Operator.LEFT_SHIFT || operation == BinaryExpr.Operator.SIGNED_RIGHT_SHIFT
+                || operation == BinaryExpr.Operator.UNSIGNED_RIGHT_SHIFT;
+        String promoted = shift ? storageType : TypeMapper.mapType(promotedNumeric(left, right));
+        if ("boolean".equals(left)) promoted = "i32";
+        emitNumericWidening(storageType, promoted, out);
+        translateExpression(assignment.getValue(), out, locals, elements, javaTypes, promoted);
+        out.append("    ").append(getWasmBinaryOp(operation, promoted)).append("\n");
+        if (!storageType.equals(promoted)) {
+            if (storageType.equals("i32")) out.append("    ").append(promoted.equals("i64") ? "i32.wrap_i64" : "i32.trunc_sat_" + promoted + "_s").append("\n");
+            else if (storageType.equals("i64") && promoted.startsWith("f")) out.append("    i64.trunc_sat_").append(promoted).append("_s\n");
+            else if (storageType.equals("f32") && promoted.equals("f64")) out.append("    f32.demote_f64\n");
+            else emitNumericWidening(promoted, storageType, out);
+        }
+        emitNarrowing(left, out);
+    }
+
+    private void emitNumericRuntime(StringBuilder out) {
+        int vtable = classRegistry.getClass("ArithmeticException").getVtableBase();
+        out.append("  (func $__arithmetic_error (local $e i32)\n    i32.const 8\n    call $__heap_alloc\n    local.tee $e\n    i32.const ")
+                .append(vtable).append("\n    i32.store\n    local.get $e\n    throw $Exception\n  )\n");
+        for (String type : List.of("i32", "i64")) {
+            String minimum = type.equals("i32") ? "-2147483648" : "-9223372036854775808";
+            for (String operation : List.of("div", "rem")) {
+                out.append("  (func $__java_").append(type).append("_").append(operation)
+                        .append(" (param $x ").append(type).append(") (param $y ").append(type).append(") (result ").append(type).append(")\n")
+                        .append("    local.get $y\n    ").append(type).append(".eqz\n    if\n    call $__arithmetic_error\n    end\n");
+                if (operation.equals("div")) out.append("    local.get $x\n    ").append(type).append(".const ").append(minimum)
+                        .append("\n    ").append(type).append(".eq\n    local.get $y\n    ").append(type).append(".const -1\n    ")
+                        .append(type).append(".eq\n    i32.and\n    if\n    ").append(type).append(".const ").append(minimum).append("\n    return\n    end\n");
+                out.append("    local.get $x\n    local.get $y\n    ").append(type).append(".").append(operation).append("_s\n  )\n");
+            }
+        }
+        out.append("""
+          (func $__java_f64_rem (param $x f64) (param $y f64) (result f64)
+            (local $a f64) (local $b f64) (local $scaled f64)
+            local.get $x
+            f64.abs
+            local.set $a
+            local.get $y
+            f64.abs
+            local.set $b
+            local.get $b
+            f64.const 0
+            f64.eq
+            local.get $a
+            f64.const inf
+            f64.eq
+            i32.or
+            local.get $x
+            local.get $x
+            f64.ne
+            i32.or
+            local.get $y
+            local.get $y
+            f64.ne
+            i32.or
+            if
+              f64.const nan
+              return
+            end
+            local.get $a
+            local.get $b
+            f64.lt
+            if
+              local.get $x
+              return
+            end
+            local.get $b
+            local.set $scaled
+            (block $scaled_up
+              (loop $scale
+                local.get $scaled
+                f64.const 2
+                f64.mul
+                local.get $a
+                f64.gt
+                br_if $scaled_up
+                local.get $scaled
+                f64.const 2
+                f64.mul
+                local.set $scaled
+                br $scale
+              )
+            )
+            (block $done
+              (loop $subtract
+                local.get $a
+                local.get $scaled
+                f64.ge
+                if
+                  local.get $a
+                  local.get $scaled
+                  f64.sub
+                  local.set $a
+                end
+                local.get $scaled
+                local.get $b
+                f64.le
+                br_if $done
+                local.get $scaled
+                f64.const 2
+                f64.div
+                local.set $scaled
+                br $subtract
+              )
+            )
+            local.get $a
+            local.get $x
+            f64.copysign
+          )
+          (func $__java_f32_rem (param $x f32) (param $y f32) (result f32)
+            local.get $x
+            f64.promote_f32
+            local.get $y
+            f64.promote_f32
+            call $__java_f64_rem
+            f32.demote_f64
+          )
+        """);
+    }
+
+    private boolean isMutation(UnaryExpr expression) {
+        return switch (expression.getOperator()) {
+            case PREFIX_INCREMENT, PREFIX_DECREMENT, POSTFIX_INCREMENT, POSTFIX_DECREMENT -> true;
+            default -> false;
+        };
+    }
+
+    private void emitNarrowing(String type, StringBuilder out) {
+        switch (type) {
+            case "byte" -> out.append("    i32.extend8_s\n");
+            case "short" -> out.append("    i32.extend16_s\n");
+            case "char" -> out.append("    i32.const 65535\n    i32.and\n");
+        }
+    }
+
+    private void emitMutation(UnaryExpr unary, StringBuilder out, Map<String, String> locals,
+            Map<String, String> elements, Map<String, String> javaTypes, String expected) {
+        Expression target = unary.getExpression();
+        String javaType = getExpressionJavaType(target, javaTypes);
+        if (!Set.of("byte", "short", "char", "int", "long", "float", "double").contains(javaType == null ? "" : javaType))
+            throw JavaSourcePreparation.error(unary, "Increment/decrement requires a numeric variable");
+        String type = TypeMapper.mapType(javaType), id = mutationLocals.get(unary);
+        String getter = null, setter = null;
+        FieldModel field = null;
+        Expression receiver = null;
+        if (target.isNameExpr()) {
+            String name = target.asNameExpr().getNameAsString();
+            if (locals.containsKey(name)) { getter = "local.get $" + name; setter = "local.set $" + name; }
+            else if (currentClass != null && currentClass.getField(name) != null && !currentClass.getField(name).isStatic()) {
+                field = currentClass.getField(name); receiver = new ThisExpr();
+            } else { getter = "global.get $" + name; setter = "global.set $" + name; }
+        } else if (target.isFieldAccessExpr()) {
+            var access = target.asFieldAccessExpr();
+            ClassModel owner = classRegistry.getClass(getExpressionJavaType(access.getScope(), javaTypes));
+            field = owner == null ? null : owner.getField(access.getNameAsString());
+            receiver = access.getScope();
+            if (field == null) throw JavaSourcePreparation.error(unary, "Cannot resolve increment/decrement field");
+            if (field.isStatic()) {
+                getter = "global.get $" + field.getName(); setter = "global.set $" + field.getName(); field = null;
+            }
+        } else if (target.isArrayAccessExpr()) {
+            var access = target.asArrayAccessExpr();
+            int bytes = type.equals("i64") || type.equals("f64") ? 8 : 4;
+            translateExpression(access.getName(), out, locals, elements, javaTypes, "i32");
+            translateExpression(access.getIndex(), out, locals, elements, javaTypes, "i32");
+            out.append("    i32.const ").append(bytes).append("\n    i32.mul\n    i32.add\n    i32.const ")
+                    .append(bytes).append("\n    i32.add\n    local.set $").append(id).append("$address\n");
+        } else throw JavaSourcePreparation.error(unary, "Unsupported increment/decrement target");
+        if (field != null) {
+            translateExpression(receiver, out, locals, elements, javaTypes, "i32");
+            out.append("    i32.const ").append(field.getOffset()).append("\n    i32.add\n    local.set $").append(id).append("$address\n");
+        }
+        if (getter != null) out.append("    ").append(getter).append("\n");
+        else out.append("    local.get $").append(id).append("$address\n    ").append(type).append(".load\n");
+        out.append("    local.tee $").append(id).append("$old\n    ").append(type).append(".const 1\n    ").append(type)
+                .append(unary.getOperator() == UnaryExpr.Operator.PREFIX_DECREMENT || unary.getOperator() == UnaryExpr.Operator.POSTFIX_DECREMENT ? ".sub\n" : ".add\n");
+        emitNarrowing(javaType, out);
+        out.append("    local.set $").append(id).append("$new\n");
+        if (setter == null) out.append("    local.get $").append(id).append("$address\n");
+        out.append("    local.get $").append(id).append("$new\n    ").append(setter == null ? type + ".store" : setter).append("\n");
+        boolean postfix = unary.getOperator() == UnaryExpr.Operator.POSTFIX_INCREMENT || unary.getOperator() == UnaryExpr.Operator.POSTFIX_DECREMENT;
+        out.append("    local.get $").append(id).append(postfix ? "$old\n" : "$new\n");
+        emitNumericWidening(type, expected, out);
+    }
+
     private void emitNumericWidening(String from, String to, StringBuilder out) {
         if (to == null || to.equals(from)) return;
         String op = null;
@@ -2691,15 +2791,14 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
 
     private boolean fitsConditionalConstant(String narrow, Expression expression, String other) {
         if (!"int".equals(other) || !Set.of("byte", "short", "char").contains(narrow)) return false;
-        try {
-            String literal = expression.toString().replace("_", "").replace(" ", "");
-            long value = Long.decode(literal);
-            return switch (narrow) {
-                case "byte" -> value >= -128 && value <= 127;
-                case "short" -> value >= -32768 && value <= 32767;
-                default -> value >= 0 && value <= 65535;
-            };
-        } catch (NumberFormatException ignored) { return false; }
+        OptionalInt constant = IntegralConstants.evaluate(expression);
+        if (constant.isEmpty()) return false;
+        int value = constant.getAsInt();
+        return switch (narrow) {
+            case "byte" -> value >= -128 && value <= 127;
+            case "short" -> value >= -32768 && value <= 32767;
+            default -> value >= 0 && value <= 65535;
+        };
     }
 
     private MethodModel sourceMethod(MethodCallExpr call, Map<String, String> locals) {
@@ -2848,6 +2947,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             UnaryExpr unary = expr.asUnaryExpr();
             if (unary.getOperator() == UnaryExpr.Operator.LOGICAL_COMPLEMENT) return "boolean";
             String type = getExpressionJavaType(unary.getExpression(), localJavaTypes);
+            if (isMutation(unary)) return type;
             return Set.of("byte", "short", "char").contains(type == null ? "" : type) ? "int" : type;
         }
         if (expr.isArrayCreationExpr()) {
@@ -3286,6 +3386,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     }
 
     private boolean expressionLeavesValueOnStack(Expression expr, Map<String, String> localJavaTypes) {
+        if (expr.isUnaryExpr() && isMutation(expr.asUnaryExpr())) return true;
         if (expr.isMethodCallExpr()) {
             MethodCallExpr call = expr.asMethodCallExpr();
             MethodModel source = sourceMethod(call, localJavaTypes);
@@ -4216,10 +4317,10 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             String type0 = inferType(arg0, localTypes, localElementTypes, localJavaTypes, null);
             if ("f32".equals(type0)) {
                 translateExpression(arg0, collector, localTypes, localElementTypes, localJavaTypes, "f32");
-                collector.append("    f32.const 0.5\n    f32.add\n    f32.floor\n    i32.trunc_f32_s\n");
+                collector.append("    f32.const 0.5\n    f32.add\n    f32.floor\n    i32.trunc_sat_f32_s\n");
             } else {
                 translateExpression(arg0, collector, localTypes, localElementTypes, localJavaTypes, "f64");
-                collector.append("    f64.const 0.5\n    f64.add\n    f64.floor\n    i64.trunc_f64_s\n");
+                collector.append("    f64.const 0.5\n    f64.add\n    f64.floor\n    i64.trunc_sat_f64_s\n");
             }
             return;
         }
@@ -4385,10 +4486,10 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 collector.append("    i32.wrap_i64\n");
             } else if ("Double".equals(targetClass)) {
                 translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "f64");
-                collector.append("    i32.trunc_f64_s\n");
+                collector.append("    i32.trunc_sat_f64_s\n");
             } else if ("Float".equals(targetClass)) {
                 translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "f32");
-                collector.append("    i32.trunc_f32_s\n");
+                collector.append("    i32.trunc_sat_f32_s\n");
             } else {
                 translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
             }
@@ -4397,10 +4498,10 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         if (mName.equals("longValue")) {
             if ("Double".equals(targetClass)) {
                 translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "f64");
-                collector.append("    i64.trunc_f64_s\n");
+                collector.append("    i64.trunc_sat_f64_s\n");
             } else if ("Float".equals(targetClass)) {
                 translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "f32");
-                collector.append("    i64.trunc_f32_s\n");
+                collector.append("    i64.trunc_sat_f32_s\n");
             } else if ("Long".equals(targetClass)) {
                 translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i64");
             } else {
@@ -5522,13 +5623,14 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     }
 
     private String inferType(Expression expr, Map<String, String> localTypes, Map<String, String> localElementTypes, Map<String, String> localJavaTypes, String fallback) {
+        if (expr.isUnaryExpr() || expr.isCastExpr()) return TypeMapper.mapType(getExpressionJavaType(expr, localJavaTypes));
         if (expr.isEnclosedExpr()) {
             return inferType(expr.asEnclosedExpr().getInner(), localTypes, localElementTypes, localJavaTypes, fallback);
         }
         if (expr.isConditionalExpr()) {
-            return inferType(expr.asConditionalExpr().getThenExpr(), localTypes, localElementTypes, localJavaTypes, fallback);
+            return TypeMapper.mapType(getExpressionJavaType(expr, localJavaTypes));
         }
-        if (expr.isDoubleLiteralExpr()) return "f64";
+        if (expr.isDoubleLiteralExpr()) return TypeMapper.mapType(getExpressionJavaType(expr, localJavaTypes));
         if (expr.isLongLiteralExpr()) return "i64";
         if (expr.isIntegerLiteralExpr() || expr.isBooleanLiteralExpr() || expr.isCharLiteralExpr() || expr.isClassExpr()) return "i32";
         if (expr.isStringLiteralExpr()) return "i32";
@@ -5657,8 +5759,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             case PLUS -> prefix + ".add";
             case MINUS -> prefix + ".sub";
             case MULTIPLY -> prefix + ".mul";
-            case DIVIDE -> (isF64 || isF32) ? prefix + ".div" : prefix + ".div_s";
-            case REMAINDER -> (isF64 || isF32) ? prefix + ".rem" : prefix + ".rem_s";
+            case DIVIDE -> (isF64 || isF32) ? prefix + ".div" : "call $__java_" + prefix + "_div";
+            case REMAINDER -> "call $__java_" + prefix + "_rem";
             case EQUALS -> (isF64 || isF32) ? prefix + ".eq" : prefix + ".eq";
             case NOT_EQUALS -> (isF64 || isF32) ? prefix + ".ne" : prefix + ".ne";
             case LESS -> (isF64 || isF32) ? prefix + ".lt" : prefix + ".lt_s";

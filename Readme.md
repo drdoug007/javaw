@@ -35,6 +35,8 @@ Source-class constructor overloads use argument types and arity, including primi
 
 Source-resolution regressions execute compiled Wasm in Node; see `javaw-core/src/test/java/com/example/javaw/SourceResolutionTest.java`. Qualified references to source classes work across batch files; multiple classes with the same simple name in one module are explicitly rejected.
 
+Primitive numeric regressions in `NumericConformanceTest` execute typed mutations, compound assignment promotion/narrowing, constant-expression ternaries, saturating float-to-integer casts, division edge cases, and floating remainder entirely in Wasm.
+
 The next priorities are reusable type/method resolution, Optional and lambdas, collections, decimal arithmetic, and memory reclamation. See [the compatibility roadmap](Todo.md#13-java-compatibility-roadmap) for acceptance criteria and remaining work.
 
 ## Features

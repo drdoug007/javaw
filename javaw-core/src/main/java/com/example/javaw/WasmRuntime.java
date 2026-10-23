@@ -2550,6 +2550,20 @@ public class WasmRuntime {
         watOutput.append("    local.get $this\n");
         watOutput.append("    call $RuntimeException_getMessage\n");
         watOutput.append("  )\n");
+
+        watOutput.append("  (func $ArithmeticException__init (export \"ArithmeticException__init\") (param $this i32)\n");
+        watOutput.append("    local.get $this\n");
+        watOutput.append("    call $RuntimeException__init\n");
+        watOutput.append("  )\n");
+        watOutput.append("  (func $ArithmeticException__init_1 (export \"ArithmeticException__init_1\") (param $this i32) (param $message i32)\n");
+        watOutput.append("    local.get $this\n");
+        watOutput.append("    local.get $message\n");
+        watOutput.append("    call $RuntimeException__init_1\n");
+        watOutput.append("  )\n");
+        watOutput.append("  (func $ArithmeticException_getMessage (export \"ArithmeticException_getMessage\") (param $this i32) (result i32)\n");
+        watOutput.append("    local.get $this\n");
+        watOutput.append("    call $RuntimeException_getMessage\n");
+        watOutput.append("  )\n");
         watOutput.append("  (func $WASIFile__init (export \"WASIFile__init\") (param $this i32) (param $path i32)\n");
         watOutput.append("    local.get $this\n");
         watOutput.append("    local.get $path\n");
