@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Javaw Interactive WASI Terminal & Shell</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            padding: 40px 20px;
+            display: flex;
+            justify-content: center;
+        }
+        #terminal-container {
+            max-width: 800px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+<div id="terminal-container"></div>
+
+<script src="../../javaw-core/src/main/resources/javaw-runtime.js"></script>
+<script>
+    if (typeof Javaw === 'undefined') {
+        document.write('<script src="../../src/main/resources/javaw-runtime.js"><\/script>');
+    }
+</script>
+<script>
+    async function run() {
+        try {
+            const container = document.getElementById('terminal-container');
+            container.innerHTML = '';
+            const response = await fetch('WasiShellDemo.wasm');
+            const wasmBytes = await response.arrayBuffer();
+            const { exports, runtime } = await Javaw.instantiateJavaw(wasmBytes, {}, document);
+            runtime.createTerminal('#terminal-container', {
+                prompt: 'wasi-sh> ',
+                title: 'Javaw Interactive WASI Terminal & REPL'
+            });
+            if (exports.start) {
+                exports.start();
+            } else if (exports.runInteractiveShell) {
+                exports.runInteractiveShell();
+            } else if (exports.main) {
+                exports.main();
+            }
+        } catch (err) {
+            console.error("Failed to run WasiShellDemo:", err);
+        }
+    }
+    window.addEventListener('DOMContentLoaded', run);
+</script>
+</body>
+</html>

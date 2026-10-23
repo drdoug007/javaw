@@ -43,14 +43,28 @@
     };
     window.clearLogConsole = () => {
         if (wasmExports && wasmExports.clearConsole) wasmExports.clearConsole();
+        const stream = document.getElementById('log4j-console-stream');
+        if (stream) stream.innerHTML = '';
     };
 
     async function run() {
         try {
             const response = await fetch('Log4j2Demo.wasm');
             const wasmBytes = await response.arrayBuffer();
-            const { exports } = await Javaw.instantiateJavaw(wasmBytes, {}, document);
+            const { exports, runtime } = await Javaw.instantiateJavaw(wasmBytes, {}, document);
             wasmExports = exports;
+
+            runtime.onStdout((str) => {
+                const stream = document.getElementById('log4j-console-stream');
+                if (stream && str.trim()) {
+                    const line = document.createElement('div');
+                    line.style.padding = '2px 0';
+                    line.style.borderBottom = '1px solid #1e293b';
+                    line.innerText = str;
+                    stream.appendChild(line);
+                    stream.scrollTop = stream.scrollHeight;
+                }
+            });
 
             if (exports.start) {
                 exports.start();

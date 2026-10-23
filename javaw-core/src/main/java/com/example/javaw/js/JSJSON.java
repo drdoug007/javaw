@@ -13,5 +13,9 @@ public class JSJSON {
 
     public static native String stringify(JSObject value);
 
+    public static native String stringify(String text);
+
+    public static native String stringify(Object value);
+
     public static native JSValue parse(String text);
 }

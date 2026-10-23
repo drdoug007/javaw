@@ -23,6 +23,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class AppBrowserTest {
@@ -427,6 +428,296 @@ public class AppBrowserTest {
         page.close();
     }
 
+    @Test
+    public void testLog4j2DemoInBrowser() throws Exception {
+        // Compile Log4j2Demo if needed
+        Path log4jJavaPath = Paths.get("examples/log4j/Log4j2Demo.java").toAbsolutePath().normalize();
+        if (!Files.exists(log4jJavaPath)) {
+            log4jJavaPath = Paths.get("../examples/log4j/Log4j2Demo.java").toAbsolutePath().normalize();
+        }
+        if (Files.exists(log4jJavaPath)) {
+            CompilationUnit cu = StaticJavaParser.parse(log4jJavaPath);
+            String wat = JavacToWasm.generateWat(cu);
+            Path watPath = log4jJavaPath.getParent().resolve("Log4j2Demo.wat");
+            Path wasmPath = log4jJavaPath.getParent().resolve("Log4j2Demo.wasm");
+            Files.writeString(watPath, wat);
+            try {
+                Process process = new ProcessBuilder("wat2wasm", "--enable-threads", "--enable-exceptions", watPath.toString(), "-o", wasmPath.toString())
+                        .redirectErrorStream(true)
+                        .start();
+                process.waitFor();
+            } catch (IOException ignored) {}
+        }
+
+        Page page = browser.newPage();
+        java.util.List<String> consoleErrors = new java.util.ArrayList<>();
+        page.onConsoleMessage(msg -> {
+            if ("error".equals(msg.type())) {
+                consoleErrors.add(msg.text());
+            }
+        });
+        page.onPageError(err -> consoleErrors.add(err));
+
+        page.navigate("http://127.0.0.1:" + port + "/examples/log4j/index.html");
+
+        // Wait for Log4j2 UI to mount into DOM
+        page.waitForSelector("#log4j-app h3");
+        assertEquals("Log4j2 Enterprise Logging Engine", page.textContent("#log4j-app h3"));
+
+        // Verify initial console errors list is empty (no SharedArrayBuffer decode error)
+        assertTrue(consoleErrors.stream().noneMatch(e -> e.contains("ArrayBufferView") || e.contains("TextDecoder")),
+                "Must not throw TextDecoder / ArrayBufferView shared memory error: " + consoleErrors);
+
+        // Click toolbar actions
+        page.click("button:has-text('Run Full Lifecycle')");
+        page.click("button:has-text('Auth Event')");
+        page.click("button:has-text('DB Metrics')");
+        page.click("button:has-text('Simulate Warning')");
+        page.click("button:has-text('Simulate Error')");
+
+        // Assert log entries are rendered into the DOM
+        page.waitForFunction("() => document.getElementById('log4j-app').innerText.includes('Log4j2')");
+        String logText = page.textContent("#log4j-app");
+        assertTrue(logText.contains("Log4j2 Enterprise Logging Engine"));
+
+        // Verify no TextDecoder errors occurred during simulation execution
+        assertTrue(consoleErrors.stream().noneMatch(e -> e.contains("ArrayBufferView") || e.contains("TextDecoder")),
+                "No TextDecoder shared buffer errors during simulation: " + consoleErrors);
+
+        page.close();
+    }
+
+    @Test
+    public void testTodoAppInBrowser() throws Exception {
+        Path todoJavaPath = Paths.get("examples/todo/TodoApp.java").toAbsolutePath().normalize();
+        if (!Files.exists(todoJavaPath)) {
+            todoJavaPath = Paths.get("../examples/todo/TodoApp.java").toAbsolutePath().normalize();
+        }
+        if (Files.exists(todoJavaPath)) {
+            CompilationUnit cu = StaticJavaParser.parse(todoJavaPath);
+            String wat = JavacToWasm.generateWat(cu);
+            Path watPath = todoJavaPath.getParent().resolve("TodoApp.wat");
+            Path wasmPath = todoJavaPath.getParent().resolve("TodoApp.wasm");
+            Files.writeString(watPath, wat);
+            try {
+                Process process = new ProcessBuilder("wat2wasm", "--enable-threads", "--enable-exceptions", watPath.toString(), "-o", wasmPath.toString())
+                        .redirectErrorStream(true)
+                        .start();
+                process.waitFor();
+            } catch (IOException ignored) {}
+        }
+
+        Page page = browser.newPage();
+        java.util.List<String> consoleErrors = new java.util.ArrayList<>();
+        page.onConsoleMessage(msg -> {
+            if ("error".equals(msg.type())) consoleErrors.add(msg.text());
+        });
+        page.onPageError(consoleErrors::add);
+
+        page.navigate("http://127.0.0.1:" + port + "/examples/todo/index.html");
+
+        page.waitForSelector("#todo-app h2");
+        assertEquals("Java WebAssembly Todo Application", page.textContent("#todo-app h2"));
+
+        assertTrue(consoleErrors.stream().noneMatch(e -> e.contains("ArrayBufferView") || e.contains("TextDecoder")),
+                "TodoApp must not throw TextDecoder error: " + consoleErrors);
+
+        page.close();
+    }
+
+    @Test
+    public void testBytecodeAlgorithmsDemoInBrowser() throws Exception {
+        Path bytecodeJavaPath = Paths.get("examples/bytecode/BytecodeAlgorithmsDemo.java").toAbsolutePath().normalize();
+        if (!Files.exists(bytecodeJavaPath)) {
+            bytecodeJavaPath = Paths.get("../examples/bytecode/BytecodeAlgorithmsDemo.java").toAbsolutePath().normalize();
+        }
+        if (Files.exists(bytecodeJavaPath)) {
+            CompilationUnit cu = StaticJavaParser.parse(bytecodeJavaPath);
+            String wat = JavacToWasm.generateWat(cu);
+            Path watPath = bytecodeJavaPath.getParent().resolve("BytecodeAlgorithmsDemo.wat");
+            Path wasmPath = bytecodeJavaPath.getParent().resolve("BytecodeAlgorithmsDemo.wasm");
+            Files.writeString(watPath, wat);
+            try {
+                Process process = new ProcessBuilder("wat2wasm", "--enable-threads", "--enable-exceptions", watPath.toString(), "-o", wasmPath.toString())
+                        .redirectErrorStream(true)
+                        .start();
+                process.waitFor();
+            } catch (IOException ignored) {}
+        }
+
+        Page page = browser.newPage();
+        java.util.List<String> consoleErrors = new java.util.ArrayList<>();
+        page.onConsoleMessage(msg -> {
+            if ("error".equals(msg.type())) consoleErrors.add(msg.text());
+        });
+        page.onPageError(consoleErrors::add);
+
+        page.navigate("http://127.0.0.1:" + port + "/examples/bytecode/index.html");
+
+        page.waitForSelector("#bytecode-app h3");
+        assertEquals("Bytecode & Relooper Algorithmic Engine", page.textContent("#bytecode-app h3"));
+
+        assertTrue(consoleErrors.stream().noneMatch(e -> e.contains("ArrayBufferView") || e.contains("TextDecoder")),
+                "BytecodeAlgorithmsDemo must not throw TextDecoder error: " + consoleErrors);
+
+        page.close();
+    }
+
+    @Test
+    public void testExamplesShowcaseIndexInBrowser() throws Exception {
+        Page page = browser.newPage();
+        java.util.List<String> consoleErrors = new java.util.ArrayList<>();
+        page.onConsoleMessage(msg -> {
+            if (msg.text().contains("JAVAW") || msg.text().contains("GameOfLife") || msg.text().contains("step") || msg.text().contains("gen-info")) {
+                System.out.println("[BROWSER LOG] " + msg.type() + ": " + msg.text());
+            }
+            if ("error".equals(msg.type())) consoleErrors.add(msg.text());
+        });
+        page.onPageError(consoleErrors::add);
+
+        page.navigate("http://127.0.0.1:" + port + "/examples/index.html");
+
+        // 1. Todo App tab (default active)
+        page.waitForSelector("#todo-app h2");
+        assertEquals("Java WebAssembly Todo Application", page.textContent("#todo-app h2"));
+
+        // 2. Canvas Game of Life tab
+        page.click("button:has-text('2. Canvas Game of Life')");
+        page.waitForSelector("#game-container h2");
+        assertEquals("Conway's Game of Life (HTML5 Canvas 2D)", page.textContent("#game-container h2"));
+        page.waitForSelector("#gen-info");
+        assertEquals("Generation: 0", page.textContent("#gen-info"));
+        
+        System.out.println("Buttons in game-container: " + page.evaluate("() => Array.from(document.querySelectorAll('#game-container button')).map(b => b.innerText + ' (' + b.outerHTML + ')')"));
+        
+        Object clickResult = page.evaluate("() => {\n" +
+                "  const btn = Array.from(document.querySelectorAll('#game-container button')).find(b => b.innerText.includes('Next Step'));\n" +
+                "  if (!btn) return 'BUTTON NOT FOUND';\n" +
+                "  console.log('Dispatching click on btn:', btn);\n" +
+                "  btn.click();\n" +
+                "  return 'CLICKED, gen is: ' + (document.getElementById('gen-info') ? document.getElementById('gen-info').innerText : 'no gen-info');\n" +
+                "}");
+        System.out.println("Click evaluation result: " + clickResult);
+
+        // 3. 128-Bit SIMD Physics tab
+        page.click("button:has-text('3. 128-Bit SIMD Physics')");
+        page.waitForSelector("#simd-container h2");
+        assertEquals("128-Bit SIMD Vectorized Particle Engine", page.textContent("#simd-container h2"));
+        page.waitForSelector("#simd-status");
+        page.click("button:has-text('SIMD Update Tick')");
+
+        // 4. JavaScript Interop tab
+        page.click("button:has-text('4. JavaScript Interop')");
+        page.waitForSelector("#js-interop-app h2");
+        assertEquals("GraalVM Web Image-Style JavaScript Interop", page.textContent("#js-interop-app h2"));
+        page.waitForFunction("() => document.getElementById('js-interop-app') && document.getElementById('js-interop-app').innerText.includes('JSON Stringify demo:')");
+        String jsInteropText = page.textContent("#js-interop-app");
+        assertTrue(jsInteropText.contains("JSON Stringify demo: {\"engine\":\"javaw\",\"version\":\"1.0\"}"),
+                "JSON Stringify demo must serialize object properly: " + jsInteropText);
+        assertFalse(jsInteropText.contains("JSON Stringify demo: null"),
+                "JSON Stringify demo must not be null: " + jsInteropText);
+
+        // 5. WASI Terminal tab
+        page.click("button:has-text('5. WASI Terminal')");
+        page.waitForSelector("#terminal-container .javaw-terminal-wrapper");
+        page.waitForFunction("() => document.getElementById('terminal-container') && document.getElementById('terminal-container').innerText.includes('Terminal')");
+        String terminalText = page.textContent("#terminal-container");
+        assertTrue(terminalText.contains("Terminal") || terminalText.contains("WASI"),
+                "Terminal container must contain terminal UI: " + terminalText);
+
+        // 6. Bytecode & Relooper tab
+        page.click("button:has-text('6. Bytecode & Relooper')");
+        page.waitForSelector("#bytecode-app h3");
+        assertEquals("Bytecode & Relooper Algorithmic Engine", page.textContent("#bytecode-app h3"));
+
+        // 7. Log4j2 Logging tab
+        page.click("button:has-text('7. Log4j2 Logging')");
+        page.waitForSelector("#log4j-app h3");
+        assertEquals("Log4j2 Enterprise Logging Engine", page.textContent("#log4j-app h3"));
+
+        // Verify zero memory out of bounds or TextDecoder exceptions across all tabs
+        assertTrue(consoleErrors.stream().noneMatch(e -> e.contains("out of bounds") || e.contains("ArrayBufferView") || e.contains("TextDecoder")),
+                "Must not throw memory out of bounds or TextDecoder errors across all tabs: " + consoleErrors);
+
+        page.close();
+    }
+
+    @Test
+    public void testGameOfLifeButtonClickInBrowser() throws Exception {
+        Page page = browser.newPage();
+        java.util.List<String> consoleErrors = new java.util.ArrayList<>();
+        page.onConsoleMessage(msg -> {
+            System.out.println("[GAME TEST LOG] " + msg.type() + ": " + msg.text());
+            if ("error".equals(msg.type())) consoleErrors.add(msg.text());
+        });
+        page.onPageError(consoleErrors::add);
+
+        page.navigate("http://127.0.0.1:" + port + "/examples/index.html");
+        page.click("button:has-text('2. Canvas Game of Life')");
+        page.waitForSelector("#gen-info");
+        assertEquals("Generation: 0", page.textContent("#gen-info"));
+
+        page.click("button:has-text('Next Step')");
+        page.waitForFunction("() => document.getElementById('gen-info') && document.getElementById('gen-info').innerText === 'Generation: 1'");
+        assertEquals("Generation: 1", page.textContent("#gen-info"));
+
+        page.click("button:has-text('Next Step')");
+        page.waitForFunction("() => document.getElementById('gen-info') && document.getElementById('gen-info').innerText === 'Generation: 2'");
+        assertEquals("Generation: 2", page.textContent("#gen-info"));
+
+        page.click("button:has-text('Clear')");
+        page.waitForFunction("() => document.getElementById('gen-info') && document.getElementById('gen-info').innerText === 'Generation: 0'");
+        assertEquals("Generation: 0", page.textContent("#gen-info"));
+
+        assertTrue(consoleErrors.isEmpty(), "No console errors allowed: " + consoleErrors);
+        page.close();
+    }
+
+    @Test
+    public void testSimdParticlesButtonClickInBrowser() throws Exception {
+        Page page = browser.newPage();
+        java.util.List<String> consoleErrors = new java.util.ArrayList<>();
+        page.onConsoleMessage(msg -> {
+            System.out.println("[SIMD TEST LOG] " + msg.type() + ": " + msg.text());
+            if ("error".equals(msg.type())) consoleErrors.add(msg.text());
+        });
+        page.onPageError(consoleErrors::add);
+
+        page.navigate("http://127.0.0.1:" + port + "/examples/index.html");
+        page.click("button:has-text('3. 128-Bit SIMD Physics')");
+        page.waitForSelector("#simd-status");
+        assertEquals("Processed 4 particles simultaneously via v128 SIMD", page.textContent("#simd-status"));
+
+        page.click("button:has-text('SIMD Update Tick')");
+        page.waitForFunction("() => document.getElementById('simd-status') && document.getElementById('simd-status').innerText.includes('Processed 4 particles simultaneously')");
+
+        assertTrue(consoleErrors.isEmpty(), "No console errors allowed: " + consoleErrors);
+        page.close();
+    }
+
+    @Test
+    public void testWasiShellDemoStandaloneInBrowser() throws Exception {
+        Page page = browser.newPage();
+        java.util.List<String> consoleErrors = new java.util.ArrayList<>();
+        page.onConsoleMessage(msg -> {
+            if ("error".equals(msg.type())) consoleErrors.add(msg.text());
+        });
+        page.onPageError(consoleErrors::add);
+
+        page.navigate("http://127.0.0.1:" + port + "/examples/terminal/index.html");
+
+        page.waitForSelector("#terminal-container .javaw-terminal-wrapper");
+        page.waitForFunction("() => document.getElementById('terminal-container') && document.getElementById('terminal-container').innerText.includes('Terminal')");
+        String terminalText = page.textContent("#terminal-container");
+        assertTrue(terminalText.contains("Terminal") || terminalText.contains("WASI"),
+                "Standalone terminal container must contain terminal UI: " + terminalText);
+
+        assertTrue(consoleErrors.stream().noneMatch(e -> e.contains("out of bounds") || e.contains("RuntimeError")),
+                "WasiShellDemo must not throw memory out of bounds: " + consoleErrors);
+
+        page.close();
+    }
+
     private static class FileHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
@@ -435,7 +726,16 @@ public class AppBrowserTest {
                 path = path.substring(1);
             }
             Path filePath = Paths.get(path).toAbsolutePath().normalize();
-            if (!Files.exists(filePath)) {
+
+            if (path.endsWith("javaw-runtime.js")) {
+                Path r1 = Paths.get("src/main/resources/javaw-runtime.js").toAbsolutePath().normalize();
+                Path r2 = Paths.get("../javaw-core/src/main/resources/javaw-runtime.js").toAbsolutePath().normalize();
+                if (Files.exists(r1)) {
+                    filePath = r1;
+                } else if (Files.exists(r2)) {
+                    filePath = r2;
+                }
+            } else if (!Files.exists(filePath)) {
                 Path parentCheck = Paths.get("..", path).toAbsolutePath().normalize();
                 if (Files.exists(parentCheck)) {
                     filePath = parentCheck;
@@ -463,6 +763,8 @@ public class AppBrowserTest {
 
             exchange.getResponseHeaders().set("Content-Type", contentType);
             exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
+            exchange.getResponseHeaders().set("Cross-Origin-Opener-Policy", "same-origin");
+            exchange.getResponseHeaders().set("Cross-Origin-Embedder-Policy", "require-corp");
             exchange.sendResponseHeaders(200, bytes.length);
             try (OutputStream os = exchange.getResponseBody()) {
                 os.write(bytes);

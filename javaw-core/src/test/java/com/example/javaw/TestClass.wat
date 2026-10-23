@@ -4993,18 +4993,28 @@
       end
     end
     local.get $len
-    call $__str_alloc
-    local.set $res
-    local.get $res
-    local.get $buf
-    local.get $len
-    memory.copy
-    local.get $res
-    local.get $len
-    i32.add
-    i32.const 0
-    i32.store8
-    local.get $res
+    i32.eqz
+    local.get $c
+    i32.const -1
+    i32.eq
+    i32.and
+    if (result i32)
+      i32.const 0
+    else
+      local.get $len
+      call $__str_alloc
+      local.set $res
+      local.get $res
+      local.get $buf
+      local.get $len
+      memory.copy
+      local.get $res
+      local.get $len
+      i32.add
+      i32.const 0
+      i32.store8
+      local.get $res
+    end
   )
   (func $__wasi_path_open_helper (export "__wasi_path_open_helper") (param $path_ptr i32) (param $oflags i32) (result i32)
     (local $len i32)

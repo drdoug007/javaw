@@ -19,6 +19,10 @@ public class GameOfLife {
     }
 
     public static void initGame() {
+        grid = new int[COLS * ROWS];
+        nextGrid = new int[COLS * ROWS];
+        generation = 0;
+
         Element container = DOM.getElementById("game-container");
         if (container == null) {
             container = DOM.getBody();

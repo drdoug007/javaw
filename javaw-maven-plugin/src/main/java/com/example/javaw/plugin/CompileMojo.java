@@ -54,31 +54,31 @@ public class CompileMojo extends AbstractMojo {
      * Binaryen wasm-opt optimization level (-O0, -O1, -O2, -O3, -Oz).
      */
     @Parameter(defaultValue = "-O3", property = "javaw.optimizationLevel")
-    private String optimizationLevel;
+    private String optimizationLevel = "-O3";
 
     /**
      * Whether to generate Source Map v3 (.wasm.map) debugging sections.
      */
     @Parameter(defaultValue = "true", property = "javaw.generateSourceMaps")
-    private boolean generateSourceMaps;
+    private boolean generateSourceMaps = true;
 
     /**
      * Whether to enable WebAssembly threads and shared memory atomics.
      */
     @Parameter(defaultValue = "true", property = "javaw.enableThreads")
-    private boolean enableThreads;
+    private boolean enableThreads = true;
 
     /**
      * Whether to automatically copy javaw-runtime.js into output directory.
      */
     @Parameter(defaultValue = "true", property = "javaw.copyRuntimeScript")
-    private boolean copyRuntimeScript;
+    private boolean copyRuntimeScript = true;
 
     /**
      * If true, compiles all matching Java source files into a single unified WASM module.
      */
     @Parameter(defaultValue = "false", property = "javaw.batchMode")
-    private boolean batchMode;
+    private boolean batchMode = false;
 
     /**
      * Output module stem name when compiling in batch mode. Defaults to project artifactId.
@@ -99,10 +99,16 @@ public class CompileMojo extends AbstractMojo {
     private List<String> excludes;
 
     /**
+     * Whether to automatically resolve, compile, and link external Maven JAR dependencies.
+     */
+    @Parameter(defaultValue = "true", property = "javaw.linkDependencies")
+    private boolean linkDependencies = true;
+
+    /**
      * Skip execution of this plugin goal.
      */
     @Parameter(defaultValue = "false", property = "javaw.skip")
-    private boolean skip;
+    private boolean skip = false;
 
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
@@ -263,7 +269,7 @@ public class CompileMojo extends AbstractMojo {
 
     private List<String> resolveDependencyWats() {
         List<String> depWats = new ArrayList<>();
-        if (project == null || project.getArtifacts() == null) {
+        if (!linkDependencies || project == null || project.getArtifacts() == null) {
             return depWats;
         }
 

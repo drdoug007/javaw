@@ -2,6 +2,7 @@ package com.example.javaw.examples.jsinterop;
 
 import com.example.javaw.dom.DOM;
 import com.example.javaw.dom.Element;
+import com.example.javaw.dom.JSObject;
 import com.example.javaw.js.JS;
 import com.example.javaw.js.JSConsole;
 import com.example.javaw.js.JSDate;
@@ -60,9 +61,12 @@ public class JsInteropShowcase {
         root.appendChild(dateInfo);
 
         // JSON Serialization via JSJSON facade
+        JSObject jsonObj = JSObject.createObject();
+        jsonObj.set("engine", "javaw");
+        jsonObj.set("version", "1.0");
         Element jsonInfo = DOM.createElement("p");
         jsonInfo.setStyle("color", "#e879f9");
-        jsonInfo.setInnerText("JSON Stringify demo: " + JSJSON.stringify("{\"engine\":\"javaw\",\"version\":\"1.0\"}"));
+        jsonInfo.setInnerText("JSON Stringify demo: " + JSJSON.stringify(jsonObj));
         root.appendChild(jsonInfo);
 
         // Local Storage interaction via JSStorage facade

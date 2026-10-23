@@ -24,6 +24,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     private final Deque<LoopContext> loopStack = new ArrayDeque<>();
     private final Deque<String> switchEnumStack = new ArrayDeque<>();
     private final Map<String, Integer> methodCounts = new HashMap<>();
+    private final Map<String, Integer> constructorCounts = new HashMap<>();
     private ClassModel currentClass;
     private RecordModel currentRecord;
     private int loopCounter = 0;
@@ -93,6 +94,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         String className = n.getNameAsString();
         currentClass = classRegistry != null ? classRegistry.getClass(className) : null;
         methodCounts.clear();
+        constructorCounts.clear();
 
         if (sourceMapTracker != null) {
             sourceMapTracker.track(collector, n, className);
@@ -124,12 +126,16 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         switchCounter = 0;
         switchExprCounter = 0;
 
-        String funcName = "$" + className + "__init";
+        int count = constructorCounts.getOrDefault(className, 0);
+        constructorCounts.put(className, count + 1);
+        String funcName = count == 0 ? "$" + className + "__init" : "$" + className + "__init_" + count;
+        String exportName = count == 0 ? className + "__init" : className + "__init_" + count;
+
         if (sourceMapTracker != null) {
-            sourceMapTracker.track(collector, n, className + "__init");
+            sourceMapTracker.track(collector, n, exportName);
         }
         collector.append("  (func ").append(funcName)
-                .append(" (export \"").append(className).append("__init\")")
+                .append(" (export \"").append(exportName).append("\")")
                 .append(" (param $this i32)");
 
         localTypes.put("this", "i32");
@@ -278,7 +284,28 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         if (n.getParentNode().isPresent() && n.getParentNode().get() instanceof RecordDeclaration) {
             return;
         }
+        ClassOrInterfaceDeclaration parentClassDecl = null;
+        if (n.getParentNode().isPresent() && n.getParentNode().get() instanceof ClassOrInterfaceDeclaration) {
+            parentClassDecl = (ClassOrInterfaceDeclaration) n.getParentNode().get();
+        }
+        String className = parentClassDecl != null ? parentClassDecl.getNameAsString() : (currentClass != null ? currentClass.getName() : "Global");
+        ClassModel classModel = classRegistry != null ? classRegistry.getClass(className) : currentClass;
+        currentClass = classModel;
+
         String methodName = n.getNameAsString();
+        String baseKey = className + "_" + methodName;
+        int count = methodCounts.getOrDefault(baseKey, 0);
+        methodCounts.put(baseKey, count + 1);
+        String importName = count == 0 ? "js_inline_" + baseKey : "js_inline_" + baseKey + "_" + count;
+
+        Optional<AnnotationExpr> jsAnnoOpt = JsAnnotationHelper.getJsAnnotation(n);
+        boolean isJsInline = jsAnnoOpt.isPresent() || (jsSnippets != null && jsSnippets.containsKey(importName));
+
+        // Skip abstract or interface methods without bodies and without JS/native annotations
+        if (!n.getBody().isPresent() && !isJsInline && !n.isNative()) {
+            return;
+        }
+
         String returnWasmType = TypeMapper.mapType(n.getType());
         String returnTypeName = n.getType().asString();
         RecordModel returnRecord = classRegistry != null ? classRegistry.getRecord(returnTypeName) : null;
@@ -349,15 +376,6 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         collector.append("\n");
 
         // Body
-        String className = currentClass != null ? currentClass.getName() : "Global";
-        String baseKey = className + "_" + methodName;
-        int count = methodCounts.getOrDefault(baseKey, 0);
-        methodCounts.put(baseKey, count + 1);
-        String importName = count == 0 ? "js_inline_" + baseKey : "js_inline_" + baseKey + "_" + count;
-
-        Optional<AnnotationExpr> jsAnnoOpt = JsAnnotationHelper.getJsAnnotation(n);
-        boolean isJsInline = jsAnnoOpt.isPresent() || (jsSnippets != null && jsSnippets.containsKey(importName));
-
         if (isJsInline) {
             if (!isStatic && currentClass != null) {
                 collector.append("    local.get $this\n");
@@ -2005,7 +2023,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     translateAtomicIntegerInstanceCall(call, collector, localTypes, localElementTypes, localJavaTypes);
                 } else if (DomHelper.isJsValueClass(scopeJavaType) || DomHelper.isJsValueClass(scopeStr)) {
                     translateJsInstanceCall(call, collector, localTypes, localElementTypes, localJavaTypes);
-                } else if (DomHelper.isDomInstanceMethod(mName)) {
+                } else if (DomHelper.isDomInstanceMethod(mName) && !(scope.isNameExpr() && classRegistry != null && classRegistry.hasClass(scope.asNameExpr().getNameAsString())) && (scopeJavaType == null || classRegistry == null || !classRegistry.hasClass(scopeJavaType) || classRegistry.getClass(scopeJavaType).getMethodByName(mName) == null)) {
                     translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
                     if (mName.equals("getClassList")) {
                         // Leaves element handle on stack as ClassList handle
@@ -2029,7 +2047,11 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                         collector.append("    call $dom_").append(mName).append("\n");
                     } else if (mName.equals("setChecked") || mName.equals("setWidth") || mName.equals("setHeight") ||
                             mName.equals("clear") || mName.equals("enable") || mName.equals("disable")) {
-                        translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                        if (!call.getArguments().isEmpty()) {
+                            translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                        } else {
+                            collector.append("    i32.const 0\n");
+                        }
                         if (mName.equals("clear") || mName.equals("enable") || mName.equals("disable")) {
                             collector.append("    call $dom_webgl_").append(mName).append("\n");
                         } else {

@@ -60,7 +60,12 @@
     <div id="app"></div>
     <div id="terminal-container"></div>
 
-    <script src="../src/main/resources/javaw-runtime.js"></script>
+    <script src="../javaw-core/src/main/resources/javaw-runtime.js"></script>
+    <script>
+        if (typeof Javaw === 'undefined') {
+            document.write('<script src="../src/main/resources/javaw-runtime.js"><\/script>');
+        }
+    </script>
     <script>
         async function init() {
             try {

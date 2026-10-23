@@ -7,6 +7,38 @@
     const textDecoder = new TextDecoder('utf-8');
     const textEncoder = new TextEncoder();
 
+    function isSharedBuffer(buf) {
+        if (!buf) return false;
+        if (typeof SharedArrayBuffer !== 'undefined' && buf instanceof SharedArrayBuffer) return true;
+        if (Object.prototype.toString.call(buf) === '[object SharedArrayBuffer]') return true;
+        if (buf[Symbol.toStringTag] === 'SharedArrayBuffer') return true;
+        if (buf.constructor && buf.constructor.name === 'SharedArrayBuffer') return true;
+        return false;
+    }
+
+    function decodeUtf8(bytes) {
+        if (!bytes) return '';
+        if (typeof bytes === 'string') return bytes;
+        try {
+            if (ArrayBuffer.isView(bytes)) {
+                if (isSharedBuffer(bytes.buffer)) {
+                    return textDecoder.decode(new Uint8Array(bytes));
+                }
+                return textDecoder.decode(bytes);
+            }
+            if (isSharedBuffer(bytes)) {
+                return textDecoder.decode(new Uint8Array(bytes));
+            }
+            return textDecoder.decode(bytes);
+        } catch (e) {
+            try {
+                return textDecoder.decode(new Uint8Array(bytes));
+            } catch (ignored) {
+                return '';
+            }
+        }
+    }
+
     class JavawRuntime {
         constructor(doc) {
             this.doc = doc || (typeof document !== 'undefined' ? document : null);
@@ -156,7 +188,18 @@
                         }
                     } else if (pType === 'JSObject' || pType === 'Element' || pType === 'JSValue' || (pType && (pType.endsWith('.JSObject') || pType.endsWith('.Element') || pType.endsWith('.JSValue') || pType.startsWith('JS')))) {
                         const handle = args[argIdx++];
-                        userArgs.push(runtime.getElement(handle));
+                        let el = runtime.getElement(handle);
+                        if (el === null && handle > 0) {
+                            const str = runtime.readWasmStringFromPtr(handle);
+                            if (str && str.length > 0) {
+                                try {
+                                    el = JSON.parse(str);
+                                } catch (_) {
+                                    el = str;
+                                }
+                            }
+                        }
+                        userArgs.push(el);
                     } else if (pType && pType.endsWith('[]')) {
                         const ptr = args[argIdx++];
                         userArgs.push(ptr);
@@ -263,7 +306,7 @@
             const u8 = new Uint8Array(memory.buffer, ptr);
             let len = 0;
             while (ptr + len < memory.buffer.byteLength && u8[len] !== 0) len++;
-            return textDecoder.decode(u8.subarray(0, len));
+            return decodeUtf8(u8.subarray(0, len));
         }
 
         writeIntArray(arr) {
@@ -328,7 +371,7 @@
                 if (sections && sections.length > 0) {
                     for (const sec of sections) {
                         const uint8 = new Uint8Array(sec);
-                        let jsonStr = textDecoder.decode(uint8);
+                        let jsonStr = decodeUtf8(uint8);
                         const firstChar = jsonStr.indexOf('[');
                         if (firstChar >= 0) {
                             jsonStr = jsonStr.substring(firstChar);
@@ -345,7 +388,7 @@
                 if (exportSections && exportSections.length > 0) {
                     for (const sec of exportSections) {
                         const uint8 = new Uint8Array(sec);
-                        let jsonStr = textDecoder.decode(uint8);
+                        let jsonStr = decodeUtf8(uint8);
                         const firstChar = jsonStr.indexOf('[');
                         if (firstChar >= 0) {
                             jsonStr = jsonStr.substring(firstChar);
@@ -362,7 +405,7 @@
                 if (codeSections && codeSections.length > 0) {
                     for (const sec of codeSections) {
                         const uint8 = new Uint8Array(sec);
-                        let jsonStr = textDecoder.decode(uint8);
+                        let jsonStr = decodeUtf8(uint8);
                         const firstChar = jsonStr.indexOf('[');
                         if (firstChar >= 0) {
                             jsonStr = jsonStr.substring(firstChar);
@@ -379,7 +422,7 @@
                 if (resSections && resSections.length > 0) {
                     for (const sec of resSections) {
                         const uint8 = new Uint8Array(sec);
-                        let jsonStr = textDecoder.decode(uint8);
+                        let jsonStr = decodeUtf8(uint8);
                         const firstChar = jsonStr.indexOf('{');
                         if (firstChar >= 0) {
                             jsonStr = jsonStr.substring(firstChar);
@@ -665,7 +708,7 @@
             const norm = this.normalizePath(path);
             const entry = this.vfs.get(norm);
             if (!entry) return null;
-            return textDecoder.decode(entry.content);
+            return decodeUtf8(entry.content);
         }
 
         readFileBytes(path) {
@@ -735,14 +778,24 @@
         }
 
         getExportedFunction(name) {
-            if (!this.instance || !this.instance.exports) return null;
+            if (!this.instance || !this.instance.exports) {
+                if (typeof globalThis !== 'undefined' && typeof globalThis[name] === 'function') return globalThis[name];
+                if (typeof window !== 'undefined' && typeof window[name] === 'function') return window[name];
+                return null;
+            }
             if (typeof this.instance.exports[name] === 'function') {
                 return this.instance.exports[name];
             }
             for (const key of Object.keys(this.instance.exports)) {
-                if (key.endsWith('_' + name) && typeof this.instance.exports[key] === 'function') {
+                if ((key.endsWith('_' + name) || key === name) && typeof this.instance.exports[key] === 'function') {
                     return this.instance.exports[key];
                 }
+            }
+            if (typeof globalThis !== 'undefined' && typeof globalThis[name] === 'function') {
+                return globalThis[name];
+            }
+            if (typeof window !== 'undefined' && typeof window[name] === 'function') {
+                return window[name];
             }
             return null;
         }
@@ -751,7 +804,7 @@
             const memory = this.getMemory(memName || 'strings');
             if (!memory || len === 0) return '';
             const bytes = new Uint8Array(memory.buffer, ptr, len);
-            return textDecoder.decode(bytes);
+            return decodeUtf8(bytes);
         }
 
         writeString(str) {
@@ -991,7 +1044,13 @@
                 el.addEventListener(eventName, (event) => {
                     const fn = this.getExportedFunction(handlerName);
                     if (fn) {
-                        fn();
+                        try {
+                            fn();
+                        } catch (err) {
+                            console.error('[JAVAW EVENT ERROR] ' + handlerName + ':', err);
+                        }
+                    } else {
+                        console.warn('[JAVAW EVENT WARN] Exported function not found for event:', handlerName);
                     }
                 });
             }
@@ -1928,11 +1987,11 @@
                 const norm = this.normalizePath(path);
                 const fileObj = this.vfs.get(norm);
                 if (fileObj) {
-                    content = typeof fileObj.content === 'string' ? fileObj.content : textDecoder.decode(fileObj.content);
+                    content = typeof fileObj.content === 'string' ? fileObj.content : decodeUtf8(fileObj.content);
                 }
             }
             if (content === undefined) content = '';
-            const str = typeof content === 'string' ? content : textDecoder.decode(content);
+            const str = typeof content === 'string' ? content : decodeUtf8(content);
             return this.writeString(str);
         }
 
@@ -1975,7 +2034,7 @@
                 const norm = this.normalizePath(path);
                 const fileObj = this.vfs.get(norm);
                 if (fileObj) {
-                    css = typeof fileObj.content === 'string' ? fileObj.content : textDecoder.decode(fileObj.content);
+                    css = typeof fileObj.content === 'string' ? fileObj.content : decodeUtf8(fileObj.content);
                 }
             }
             if (css) {
@@ -2006,7 +2065,7 @@
                 const norm = this.normalizePath(path);
                 const fileObj = this.vfs.get(norm);
                 if (fileObj) {
-                    js = typeof fileObj.content === 'string' ? fileObj.content : textDecoder.decode(fileObj.content);
+                    js = typeof fileObj.content === 'string' ? fileObj.content : decodeUtf8(fileObj.content);
                 }
             }
             if (js) {
@@ -2263,7 +2322,7 @@
                             }
                             if (fd === 1) {
                                 let str = '';
-                                for (const c of chunks) str += textDecoder.decode(c);
+                                for (const c of chunks) str += decodeUtf8(c);
                                 if (this.terminal) {
                                     this.terminal.write(str);
                                 }
@@ -2277,7 +2336,7 @@
                                 }
                             } else if (fd === 2) {
                                 let str = '';
-                                for (const c of chunks) str += textDecoder.decode(c);
+                                for (const c of chunks) str += decodeUtf8(c);
                                 if (this.terminal) {
                                     this.terminal.write(str);
                                 }
@@ -3007,6 +3066,13 @@
                     this.runtime.instance.exports.repl_eval();
                 } catch (e) {
                     this.writeln(`\u001b[31mREPL Error: ${e.message}\u001b[0m`);
+                }
+            } else if (this.runtime.instance && this.runtime.instance.exports.runInteractiveShell) {
+                try {
+                    this.runtime.writeStdin(line + '\n');
+                    this.runtime.instance.exports.runInteractiveShell();
+                } catch (e) {
+                    this.writeln(`\u001b[31mShell Error: ${e.message}\u001b[0m`);
                 }
             } else {
                 this.runtime.writeStdin(line + '\n');

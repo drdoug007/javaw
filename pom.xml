@@ -14,6 +14,7 @@
         <module>javaw-bytecode</module>
         <module>javaw-maven-plugin</module>
         <module>examples</module>
+        <module>examples/springboot-h2</module>
     </modules>
 
     <properties>

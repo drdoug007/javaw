@@ -221,9 +221,15 @@ logger.warn("Payment response delayed (latency: {} ms)", 480);
 logger.error("Query timeout on partition: {}", "sh_europe_04");</div>
     </div>
 
-    <script src="../src/main/resources/javaw-runtime.js"></script>
+    <script src="../javaw-core/src/main/resources/javaw-runtime.js"></script>
+    <script>
+        if (typeof Javaw === 'undefined') {
+            document.write('<script src="../src/main/resources/javaw-runtime.js"><\/script>');
+        }
+    </script>
     <script>
         let log4jWasmExports = null;
+        const loadedTabs = new Set();
 
         window.runLog4jSimulation = () => {
             if (log4jWasmExports && log4jWasmExports.runSimulation) log4jWasmExports.runSimulation();
@@ -242,56 +248,44 @@ logger.error("Query timeout on partition: {}", "sh_europe_04");</div>
         };
         window.clearLogConsole = () => {
             if (log4jWasmExports && log4jWasmExports.clearConsole) log4jWasmExports.clearConsole();
+            const stream = document.getElementById('log4j-console-stream');
+            if (stream) stream.innerHTML = '';
         };
 
-        function switchTab(name) {
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-            document.querySelectorAll('.content-panel').forEach(panel => panel.classList.remove('active'));
-
-            if (event && event.target) {
-                event.target.classList.add('active');
-            }
-            const targetPanel = document.getElementById('panel-' + name);
-            if (targetPanel) {
-                targetPanel.classList.add('active');
-            }
-            if (name === 'bytecode') {
-                initBytecodeApp();
-            } else if (name === 'log4j') {
-                initLog4jApp();
-            }
-        }
-
-        async function initLog4jApp() {
-            try {
-                const response = await fetch('log4j/Log4j2Demo.wasm');
-                if (!response.ok) return;
-                const wasmBytes = await response.arrayBuffer();
-                const { exports } = await Javaw.instantiateJavaw(wasmBytes, {}, document);
-                log4jWasmExports = exports;
-                if (exports.start) {
-                    exports.start();
-                } else if (exports.main) {
-                    exports.main();
+        async function switchTab(name) {
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                const clickAttr = btn.getAttribute('onclick') || '';
+                if (clickAttr.includes("'" + name + "'")) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
                 }
-            } catch (err) {
-                console.error("Failed to initialize Log4j2Demo:", err);
-            }
-        }
-
-        async function initBytecodeApp() {
-            try {
-                const response = await fetch('bytecode/BytecodeAlgorithmsDemo.wasm');
-                if (!response.ok) return;
-                const wasmBytes = await response.arrayBuffer();
-                const { exports } = await Javaw.instantiateJavaw(wasmBytes, {}, document);
-                if (exports.start) {
-                    exports.start();
-                } else if (exports.main) {
-                    exports.main();
+            });
+            document.querySelectorAll('.content-panel').forEach(panel => {
+                if (panel.id === 'panel-' + name) {
+                    panel.classList.add('active');
+                } else {
+                    panel.classList.remove('active');
                 }
-            } catch (err) {
-                console.error("Failed to initialize BytecodeAlgorithmsDemo:", err);
+            });
+
+            if (!loadedTabs.has(name)) {
+                loadedTabs.add(name);
+                if (name === 'todo') {
+                    await initTodoApp();
+                } else if (name === 'canvas') {
+                    await initCanvasApp();
+                } else if (name === 'simd') {
+                    await initSimdApp();
+                } else if (name === 'jsinterop') {
+                    await initJsInteropApp();
+                } else if (name === 'terminal') {
+                    await initTerminalApp();
+                } else if (name === 'bytecode') {
+                    await initBytecodeApp();
+                } else if (name === 'log4j') {
+                    await initLog4jApp();
+                }
             }
         }
 
@@ -314,7 +308,132 @@ logger.error("Query timeout on partition: {}", "sh_europe_04");</div>
             }
         }
 
-        window.addEventListener('DOMContentLoaded', initTodoApp);
+        async function initCanvasApp() {
+            try {
+                const response = await fetch('canvas/GameOfLife.wasm');
+                if (!response.ok) return;
+                const wasmBytes = await response.arrayBuffer();
+                const { exports } = await Javaw.instantiateJavaw(wasmBytes, {}, document);
+                if (exports.start) {
+                    exports.start();
+                } else if (exports.initGame) {
+                    exports.initGame();
+                } else if (exports.main) {
+                    exports.main();
+                }
+            } catch (err) {
+                console.error("Failed to initialize GameOfLife:", err);
+            }
+        }
+
+        async function initSimdApp() {
+            try {
+                const response = await fetch('simd/SimdParticles.wasm');
+                if (!response.ok) return;
+                const wasmBytes = await response.arrayBuffer();
+                const { exports } = await Javaw.instantiateJavaw(wasmBytes, {}, document);
+                if (exports.start) {
+                    exports.start();
+                } else if (exports.initSimulation) {
+                    exports.initSimulation();
+                } else if (exports.main) {
+                    exports.main();
+                }
+            } catch (err) {
+                console.error("Failed to initialize SimdParticles:", err);
+            }
+        }
+
+        async function initJsInteropApp() {
+            try {
+                const response = await fetch('jsinterop/JsInteropShowcase.wasm');
+                if (!response.ok) return;
+                const wasmBytes = await response.arrayBuffer();
+                const { exports } = await Javaw.instantiateJavaw(wasmBytes, {}, document);
+                if (exports.start) {
+                    exports.start();
+                } else if (exports.main) {
+                    exports.main();
+                }
+            } catch (err) {
+                console.error("Failed to initialize JsInteropShowcase:", err);
+            }
+        }
+
+        async function initTerminalApp() {
+            try {
+                const container = document.getElementById('terminal-container');
+                if (!container) return;
+                container.innerHTML = '';
+                const response = await fetch('terminal/WasiShellDemo.wasm');
+                if (!response.ok) return;
+                const wasmBytes = await response.arrayBuffer();
+                const { exports, runtime } = await Javaw.instantiateJavaw(wasmBytes, {}, document);
+                const term = runtime.createTerminal('#terminal-container', {
+                    prompt: 'wasi-sh> ',
+                    title: 'Javaw Interactive WASI Terminal & REPL'
+                });
+                if (exports.start) {
+                    exports.start();
+                } else if (exports.runInteractiveShell) {
+                    exports.runInteractiveShell();
+                } else if (exports.main) {
+                    exports.main();
+                }
+            } catch (err) {
+                console.error("Failed to initialize WasiShellDemo:", err);
+            }
+        }
+
+        async function initBytecodeApp() {
+            try {
+                const response = await fetch('bytecode/BytecodeAlgorithmsDemo.wasm');
+                if (!response.ok) return;
+                const wasmBytes = await response.arrayBuffer();
+                const { exports } = await Javaw.instantiateJavaw(wasmBytes, {}, document);
+                if (exports.start) {
+                    exports.start();
+                } else if (exports.main) {
+                    exports.main();
+                }
+            } catch (err) {
+                console.error("Failed to initialize BytecodeAlgorithmsDemo:", err);
+            }
+        }
+
+        async function initLog4jApp() {
+            try {
+                const response = await fetch('log4j/Log4j2Demo.wasm');
+                if (!response.ok) return;
+                const wasmBytes = await response.arrayBuffer();
+                const { exports, runtime } = await Javaw.instantiateJavaw(wasmBytes, {}, document);
+                log4jWasmExports = exports;
+
+                runtime.onStdout((str) => {
+                    const stream = document.getElementById('log4j-console-stream');
+                    if (stream && str.trim()) {
+                        const line = document.createElement('div');
+                        line.style.padding = '2px 0';
+                        line.style.borderBottom = '1px solid #1e293b';
+                        line.innerText = str;
+                        stream.appendChild(line);
+                        stream.scrollTop = stream.scrollHeight;
+                    }
+                });
+
+                if (exports.start) {
+                    exports.start();
+                } else if (exports.main) {
+                    exports.main();
+                }
+            } catch (err) {
+                console.error("Failed to initialize Log4j2Demo:", err);
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            switchTab('todo');
+        });
     </script>
 </body>
 </html>

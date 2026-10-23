@@ -278,6 +278,25 @@ This roadmap organizes planned features by their utility and return on investmen
   - Create integration test suite and example application consuming external third-party JAR dependencies.
   - Verify seamless compilation, local `.m2` caching round-trips, and runtime execution in Node.js and browser environments.
 
+
+---
+
+## 12. Spring API Subset on WebAssembly
+
+- [x] Preserve every source type during batch AST merging, including class literal descriptors.
+- [x] Lower `SpringApplication.run` to singleton repository/controller construction with constructor injection.
+- [x] Execute expression-lambda `@Bean ApplicationRunner` startup callbacks once, sharing repository singletons with controllers; lower numeric-literal `BigDecimal.valueOf` constants.
+- [x] Infer local `var` reference types from initializers so entity setters dispatch to their declared methods.
+- [x] Lower integer-ID `CrudRepository` operations to linked rows in Wasm memory; return `findAll` results as reference arrays.
+- [x] Lower lazy `findById(...).orElseThrow(...)` expression suppliers and `ResponseStatusException` to Wasm exception handling.
+- [x] Emit route/entity metadata for a Node HTTP bridge that marshals parameters and serializes entities without storing rows in JavaScript.
+- [x] Verify compilation, optimized Wasm execution, decimal price round-trips, Unicode/JSON escaping, 404s, deletion, and isolation between Wasm instances without editing `SpringBootApp.java`.
+- [ ] Add general Optional/lambda support, broader dependency injection, repository queries, and transaction semantics.
+- [ ] Add BigDecimal arithmetic and exact decimal JSON serialization beyond JavaScript number precision.
+- [ ] Reclaim repository rows and temporary allocations for long-running services.
+- [ ] Support the actual H2 SQL engine and full Spring/Hibernate runtime. Current support is an ahead-of-time API subset with an in-memory repository, not those JVM engines.
+
+
 ## 13. Java Compatibility Roadmap
 
 Checked items elsewhere describe supported subsets, not complete Java/JDK/JVM compatibility. Each milestone below requires compiler diagnostics and executable Wasm regressions, in addition to WAT generation checks.

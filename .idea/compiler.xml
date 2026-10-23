@@ -10,6 +10,7 @@
         <module name="javaw-bytecode" />
         <module name="examples" />
         <module name="javaw-maven-plugin" />
+        <module name="springboot-h2-demo" />
       </profile>
     </annotationProcessing>
   </component>

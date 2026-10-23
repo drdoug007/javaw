@@ -473,7 +473,7 @@ public class JavacToWasm {
                     merged.addImport(i.clone());
                 }
             });
-            cu.getTypes().forEach(t -> merged.addType(t.clone()));
+            cu.getTypes().forEach(t -> merged.getTypes().add(t.clone()));
         }
         String sourceName = cus.get(0).getStorage().map(s -> s.getPath().getFileName().toString()).orElse("Source.java");
         return generateWat(merged, sourceMapGen, sourceName);
@@ -487,7 +487,10 @@ public class JavacToWasm {
         StringBuilder watOutput = new StringBuilder();
         watOutput.append("(module\n");
 
+        cu = cu.clone();
+        SpringWebSupport springWeb = SpringWebSupport.lower(cu);
         ClassRegistry classRegistry = ClassRegistry.build(cu);
+        springWeb.emitMetadata(classRegistry, watOutput);
 
         if (sourceMapGen != null && sourceMapGen.getFile() != null && !sourceMapGen.getFile().isEmpty()) {
             String mapUrl = sourceMapGen.getFile().endsWith(".wasm") ?

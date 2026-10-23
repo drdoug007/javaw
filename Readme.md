@@ -1530,6 +1530,7 @@ The repository includes a suite of standalone, fully functional example applicat
 
 | Example Application | Directory / File | Key Features Demonstrated |
 | :--- | :--- | :--- |
+| **Spring API CRUD subset** | `examples/springboot-h2/` | Constructor-injected controllers, generated integer IDs, in-memory Wasm repositories, annotation-based routes, Node.js HTTP/JSON bridge |
 | **Log4j2 Enterprise Logging** | `examples/log4j/Log4j2Demo.java` | Standard Log4j2 API (`LogManager`, `Logger`, `Level`, `ThreadContext` MDC), parameter formatting, live UI log streaming |
 | **Bytecode & Relooper Algorithms** | `examples/bytecode/BytecodeAlgorithmsDemo.java` | Complex control flow structuring (Euclidean GCD, Fibonacci, Collatz, Prime Sieve, State Machine Lexer) |
 | **Interactive Todo MVC** | `examples/todo/TodoApp.java` | DOM tree creation, `Element.appendChild`, `removeChild`, input forms, event listeners, dynamic strings, active item counts |
@@ -1558,7 +1559,48 @@ python3 -m http.server 8000
 
 ---
 
-### 4. Running in the Browser
+### 4. Spring API CRUD subset on WebAssembly (`examples/springboot-h2`)
+
+The compiler lowers the unchanged `SpringBootApp.java`, `ProductRepository.java`, and `Product.java` into a unified Wasm module. `SpringApplication.run` creates singleton repositories and constructor-injected controllers. Controller method bodies execute in Wasm, including repository operations, generated IDs, and lazy `orElseThrow` exception suppliers.
+
+This is ahead-of-time support for a subset of Spring APIs. It does **not** run Spring Boot, Hibernate, or the H2 SQL engine. The Maven dependencies provide the Java API types; `linkDependencies=false` keeps their JVM implementations out of the Wasm module. Repository rows use a linked list in Wasm linear memory, with linear scans for lookup. There is no SQL, transaction manager, disk persistence, query derivation, or general Spring container.
+
+The compiler embeds `javaw_spring_web` metadata describing routes, parameters, and entity field offsets. `spring-web.js` uses it to pass HTTP arguments to Wasm controller instances, serialize returned entities/arrays, and translate `ResponseStatusException` into HTTP errors. Node does not store the repository rows.
+
+Supported patterns in this example:
+
+- One constructor per controller or application startup bean, with dependencies on `CrudRepository<Entity, Integer>` interfaces.
+- An entity with one generated `int`/`Integer` ID, and `String`, `BigDecimal`, `int`, or `Integer` fields.
+- `findAll`, `findById`, `save`, and `deleteById`; custom repository queries are rejected.
+- `findById(...).orElseThrow(() -> new ResponseStatusException(...))` with an expression supplier using method parameters.
+- Single string `@RequestMapping`, `@GetMapping`, `@PostMapping`, `@PutMapping`, and `@DeleteMapping` paths; integer `@PathVariable` arguments and JSON object fields for other arguments.
+- `HttpStatus.NOT_FOUND`, `BAD_REQUEST`, `CONFLICT`, and `INTERNAL_SERVER_ERROR`.
+
+`BigDecimal` values pass through Wasm as decimal text, without arithmetic support. `BigDecimal.valueOf` with a single numeric literal is lowered to decimal text during compilation. The HTTP bridge accepts decimal numbers or strings and emits JSON numbers, subject to JavaScript number precision. Storage lasts for one Wasm instance. The current bump allocator does not reclaim deleted rows or temporary allocations, so long-running services need further memory-management work.
+
+The application runs its `@Bean ApplicationRunner` lambda once at startup, inserting three products. The application class receives the same repository singleton as the controller. PUT invokes the entity setters and saves the changed product. These behaviors follow the Java source; inferred `var` locals retain their entity type for method dispatch. POST returns 201, successful DELETE returns 204 with no body, and missing products return 404 with the Java exception's reason.
+
+```bash
+# Build the compiler/plugin and this example together, avoiding stale installed plugins.
+mvn -pl javaw-maven-plugin,examples/springboot-h2 -am package -DskipTests
+
+# Start the API and dashboard on port 8080.
+npm start --prefix examples/springboot-h2
+
+# Run HTTP, repository, error handling, and instance-isolation checks.
+npm test --prefix examples/springboot-h2
+```
+
+```bash
+curl http://localhost:8080/api/products
+curl -X POST http://localhost:8080/api/products -H 'Content-Type: application/json' -d '{"name":"Keyboard","price":129.95,"stock":40}'
+curl http://localhost:8080/api/products/1
+curl -X DELETE http://localhost:8080/api/products/1
+```
+
+---
+
+### 5. Running in the Browser
 
 Include `javaw-runtime.js` and instantiate the WebAssembly module:
 

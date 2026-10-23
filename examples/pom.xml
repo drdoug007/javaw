@@ -53,6 +53,10 @@
                             <generateSourceMaps>true</generateSourceMaps>
                             <enableThreads>true</enableThreads>
                             <copyRuntimeScript>true</copyRuntimeScript>
+                            <excludes>
+                                <exclude>springboot-h2/**</exclude>
+                                <exclude>**/springboot-h2/**</exclude>
+                            </excludes>
                         </configuration>
                     </execution>
                 </executions>

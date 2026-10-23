@@ -5,54 +5,62 @@ import com.example.javaw.wasi.WASIFile;
 
 public class WasiShellDemo {
 
+    private static boolean initialized = false;
+
     public static void main(String[] args) {
         runInteractiveShell();
     }
 
     public static void runInteractiveShell() {
-        Terminal.clear();
-        Terminal.println(Terminal.BRIGHT_CYAN + Terminal.BOLD + "=============================================" + Terminal.RESET);
-        Terminal.println(Terminal.BRIGHT_CYAN + Terminal.BOLD + "   Javaw Interactive WASI Browser Terminal   " + Terminal.RESET);
-        Terminal.println(Terminal.BRIGHT_CYAN + Terminal.BOLD + "=============================================" + Terminal.RESET);
-        Terminal.println(Terminal.DIM + "Type " + Terminal.BRIGHT_YELLOW + "help" + Terminal.DIM + " for available shell commands." + Terminal.RESET);
-        Terminal.println("");
+        if (!initialized) {
+            initialized = true;
+            Terminal.clear();
+            Terminal.println(Terminal.BRIGHT_CYAN + Terminal.BOLD + "=============================================" + Terminal.RESET);
+            Terminal.println(Terminal.BRIGHT_CYAN + Terminal.BOLD + "   Javaw Interactive WASI Browser Terminal   " + Terminal.RESET);
+            Terminal.println(Terminal.BRIGHT_CYAN + Terminal.BOLD + "=============================================" + Terminal.RESET);
+            Terminal.println(Terminal.DIM + "Type " + Terminal.BRIGHT_YELLOW + "help" + Terminal.DIM + " for available shell commands." + Terminal.RESET);
+            Terminal.println("");
 
-        // Initialize virtual file system with a welcome file
-        WASIFile welcome = new WASIFile("welcome.txt");
-        if (!welcome.exists()) {
-            welcome.writeString("Welcome to the WebAssembly Virtual File System in Java!");
+            // Initialize virtual file system with a welcome file
+            WASIFile welcome = new WASIFile("welcome.txt");
+            if (!welcome.exists()) {
+                welcome.writeString("Welcome to the WebAssembly Virtual File System in Java!");
+            }
         }
 
-        boolean active = true;
-        while (active) {
+        while (true) {
             String input = Terminal.readLine(Terminal.BRIGHT_GREEN + "wasi-sh> " + Terminal.RESET);
             if (input == null) break;
+            executeCommand(input);
+        }
+    }
 
-            if (input.equals("exit") || input.equals("quit")) {
-                active = false;
-                Terminal.println(Terminal.YELLOW + "Shell terminated. Goodbye!" + Terminal.RESET);
-            } else if (input.equals("help")) {
-                printHelp();
-            } else if (input.equals("clear") || input.equals("cls")) {
-                Terminal.clear();
-            } else if (input.equals("info")) {
-                Terminal.println(Terminal.BRIGHT_BLUE + "Terminal Dimensions: " + Terminal.RESET +
-                        Terminal.getColumns() + " columns x " + Terminal.getRows() + " rows");
-            } else if (input.equals("cat") || input.equals("cat welcome.txt")) {
-                WASIFile f = new WASIFile("welcome.txt");
-                if (f.exists()) {
-                    Terminal.println(Terminal.BRIGHT_WHITE + f.readString() + Terminal.RESET);
-                } else {
-                    Terminal.println(Terminal.RED + "Error: File not found." + Terminal.RESET);
-                }
-            } else if (input.startsWith("echo ")) {
-                String msg = input.substring(5, input.length());
-                Terminal.println(msg);
-            } else if (input.equals("color") || input.equals("colors")) {
-                printColorPalette();
-            } else if (!input.isEmpty()) {
-                Terminal.println(Terminal.RED + "Command not recognized: '" + input + "'. Type 'help' for command list." + Terminal.RESET);
+    public static void executeCommand(String input) {
+        if (input == null || input.isEmpty()) return;
+
+        if (input.equals("exit") || input.equals("quit")) {
+            Terminal.println(Terminal.YELLOW + "Shell terminated. Goodbye!" + Terminal.RESET);
+        } else if (input.equals("help")) {
+            printHelp();
+        } else if (input.equals("clear") || input.equals("cls")) {
+            Terminal.clear();
+        } else if (input.equals("info")) {
+            Terminal.println(Terminal.BRIGHT_BLUE + "Terminal Dimensions: " + Terminal.RESET +
+                    Terminal.getColumns() + " columns x " + Terminal.getRows() + " rows");
+        } else if (input.equals("cat") || input.equals("cat welcome.txt")) {
+            WASIFile f = new WASIFile("welcome.txt");
+            if (f.exists()) {
+                Terminal.println(Terminal.BRIGHT_WHITE + f.readString() + Terminal.RESET);
+            } else {
+                Terminal.println(Terminal.RED + "Error: File not found." + Terminal.RESET);
             }
+        } else if (input.startsWith("echo ")) {
+            String msg = input.substring(5, input.length());
+            Terminal.println(msg);
+        } else if (input.equals("color") || input.equals("colors")) {
+            printColorPalette();
+        } else if (!input.isEmpty()) {
+            Terminal.println(Terminal.RED + "Command not recognized: '" + input + "'. Type 'help' for command list." + Terminal.RESET);
         }
     }
 

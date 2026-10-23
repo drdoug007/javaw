@@ -21,6 +21,12 @@ public class SimdParticles {
     }
 
     public static void initSimulation() {
+        posX = Float32x4.of(50.0f, 120.0f, 200.0f, 320.0f);
+        posY = Float32x4.of(60.0f, 180.0f, 90.0f, 220.0f);
+        velX = Float32x4.of(2.5f, -3.0f, 1.8f, -2.2f);
+        velY = Float32x4.of(1.8f, 2.2f, -2.5f, 3.0f);
+        tickCount = 0;
+
         Element root = DOM.getElementById("simd-container");
         if (root == null) {
             root = DOM.getBody();
@@ -109,6 +115,10 @@ public class SimdParticles {
         velY = Float32x4.of(vy0, vy1, vy2, vy3);
 
         tickCount = tickCount + 1;
+        Element status = DOM.getElementById("simd-status");
+        if (status != null) {
+            status.setInnerText("Processed 4 particles simultaneously via v128 SIMD (Tick " + tickCount + ")");
+        }
         render();
     }
 

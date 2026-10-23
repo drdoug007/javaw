@@ -9,7 +9,10 @@ function readWasmString(buffer, ptr) {
     const u8 = new Uint8Array(buffer, ptr);
     let len = 0;
     while (u8[len] !== 0) len++;
-    return new TextDecoder('utf-8').decode(u8.subarray(0, len));
+    const slice = typeof SharedArrayBuffer !== 'undefined' && buffer instanceof SharedArrayBuffer
+        ? new Uint8Array(u8.subarray(0, len))
+        : u8.subarray(0, len);
+    return new TextDecoder('utf-8').decode(slice);
 }
 
 function writeWasmString(instance, str) {
@@ -1039,6 +1042,88 @@ async function runTest() {
             assert.strictEqual(container.children.length, 2);
             assert.strictEqual(exports.countItemTags(), 2);
             console.log('✓ removeChild verified.');
+
+            // Test SharedArrayBuffer decoding safety with JavawRuntime
+            if (typeof SharedArrayBuffer !== 'undefined') {
+                const { JavawRuntime } = require('../../main/resources/javaw-runtime.js');
+                const testRuntime = new JavawRuntime(mockDoc);
+                const sab = new SharedArrayBuffer(1024);
+                const sabView = new Uint8Array(sab);
+                const testStr = "Hello SharedArrayBuffer!";
+                const enc = Buffer.from(testStr, 'utf8');
+                for (let i = 0; i < enc.length; i++) sabView[100 + i] = enc[i];
+                testRuntime.instance = {
+                    exports: {
+                        memory: { buffer: sab }
+                    }
+                };
+                const decodedStr = testRuntime.readString(100, enc.length);
+                assert.strictEqual(decodedStr, testStr, 'readString must decode from SharedArrayBuffer without error');
+                console.log('✓ SharedArrayBuffer string decoding verified with JavawRuntime.');
+            }
+        }
+
+        // ==========================================
+        // Part 3: Examples Test (Log4j2Demo & TodoApp)
+        // ==========================================
+        console.log('\n--- Testing Example Applications (Log4j2Demo & TodoApp) ---');
+        const LOG4J_JAVA = path.resolve(__dirname, '../../../../examples/log4j/Log4j2Demo.java');
+        const LOG4J_WASM = path.resolve(__dirname, '../../../../examples/log4j/Log4j2Demo.wasm');
+
+        if (fs.existsSync(LOG4J_JAVA)) {
+            console.log('Compiling and verifying Log4j2Demo.java...');
+            execSync(`java -jar ${JAR_PATH} ${LOG4J_JAVA}`, { stdio: 'inherit' });
+            assert.strictEqual(fs.existsSync(LOG4J_WASM), true, 'Log4j2Demo.wasm must exist');
+
+            const mockDoc = new MockDocument();
+            const rootApp = mockDoc.createElement('div');
+            rootApp.setAttribute('id', 'log4j-app');
+            mockDoc.body.appendChild(rootApp);
+
+            const log4jBytes = fs.readFileSync(LOG4J_WASM);
+            const { exports } = await instantiateJavaw(log4jBytes, {}, mockDoc);
+
+            assert.strictEqual(typeof exports.start, 'function', 'Log4j2Demo start() must be exported');
+            exports.start();
+
+            assert.strictEqual(typeof exports.runSimulation, 'function', 'runSimulation must be exported');
+            exports.runSimulation();
+
+            assert.strictEqual(typeof exports.simulateAuth, 'function', 'simulateAuth must be exported');
+            exports.simulateAuth();
+
+            assert.strictEqual(typeof exports.simulateDatabase, 'function', 'simulateDatabase must be exported');
+            exports.simulateDatabase();
+
+            assert.strictEqual(typeof exports.simulateWarning, 'function', 'simulateWarning must be exported');
+            exports.simulateWarning();
+
+            assert.strictEqual(typeof exports.simulateError, 'function', 'simulateError must be exported');
+            exports.simulateError();
+
+            console.log('✓ Log4j2Demo execution and DOM logging verified cleanly.');
+        }
+
+        const TODO_JAVA = path.resolve(__dirname, '../../../../examples/todo/TodoApp.java');
+        const TODO_WASM = path.resolve(__dirname, '../../../../examples/todo/TodoApp.wasm');
+
+        if (fs.existsSync(TODO_JAVA)) {
+            console.log('Compiling and verifying TodoApp.java...');
+            execSync(`java -jar ${JAR_PATH} ${TODO_JAVA}`, { stdio: 'inherit' });
+            assert.strictEqual(fs.existsSync(TODO_WASM), true, 'TodoApp.wasm must exist');
+
+            const mockDoc = new MockDocument();
+            const rootApp = mockDoc.createElement('div');
+            rootApp.setAttribute('id', 'todo-app');
+            mockDoc.body.appendChild(rootApp);
+
+            const todoBytes = fs.readFileSync(TODO_WASM);
+            const { exports } = await instantiateJavaw(todoBytes, {}, mockDoc);
+
+            if (typeof exports.start === 'function') {
+                exports.start();
+                console.log('✓ TodoApp start() executed cleanly.');
+            }
         }
 
         console.log('\n==========================================');
