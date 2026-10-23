@@ -147,7 +147,7 @@ public class ClassModel {
     }
 
     public boolean isOopClass() {
-        if (isEnum) return true;
+        if (isEnum || isInterface) return true;
         boolean hasInstanceFields = false;
         for (FieldModel fm : fields.values()) {
             if (!fm.isStatic()) {

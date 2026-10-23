@@ -20,7 +20,7 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
 | :--- | :--- |
 | Lambdas and method references | General closures, captured variables, functional interfaces, and method references are not implemented; Spring callback patterns have special lowering. |
 | Collections and streams | General JDK collections and Stream pipelines are not implemented. Spring repository lists are lowered to reference arrays. |
-| Optional | Only a repository `findById(...).orElseThrow(...)` pattern is lowered; general Optional operations remain pending. |
+| Optional | Source-backed `empty`, `of`, `ofNullable`, presence checks, `get`, eager/lazy defaults, exception suppliers, `map`, `flatMap`, `filter`, and `ifPresent` execute in Wasm. Functional callbacks use interface dispatch; empty/null factories may require explicit type witnesses (`Optional.<String>empty()`). |
 | Decimal arithmetic | BigDecimal passes decimal text through memory; general arithmetic, rounding, and scale semantics are pending. |
 | Memory management | Objects and temporary allocations use a bump allocator without automatic reclamation. |
 | Types and methods | Local `var` inference covers supported literals, binary/conditional expressions, arrays, aliases, and inherited/static method returns. Block/loop/catch scopes preserve distinct locals. Qualified module types are resolved when simple names are unique. Source overload selection, nullable boxing, and reference generic inference are supported for the tested subset. Complete JLS conversion and inference conformance remains pending. |

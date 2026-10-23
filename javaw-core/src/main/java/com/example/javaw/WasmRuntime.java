@@ -2551,6 +2551,20 @@ public class WasmRuntime {
         watOutput.append("    call $RuntimeException_getMessage\n");
         watOutput.append("  )\n");
 
+        watOutput.append("  (func $NoSuchElementException__init (export \"NoSuchElementException__init\") (param $this i32)\n");
+        watOutput.append("    local.get $this\n");
+        watOutput.append("    call $RuntimeException__init\n");
+        watOutput.append("  )\n");
+        watOutput.append("  (func $NoSuchElementException__init_1 (export \"NoSuchElementException__init_1\") (param $this i32) (param $message i32)\n");
+        watOutput.append("    local.get $this\n");
+        watOutput.append("    local.get $message\n");
+        watOutput.append("    call $RuntimeException__init_1\n");
+        watOutput.append("  )\n");
+        watOutput.append("  (func $NoSuchElementException_getMessage (export \"NoSuchElementException_getMessage\") (param $this i32) (result i32)\n");
+        watOutput.append("    local.get $this\n");
+        watOutput.append("    call $RuntimeException_getMessage\n");
+        watOutput.append("  )\n");
+
         watOutput.append("  (func $ArithmeticException__init (export \"ArithmeticException__init\") (param $this i32)\n");
         watOutput.append("    local.get $this\n");
         watOutput.append("    call $RuntimeException__init\n");

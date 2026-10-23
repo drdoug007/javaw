@@ -159,7 +159,7 @@ final class SpringWebSupport {
         for (MethodCallExpr call : new ArrayList<>(cu.findAll(MethodCallExpr.class))) {
             if (!call.getNameAsString().equals("orElseThrow")) continue;
             if (call.getArguments().size() != 1 || !call.getArgument(0).isLambdaExpr() || call.getScope().isEmpty()
-                    || !call.getScope().get().isMethodCallExpr()) throw unsupported("Optional.orElseThrow form");
+                    || !call.getScope().get().isMethodCallExpr()) continue;
             MethodCallExpr lookup = call.getScope().get().asMethodCallExpr();
             MethodDeclaration outer = call.findAncestor(MethodDeclaration.class).orElseThrow();
             ClassOrInterfaceDeclaration owner = outer.findAncestor(ClassOrInterfaceDeclaration.class).orElseThrow();
@@ -167,8 +167,7 @@ final class SpringWebSupport {
             String repoType = owner.getFields().stream().flatMap(f -> f.getVariables().stream())
                     .filter(v -> v.getNameAsString().equals(repository)).map(VariableDeclarator::getTypeAsString).findFirst().orElse("");
             String entity = repositories.get(repoType);
-            if (!lookup.getNameAsString().equals("findById") || entity == null)
-                throw unsupported("orElseThrow requires a repository findById call");
+            if (!lookup.getNameAsString().equals("findById") || entity == null) continue;
             LambdaExpr lambda = call.getArgument(0).asLambdaExpr();
             Expression error = lambda.getExpressionBody().orElseThrow(() -> unsupported("Expression exception supplier required"));
             String helperName = "__javaw_require_" + count++;

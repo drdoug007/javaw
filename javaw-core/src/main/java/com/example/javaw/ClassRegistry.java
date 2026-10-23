@@ -265,6 +265,7 @@ public class ClassRegistry {
                 {"IllegalArgumentException", "RuntimeException"},
                 {"IllegalStateException", "RuntimeException"},
                 {"NullPointerException", "RuntimeException"},
+                {"NoSuchElementException", "RuntimeException"},
                 {"ArithmeticException", "RuntimeException"}
         };
         for (String[] def : builtins) {
@@ -435,6 +436,19 @@ public class ClassRegistry {
             cm.setStructSize(Math.max(8, totalAligned));
         }
 
+        // Every source interface method has a stable slot across implementing classes.
+        List<MethodModel> interfaceSlots = new ArrayList<>();
+        for (ClassModel iface : classes.values()) if (iface.isInterface()) {
+            for (MethodModel method : iface.getMethods().values()) {
+                if (!method.isVirtual() || method.getDeclaration() == null) continue;
+                method.setVirtualSlotIndex(10 + interfaceSlots.size());
+                String sig = method.buildWasmTypeSignature();
+                typeSignatures.computeIfAbsent(sig, k -> "$t_sig_" + (++typeSigCounter));
+                method.setTypeSignatureName(typeSignatures.get(sig));
+                interfaceSlots.add(method);
+            }
+        }
+
         // Phase 3: Compute VTable slots and function table layout
         for (ClassModel cm : getClassesInHierarchyOrder()) {
             if (cm.isInterface() || !cm.isOopClass()) continue;
@@ -586,6 +600,7 @@ public class ClassRegistry {
                 }
             }
 
+            if (slots.size() == 10) slots.addAll(interfaceSlots);
             for (MethodModel mm : cm.getMethods().values()) {
                 if (mm.isVirtual()) {
                     boolean overridden = false;

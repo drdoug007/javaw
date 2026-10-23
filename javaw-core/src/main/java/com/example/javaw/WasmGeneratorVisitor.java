@@ -1111,6 +1111,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             Map<String, String> elements, Map<String, String> javaTypes, String targetJavaType) {
         if (currentCallable != null) targetJavaType = GenericTypes.eraseVariables(targetJavaType, currentCallable);
         String source = getExpressionJavaType(expression, javaTypes);
+        if (currentCallable != null && source != null && !source.equals("null")) source = GenericTypes.eraseVariables(source, currentCallable);
         if (targetJavaType != null && targetJavaType.startsWith("?") && !targetJavaType.startsWith("? super ") && !"null".equals(source))
             throw JavaSourcePreparation.error(expression, "Cannot write a value into a captured wildcard type; use a compatible super bound or explicit type argument");
         if (targetJavaType != null && targetJavaType.startsWith("? super ")) targetJavaType = targetJavaType.substring(8);
@@ -1144,6 +1145,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     private void translateNumeric(Expression expression, StringBuilder out, Map<String, String> locals,
             Map<String, String> elements, Map<String, String> javaTypes, String expected) {
         String source = getExpressionJavaType(expression, javaTypes);
+        if (currentCallable != null && source != null && !source.equals("null")) source = GenericTypes.eraseVariables(source, currentCallable);
         if (BoxingSupport.boxed(source)) {
             translateExpression(expression, out, locals, elements, javaTypes, "i32");
             emitUnbox(source, out);
@@ -2969,7 +2971,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 .filter(m -> call.getScope().isPresent() || !staticContext || m.isStatic()).toList();
         List<String> arguments = call.getArguments().stream().map(a -> a.isNullLiteralExpr() ? "null"
                 : getExpressionJavaType(a, localJavaTypes)).toList();
-        try { return classRegistry.resolveOverload(candidates, arguments, call.getTypeArguments().map(a -> a.stream().map(t -> t.asString()).toList()).orElse(List.of())); }
+        try { return classRegistry.resolveOverload(candidates, arguments, call.getTypeArguments().map(a -> a.stream().map(t -> currentCallable == null ? t.asString() : GenericTypes.eraseVariables(t.asString(), currentCallable)).toList()).orElse(List.of())); }
         catch (IllegalArgumentException error) { throw JavaSourcePreparation.error(call, error.getMessage()); }
     }
 
@@ -3008,12 +3010,13 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     private String emitConstructorArguments(String className, NodeList<Expression> arguments, Node source,
             StringBuilder collector, Map<String, String> localTypes, Map<String, String> localElementTypes,
             Map<String, String> localJavaTypes) {
+        final String constructedOwner = currentCallable == null ? className : GenericTypes.eraseVariables(className, currentCallable);
         ClassModel model = classRegistry == null ? null : classRegistry.getClass(className);
         MethodModel selected = null;
         if (model != null && (!model.getConstructors().isEmpty() || !arguments.isEmpty())) {
             List<String> types = arguments.stream().map(a -> a.isNullLiteralExpr() ? "null"
                     : getExpressionJavaType(a, localJavaTypes)).toList();
-            try { selected = classRegistry.resolveOverload(classRegistry.constructorCandidates(className).stream()
+            try { selected = classRegistry.resolveOverload(classRegistry.constructorCandidates(constructedOwner).stream()
                     .filter(m -> accessible(m, currentClass != null ? currentClass.getName()
                             : currentRecord != null ? currentRecord.getName() : "", className, source)).toList(), types); }
             catch (IllegalArgumentException error) { throw JavaSourcePreparation.error(source, error.getMessage()); }

@@ -323,7 +323,8 @@ Checked items elsewhere describe supported subsets, not complete Java/JDK/JVM co
 
 ### Phase 2: Optional, lambdas, and collections
 
-- [ ] Implement general Optional construction, presence checks, get/orElse/orElseGet/orElseThrow, map, flatMap, and filter.
+- [x] Implement general Optional construction, presence checks, get/orElse/orElseGet/orElseThrow, map, flatMap, and filter.
+  - Source-backed objects and lazy functional-interface callbacks execute in Wasm; explicit type witnesses may be needed for empty/null factories under the current generic-inference subset.
 - [ ] Implement reusable lambda objects, captured variables, functional interface dispatch, and method references; replace Spring-specific callback lowering where possible.
 - [ ] Implement ArrayList, HashMap, HashSet, iteration, and collection interfaces with documented null/equality behavior.
 - [ ] Implement sequential Stream pipelines, terminal operations, and short-circuit behavior; track parallel streams separately.

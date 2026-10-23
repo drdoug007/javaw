@@ -495,6 +495,7 @@ public class JavacToWasm {
         JavaSourcePreparation.markSource(cu, sourceName);
         JavaSourcePreparation.normalizeTypes(cu, JavaSourcePreparation.typeNames(List.of(cu)));
         SpringWebSupport springWeb = SpringWebSupport.lower(cu);
+        LibrarySupport.addTypes(cu);
         BoxingSupport.addWrappers(cu);
         JavaSourcePreparation.normalizeVarargs(cu);
         JavaSourcePreparation.resolveLocalScopes(cu);
