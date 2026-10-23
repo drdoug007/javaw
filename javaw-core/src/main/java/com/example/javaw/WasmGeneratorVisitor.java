@@ -2,6 +2,7 @@ package com.example.javaw;
 
 import com.example.javaw.js.JsAnnotationHelper;
 import com.example.javaw.sourcemap.SourceMapTracker;
+import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.*;
 import com.github.javaparser.ast.expr.*;
@@ -430,9 +431,17 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         for (VariableDeclarator vd : varDecls) {
             String vName = vd.getNameAsString();
             String vTypeName = vd.getType().asString();
-            if (vd.getType().isVarType() && vd.getInitializer().isPresent()) {
-                String inferredType = getExpressionJavaType(vd.getInitializer().get(), localJavaTypes);
-                if (inferredType != null) vTypeName = inferredType;
+            if (vd.getType().isVarType()) {
+                String inferredType = vd.getInitializer().map(e -> getExpressionJavaType(e, localJavaTypes)).orElse(null);
+                if (inferredType == null && vd.getParentNode().flatMap(Node::getParentNode).filter(n -> n instanceof ForEachStmt).isPresent()) {
+                    ForEachStmt loop = (ForEachStmt) vd.getParentNode().flatMap(Node::getParentNode).get();
+                    String arrayType = getExpressionJavaType(loop.getIterable(), localJavaTypes);
+                    if (arrayType != null && arrayType.endsWith("[]")) inferredType = arrayType.substring(0, arrayType.length() - 2);
+                }
+                if (inferredType == null || Set.of("null", "void", "var").contains(inferredType))
+                    throw JavaSourcePreparation.error(vd, "Cannot infer type of local '" + vd.getNameAsString()
+                            + "' from its initializer; use an explicit supported type or implement the called API");
+                vTypeName = inferredType;
             }
             if (classRegistry != null && classRegistry.isRecord(vTypeName)) {
                 RecordModel rm = classRegistry.getRecord(vTypeName);
@@ -657,7 +666,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             String lenVar = "__arr_len_" + forEachNum;
             String idxVar = "__arr_idx_" + forEachNum;
             String itemVar = forEach.getVariable().getVariables().get(0).getNameAsString();
-            String elemType = TypeMapper.mapType(forEach.getVariable().getVariables().get(0).getType());
+            String elemType = localTypes.getOrDefault(itemVar, TypeMapper.mapType(forEach.getVariable().getVariables().get(0).getType()));
             if (elemType == null) elemType = "i32";
             int headerOffset = (elemType.equals("f64") || elemType.equals("i64")) ? 8 : 4;
             int elemSize = (elemType.equals("f64") || elemType.equals("i64")) ? 8 : 4;
@@ -1072,6 +1081,17 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     private void translateExpression(Expression expr, StringBuilder collector, Map<String, String> localTypes, Map<String, String> localElementTypes, Map<String, String> localJavaTypes, String expectedType) {
         if (expr.isBinaryExpr()) {
             BinaryExpr bin = expr.asBinaryExpr();
+            if (bin.getOperator() == BinaryExpr.Operator.AND || bin.getOperator() == BinaryExpr.Operator.OR) {
+                translateExpression(bin.getLeft(), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                collector.append("    if (result i32)\n");
+                if (bin.getOperator() == BinaryExpr.Operator.OR) collector.append("    i32.const 1\n");
+                else translateExpression(bin.getRight(), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                collector.append("    else\n");
+                if (bin.getOperator() == BinaryExpr.Operator.AND) collector.append("    i32.const 0\n");
+                else translateExpression(bin.getRight(), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                collector.append("    end\n");
+                return;
+            }
             if (bin.getOperator() == BinaryExpr.Operator.PLUS && (isStringType(bin.getLeft(), localJavaTypes) || isStringType(bin.getRight(), localJavaTypes))) {
                 translateStringToStack(bin.getLeft(), collector, localTypes, localElementTypes, localJavaTypes);
                 translateStringToStack(bin.getRight(), collector, localTypes, localElementTypes, localJavaTypes);
@@ -1080,7 +1100,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             }
             String leftType = inferType(bin.getLeft(), localTypes, localElementTypes, localJavaTypes, null);
             String rightType = inferType(bin.getRight(), localTypes, localElementTypes, localJavaTypes, null);
-            String opType = inferType(bin, localTypes, localElementTypes, localJavaTypes, expectedType);
+            String opType = "i32";
             if (bin.getOperator() == BinaryExpr.Operator.AND || bin.getOperator() == BinaryExpr.Operator.OR) {
                 opType = "i32";
             } else if ("f64".equals(leftType) || "f64".equals(rightType) || "f64".equals(opType) || ("f32".equals(leftType) && ("f64".equals(rightType) || bin.getRight().isDoubleLiteralExpr())) || ("f32".equals(rightType) && ("f64".equals(leftType) || bin.getLeft().isDoubleLiteralExpr()))) {
@@ -1090,6 +1110,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             } else if ("i64".equals(leftType) || "i64".equals(rightType) || "i64".equals(opType)) {
                 opType = "i64";
             }
+            if (bin.getOperator() == BinaryExpr.Operator.LEFT_SHIFT || bin.getOperator() == BinaryExpr.Operator.SIGNED_RIGHT_SHIFT
+                    || bin.getOperator() == BinaryExpr.Operator.UNSIGNED_RIGHT_SHIFT) opType = "i64".equals(leftType) ? "i64" : "i32";
             boolean isComparison = bin.getOperator() == BinaryExpr.Operator.EQUALS ||
                     bin.getOperator() == BinaryExpr.Operator.NOT_EQUALS ||
                     bin.getOperator() == BinaryExpr.Operator.LESS ||
@@ -1100,7 +1122,9 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             translateExpression(bin.getLeft(), collector, localTypes, localElementTypes, localJavaTypes, opType);
             translateExpression(bin.getRight(), collector, localTypes, localElementTypes, localJavaTypes, opType);
             collector.append("    ").append(getWasmBinaryOp(bin.getOperator(), opType)).append("\n");
-            if ("f64".equals(expectedType) && "f32".equals(resultType)) {
+            if ("i64".equals(resultType) && ("f64".equals(expectedType) || "f32".equals(expectedType))) {
+                emitNumericWidening(resultType, expectedType, collector);
+            } else if ("f64".equals(expectedType) && "f32".equals(resultType)) {
                 collector.append("    f64.promote_f32\n");
             } else if ("f32".equals(expectedType) && "f64".equals(resultType)) {
                 collector.append("    f32.demote_f64\n");
@@ -1240,6 +1264,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         } else if (expr.isLongLiteralExpr()) {
             String val = expr.asLongLiteralExpr().getValue().replaceAll("[lL]", "");
             collector.append("    i64.const ").append(val).append("\n");
+            if ("i32".equals(expectedType)) collector.append("    i32.wrap_i64\n");
+            else emitNumericWidening("i64", expectedType, collector);
         } else if (expr.isDoubleLiteralExpr()) {
             String raw = expr.asDoubleLiteralExpr().getValue();
             boolean isExplicitFloat = raw.endsWith("f") || raw.endsWith("F");
@@ -1273,7 +1299,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             collector.append("    global.get $__class_").append(typeName).append("\n");
         } else if (expr.isConditionalExpr()) {
             ConditionalExpr cond = expr.asConditionalExpr();
-            String resType = inferType(cond.getThenExpr(), localTypes, localElementTypes, localJavaTypes, expectedType);
+            String resType = TypeMapper.mapType(getExpressionJavaType(cond, localJavaTypes));
             if (resType == null || (!resType.equals("i64") && !resType.equals("f32") && !resType.equals("f64") && !resType.equals("v128"))) {
                 resType = "i32";
             }
@@ -1283,6 +1309,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             collector.append("    else\n");
             translateExpression(cond.getElseExpr(), collector, localTypes, localElementTypes, localJavaTypes, resType);
             collector.append("    end\n");
+            emitNumericWidening(resType, expectedType, collector);
         } else if (expr.isThisExpr() || expr.isSuperExpr()) {
             collector.append("    local.get $this\n");
         } else if (expr.isCastExpr()) {
@@ -1733,6 +1760,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     if (fm != null) {
                         translateExpression(fae.getScope(), collector, localTypes, localElementTypes, localJavaTypes, "i32");
                         collector.append("    ").append(getLoadInstruction(fm.getWasmType())).append(" offset=").append(fm.getOffset()).append("\n");
+                        emitNumericWidening(fm.getWasmType(), expectedType, collector);
                     }
                 }
             }
@@ -2593,7 +2621,88 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         }
     }
 
+    private void emitNumericWidening(String from, String to, StringBuilder out) {
+        if (to == null || to.equals(from)) return;
+        String op = null;
+        if ("i32".equals(from) && "i64".equals(to)) op = "i64.extend_i32_s";
+        if ("i32".equals(from) && "f32".equals(to)) op = "f32.convert_i32_s";
+        if ("i32".equals(from) && "f64".equals(to)) op = "f64.convert_i32_s";
+        if ("i64".equals(from) && "f32".equals(to)) op = "f32.convert_i64_s";
+        if ("i64".equals(from) && "f64".equals(to)) op = "f64.convert_i64_s";
+        if ("f32".equals(from) && "f64".equals(to)) op = "f64.promote_f32";
+        if (op != null) out.append("    ").append(op).append("\n");
+    }
+
+    private String promotedNumeric(String left, String right) {
+        Set<String> numeric = Set.of("byte", "short", "char", "int", "long", "float", "double");
+        if (left == null || right == null || !numeric.contains(left) || !numeric.contains(right)) return null;
+        for (String type : List.of("double", "float", "long")) if (type.equals(left) || type.equals(right)) return type;
+        return "int";
+    }
+
+    private String conditionalType(ConditionalExpr expression, String left, String right) {
+        if (left == null || right == null) return null;
+        if (left.equals(right)) return left;
+        String numeric = promotedNumeric(left, right);
+        if (numeric != null) {
+            if (Set.of("byte", "short").contains(left) && Set.of("byte", "short").contains(right)) return "short";
+            if (fitsConditionalConstant(left, expression.getElseExpr(), right)) return left;
+            if (fitsConditionalConstant(right, expression.getThenExpr(), left)) return right;
+            return numeric;
+        }
+        Set<String> primitive = Set.of("byte", "short", "char", "int", "long", "float", "double", "boolean");
+        if (primitive.contains(left) || primitive.contains(right)) return null;
+        if (left.equals("null")) return right;
+        if (right.equals("null")) return left;
+        Set<String> ancestors = new HashSet<>();
+        String cursor = left;
+        while (cursor != null && ancestors.add(cursor)) {
+            ClassModel model = classRegistry == null ? null : classRegistry.getClass(cursor);
+            cursor = model == null ? null : model.getSuperClassName();
+        }
+        cursor = right;
+        Set<String> visited = new HashSet<>();
+        while (cursor != null && visited.add(cursor)) {
+            if (ancestors.contains(cursor)) return cursor;
+            ClassModel model = classRegistry == null ? null : classRegistry.getClass(cursor);
+            cursor = model == null ? null : model.getSuperClassName();
+        }
+        return "Object";
+    }
+
+    private boolean fitsConditionalConstant(String narrow, Expression expression, String other) {
+        if (!"int".equals(other) || !Set.of("byte", "short", "char").contains(narrow)) return false;
+        try {
+            String literal = expression.toString().replace("_", "").replace(" ", "");
+            long value = Long.decode(literal);
+            return switch (narrow) {
+                case "byte" -> value >= -128 && value <= 127;
+                case "short" -> value >= -32768 && value <= 32767;
+                default -> value >= 0 && value <= 65535;
+            };
+        } catch (NumberFormatException ignored) { return false; }
+    }
+
     private String getExpressionJavaType(Expression expr, Map<String, String> localJavaTypes) {
+        if (expr.isNullLiteralExpr()) return "null";
+        if (expr.isConditionalExpr()) {
+            ConditionalExpr conditional = expr.asConditionalExpr();
+            String left = getExpressionJavaType(conditional.getThenExpr(), localJavaTypes);
+            String right = getExpressionJavaType(conditional.getElseExpr(), localJavaTypes);
+            return conditionalType(conditional, left, right);
+        }
+        if (expr.isBinaryExpr()) {
+            BinaryExpr binary = expr.asBinaryExpr();
+            String left = getExpressionJavaType(binary.getLeft(), localJavaTypes);
+            String right = getExpressionJavaType(binary.getRight(), localJavaTypes);
+            return switch (binary.getOperator()) {
+                case EQUALS, NOT_EQUALS, LESS, LESS_EQUALS, GREATER, GREATER_EQUALS, AND, OR -> "boolean";
+                case PLUS -> "String".equals(left) || "String".equals(right) ? "String" : promotedNumeric(left, right);
+                case LEFT_SHIFT, SIGNED_RIGHT_SHIFT, UNSIGNED_RIGHT_SHIFT -> "long".equals(left) ? "long" : "int";
+                case BINARY_AND, BINARY_OR, XOR -> "boolean".equals(left) && "boolean".equals(right) ? "boolean" : promotedNumeric(left, right);
+                default -> promotedNumeric(left, right);
+            };
+        }
         if (expr.isStringLiteralExpr() || expr.isTextBlockLiteralExpr()) return "String";
         if (expr.isBooleanLiteralExpr()) return "boolean";
         if (expr.isCharLiteralExpr()) return "char";
@@ -5293,6 +5402,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             if (currentClass != null && currentClass.getField(name) != null) return currentClass.getField(name).getWasmType();
         }
         if (expr.isBinaryExpr()) {
+            String inferred = getExpressionJavaType(expr, localJavaTypes);
+            if (inferred != null) return "String".equals(inferred) ? "String" : TypeMapper.mapType(inferred);
             BinaryExpr b = expr.asBinaryExpr();
             String lt = inferType(b.getLeft(), localTypes, localElementTypes, localJavaTypes, null);
             String rt = inferType(b.getRight(), localTypes, localElementTypes, localJavaTypes, null);
@@ -5304,6 +5415,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         if (expr.isArrayAccessExpr()) {
             return getArrayElementType(expr.asArrayAccessExpr(), localElementTypes, fallback);
         }
+        if (expr.isConditionalExpr()) return TypeMapper.mapType(getExpressionJavaType(expr, localJavaTypes));
+        if (expr.isEnclosedExpr()) return inferType(expr.asEnclosedExpr().getInner(), localTypes, localElementTypes, localJavaTypes, fallback);
         if (expr.isMethodCallExpr()) {
             MethodCallExpr call = expr.asMethodCallExpr();
             String mName = call.getNameAsString();

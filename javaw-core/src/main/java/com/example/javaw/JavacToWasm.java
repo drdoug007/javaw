@@ -466,8 +466,12 @@ public class JavacToWasm {
             String sourceName = cus.get(0).getStorage().map(s -> s.getPath().getFileName().toString()).orElse("Source.java");
             return generateWat(cus.get(0), sourceMapGen, sourceName);
         }
+        Map<String, String> typeNames = JavaSourcePreparation.typeNames(cus);
         CompilationUnit merged = new CompilationUnit();
-        for (CompilationUnit cu : cus) {
+        for (CompilationUnit original : cus) {
+            CompilationUnit cu = original.clone();
+            JavaSourcePreparation.markSource(cu, cu.getStorage().map(s -> s.getPath().getFileName().toString()).orElse("Source.java"));
+            JavaSourcePreparation.normalizeTypes(cu, typeNames);
             cu.getImports().forEach(i -> {
                 if (!merged.getImports().contains(i)) {
                     merged.addImport(i.clone());
@@ -488,7 +492,10 @@ public class JavacToWasm {
         watOutput.append("(module\n");
 
         cu = cu.clone();
+        JavaSourcePreparation.markSource(cu, sourceName);
+        JavaSourcePreparation.normalizeTypes(cu, JavaSourcePreparation.typeNames(List.of(cu)));
         SpringWebSupport springWeb = SpringWebSupport.lower(cu);
+        JavaSourcePreparation.resolveLocalScopes(cu);
         ClassRegistry classRegistry = ClassRegistry.build(cu);
         springWeb.emitMetadata(classRegistry, watOutput);
 

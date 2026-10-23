@@ -305,9 +305,12 @@ Checked items elsewhere describe supported subsets, not complete Java/JDK/JVM co
 
 - [x] Infer `var` locals from primitive/string literals, unary expressions, object creation, arrays, local aliases, and resolved method return types; preserve inferred Wasm storage types.
 - [x] Resolve static factory and inherited method return types through the class registry; verify execution with Node, including entity-style mutation through inferred references.
-- [ ] Complete binary/conditional expression inference, lexical block scoping, package-qualified types, and actionable diagnostics for unresolved inference.
+- [x] Complete binary/conditional expression inference for supported primitive/reference types, lexical block scoping, package-qualified module types, and actionable diagnostics for unresolved inference.
+  - Preserve distinct locals across blocks, loops, catch clauses, and field shadowing; resolve qualified source types before batch merging.
+  - Verify numeric/string expressions, short-circuit evaluation, conditional branch widening, qualified factories, and diagnostic file/line/column in executable Wasm regressions.
+  - Qualified module types must have unique simple names; conflicting namespaces receive an explicit diagnostic. General namespaces, generic least-upper-bound inference, and full Java numeric conformance remain pending.
 - [ ] Select method/constructor overloads by argument types and arity; diagnose ambiguity instead of choosing by method name.
-- [ ] Implement generic inference, boxing/unboxing, and Java numeric conversion/promotion rules with conformance tests.
+- [ ] Implement generic inference, boxing/unboxing, and Java numeric conversion/promotion rules with conformance tests, including constant-expression ternary narrowing and typed long/float increment/decrement.
 
 ### Phase 2: Optional, lambdas, and collections
 

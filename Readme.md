@@ -23,13 +23,15 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
 | Optional | Only a repository `findById(...).orElseThrow(...)` pattern is lowered; general Optional operations remain pending. |
 | Decimal arithmetic | BigDecimal passes decimal text through memory; general arithmetic, rounding, and scale semantics are pending. |
 | Memory management | Objects and temporary allocations use a bump allocator without automatic reclamation. |
-| Types and methods | Local `var` inference and inherited/static method return types are being integrated incrementally. Complete overload resolution, generic inference, and boxing semantics remain pending. |
+| Types and methods | Local `var` inference covers supported literals, binary/conditional expressions, arrays, aliases, and inherited/static method returns. Block/loop/catch scopes preserve distinct locals. Qualified module types are resolved when simple names are unique. Complete overload resolution, generic inference, and Java numeric/boxing conformance remain pending. |
 | Reflection | Basic class descriptors exist; dynamic invocation, reflective construction, runtime annotation inspection, and dynamic class loading remain pending. |
 | Concurrency | Wasm threads and atomics cover a subset; monitors, wait/notify, and complete Java Memory Model semantics remain pending. |
 | JDK APIs | I/O, NIO, networking, date/time, regex, and serialization lack comprehensive compatibility. WASI/JavaScript facades provide selected operations. |
 | Dependencies | Bytecode compilation and caching exist, but arbitrary Maven JAR compatibility is not established. |
 | Spring and persistence | Constructor injection and selected CRUD/controller/startup patterns are lowered. General Spring beans/proxies, transactions, Hibernate, JDBC, and the actual H2 engine remain pending. |
-| Diagnostics | Unsupported features are not consistently rejected at the Java source location; some surface as unresolved symbols or invalid WAT. |
+| Diagnostics | Unresolved local inference, self-references, scope violations, and conflicting module type names receive source-location diagnostics. Other unsupported features can still surface as unresolved symbols or invalid WAT. |
+
+Source-resolution regressions execute compiled Wasm in Node; see `javaw-core/src/test/java/com/example/javaw/SourceResolutionTest.java`. Qualified references to source classes work across batch files; multiple classes with the same simple name in one module are explicitly rejected.
 
 The next priorities are reusable type/method resolution, Optional and lambdas, collections, decimal arithmetic, and memory reclamation. See [the compatibility roadmap](Todo.md#13-java-compatibility-roadmap) for acceptance criteria and remaining work.
 
