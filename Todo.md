@@ -310,6 +310,8 @@ Checked items elsewhere describe supported subsets, not complete Java/JDK/JVM co
   - Verify numeric/string expressions, short-circuit evaluation, conditional branch widening, qualified factories, and diagnostic file/line/column in executable Wasm regressions.
   - Qualified module types must have unique simple names; conflicting namespaces receive an explicit diagnostic. General namespaces, generic least-upper-bound inference, and full Java numeric conformance remain pending.
 - [ ] Select method/constructor overloads by argument types and arity; diagnose ambiguity instead of choosing by method name.
+  - [x] Add shared overload selection for identity, primitive widening, reference inheritance, arity, and ambiguity; use it for source-class construction and explicit `this(...)`/`super(...)` calls with correctly typed Wasm arguments.
+  - [ ] Integrate selection into method calls and return-type inference, assign distinct overloaded method symbols, and preserve virtual dispatch. Boxing, varargs, and generic invocation inference remain pending.
 - [ ] Implement generic inference, boxing/unboxing, and Java numeric conversion/promotion rules with conformance tests, including constant-expression ternary narrowing and typed long/float increment/decrement.
 
 ### Phase 2: Optional, lambdas, and collections

@@ -31,6 +31,8 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
 | Spring and persistence | Constructor injection and selected CRUD/controller/startup patterns are lowered. General Spring beans/proxies, transactions, Hibernate, JDBC, and the actual H2 engine remain pending. |
 | Diagnostics | Unresolved local inference, self-references, scope violations, and conflicting module type names receive source-location diagnostics. Other unsupported features can still surface as unresolved symbols or invalid WAT. |
 
+Source-class constructor overloads use argument types and arity, including primitive/reference widening and `this(...)`/`super(...)` chains. Ambiguous or inapplicable constructor calls report source locations. Method-call overload resolution, boxing, varargs, and generic invocation inference remain pending. Constructor regressions execute Wasm in `OverloadResolutionTest`.
+
 Source-resolution regressions execute compiled Wasm in Node; see `javaw-core/src/test/java/com/example/javaw/SourceResolutionTest.java`. Qualified references to source classes work across batch files; multiple classes with the same simple name in one module are explicitly rejected.
 
 The next priorities are reusable type/method resolution, Optional and lambdas, collections, decimal arithmetic, and memory reclamation. See [the compatibility roadmap](Todo.md#13-java-compatibility-roadmap) for acceptance criteria and remaining work.

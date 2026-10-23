@@ -633,6 +633,64 @@ public class ClassRegistry {
         return classes.containsKey(name);
     }
 
+    /** Strict invocation conversions: identity, primitive widening, and reference widening. */
+    public MethodModel resolveOverload(List<MethodModel> candidates, List<String> arguments) {
+        List<MethodModel> applicable = candidates.stream().filter(m -> {
+            if (m.getParamTypeNames().size() != arguments.size()) return false;
+            for (int i = 0; i < arguments.size(); i++)
+                if (!canWiden(arguments.get(i), m.getParamTypeNames().get(i))) return false;
+            return true;
+        }).toList();
+        List<MethodModel> best = applicable.stream().filter(m -> applicable.stream().noneMatch(other ->
+                other != m && moreSpecific(other, m))).toList();
+        if (best.size() == 1) return best.get(0);
+        String signatures = candidates.stream().map(MethodModel::getSignatureKey)
+                .collect(java.util.stream.Collectors.joining(", "));
+        throw new IllegalArgumentException((best.isEmpty() ? "No applicable overload" : "Ambiguous overload")
+                + " for arguments " + arguments + "; candidates: " + signatures);
+    }
+
+    private boolean moreSpecific(MethodModel first, MethodModel second) {
+        boolean strict = false;
+        for (int i = 0; i < first.getParamTypeNames().size(); i++) {
+            String a = first.getParamTypeNames().get(i), b = second.getParamTypeNames().get(i);
+            if (!canWiden(a, b)) return false;
+            strict |= !a.equals(b);
+        }
+        return strict;
+    }
+
+    private boolean canWiden(String from, String to) {
+        if (from == null || to == null) return false;
+        if (from.equals(to)) return true;
+        Set<String> primitives = Set.of("boolean", "byte", "short", "char", "int", "long", "float", "double", "void");
+        if (from.equals("null")) return !primitives.contains(to);
+        if (primitives.contains(from) || primitives.contains(to)) {
+            return switch (from) {
+                case "byte" -> Set.of("short", "int", "long", "float", "double").contains(to);
+                case "short", "char" -> Set.of("int", "long", "float", "double").contains(to);
+                case "int" -> Set.of("long", "float", "double").contains(to);
+                case "long" -> Set.of("float", "double").contains(to);
+                case "float" -> to.equals("double");
+                default -> false;
+            };
+        }
+        if (to.equals("Object")) return true;
+        Set<String> visited = new HashSet<>();
+        Deque<String> pending = new ArrayDeque<>();
+        pending.add(from);
+        while (!pending.isEmpty()) {
+            String name = pending.removeFirst();
+            if (!visited.add(name)) continue;
+            if (name.equals(to)) return true;
+            ClassModel model = classes.get(name);
+            if (model == null) continue;
+            if (model.getSuperClassName() != null) pending.add(model.getSuperClassName());
+            pending.addAll(model.getImplementedInterfaces());
+        }
+        return false;
+    }
+
     public MethodModel findMethod(String className, String methodName) {
         if (className == null) return null;
         if (className.contains("<")) {

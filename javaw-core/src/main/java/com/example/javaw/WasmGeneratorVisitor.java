@@ -3,6 +3,7 @@ package com.example.javaw;
 import com.example.javaw.js.JsAnnotationHelper;
 import com.example.javaw.sourcemap.SourceMapTracker;
 import com.github.javaparser.ast.Node;
+import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.*;
 import com.github.javaparser.ast.expr.*;
@@ -544,21 +545,9 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         if (stmt.isExplicitConstructorInvocationStmt()) {
             ExplicitConstructorInvocationStmt ecis = stmt.asExplicitConstructorInvocationStmt();
             collector.append("    local.get $this\n");
-            for (Expression arg : ecis.getArguments()) {
-                translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
-            }
-            int argCount = ecis.getArguments().size();
             String targetClass = ecis.isThis() ? currentClass.getName() : currentClass.getSuperClassName();
-            String initFunc = "$" + targetClass + "__init";
-            if (classRegistry != null && classRegistry.hasClass(targetClass)) {
-                ClassModel targetCm = classRegistry.getClass(targetClass);
-                for (MethodModel cons : targetCm.getConstructors()) {
-                    if (cons.getParamNames().size() == argCount) {
-                        initFunc = cons.getFunctionName();
-                        break;
-                    }
-                }
-            }
+            String initFunc = emitConstructorArguments(targetClass, ecis.getArguments(), ecis,
+                    collector, localTypes, localElementTypes, localJavaTypes);
             collector.append("    call ").append(initFunc).append("\n");
         } else if (stmt.isReturnStmt()) {
             ReturnStmt ret = stmt.asReturnStmt();
@@ -1560,17 +1549,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 }
 
                 collector.append("    local.get $__obj_alloc_ptr\n");
-                for (Expression arg : oce.getArguments()) {
-                    translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
-                }
-                int argCount = oce.getArguments().size();
-                String initFunc = "$" + typeName + "__init";
-                for (MethodModel cons : cm.getConstructors()) {
-                    if (cons.getParamNames().size() == argCount) {
-                        initFunc = cons.getFunctionName();
-                        break;
-                    }
-                }
+                String initFunc = emitConstructorArguments(typeName, oce.getArguments(), oce,
+                        collector, localTypes, localElementTypes, localJavaTypes);
                 collector.append("    call ").append(initFunc).append("\n");
                 collector.append("    local.get $__obj_alloc_ptr\n");
             }
@@ -2681,6 +2661,24 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 default -> value >= 0 && value <= 65535;
             };
         } catch (NumberFormatException ignored) { return false; }
+    }
+
+    private String emitConstructorArguments(String className, NodeList<Expression> arguments, Node source,
+            StringBuilder collector, Map<String, String> localTypes, Map<String, String> localElementTypes,
+            Map<String, String> localJavaTypes) {
+        ClassModel model = classRegistry == null ? null : classRegistry.getClass(className);
+        MethodModel selected = null;
+        if (model != null && (!model.getConstructors().isEmpty() || !arguments.isEmpty())) {
+            List<String> types = arguments.stream().map(a -> a.isNullLiteralExpr() ? "null"
+                    : getExpressionJavaType(a, localJavaTypes)).toList();
+            try { selected = classRegistry.resolveOverload(model.getConstructors(), types); }
+            catch (IllegalArgumentException error) { throw JavaSourcePreparation.error(source, error.getMessage()); }
+        }
+        for (int i = 0; i < arguments.size(); i++) {
+            String wasmType = selected == null ? "i32" : selected.getParamWasmTypes().get(i);
+            translateExpression(arguments.get(i), collector, localTypes, localElementTypes, localJavaTypes, wasmType);
+        }
+        return selected == null ? "$" + className + "__init" : selected.getFunctionName();
     }
 
     private String getExpressionJavaType(Expression expr, Map<String, String> localJavaTypes) {
