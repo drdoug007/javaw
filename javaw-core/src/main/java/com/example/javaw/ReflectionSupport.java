@@ -36,7 +36,7 @@ final class ReflectionSupport {
                 throw JavaSourcePreparation.error(type,"Unsupported dynamic class loading; link all source types before Wasm instantiation and use Class.forName");
         boolean needed=cu.findAll(MethodCallExpr.class).stream().anyMatch(c -> Set.of("getDeclaredFields","getDeclaredField","getFields","getField",
                 "getDeclaredMethods","getDeclaredMethod","getMethods","getMethod","getDeclaredConstructors","getDeclaredConstructor",
-                "isRecord","getRecordComponents","isAnnotation","isPrimitive","getConstructors","getConstructor","getDeclaredAnnotations","getAnnotations","getAnnotation","getDeclaredAnnotation","getAnnotationsByType","getDeclaredAnnotationsByType","isAnnotationPresent","forName").contains(c.getNameAsString()));
+                "isRecord","getRecordComponents","isAnnotation","isPrimitive","getConstructors","getConstructor","getDeclaredAnnotations","getAnnotations","getAnnotation","getDeclaredAnnotation","getAnnotationsByType","getDeclaredAnnotationsByType","getParameterAnnotations","getParameters","isAnnotationPresent","forName").contains(c.getNameAsString()));
         if(!needed) return null;
         for(MethodCallExpr call:cu.findAll(MethodCallExpr.class))
             if(call.getNameAsString().equals("forName") && call.getArguments().size()!=1)
@@ -57,7 +57,7 @@ final class ReflectionSupport {
         List<TypeDeclaration<?>> originals=new ArrayList<>();
         cu.findAll(TypeDeclaration.class).forEach(originals::add);
         ReflectionSupport support=new ReflectionSupport(originals.stream().filter(t -> !t.getNameAsString().startsWith("__Javaw")).toList());
-        for(String name:List.of("Field","Method","Constructor","AccessibleObject","AnnotatedElement","Annotation","Modifier","RecordComponent","__JavawReflection"))
+        for(String name:List.of("Field","Method","Constructor","AccessibleObject","AnnotatedElement","Annotation","Modifier","Executable","Parameter","RecordComponent","__JavawReflection"))
             if(support.declarations.containsKey(name)) throw JavaSourcePreparation.error(support.declarations.get(name),
                     "Reserved reflection runtime type '"+name+"'; rename the source type");
         support.generate(cu);
@@ -355,8 +355,38 @@ final class ReflectionSupport {
         helper.append("public static boolean __javaw_class_isAnnotationPresent(Class<?> owner,Class<? extends Annotation> type) { return __javaw_class_getAnnotation(owner,type)!=null; }");
         helper.append("public static <A extends Annotation> A __javaw_class_getDeclaredAnnotation(Class<?> owner,Class<A> type) { if(type==null) throw new NullPointerException(); for(Annotation annotation:__javaw_class_getDeclaredAnnotations(owner)) if(annotation.annotationType()==type) return (A)annotation; return null; }");
         annotationQueries(helper);
+        parameterMetadata(helper);
 
     }
+    private void parameterMetadata(StringBuilder helper) {
+        helper.append("public static Annotation[][] __javaw_parameter_annotations(int id) {");
+        for(Member member:members) if(member.declaration instanceof CallableDeclaration<?> callable) {
+            int hidden=member.kind.equals("Constructor") && declarations.get(member.owner) instanceof EnumDeclaration?2:0;
+            List<String> rows=new ArrayList<>();
+            for(int i=0;i<hidden;i++) rows.add("new Annotation[0]");
+            for(var parameter:callable.getParameters())
+                rows.add(annotationArray(declaredAnnotations(parameter).stream().filter(a -> annotationTarget(a,"PARAMETER")).toList()));
+            helper.append("if(id==").append(member.id).append(") return new Annotation[][]{").append(String.join(",",rows)).append("};");
+        }
+        helper.append("return new Annotation[0][]; }");
+        helper.append("public static Parameter[] __javaw_parameters(Executable executable,int id) {");
+        for(Member member:members) if(member.declaration instanceof CallableDeclaration<?> callable) {
+            int hidden=member.kind.equals("Constructor") && declarations.get(member.owner) instanceof EnumDeclaration?2:0;
+            boolean enumFactory=member.kind.equals("Method") && member.name.equals("valueOf") && callable.getParentNode().isEmpty()
+                    && declarations.get(member.owner) instanceof EnumDeclaration;
+            List<String> parameters=new ArrayList<>();
+            for(int index=0;index<member.parameters.size();index++) {
+                boolean synthetic=index<hidden;
+                var source=synthetic?null:callable.getParameter(index-hidden);
+                String name=synthetic?"arg"+index:source.getNameAsString();
+                int modifiers=synthetic?4096:enumFactory?32768:source.isFinal()?16:0;
+                parameters.add("new Parameter(executable,"+member.id+","+index+","+classLiteral(member.parameters.get(index))+","+quote(name)+","+modifiers+","+!synthetic+","+synthetic+","+enumFactory+","+(member.varargs && index==member.parameters.size()-1)+")");
+            }
+            helper.append("if(id==").append(member.id).append(") return new Parameter[]{").append(String.join(",",parameters)).append("};");
+        }
+        helper.append("throw new IllegalArgumentException(); }");
+    }
+
     private void annotationQueries(StringBuilder helper) {
         helper.append("public static <A extends Annotation> A[] __javaw_annotations_by_type(Annotation[] source,Class<A> type) { if(type==null) throw new NullPointerException();");
         for(String name:annotations.keySet()) {

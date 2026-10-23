@@ -47,7 +47,7 @@ final class JavaSourcePreparation {
         for (String name : List.of("String", "Object", "Class", "Integer", "Long", "Double", "Float", "Boolean",
                 "Byte", "Short", "Character", "Math", "StrictMath", "RuntimeException", "Exception", "Throwable"))
             names.put("java.lang." + name, name);
-        for (String name : List.of("Field", "Method", "Constructor", "AccessibleObject", "AnnotatedElement", "Modifier", "RecordComponent", "InvocationTargetException"))
+        for (String name : List.of("Field", "Method", "Constructor", "AccessibleObject", "AnnotatedElement", "Modifier", "Executable", "Parameter", "RecordComponent", "InvocationTargetException"))
             names.put("java.lang.reflect." + name, name);
         names.put("java.lang.annotation.Annotation", "Annotation");
         return names;

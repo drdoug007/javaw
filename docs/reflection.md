@@ -63,8 +63,8 @@ members, retention at least as long as the repeated type, and matching
 relationships receive source diagnostics. Full annotation applicability and
 type-use rules remain part of the source conformance follow-up.
 
-Parameter/type-use annotations, generic Type metadata, and annotation processing
-are outside this contract. Repeatable behavior is executed by
+Type-use annotations, generic Type metadata, and annotation processing remain
+outside this contract. Repeatable behavior is executed by
 [RepeatableReflectionTest](../javaw-core/src/test/java/com/example/javaw/RepeatableReflectionTest.java).
 
 ## Class lookup and boundaries
@@ -133,3 +133,31 @@ __javaw_array_bytes_alloc alone carry an untyped-array marker and are rejected
 by typed reflection; host integrations should use the typed writers and the
 runtime's string/object ABI. Handle arrays do not acquire Java object-array
 types. Arbitrary raw pointers do not acquire Java runtime types.
+
+
+## Executable parameters
+
+Method and Constructor share an Executable facade exposing getParameters and
+getParameterAnnotations. Annotation matrices include an entry for every
+descriptor parameter, with fresh outer and inner arrays on each query. Only
+RUNTIME declaration annotations with PARAMETER applicability are included;
+SOURCE/CLASS-only and TYPE_USE-only annotations are excluded. Repeatable
+annotations use the same container and by-type query rules as members.
+
+Parameter exposes source name, erased Class type, modifiers, declaring
+Executable, isNamePresent/isSynthetic/isImplicit/isVarArgs, and the standard
+declaration annotation queries. Parameters from equivalent descriptor lookups
+compare equal by executable identity and parameter index; result arrays are
+independent. Source names are available without a javac -parameters flag.
+
+Enum constructors have two leading synthetic parameters with no declaration
+annotations, names arg0/arg1, and isNamePresent=false. Their user parameters
+retain their source names and annotation positions. The generated enum valueOf
+name parameter is marked implicit. Ordinary source and record canonical
+parameters are not marked implicit or synthetic; final and varargs source
+properties are retained. Generic and annotated Type APIs and a full JVM
+MethodParameters/class-file metadata contract remain pending.
+
+[ParameterReflectionTest](../javaw-core/src/test/java/com/example/javaw/ParameterReflectionTest.java)
+executes this contract in WebAssembly, including inherited versus overridden
+method declarations and record component annotation propagation.

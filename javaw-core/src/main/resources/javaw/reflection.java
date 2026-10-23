@@ -86,7 +86,7 @@ class Field extends __JavawMember {
     public void setFloat(Object receiver,float value) { set(receiver,Float.valueOf(value)); }
     public void setDouble(Object receiver,double value) { set(receiver,Double.valueOf(value)); }
 }
-abstract class __JavawExecutable extends __JavawMember {
+abstract class Executable extends __JavawMember {
     protected Class<?>[] parameterTypes; protected boolean variableArity;
     public Class<?>[] getParameterTypes() {
         Class<?>[] copy=new Class<?>[parameterTypes.length];
@@ -94,8 +94,11 @@ abstract class __JavawExecutable extends __JavawMember {
     }
     public int getParameterCount() { return parameterTypes.length; }
     public boolean isVarArgs() { return variableArity; }
+    public Annotation[][] getParameterAnnotations() { return __JavawReflection.__javaw_parameter_annotations(memberId); }
+    public Parameter[] getParameters() { return __JavawReflection.__javaw_parameters(this,memberId); }
+
 }
-class Method extends __JavawExecutable {
+class Method extends Executable {
     private Class<?> resultType;
     public Method(int id,String name,Class<?> owner,Class<?> result,Class<?>[] parameters,int modifiers,boolean varargs) {
         memberId=id; memberName=name; memberOwner=owner; resultType=result; parameterTypes=parameters; memberModifiers=modifiers; variableArity=varargs;
@@ -105,7 +108,7 @@ class Method extends __JavawExecutable {
         __javaw_check_access(memberModifiers); return __JavawReflection.__javaw_method_invoke(memberId,receiver,arguments);
     }
 }
-class Constructor<T> extends __JavawExecutable {
+class Constructor<T> extends Executable {
     public Constructor(int id,String name,Class<?> owner,Class<?>[] parameters,int modifiers,boolean varargs) {
         memberId=id; memberName=name; memberOwner=owner; parameterTypes=parameters; memberModifiers=modifiers; variableArity=varargs;
     }
@@ -132,4 +135,31 @@ class RecordComponent extends __JavawMember {
     public Class<?> getType() { return componentType; }
     public Class<?> getDeclaringRecord() { return memberOwner; }
     public Method getAccessor() { return memberOwner.getDeclaredMethod(memberName); }
+}
+
+
+class Parameter extends __JavawMember {
+    private Executable executable;
+    private int parameterIndex;
+    private Class<?> parameterType;
+    private boolean namePresent;
+    private boolean synthetic;
+    private boolean implicit;
+    private boolean variableArity;
+    public Parameter(Executable executable,int id,int index,Class<?> type,String name,int modifiers,boolean namePresent,boolean synthetic,boolean implicit,boolean varargs) {
+        this.executable=executable; memberId=id; parameterIndex=index; parameterType=type;
+        memberName=name; memberOwner=executable.getDeclaringClass(); memberModifiers=modifiers;
+        this.namePresent=namePresent; this.synthetic=synthetic; this.implicit=implicit; variableArity=varargs;
+    }
+    public Class<?> getType() { return parameterType; }
+    public Executable getDeclaringExecutable() { return executable; }
+    public boolean isNamePresent() { return namePresent; }
+    public boolean isSynthetic() { return synthetic; }
+    public boolean isImplicit() { return implicit; }
+    public boolean isVarArgs() { return variableArity; }
+    public Annotation[] getDeclaredAnnotations() { return __JavawReflection.__javaw_parameter_annotations(memberId)[parameterIndex]; }
+    public boolean equals(Object other) {
+        return other instanceof Parameter && memberId==((Parameter)other).memberId && parameterIndex==((Parameter)other).parameterIndex;
+    }
+    public int hashCode() { return 31*memberId+parameterIndex; }
 }
