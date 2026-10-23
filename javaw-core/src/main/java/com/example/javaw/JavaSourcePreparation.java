@@ -11,10 +11,14 @@ import java.util.*;
 /** Resolves source names before function-wide Wasm local allocation. */
 final class JavaSourcePreparation {
     static final DataKey<String> LOWERED_JAVA_TYPE = new DataKey<>() {};
+    static final DataKey<String> PACKAGE = new DataKey<>() {};
     private static final DataKey<String> SOURCE = new DataKey<>() {};
 
     static void markSource(CompilationUnit cu, String source) {
-        cu.getTypes().forEach(type -> { if (!type.containsData(SOURCE)) type.setData(SOURCE, source); });
+        cu.getTypes().forEach(type -> {
+            if (!type.containsData(SOURCE)) type.setData(SOURCE, source);
+            if (!type.containsData(PACKAGE)) type.setData(PACKAGE, cu.getPackageDeclaration().map(p -> p.getNameAsString()).orElse(""));
+        });
     }
 
     static Map<String, String> typeNames(List<CompilationUnit> units) {

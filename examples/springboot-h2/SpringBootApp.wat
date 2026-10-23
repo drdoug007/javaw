@@ -5125,6 +5125,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$0 i32)
     (local $__caught_exc i32)
     call $__javaw_boot
   )
@@ -5144,30 +5145,36 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$1 i32)
+    (local $__receiver$2 i32)
+    (local $__receiver$3 i32)
     (local $__caught_exc i32)
     local.get $this
+    local.tee $__receiver$1
     i32.const 4105
     i32.const 4120
     i32.const 25
-    local.get $this
+    local.get $__receiver$1
     i32.load offset=0
     i32.const 11
     i32.add
     call_indirect (type $t_sig_5)
     local.get $this
+    local.tee $__receiver$2
     i32.const 4125
     i32.const 4137
     i32.const 18
-    local.get $this
+    local.get $__receiver$2
     i32.load offset=0
     i32.const 11
     i32.add
     call_indirect (type $t_sig_5)
     local.get $this
+    local.tee $__receiver$3
     i32.const 4143
     i32.const 4159
     i32.const 50
-    local.get $this
+    local.get $__receiver$3
     i32.load offset=0
     i32.const 11
     i32.add
@@ -5190,6 +5197,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$4 i32)
     (local $__caught_exc i32)
     i32.const 24
     call $__heap_alloc
@@ -5207,10 +5215,9 @@
     local.set $product
     local.get $this
     i32.load offset=4
-    local.set $__obj_tmp
-    local.get $__obj_tmp
+    local.tee $__receiver$4
     local.get $product
-    local.get $__obj_tmp
+    local.get $__receiver$4
     i32.load offset=0
     i32.const 12
     i32.add
@@ -5255,12 +5262,12 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$5 i32)
     (local $__caught_exc i32)
     local.get $this
     i32.load offset=4
-    local.set $__obj_tmp
-    local.get $__obj_tmp
-    local.get $__obj_tmp
+    local.tee $__receiver$5
+    local.get $__receiver$5
     i32.load offset=0
     i32.const 11
     i32.add
@@ -5283,13 +5290,14 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$6 i32)
+    (local $__receiver$7 i32)
     (local $__caught_exc i32)
     local.get $this
     i32.load offset=4
-    local.set $__obj_tmp
-    local.get $__obj_tmp
+    local.tee $__receiver$7
     local.get $id
-    local.get $__obj_tmp
+    local.get $__receiver$7
     i32.load offset=0
     i32.const 10
     i32.add
@@ -5315,6 +5323,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$8 i32)
     (local $__caught_exc i32)
     i32.const 24
     call $__heap_alloc
@@ -5332,10 +5341,9 @@
     local.set $product
     local.get $this
     i32.load offset=4
-    local.set $__obj_tmp
-    local.get $__obj_tmp
+    local.tee $__receiver$8
     local.get $product
-    local.get $__obj_tmp
+    local.get $__receiver$8
     i32.load offset=0
     i32.const 12
     i32.add
@@ -5359,13 +5367,18 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$9 i32)
+    (local $__receiver$10 i32)
+    (local $__receiver$11 i32)
+    (local $__receiver$12 i32)
+    (local $__receiver$13 i32)
+    (local $__receiver$14 i32)
     (local $__caught_exc i32)
     local.get $this
     i32.load offset=4
-    local.set $__obj_tmp
-    local.get $__obj_tmp
+    local.tee $__receiver$10
     local.get $id
-    local.get $__obj_tmp
+    local.get $__receiver$10
     i32.load offset=0
     i32.const 10
     i32.add
@@ -5377,38 +5390,34 @@
     call $__javaw_require_1
     local.set $product
     local.get $product
-    local.set $__obj_tmp
-    local.get $__obj_tmp
+    local.tee $__receiver$11
     local.get $name
-    local.get $__obj_tmp
+    local.get $__receiver$11
     i32.load offset=0
     i32.const 11
     i32.add
     call_indirect (type $t_sig_4)
     local.get $product
-    local.set $__obj_tmp
-    local.get $__obj_tmp
+    local.tee $__receiver$12
     local.get $price
-    local.get $__obj_tmp
+    local.get $__receiver$12
     i32.load offset=0
     i32.const 13
     i32.add
     call_indirect (type $t_sig_4)
     local.get $product
-    local.set $__obj_tmp
-    local.get $__obj_tmp
+    local.tee $__receiver$13
     local.get $stock
-    local.get $__obj_tmp
+    local.get $__receiver$13
     i32.load offset=0
     i32.const 15
     i32.add
     call_indirect (type $t_sig_4)
     local.get $this
     i32.load offset=4
-    local.set $__obj_tmp
-    local.get $__obj_tmp
+    local.tee $__receiver$14
     local.get $product
-    local.get $__obj_tmp
+    local.get $__receiver$14
     i32.load offset=0
     i32.const 12
     i32.add
@@ -5431,13 +5440,15 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$15 i32)
+    (local $__receiver$16 i32)
+    (local $__receiver$17 i32)
     (local $__caught_exc i32)
     local.get $this
     i32.load offset=4
-    local.set $__obj_tmp
-    local.get $__obj_tmp
+    local.tee $__receiver$16
     local.get $id
-    local.get $__obj_tmp
+    local.get $__receiver$16
     i32.load offset=0
     i32.const 10
     i32.add
@@ -5447,10 +5458,9 @@
     drop
     local.get $this
     i32.load offset=4
-    local.set $__obj_tmp
-    local.get $__obj_tmp
+    local.tee $__receiver$17
     local.get $id
-    local.get $__obj_tmp
+    local.get $__receiver$17
     i32.load offset=0
     i32.const 13
     i32.add
@@ -5648,6 +5658,7 @@
     (local $__f64_tmp f64)
     (local $__f32_tmp f32)
     (local $__i64_tmp i64)
+    (local $__receiver$18 i32)
     (local $__caught_exc i32)
     global.get $__repo_ProductRepository
     i32.const 0
@@ -5696,10 +5707,9 @@
     local.get $__obj_alloc_ptr
     global.set $__application_SpringBootApp
     global.get $__application_SpringBootApp
-    local.set $__obj_tmp
-    local.get $__obj_tmp
+    local.tee $__receiver$18
     i32.const 0
-    local.get $__obj_tmp
+    local.get $__receiver$18
     i32.load offset=0
     i32.const 10
     i32.add

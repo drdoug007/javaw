@@ -39,6 +39,63 @@ class OverloadResolutionTest {
         assertTrue(error.getMessage().contains("Ambiguous overload"), error.getMessage());
     }
 
+    @Test void executesRecordEnumAndFacadeNamedOverloads() throws Exception {
+        byte[] wasm = JavacToWasm.compile("KindsApp.java", """
+            record Scale(int factor) {
+                public int length(int x) { return factor * x; }
+                public double length(double x) { return factor * x; }
+                public double twice() { return length(2.5); }
+                public static int of(int x) { return x + 1; }
+                public static double of(double x) { return x + 0.5; }
+            }
+            enum Mode { ONE(2.5), TWO(2);
+                double initial;
+                Mode(int x) { initial = x + 10.0; }
+                Mode(double x) { initial = x; }
+                public double initial() { return initial; }
+                public int length(int x) { return x + 1; }
+                public double length(double x) { return x + 0.5; }
+            }
+            class FirstHelper { public static int same(int x) { return x + 1; } }
+            class SecondHelper { public static int same(int x) { return x + 2; } }
+            class KindsApp {
+                public static double records() { var scale = new Scale(3); return scale.length(2.5) + scale.length(2) + scale.twice(); }
+                public static double statics() { return Scale.of(1.5) + Scale.of(2); }
+                public static double enums() { return Mode.ONE.length(2.5) + Mode.ONE.length(2); }
+                public static int collision() { return FirstHelper.same(1) + SecondHelper.same(1); }
+                public static double enumConstructors() { return Mode.ONE.initial() + Mode.TWO.initial(); }
+            }
+            """, false).getWasm();
+        execute(wasm, """
+            e.__init_enums();
+            assert.equal(e.records(), 21);
+            assert.equal(e.statics(), 5);
+            assert.equal(e.enums(), 6);
+            assert.equal(e.collision(), 5);
+            assert.equal(e.enumConstructors(), 14.5);
+            """);
+    }
+
+    @Test void rejectsPrivateAndStaticContextViolations() {
+        for (String source : List.of(
+                "class Hidden { private static int pick(int x) { return x; } } class Bad { public static int test() { return Hidden.pick(1); } }",
+                "class Bad { public int pick(int x) { return x; } public static int test() { return pick(1); } }",
+                "class Bad { public int pick(int x) { return x; } public static int test() { return Bad.pick(1); } }",
+                "class Hidden { private Hidden(int x) {} } class Bad { public static int test() { new Hidden(1); return 0; } }")) {
+            var error = assertThrows(IllegalArgumentException.class, () -> JavacToWasm.compile("Access.java", source, false));
+            assertTrue(error.getMessage().contains("Access.java:"), error.getMessage());
+            assertTrue(error.getMessage().contains("No applicable overload"), error.getMessage());
+        }
+    }
+
+    @Test void nestedVirtualCallsKeepTheirReceivers() throws Exception {
+        byte[] wasm = JavacToWasm.compile("NestedApp.java", """
+            class Counter { int base; Counter(int x) { base = x; } public int pick(int x) { return base + x; } }
+            class NestedApp { public static int test() { var a = new Counter(10); var b = new Counter(100); return a.pick(b.pick(2)); } }
+            """, false).getWasm();
+        execute(wasm, "assert.equal(e.test(), 112);");
+    }
+
     @Test void executesOverloadedMethodsAndVirtualDispatch() throws Exception {
         byte[] wasm = JavacToWasm.compile("MethodsApp.java", """
             class ParentMethods {
@@ -110,7 +167,7 @@ class OverloadResolutionTest {
             """);
     }
 
-    private void execute(byte[] wasm, String assertions) throws Exception {
+    static void execute(byte[] wasm, String assertions) throws Exception {
         assertNotNull(wasm);
         String script = """
             const assert = require('node:assert/strict');

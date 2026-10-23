@@ -27,6 +27,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     private final Deque<String> switchEnumStack = new ArrayDeque<>();
     private final Map<String, Integer> methodCounts = new HashMap<>();
     private final Map<String, Integer> constructorCounts = new HashMap<>();
+    private final Map<MethodCallExpr, String> receiverLocals = new IdentityHashMap<>();
+    private CallableDeclaration<?> currentCallable;
     private ClassModel currentClass;
     private RecordModel currentRecord;
     private int loopCounter = 0;
@@ -120,6 +122,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
 
     @Override
     public void visit(ConstructorDeclaration n, StringBuilder collector) {
+        currentCallable = n;
         String className = n.getNameAsString();
         Map<String, String> localTypes = new HashMap<>();
         Map<String, String> localElementTypes = new HashMap<>();
@@ -193,6 +196,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     }
 
     private void visitRecordMethod(MethodDeclaration n, StringBuilder collector, String recordName) {
+        currentCallable = n;
         String methodName = n.getNameAsString();
         String returnWasmType = TypeMapper.mapType(n.getType());
         String returnTypeName = n.getType().asString();
@@ -207,7 +211,11 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
 
         boolean isStatic = n.isStatic();
         String funcName = "$" + recordName + "_" + methodName;
-        String exportName = recordName + "_" + methodName;
+        MethodModel declaration = currentRecord.getMethods().stream().filter(m -> m.getSignatureKey().equals(
+                methodName + "(" + n.getParameters().stream().map(p -> p.getType().asString())
+                        .collect(java.util.stream.Collectors.joining(",")) + ")")).findFirst().orElseThrow();
+        funcName = declaration.getFunctionName();
+        String exportName = funcName.substring(1);
 
         if (sourceMapTracker != null) {
             sourceMapTracker.track(collector, n, exportName);
@@ -283,6 +291,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
 
     @Override
     public void visit(MethodDeclaration n, StringBuilder collector) {
+        currentCallable = n;
         if (n.getParentNode().isPresent() && n.getParentNode().get() instanceof RecordDeclaration) {
             return;
         }
@@ -540,6 +549,11 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     collector.append("    (local $").append(pName).append(" i32)\n");
                 }
             }
+        }
+        for (MethodCallExpr call : body.findAll(MethodCallExpr.class)) {
+            String local = "__receiver$" + receiverLocals.size();
+            receiverLocals.put(call, local);
+            collector.append("    (local $").append(local).append(" i32)\n");
         }
         collector.append("    (local $__caught_exc i32)\n");
     }
@@ -1987,6 +2001,11 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         } else if (expr.isMethodCallExpr()) {
             MethodCallExpr call = expr.asMethodCallExpr();
             String mName = call.getNameAsString();
+            MethodModel sourceMethod = sourceMethod(call, localJavaTypes);
+            if (sourceMethod != null) {
+                emitSourceMethod(call, sourceMethod, collector, localTypes, localElementTypes, localJavaTypes, expectedType);
+                return;
+            }
             if (isSystemOrWasiCall(call, localJavaTypes)) {
                 translateSystemOrWasiCall(call, collector, localTypes, localElementTypes, localJavaTypes, expectedType);
             } else if (isLog4jCall(call, localJavaTypes)) {
@@ -2449,7 +2468,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                             }
                             return;
                         }
-                        MethodModel rmm = rm.getMethodByName(mName);
+                        MethodModel rmm = resolveMethodCall(rm.getName(), call, localJavaTypes);
                         if (rmm != null) {
                             if (!rmm.isStatic()) {
                                 if (scope.isThisExpr()) {
@@ -2473,12 +2492,12 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     } else if (scope.isNameExpr() && classRegistry != null && classRegistry.isRecord(scope.asNameExpr().getNameAsString())) {
                         String recName = scope.asNameExpr().getNameAsString();
                         RecordModel rm = classRegistry.getRecord(recName);
-                        MethodModel rmm = rm.getMethodByName(mName);
+                        MethodModel rmm = resolveMethodCall(rm.getName(), call, localJavaTypes);
                         for (int i = 0; i < call.getArguments().size(); i++) {
                             String pWasm = (rmm != null && i < rmm.getParamWasmTypes().size()) ? rmm.getParamWasmTypes().get(i) : "i32";
                             translateExpression(call.getArgument(i), collector, localTypes, localElementTypes, localJavaTypes, pWasm);
                         }
-                        collector.append("    call $").append(recName).append("_").append(mName).append("\n");
+                        collector.append("    call ").append(rmm.getFunctionName()).append("\n");
                         return;
                     }
                     ClassModel targetCm = (targetType != null && classRegistry != null) ? classRegistry.getClass(targetType) : null;
@@ -2553,6 +2572,14 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             } else {
                 if (currentRecord != null && currentRecord.getComponent(mName) != null) {
                     collector.append("    local.get $this$").append(mName).append("\n");
+                } else if (currentRecord != null && !classRegistry.methodCandidates(currentRecord.getName(), mName).isEmpty()) {
+                    MethodModel method = resolveMethodCall(currentRecord.getName(), call, localJavaTypes);
+                    if (!method.isStatic()) for (FieldModel component : currentRecord.getComponents())
+                        collector.append("    local.get $this$").append(component.getName()).append("\n");
+                    for (int i = 0; i < call.getArguments().size(); i++)
+                        translateExpression(call.getArgument(i), collector, localTypes, localElementTypes,
+                                localJavaTypes, method.getParamWasmTypes().get(i));
+                    collector.append("    call ").append(method.getFunctionName()).append("\n");
                 } else if (DomHelper.isDomStaticMethod(mName) || DomHelper.isJsStaticMethod(mName, call)) {
                     translateDomOrWindowStaticCall(call, collector, localTypes, localElementTypes, localJavaTypes);
                 } else if (DomHelper.isDomInstanceMethod(mName)) {
@@ -2675,17 +2702,95 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         } catch (NumberFormatException ignored) { return false; }
     }
 
+    private MethodModel sourceMethod(MethodCallExpr call, Map<String, String> locals) {
+        if (classRegistry == null) return null;
+        String owner = call.getScope().isPresent() ? getExpressionJavaType(call.getScope().get(), locals)
+                : currentRecord != null ? currentRecord.getName() : currentClass != null ? currentClass.getName() : null;
+        if (classRegistry.methodCandidates(owner, call.getNameAsString()).stream().noneMatch(m -> m.getDeclaration() != null)) return null;
+        return resolveMethodCall(owner, call, locals);
+    }
+
+    private void emitSourceMethod(MethodCallExpr call, MethodModel method, StringBuilder out,
+            Map<String, String> locals, Map<String, String> elements, Map<String, String> javaTypes, String expected) {
+        Expression receiver = call.getScope().orElse(new ThisExpr());
+        RecordModel record = classRegistry.getRecord(method.getClassName());
+        boolean dynamic = !method.isStatic() && record == null && method.isVirtual()
+                && method.getVirtualSlotIndex() >= 0 && !receiver.isSuperExpr()
+                && classRegistry.getClass(method.getClassName()).isOopClass();
+        String temp = receiverLocals.get(call);
+        if (!method.isStatic()) {
+            if (record != null) {
+                String prefix = receiver.isThisExpr() ? "this" : receiver.isNameExpr() ? receiver.asNameExpr().getNameAsString() : null;
+                if (prefix == null) throw JavaSourcePreparation.error(call, "Store the record receiver in a local before invoking a custom method");
+                for (FieldModel c : record.getComponents()) out.append("    local.get $").append(prefix).append("$").append(c.getName()).append("\n");
+            } else if (classRegistry.getClass(method.getClassName()).isOopClass()) {
+                translateExpression(receiver, out, locals, elements, javaTypes, "i32");
+                if (dynamic) {
+                    out.append("    local.tee $").append(temp).append("\n");
+                }
+            }
+        } else if (call.getScope().isPresent() && !(receiver.isNameExpr() && !javaTypes.containsKey(receiver.asNameExpr().getNameAsString())
+                && (classRegistry.hasClass(receiver.toString()) || classRegistry.isRecord(receiver.toString())))) {
+            // Java evaluates an expression used to qualify a static invocation.
+            translateExpression(receiver, out, locals, elements, javaTypes, "i32");
+            out.append("    drop\n");
+        }
+        for (int i = 0; i < call.getArguments().size(); i++)
+            translateExpression(call.getArgument(i), out, locals, elements, javaTypes, method.getParamWasmTypes().get(i));
+        if (dynamic) {
+            out.append("    local.get $").append(temp).append("\n    i32.load offset=0\n    i32.const ")
+                    .append(method.getVirtualSlotIndex()).append("\n    i32.add\n    call_indirect (type ")
+                    .append(method.getTypeSignatureName()).append(")\n");
+        } else out.append("    call ").append(method.getFunctionName()).append("\n");
+        if (method.getReturnWasmType() != null) emitNumericWidening(method.getReturnWasmType(), expected, out);
+    }
+
     private MethodModel resolveMethodCall(String owner, MethodCallExpr call, Map<String, String> localJavaTypes) {
         List<MethodModel> candidates = classRegistry.methodCandidates(owner, call.getNameAsString());
         if (candidates.isEmpty()) return classRegistry.findMethod(owner, call.getNameAsString());
         // Class-qualified invocation cannot select an instance method.
         if (call.getScope().filter(e -> e.isNameExpr() && !localJavaTypes.containsKey(e.asNameExpr().getNameAsString())
-                && classRegistry.hasClass(e.asNameExpr().getNameAsString())).isPresent())
+                && (classRegistry.hasClass(e.asNameExpr().getNameAsString()) || classRegistry.isRecord(e.asNameExpr().getNameAsString()))).isPresent())
             candidates = candidates.stream().filter(MethodModel::isStatic).toList();
+        String caller = currentClass != null ? currentClass.getName() : currentRecord != null ? currentRecord.getName() : "";
+        boolean staticContext = currentCallable instanceof MethodDeclaration method && method.isStatic();
+        candidates = candidates.stream().filter(m -> accessible(m, caller, owner, call))
+                .filter(m -> call.getScope().isPresent() || !staticContext || m.isStatic()).toList();
         List<String> arguments = call.getArguments().stream().map(a -> a.isNullLiteralExpr() ? "null"
                 : getExpressionJavaType(a, localJavaTypes)).toList();
         try { return classRegistry.resolveOverload(candidates, arguments); }
         catch (IllegalArgumentException error) { throw JavaSourcePreparation.error(call, error.getMessage()); }
+    }
+
+    private boolean accessible(MethodModel method, String caller, String receiver, Node source) {
+        CallableDeclaration<?> declaration = method.getDeclaration();
+        if (declaration == null || declaration.isPublic()) return true;
+        if (declaration.findAncestor(ClassOrInterfaceDeclaration.class).map(ClassOrInterfaceDeclaration::isInterface).orElse(false)
+                && !declaration.isPrivate()) return true;
+        if (declaration.isPrivate()) return method.getClassName().equals(caller);
+        String declaredPackage = declaration.findAncestor(TypeDeclaration.class)
+                .filter(t -> t.containsData(JavaSourcePreparation.PACKAGE)).map(t -> t.getData(JavaSourcePreparation.PACKAGE)).orElse("");
+        String callerPackage = currentCallable == null ? "" : currentCallable.findAncestor(TypeDeclaration.class)
+                .filter(t -> t.containsData(JavaSourcePreparation.PACKAGE)).map(t -> t.getData(JavaSourcePreparation.PACKAGE)).orElse("");
+        if (declaredPackage.equals(callerPackage)) return true;
+        if (!declaration.isProtected()) return false;
+        ClassModel model = classRegistry.getClass(caller);
+        while (model != null) {
+            if (model.getName().equals(method.getClassName())) {
+                if (source instanceof MethodCallExpr call && call.getScope().isPresent()
+                        && !call.getScope().get().isSuperExpr()) {
+                    ClassModel target = classRegistry.getClass(receiver);
+                    while (target != null) {
+                        if (target.getName().equals(caller)) return true;
+                        target = classRegistry.getClass(target.getSuperClassName());
+                    }
+                    return false;
+                }
+                return true;
+            }
+            model = classRegistry.getClass(model.getSuperClassName());
+        }
+        return false;
     }
 
     private String emitConstructorArguments(String className, NodeList<Expression> arguments, Node source,
@@ -2696,7 +2801,9 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         if (model != null && (!model.getConstructors().isEmpty() || !arguments.isEmpty())) {
             List<String> types = arguments.stream().map(a -> a.isNullLiteralExpr() ? "null"
                     : getExpressionJavaType(a, localJavaTypes)).toList();
-            try { selected = classRegistry.resolveOverload(model.getConstructors(), types); }
+            try { selected = classRegistry.resolveOverload(model.getConstructors().stream()
+                    .filter(m -> accessible(m, currentClass != null ? currentClass.getName()
+                            : currentRecord != null ? currentRecord.getName() : "", className, source)).toList(), types); }
             catch (IllegalArgumentException error) { throw JavaSourcePreparation.error(source, error.getMessage()); }
         }
         for (int i = 0; i < arguments.size(); i++) {
@@ -2758,7 +2865,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             if (currentClass != null && currentClass.hasField(name)) {
                 return currentClass.getField(name).getJavaType();
             }
-            if (classRegistry != null && classRegistry.hasClass(name)) return name;
+            if (classRegistry != null && (classRegistry.hasClass(name) || classRegistry.isRecord(name))) return name;
             return null;
         }
         if (expr.isSuperExpr()) return currentClass == null ? null : currentClass.getSuperClassName();
@@ -2801,6 +2908,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         if (expr.isMethodCallExpr()) {
             MethodCallExpr call = expr.asMethodCallExpr();
             String mName = call.getNameAsString();
+            MethodModel sourceMethod = sourceMethod(call, localJavaTypes);
+            if (sourceMethod != null) return sourceMethod.getReturnTypeName();
             if (mName.equals("getClass")) {
                 return "Class";
             }
@@ -3084,7 +3193,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     if (rm.getComponent(mName) != null) {
                         return rm.getComponent(mName).getTypeName();
                     }
-                    MethodModel mm = rm.getMethodByName(mName);
+                    MethodModel mm = resolveMethodCall(rm.getName(), call, localJavaTypes);
                     if (mm != null) return mm.getReturnTypeName();
                 } else if (scopeType != null && classRegistry != null && classRegistry.hasClass(scopeType)) {
                     MethodModel mm = resolveMethodCall(scopeType, call, localJavaTypes);
@@ -3098,7 +3207,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 if (currentRecord.getComponent(mName) != null) {
                     return currentRecord.getComponent(mName).getTypeName();
                 }
-                MethodModel mm = currentRecord.getMethodByName(mName);
+                MethodModel mm = resolveMethodCall(currentRecord.getName(), call, localJavaTypes);
                 if (mm != null) return mm.getReturnTypeName();
             }
         }
@@ -3179,6 +3288,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     private boolean expressionLeavesValueOnStack(Expression expr, Map<String, String> localJavaTypes) {
         if (expr.isMethodCallExpr()) {
             MethodCallExpr call = expr.asMethodCallExpr();
+            MethodModel source = sourceMethod(call, localJavaTypes);
+            if (source != null) return source.getReturnWasmType() != null;
             String mName = call.getNameAsString();
             if (mName.equals("append") || mName.equals("toString") || mName.equals("substring") ||
                     mName.equals("concat") || mName.equals("length") || mName.equals("charAt") ||
@@ -5445,6 +5556,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         if (expr.isEnclosedExpr()) return inferType(expr.asEnclosedExpr().getInner(), localTypes, localElementTypes, localJavaTypes, fallback);
         if (expr.isMethodCallExpr()) {
             MethodCallExpr call = expr.asMethodCallExpr();
+            MethodModel source = sourceMethod(call, localJavaTypes);
+            if (source != null) return source.getReturnWasmType();
             String mName = call.getNameAsString();
             if (isMathCall(call)) {
                 if (mName.equals("round")) {
@@ -6249,16 +6362,17 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 collector.append("    i32.const ").append(i).append("\n");
                 collector.append("    i32.store offset=8\n");
 
-                List<Expression> args = cm.getEnumConstantArgs().get(cName);
-                if (args != null && !args.isEmpty()) {
+                List<Expression> args = cm.getEnumConstantArgs().getOrDefault(cName, List.of());
+                if (!cm.getConstructors().isEmpty()) {
+                    MethodModel constructor;
+                    try { constructor = classRegistry.resolveOverload(cm.getConstructors(), args.stream()
+                            .map(arg -> getExpressionJavaType(arg, Collections.emptyMap())).toList()); }
+                    catch (IllegalArgumentException error) { throw JavaSourcePreparation.error(ed, error.getMessage()); }
                     collector.append("    local.get $inst\n");
-                    for (Expression arg : args) {
-                        translateExpression(arg, collector, Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap(), null);
-                    }
-                    collector.append("    call $").append(enumName).append("__init\n");
-                } else if (!cm.getConstructors().isEmpty()) {
-                    collector.append("    local.get $inst\n");
-                    collector.append("    call $").append(enumName).append("__init\n");
+                    for (int argument = 0; argument < args.size(); argument++)
+                        translateExpression(args.get(argument), collector, Collections.emptyMap(), Collections.emptyMap(),
+                                Collections.emptyMap(), constructor.getParamWasmTypes().get(argument));
+                    collector.append("    call ").append(constructor.getFunctionName()).append("\n");
                 }
 
                 collector.append("    local.get $inst\n");

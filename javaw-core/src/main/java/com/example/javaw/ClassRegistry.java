@@ -74,6 +74,7 @@ public class ClassRegistry {
                 }
                 MethodModel mm = new MethodModel("<init>", className, funcName, "void", null,
                         paramNames, paramTypeNames, paramWasmTypes, false, true);
+                mm.setDeclaration(cons);
                 cm.addConstructor(mm);
             }
 
@@ -108,6 +109,7 @@ public class ClassRegistry {
 
                 MethodModel mm = new MethodModel(mName, className, funcName, retTypeName, retWasmType,
                         paramNames, paramTypeNames, paramWasmTypes, isStatic, false);
+                mm.setDeclaration(md);
                 cm.addMethod(mm);
             }
         }
@@ -143,8 +145,10 @@ public class ClassRegistry {
                     paramWasmTypes.add(pWasm != null ? pWasm : "i32");
                 }
                 String funcName = "$" + recName + "_" + mName;
+                if (rd.getMethodsByName(mName).size() > 1) funcName += "__" + methodSuffix(paramTypeNames);
                 MethodModel mm = new MethodModel(mName, recName, funcName, retTypeName, retWasmType,
                         paramNames, paramTypeNames, paramWasmTypes, isStatic, false);
+                mm.setDeclaration(md);
                 rm.addMethod(mm);
             }
         }
@@ -200,6 +204,7 @@ public class ClassRegistry {
                 }
                 MethodModel mm = new MethodModel("<init>", enumName, funcName, "void", null,
                         paramNames, paramTypeNames, paramWasmTypes, false, true);
+                mm.setDeclaration(cons);
                 cm.addConstructor(mm);
             }
 
@@ -220,8 +225,10 @@ public class ClassRegistry {
                 }
 
                 String funcName = "$" + enumName + "_" + mName;
+                if (ed.getMethodsByName(mName).size() > 1) funcName += "__" + methodSuffix(paramTypeNames);
                 MethodModel mm = new MethodModel(mName, enumName, funcName, retTypeName, retWasmType,
                         paramNames, paramTypeNames, paramWasmTypes, isStatic, false);
+                mm.setDeclaration(md);
                 cm.addMethod(mm);
             }
 
@@ -381,6 +388,13 @@ public class ClassRegistry {
                 classes.put(pt, cm);
             }
         }
+
+        Map<String, List<MethodModel>> symbols = new LinkedHashMap<>();
+        for (ClassModel model : classes.values()) for (MethodModel method : model.getMethods().values())
+            symbols.computeIfAbsent(method.getFunctionName(), key -> new ArrayList<>()).add(method);
+        for (List<MethodModel> collisions : symbols.values()) if (collisions.size() > 1)
+            for (MethodModel method : collisions) if (method.getDeclaration() != null)
+                method.setFunctionName("$" + method.getClassName() + "_" + method.getName() + "__" + methodSuffix(method.getParamTypeNames()));
 
         // Phase 2: Compute Field Layouts & Struct Sizes in inheritance order
         for (ClassModel cm : getClassesInHierarchyOrder()) {
@@ -644,6 +658,8 @@ public class ClassRegistry {
     }
 
     public List<MethodModel> methodCandidates(String className, String methodName) {
+        if (records.containsKey(className)) return records.get(className).getMethods().stream()
+                .filter(m -> m.getName().equals(methodName)).toList();
         Map<String, MethodModel> methods = new LinkedHashMap<>();
         collectMethods(className, methodName, methods, new HashSet<>());
         return new ArrayList<>(methods.values());

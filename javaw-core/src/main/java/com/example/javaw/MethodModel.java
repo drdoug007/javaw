@@ -8,7 +8,8 @@ import java.util.List;
 public class MethodModel {
     private final String name;
     private final String className;
-    private final String functionName;
+    private String functionName;
+    private com.github.javaparser.ast.body.CallableDeclaration<?> declaration;
     private final String returnTypeName;
     private final String returnWasmType;
     private final List<String> paramNames;
@@ -36,6 +37,10 @@ public class MethodModel {
         this.isConstructor = isConstructor;
         this.isVirtual = !isStatic && !isConstructor;
     }
+
+    void setFunctionName(String name) { functionName = name; }
+    void setDeclaration(com.github.javaparser.ast.body.CallableDeclaration<?> node) { declaration = node; }
+    com.github.javaparser.ast.body.CallableDeclaration<?> getDeclaration() { return declaration; }
 
     public String getName() {
         return name;

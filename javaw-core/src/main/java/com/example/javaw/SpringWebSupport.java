@@ -58,7 +58,7 @@ final class SpringWebSupport {
             class ResponseStatusException extends RuntimeException {
                 public int status;
                 public String reason;
-                ResponseStatusException(int status, String reason) {
+                public ResponseStatusException(int status, String reason) {
                     super(reason); this.status = status; this.reason = reason;
                 }
             }
@@ -144,6 +144,8 @@ final class SpringWebSupport {
                 entity, node, key, entity, node, entity, entity, entity, entity, key, key,
                 node, node, key, key, node, node, key, key, node, node, key);
         CompilationUnit generated = StaticJavaParser.parse(source);
+        String packageName = repo.containsData(JavaSourcePreparation.PACKAGE) ? repo.getData(JavaSourcePreparation.PACKAGE) : "";
+        generated.getTypes().forEach(type -> type.setData(JavaSourcePreparation.PACKAGE, packageName));
         repo.replace(generated.getType(1).clone());
         cu.getTypes().add(generated.getType(0).clone());
     }
@@ -286,7 +288,10 @@ final class SpringWebSupport {
             source.append("static ").append(name).append(" __javaw_controller_").append(name).append("() { return __controller_").append(name).append("; }");
         }
         source.append("}");
-        cu.getTypes().add(StaticJavaParser.parseTypeDeclaration(source.toString()));
+        var context = StaticJavaParser.parseTypeDeclaration(source.toString());
+        context.setData(JavaSourcePreparation.PACKAGE, cu.getType(0).containsData(JavaSourcePreparation.PACKAGE)
+                ? cu.getType(0).getData(JavaSourcePreparation.PACKAGE) : "");
+        cu.getTypes().add(context);
     }
 
     private static String annotationValue(AnnotationExpr annotation) {
