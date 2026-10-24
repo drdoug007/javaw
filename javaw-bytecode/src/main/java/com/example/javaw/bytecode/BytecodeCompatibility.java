@@ -90,6 +90,14 @@ final class BytecodeCompatibility {
                     }
                 }
                 if (instruction instanceof MethodInsnNode call) {
+                    if (opcode == Opcodes.INVOKESTATIC) {
+                        try { dispatch.staticTarget(call); }
+                        catch (IllegalArgumentException error) {
+                            throw failure(owner, method, instruction, "static call " + call.owner + "." + call.name + call.desc,
+                                    error.getMessage());
+                        }
+                        continue;
+                    }
                     if (opcode == Opcodes.INVOKEVIRTUAL || opcode == Opcodes.INVOKEINTERFACE) {
                         try { dispatch.targets(call); }
                         catch (IllegalArgumentException error) {

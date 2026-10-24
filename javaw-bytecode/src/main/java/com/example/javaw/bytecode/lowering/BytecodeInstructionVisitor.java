@@ -766,8 +766,9 @@ public class BytecodeInstructionVisitor {
             return;
         }
 
-        // Statically bound calls retain their declared target.
-        String funcName = minsn.getOpcode() == Opcodes.INVOKESPECIAL && minsn.itf && dispatch != null
+        // Static calls bind to the resolved declaration; special calls retain direct binding.
+        String funcName = isStatic && dispatch != null ? dispatch.staticTarget(minsn)
+                : minsn.getOpcode() == Opcodes.INVOKESPECIAL && minsn.itf && dispatch != null
                 ? dispatch.interfaceSuperTarget(minsn)
                 : TypeHelper.getMethodFunctionName(minsn.owner, minsn.name, minsn.desc);
 

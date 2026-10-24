@@ -1310,6 +1310,99 @@ class BytecodeCompatibilityTest {
                 "assert.equal(e['Child.read'](),77);");
     }
 
+    @Test void matchesJvmInheritedStaticCallsAndHiding() throws Exception {
+        var sources=java.util.Map.of(
+            "p/Base.java","""
+                package p;
+                public class Base {
+                    public static double mixed(double a,long b,int c,float d){return a+b+c+d;}
+                    public static int hidden(){return 10;}
+                    protected static int protectedValue(){return 20;}
+                    static int packageValue(){return 30;}
+                }
+                """,
+            "p/Peer.java","package p; public class Peer {public static int read(){return Base.packageValue()+Base.protectedValue();}}",
+            "q/Sub.java","""
+                package q;
+                public class Sub extends p.Base {
+                    public static int hidden(){return 100;}
+                    public static int protectedRead(){return Sub.protectedValue();}
+                }
+                """,
+            "q/Leaf.java","package q; public class Leaf extends Sub {}",
+            "Numbers.java","public interface Numbers {static double number(double n){return n*2;}}",
+            "Fixture.java","""
+                public class Fixture {
+                    private static int counter;
+                    private static int next(){return ++counter;}
+                    public static double inherited(){return q.Leaf.mixed(0.5,9007199254740993L,7,0.25f);}
+                    public static int hiding(){return p.Base.hidden()+q.Sub.hidden()+q.Leaf.hidden();}
+                    public static int access(){return q.Sub.protectedRead()+p.Peer.read();}
+                    public static double iface(){return Numbers.number(2.25);}
+                    public static double nested(){counter=0;return q.Leaf.mixed(next(),next(),next(),next());}
+                }
+                """);
+        var args=new java.util.ArrayList<String>(java.util.List.of("-g","-d",directory.toString()));
+        for(var source:sources.entrySet()) {
+            Path file=directory.resolve(source.getKey());Files.createDirectories(file.getParent());
+            Files.writeString(file,source.getValue());args.add(file.toString());
+        }
+        assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,args.toArray(String[]::new)));
+        Path oracle=directory.resolve("Oracle.java");
+        Files.writeString(oracle,"""
+            public class Oracle {public static void main(String[] args){
+                System.out.println(Fixture.inherited());System.out.println(Fixture.hiding());
+                System.out.println(Fixture.access());System.out.println(Fixture.iface());System.out.println(Fixture.nested());
+            }}
+            """);
+        assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,"-cp",directory.toString(),
+                "-d",directory.toString(),oracle.toString()));
+        run("java","-cp",directory.toString(),"Oracle");
+        var expected=Files.readAllLines(directory.resolve("command.log"));
+        assertEquals(5,expected.size());
+        execute(linkJar("q/Leaf","Numbers","Fixture","p/Peer","q/Sub","p/Base"),
+                "const expected=["+String.join(",",expected)+"];\n"+"""
+            for(const [i,name] of ['inherited','hiding','access','iface','nested'].entries())
+                assert.equal(e['Fixture.'+name](),expected[i]);
+            """);
+    }
+
+    @Test void diagnosesInvalidStaticMethodLinkage() {
+        for(String scenario:new String[]{"private","package","protected","instance","native","abstract",
+                "owner","kind","descriptor","interfaceInherited","missing","cycle","initializer"}) {
+            ClassNode base=new ClassNode();base.name="p/Base";base.superName="java/lang/Object";base.access=Opcodes.ACC_PUBLIC;
+            int flags=Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC;
+            if(scenario.equals("private")) flags=Opcodes.ACC_PRIVATE|Opcodes.ACC_STATIC;
+            if(scenario.equals("package")) flags=Opcodes.ACC_STATIC;
+            if(scenario.equals("protected")) flags=Opcodes.ACC_PROTECTED|Opcodes.ACC_STATIC;
+            if(scenario.equals("instance")) flags=Opcodes.ACC_PUBLIC;
+            if(scenario.equals("native")) flags|=Opcodes.ACC_NATIVE;
+            if(scenario.equals("abstract")) flags|=Opcodes.ACC_ABSTRACT;
+            MethodNode target=new MethodNode(flags,"value","()I",null,null);base.methods.add(target);
+            ClassNode caller=new ClassNode();caller.name="q/Caller";caller.superName="java/lang/Object";caller.access=Opcodes.ACC_PUBLIC;
+            MethodNode method=new MethodNode(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"call","()I",null,null);
+            MethodInsnNode call=new MethodInsnNode(Opcodes.INVOKESTATIC,base.name,"value","()I",false);
+            method.instructions.add(call);method.instructions.add(new InsnNode(Opcodes.IRETURN));method.maxStack=2;caller.methods.add(method);
+            var linked=new java.util.LinkedHashMap<String,ClassNode>();linked.put(base.name,base);linked.put(caller.name,caller);
+            if(scenario.equals("owner")) base.access=0;
+            if(scenario.equals("kind")) call.itf=true;
+            if(scenario.equals("descriptor")) call.desc="(I)I";
+            if(scenario.equals("missing")) {base.methods.clear();base.superName="missing/Parent";}
+            if(scenario.equals("cycle")) {base.methods.clear();base.superName=base.name;}
+            if(scenario.equals("initializer")) call.name="<clinit>";
+            if(scenario.equals("interfaceInherited")) {
+                base.access|=Opcodes.ACC_INTERFACE|Opcodes.ACC_ABSTRACT;
+                ClassNode child=new ClassNode();child.name="p/Child";child.superName="java/lang/Object";
+                child.access=Opcodes.ACC_PUBLIC|Opcodes.ACC_INTERFACE|Opcodes.ACC_ABSTRACT;child.interfaces.add(base.name);
+                linked.put(child.name,child);call.owner=child.name;call.itf=true;
+            }
+            String error=assertThrows(IllegalArgumentException.class,
+                    ()->new ClassBytecodeCompiler(caller).compileToWat(linked),scenario).getMessage();
+            assertTrue(error.contains("static call "),scenario+": "+error);
+            assertTrue(error.contains("q.Caller.call()I"),error);
+        }
+    }
+
     private String linkJar(String... names) throws Exception {
         var bytes=new java.io.ByteArrayOutputStream();
         try(var jar=new java.util.jar.JarOutputStream(bytes)) {

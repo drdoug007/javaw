@@ -201,6 +201,36 @@ public final class BytecodeDispatch {
         return maximal.isEmpty() ? null : maximal.get(0);
     }
 
+    /** Resolve INVOKESTATIC without inheriting interface static methods. */
+    public String staticTarget(MethodInsnNode call) {
+        ClassNode symbolic = linked.get(call.owner);
+        if (symbolic == null || ((symbolic.access & Opcodes.ACC_INTERFACE) != 0) != call.itf)
+            throw new IllegalArgumentException("link the static owner with the matching class/interface reference kind");
+        if ((symbolic.access & Opcodes.ACC_PUBLIC) == 0 && caller != null
+                && !packageName(call.owner).equals(packageName(caller)))
+            throw new IllegalArgumentException("inaccessible static method owner " + call.owner);
+        if (call.name.startsWith("<"))
+            throw new IllegalArgumentException("initializers cannot be invoked with INVOKESTATIC");
+        Declaration resolved = null;
+        Set<String> visited = new HashSet<>();
+        String name = call.owner;
+        while (name != null && !name.equals("java/lang/Object")) {
+            ClassNode type = linked.get(name);
+            if (type == null || !visited.add(name))
+                throw new IllegalArgumentException("link a complete acyclic static method superclass chain: " + name);
+            resolved = ownMethod(name, call.name, call.desc);
+            if (resolved != null || call.itf) break;
+            name = type.superName;
+        }
+        if (resolved == null)
+            throw new IllegalArgumentException("link a matching static declaration; interface static methods are not inherited");
+        if ((resolved.method.access & Opcodes.ACC_STATIC) == 0
+                || (resolved.method.access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_NATIVE)) != 0)
+            throw new IllegalArgumentException("static call requires a concrete non-native static declaration");
+        checkMemberAccess(resolved); // Member visibility is identical; static calls have no receiver restriction.
+        return TypeHelper.getMethodFunctionName(resolved.owner, call.name, call.desc);
+    }
+
     public String interfaceSuperTarget(MethodInsnNode call) {
         ClassNode owner = linked.get(call.owner);
         if (owner == null || (owner.access & Opcodes.ACC_INTERFACE) == 0)
@@ -219,7 +249,7 @@ public final class BytecodeDispatch {
                 && !packageName(method.owner).equals(packageName(caller));
     }
 
-    private void checkVirtualAccess(Declaration method) {
+    private void checkMemberAccess(Declaration method) {
         if ((method.method.access & Opcodes.ACC_PUBLIC) != 0) return;
         if ((method.method.access & Opcodes.ACC_PRIVATE) != 0) {
             checkPrivateAccess(method.owner);
@@ -227,7 +257,7 @@ public final class BytecodeDispatch {
         }
         if (caller != null && packageName(caller).equals(packageName(method.owner))) return;
         if (crossPackageProtected(method) && subtype(caller, method.owner, new HashSet<>())) return;
-        throw new IllegalArgumentException("inaccessible protected/package virtual method " + method.owner
+        throw new IllegalArgumentException("inaccessible protected/package method " + method.owner
                 + "; call from the declaring package or an eligible protected subclass");
     }
 
@@ -283,7 +313,7 @@ public final class BytecodeDispatch {
         if (declared == null) declared = interfaceMethod(call.owner, call.name, call.desc);
         if (declared == null || (declared.method.access & Opcodes.ACC_STATIC) != 0)
             throw new IllegalArgumentException("link a matching instance method in the declaring hierarchy");
-        checkVirtualAccess(declared);
+        checkMemberAccess(declared);
         boolean privateCall = (declared.method.access & Opcodes.ACC_PRIVATE) != 0;
         Map<Integer, String> result = new LinkedHashMap<>();
         for (var entry : classIds.entrySet()) {
