@@ -300,6 +300,8 @@ This roadmap organizes planned features by their utility and return on investmen
 - [x] Add source-backed BigDecimal arithmetic and exact decimal JSON serialization beyond JavaScript number precision; see Phase 3 coverage and remaining JDK overloads.
 - [x] Reclaim unreachable repository rows and request temporaries at explicit host safepoints; verify stable heap size under repeated CRUD workloads.
 - [ ] Support the actual H2 SQL engine and full Spring/Hibernate runtime. Current support is an ahead-of-time API subset with an in-memory repository, not those JVM engines.
+  - [x] Prerequisite: execute bytecode TABLESWITCH/LOOKUPSWITCH with default/shared targets, fallthrough, stack-preserving joins, and loop back edges. BytecodeCompatibilityTest compiles javac fixtures and executes the assembled Wasm in Node.
+  - [ ] Remaining runtime foundations include object allocation/instance fields, virtual/interface dispatch, typed numeric bytecode, exception handling, class initialization, JDK linkage, and framework/SQL integration. Switch support alone does not enable H2 execution.
 
 
 ## 13. Java Compatibility Roadmap

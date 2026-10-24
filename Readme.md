@@ -1718,3 +1718,9 @@ Static member classes with unique simple names retain the existing flattened mod
 `JavacToWasm.generateGcWat(source)` selects the standalone `WasmGcVisitor` prototype. It emits native GC structs and typed references, including constructor allocation, mutable reference/primitive fields, cyclic graphs, and exported methods. `WasmGcVisitorTest` assembles with Binaryen and executes in Node, including passing an opaque GC object through JavaScript back to Wasm. The default compiler continues to use linear memory.
 
 This is a restricted backend: inheritance, virtual calls, arrays, libraries, exceptions, and control flow are pending. Unsupported syntax receives a location and guidance to use the default backend. See [supported syntax, assembly instructions, and host ownership](docs/wasmgc.md). Validation: `mvn -pl javaw-core -Dtest=WasmGcVisitorTest,ManagedHeapTest test`.
+
+### Progress toward actual H2 and Spring/Hibernate execution
+
+The bytecode backend now executes `TABLESWITCH` and `LOOKUPSWITCH` through selector comparisons and state dispatch. Executable javac-to-Wasm regressions cover dense/sparse keys, signed integer extremes, default and shared targets, fallthrough, joins with existing operand-stack values, and switches inside loops. Dispatch currently uses a linear comparison chain.
+
+This completes a prerequisite of the next open Todo item. Actual H2 SQL and full Spring/Hibernate execution remain unimplemented: object/virtual dispatch, typed bytecode, exceptions, class initialization, and JDK/framework linkage still need substantial work. The Spring example continues to use its documented in-memory API subset. Validation: `mvn -o -pl javaw-bytecode -am -Dtest=BytecodeCompatibilityTest,BytecodeCompilerTest,RelooperTest -Dsurefire.failIfNoSpecifiedTests=false test` (10 tests passed).

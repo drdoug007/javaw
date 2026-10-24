@@ -138,7 +138,9 @@ public class ClassBytecodeCompiler {
             AbstractInsnNode terminal = null;
             for (AbstractInsnNode instruction : block.getInstructions()) {
                 if (instruction.getOpcode() >= 0) terminal = instruction;
-                if (!(instruction instanceof JumpInsnNode)) visitor.visitInsn(instruction);
+                if (!(instruction instanceof JumpInsnNode)
+                        && !(instruction instanceof TableSwitchInsnNode)
+                        && !(instruction instanceof LookupSwitchInsnNode)) visitor.visitInsn(instruction);
             }
             wat.append(visitor.getOutput());
             if (terminal instanceof JumpInsnNode jump) {
@@ -150,6 +152,18 @@ public class ClassBytecodeCompiler {
                     setState(wat, block.getBranchTarget());
                     wat.append("        else\n");
                     setState(wat, block.getFallthrough());
+                    wat.append("        end\n");
+                }
+                wat.append("        br $loop_dispatch\n");
+            } else if (terminal instanceof TableSwitchInsnNode || terminal instanceof LookupSwitchInsnNode) {
+                // Consume only the selector; values below it survive into every successor.
+                String selector = mapper.pop();
+                setState(wat, block.getDefaultTarget());
+                for (var entry : block.getSwitchTargets().entrySet()) {
+                    wat.append("        local.get ").append(selector)
+                            .append("\n        i32.const ").append(entry.getKey())
+                            .append("\n        i32.eq\n        if\n");
+                    setState(wat, entry.getValue());
                     wat.append("        end\n");
                 }
                 wat.append("        br $loop_dispatch\n");

@@ -69,6 +69,60 @@ class BytecodeCompatibilityTest {
             """);
     }
 
+    @Test void executesDenseAndSparseSwitchesWithJoinsAndBackEdges() throws Exception {
+        byte[] bytes = fixture("""
+            public class Fixture {
+                public static int dense(int n) {
+                    int result=0;
+                    switch(n) {
+                        case -2: result=7;
+                        case -1: result+=3; break;
+                        case 0: case 1: result=11; break;
+                        default: result=-9;
+                    }
+                    return result+1;
+                }
+                public static int sparse(int n) {
+                    return 100 + switch(n) {
+                        case -2147483648 -> 1;
+                        case -10000, 10000 -> 2;
+                        case 2147483647 -> 3;
+                        default -> 4;
+                    };
+                }
+                public static int loop(int n) {
+                    int result=0;
+                    while(n>0) {
+                        switch(n%4) {
+                            case 0: n--; continue;
+                            case 1: result+=10; break;
+                            case 2: result+=20; break;
+                            default: result+=30;
+                        }
+                        n--;
+                    }
+                    return result;
+                }
+            }
+            """);
+        ClassNode node = new ClassNode();
+        new ClassReader(bytes).accept(node, 0);
+        assertTrue(node.methods.stream().flatMap(m -> java.util.Arrays.stream(m.instructions.toArray()))
+                .anyMatch(i -> i instanceof TableSwitchInsnNode));
+        assertTrue(node.methods.stream().flatMap(m -> java.util.Arrays.stream(m.instructions.toArray()))
+                .anyMatch(i -> i instanceof LookupSwitchInsnNode));
+        execute(BytecodeCompiler.compileClass(bytes), """
+            for(let n=-5;n<=5;n++)
+                assert.equal(e['Fixture.dense'](n),n===-2?11:n===-1?4:n===0||n===1?12:-8);
+            for(const n of [-2147483648,-10000,10000,2147483647,-1,0,9999])
+                assert.equal(e['Fixture.sparse'](n),100+(n===-2147483648?1:n===-10000||n===10000?2:n===2147483647?3:4));
+            for(let n=0;n<40;n++) {
+                let expected=0; for(let i=n;i>0;i--) expected+=(i%4)*10;
+                assert.equal(e['Fixture.loop'](n),expected);
+            }
+            """);
+    }
+
     @Test void linksSupportedClassesWithinOneJar() throws Exception {
         fixture("""
             public class Fixture {
@@ -95,7 +149,6 @@ class BytecodeCompatibilityTest {
                 "public static final String TEXT=\"text\"; public static int f(){ return 1; }",
                 "public static Runnable f() { return () -> {}; }",
                 "public static String f(int n) { return \"value=\"+n; }",
-                "public static int f(int n) { switch(n) { case 1:return 2; case 5:return 3; default:return 0; } }",
                 "public static int f() { try { return 1; } catch(RuntimeException e) { return 0; } }",
                 "public static native int f();",
                 "public static synchronized int f() { return 1; }",

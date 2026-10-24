@@ -27,7 +27,8 @@ could silently discard instructions or emit invalid typed locals.
 | `INVOKEDYNAMIC` (including javac lambdas and string concatenation) | Rejected; bootstrap/linkage support is pending. Source lambdas and concatenation have separate implementations |
 | `INVOKEVIRTUAL`, `INVOKEINTERFACE` | Rejected; JVM dynamic dispatch is pending |
 | `NEW`, array creation/access, instance field access, casts, `INSTANCEOF`, multianewarray | Rejected; the old provisional heap lowering is not an admitted compatibility target |
-| `TABLESWITCH`, `LOOKUPSWITCH`, `JSR`, `RET`, remaining stack manipulation | Rejected |
+| `TABLESWITCH`, `LOOKUPSWITCH` | Admitted; selector comparisons select a state-dispatch successor, preserving default, shared targets, fallthrough, and stack values below the selector. Dispatch uses a linear comparison chain |
+| `JSR`, `RET`, remaining stack manipulation | Rejected |
 | `ATHROW`, exception handler tables | Rejected; use source compilation for supported Java exceptions |
 | Native/synchronized methods, volatile fields, monitor opcodes | Rejected; no general JNI, monitor, or Java Memory Model runtime |
 | `<clinit>` | Rejected; automatic JVM class initialization is pending |
@@ -60,8 +61,8 @@ reused solely because a dependency JAR hash matches.
 
 | Case | Evidence and result |
 | --- | --- |
-| javac-produced integer library | [BytecodeCompatibilityTest](../javaw-bytecode/src/test/java/com/example/javaw/bytecode/BytecodeCompatibilityTest.java): assembles WAT and executes it in Node; loops, branch joins, conditional expressions, overloaded private calls, narrowing, constants, and division overflow |
-| Unsupported bytecode/source metadata | Same suite: javac lambdas/concatenation, switches, handler tables, native/synchronized methods, wide returns, unresolved JDK calls, class literals, arrays, class initialization, overloaded exports; ASM fixture verifies INVOKEDYNAMIC and missing-line diagnostics |
+| javac-produced integer library | [BytecodeCompatibilityTest](../javaw-bytecode/src/test/java/com/example/javaw/bytecode/BytecodeCompatibilityTest.java): assembles WAT and executes it in Node; loops, dense/sparse switches with signed extreme keys and stack-preserving joins, branch joins, conditional expressions, overloaded private calls, narrowing, constants, and division overflow |
+| Unsupported bytecode/source metadata | Same suite: javac lambdas/concatenation, handler tables, native/synchronized methods, wide returns, unresolved JDK calls, class literals, arrays, class initialization, overloaded exports; ASM fixture verifies INVOKEDYNAMIC and missing-line diagnostics |
 | Actual Maven ASM 9.7 JAR | Same suite reads the installed dependency artifact and verifies explicit rejection. Not a supported runtime library |
 | Actual Maven JUnit Jupiter API 5.10.0 JAR | Same suite reads the installed dependency artifact and verifies explicit rejection. Not a supported runtime library |
 | Dependency cache | [LocalM2CacheManagerTest](../javaw-bytecode/src/test/java/com/example/javaw/bytecode/LocalM2CacheManagerTest.java): hash and compiler-revision invalidation |
