@@ -1,6 +1,7 @@
 package com.example.javaw.bytecode.lowering;
 
 import com.example.javaw.bytecode.TypeHelper;
+import com.example.javaw.bytecode.BytecodeDispatch;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
@@ -9,6 +10,7 @@ import java.util.*;
 
 public class BytecodeInstructionVisitor {
     private final StackToLocalMapper stack;
+    private final BytecodeDispatch dispatch;
     private final Map<String, Integer> stringPool;
     private final Map<String, Integer> fieldOffsets;
     private final Map<String, Integer> objectSizes;
@@ -20,6 +22,13 @@ public class BytecodeInstructionVisitor {
 
     public BytecodeInstructionVisitor(StackToLocalMapper stack, Map<String, Integer> stringPool,
                                       Map<String, Integer> fieldOffsets, Map<String, Integer> objectSizes) {
+        this(stack, stringPool, fieldOffsets, objectSizes, null);
+    }
+
+    public BytecodeInstructionVisitor(StackToLocalMapper stack, Map<String, Integer> stringPool,
+                                      Map<String, Integer> fieldOffsets, Map<String, Integer> objectSizes,
+                                      BytecodeDispatch dispatch) {
+        this.dispatch = dispatch;
         this.objectSizes = objectSizes;
         this.stack = stack;
         this.stringPool = stringPool;
@@ -421,6 +430,11 @@ public class BytecodeInstructionVisitor {
                 emit("i32.const 0");
                 emit("i32.const " + objectSize);
                 emit("memory.fill");
+                if (dispatch != null) {
+                    emit("local.get " + newRef);
+                    emit("i32.const " + dispatch.classId(newInsn.desc));
+                    emit("i32.store");
+                }
                 break;
 
             case Opcodes.NEWARRAY:
@@ -566,7 +580,29 @@ public class BytecodeInstructionVisitor {
         // java.lang.Object's empty constructor has no runtime action in this layout.
         if (minsn.owner.equals("java/lang/Object") && minsn.name.equals("<init>") && minsn.desc.equals("()V")) return;
 
-        // Special handling for System.out.println / String methods / Math
+        if (minsn.getOpcode() == Opcodes.INVOKEVIRTUAL || minsn.getOpcode() == Opcodes.INVOKEINTERFACE) {
+            if (dispatch == null) throw new IllegalArgumentException("Dynamic calls require a linked dispatch context");
+            String resultType = TypeHelper.getWasmType(retType);
+            emit("block $__dispatch" + (resultType == null ? "" : " (result " + resultType + ")"));
+            for (var target : dispatch.targets(minsn).entrySet()) {
+                emit("local.get " + thisVar);
+                emit("i32.load");
+                emit("i32.const " + target.getKey());
+                emit("i32.eq");
+                emit("if");
+                emit("local.get " + thisVar);
+                for (String argument : argVars) emit("local.get " + argument);
+                emit("call " + target.getValue());
+                emit("br $__dispatch");
+                emit("end");
+            }
+            emit("unreachable");
+            emit("end");
+            if (resultType != null) emit("local.set " + stack.push(resultType));
+            return;
+        }
+
+        // Statically bound calls retain their declared target.
         String funcName = TypeHelper.getMethodFunctionName(minsn.owner, minsn.name, minsn.desc);
 
         if (!isStatic) {

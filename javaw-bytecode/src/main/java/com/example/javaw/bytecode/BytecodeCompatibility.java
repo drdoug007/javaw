@@ -18,11 +18,12 @@ final class BytecodeCompatibility {
             Opcodes.IF_ICMPEQ, Opcodes.IF_ICMPNE, Opcodes.IF_ICMPLT, Opcodes.IF_ICMPGE,
             Opcodes.IF_ICMPGT, Opcodes.IF_ICMPLE, Opcodes.IF_ACMPEQ, Opcodes.IF_ACMPNE,
             Opcodes.IFNULL, Opcodes.IFNONNULL, Opcodes.GOTO, Opcodes.TABLESWITCH, Opcodes.LOOKUPSWITCH,
-            Opcodes.NEW, Opcodes.GETFIELD, Opcodes.PUTFIELD, Opcodes.GETSTATIC, Opcodes.PUTSTATIC, Opcodes.INVOKESTATIC, Opcodes.INVOKESPECIAL,
+            Opcodes.NEW, Opcodes.GETFIELD, Opcodes.PUTFIELD, Opcodes.GETSTATIC, Opcodes.PUTSTATIC, Opcodes.INVOKESTATIC, Opcodes.INVOKESPECIAL, Opcodes.INVOKEVIRTUAL, Opcodes.INVOKEINTERFACE,
             Opcodes.IRETURN, Opcodes.ARETURN, Opcodes.RETURN);
 
     static void validate(ClassNode owner, Map<String, ClassNode> linked) {
         BytecodeObjectLayouts layouts = new BytecodeObjectLayouts(linked);
+        BytecodeDispatch dispatch = new BytecodeDispatch(linked);
         Map<String, Integer> offsets = layouts.offsets();
         for (FieldNode field : owner.fields) {
             if (field.value != null && !(field.value instanceof Integer))
@@ -72,6 +73,14 @@ final class BytecodeCompatibility {
                                 "link a supported declaring class in the same JAR/module");
                 }
                 if (instruction instanceof MethodInsnNode call) {
+                    if (opcode == Opcodes.INVOKEVIRTUAL || opcode == Opcodes.INVOKEINTERFACE) {
+                        try { dispatch.targets(call); }
+                        catch (IllegalArgumentException error) {
+                            throw failure(owner, method, instruction, "dynamic call " + call.owner + "." + call.name + call.desc,
+                                    error.getMessage());
+                        }
+                        continue;
+                    }
                     if (call.owner.equals("java/lang/Object") && call.name.equals("<init>") && call.desc.equals("()V")) continue;
                     ClassNode target = linked.get(call.owner);
                     if (target == null || target.methods.stream().noneMatch(m -> m.name.equals(call.name) && m.desc.equals(call.desc)

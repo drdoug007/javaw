@@ -205,6 +205,93 @@ class BytecodeCompatibilityTest {
             """);
     }
 
+    @Test void executesPublicVirtualAndInterfaceDispatch() throws Exception {
+        fixture("""
+            public class Fixture {
+                static int ticks;
+                static int tick() { ticks++; return 3; }
+                public static int calculate(int n) {
+                    View view=n<0 ? new Base(3) : new Leaf(5);
+                    view.set(n);
+                    return view.self().value(7)+view.value(2);
+                }
+                public static int constructorDispatch() { return new Leaf(5).initial; }
+                public static int inheritedInterface() { ChildView view=new Leaf(3); return view.value(2); }
+                public static int multi() { View view=new Leaf(4); return view.combine(view.value(1),3); }
+                public static int classCall(int n) {
+                    Base base=new Leaf(n);
+                    return 100+base.value(base.value(1));
+                }
+                public static int inheritedOwner(int n) { return new Leaf(n).value(2); }
+                public static int nullCall() { View view=null; return view.value(tick()); }
+                public static int tickCount() { return ticks; }
+                public static int external(Base base) { return base.value(2); }
+                public static Unrelated unrelated() { return new Unrelated(); }
+            }
+            interface View {
+                int value(int n);
+                void set(int n);
+                View self();
+                int combine(int first, int second);
+            }
+            interface ChildView extends View {}
+            class Base implements View {
+                int state, initial;
+                Base(int n) { state=n; initial=value(1); }
+                public int value(int n) { return state+n; }
+                public void set(int n) { state=n; }
+                public View self() { return this; }
+                public int combine(int first, int second) { return value(first)+second; }
+            }
+            abstract class Intermediate extends Base {
+                Intermediate(int n) { super(n); }
+                public int value(int n) { return super.value(n); }
+                public abstract int hook();
+            }
+            class Derived extends Intermediate {
+                Derived(int n) { super(n); }
+                public int value(int n) { return super.value(n)*2; }
+                public int hook() { return 0; }
+            }
+            class Leaf extends Derived implements ChildView {
+                Leaf(int n) { super(n); }
+            }
+            class Unrelated {
+                public int value(int n) { return 999; }
+            }
+            """);
+        execute(linkJar("Leaf", "Unrelated", "Fixture", "Derived", "Intermediate", "ChildView", "View", "Base"), """
+            for(let n=-5;n<10;n++) {
+                assert.equal(e['Fixture.calculate'](n),n<0?2*n+9:4*n+18);
+                assert.equal(e['Fixture.classCall'](n),104+6*n);
+                assert.equal(e['Fixture.inheritedOwner'](n),2*(n+2));
+            }
+            assert.equal(e['Fixture.constructorDispatch'](),12);
+            assert.equal(e['Fixture.inheritedInterface'](),10);
+            assert.equal(e['Fixture.multi'](),31);
+            assert.throws(()=>e['Fixture.external'](0),WebAssembly.RuntimeError);
+            assert.throws(()=>e['Fixture.nullCall'](),WebAssembly.RuntimeError);
+            assert.equal(e['Fixture.tickCount'](),1);
+            assert.throws(()=>e['Fixture.external'](e['Fixture.unrelated']()),WebAssembly.RuntimeError);
+            """);
+    }
+
+    @Test void diagnosesUnsupportedDynamicCalls() throws Exception {
+        for (String source : new String[]{
+                "public class Fixture { protected int value(){return 1;} public static int call(Fixture f){return f.value();} }",
+                "public class Fixture { public static int call(View v){return v.value();} } interface View {default int value(){return 1;} }",
+                "public class Fixture { public static int call(Missing v){return v.value();} } interface Missing {int value();}"}) {
+            var bytes=fixture(source);
+            // Only Fixture is linked: the last two cases also exercise unlinked interface diagnostics.
+            var error=assertThrows(IllegalArgumentException.class, () -> BytecodeCompiler.compileClass(bytes));
+            assertTrue(error.getMessage().contains("unsupported dynamic call"),error.getMessage());
+            assertTrue(error.getMessage().contains("Fixture.java:"),error.getMessage());
+        }
+        fixture("public class Fixture { public static int call(View v){return v.value();} } interface View {default int value(){return 1;} }");
+        var error=assertThrows(IllegalArgumentException.class, () -> linkJar("Fixture", "View"));
+        assertTrue(error.getMessage().contains("default methods are unavailable"),error.getMessage());
+    }
+
     private String linkJar(String... names) throws Exception {
         var bytes=new java.io.ByteArrayOutputStream();
         try(var jar=new java.util.jar.JarOutputStream(bytes)) {

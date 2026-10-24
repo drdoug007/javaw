@@ -12,6 +12,7 @@ import java.util.*;
 
 public class ClassBytecodeCompiler {
     private final ClassNode classNode;
+    private BytecodeDispatch dispatch;
     private final Map<String, Integer> stringPool = new LinkedHashMap<>();
     private final Map<String, Integer> fieldOffsets = new LinkedHashMap<>();
     private final Map<String, Integer> objectSizes = new LinkedHashMap<>();
@@ -34,6 +35,7 @@ public class ClassBytecodeCompiler {
 
     String compileToWat(Map<String, ClassNode> linked) {
         BytecodeCompatibility.validate(classNode, linked);
+        dispatch = new BytecodeDispatch(linked);
         BytecodeObjectLayouts layouts = new BytecodeObjectLayouts(linked);
         fieldOffsets.putAll(layouts.offsets());
         objectSizes.putAll(layouts.sizes());
@@ -132,7 +134,7 @@ public class ClassBytecodeCompiler {
             if (frame == null) continue; // Unreachable JVM instructions.
             mapper.setStackDepth(frame.getStackSize());
             wat.append("        local.get $__state\n        i32.const ").append(block.getId()).append("\n        i32.eq\n        if\n");
-            BytecodeInstructionVisitor visitor = new BytecodeInstructionVisitor(mapper, stringPool, fieldOffsets, objectSizes);
+            BytecodeInstructionVisitor visitor = new BytecodeInstructionVisitor(mapper, stringPool, fieldOffsets, objectSizes, dispatch);
             AbstractInsnNode terminal = null;
             for (AbstractInsnNode instruction : block.getInstructions()) {
                 if (instruction.getOpcode() >= 0) terminal = instruction;
