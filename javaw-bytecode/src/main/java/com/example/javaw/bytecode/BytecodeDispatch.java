@@ -32,6 +32,10 @@ public final class BytecodeDispatch {
 
     public BytecodeDispatch(Map<String, ClassNode> linked, String caller) {
         this.caller = caller;
+        if (BytecodeExceptionRuntime.enabled(linked)) {
+            linked = new LinkedHashMap<>(linked);
+            linked.putIfAbsent(BytecodeObjects.OBJECT, BytecodeObjects.declaration());
+        }
         this.linked = linked;
         this.layouts = new BytecodeObjectLayouts(linked);
         int id = 1;
@@ -138,13 +142,17 @@ public final class BytecodeDispatch {
                 + "link the nest host and reciprocal same-package NestHost/NestMembers metadata");
     }
 
+    public boolean isIdentityHashIntrinsic(MethodInsnNode call) {
+        return exceptionRuntimeEnabled() && !linked.containsKey("java/lang/System") && BytecodeObjects.identityHash(call);
+    }
+
     public boolean isArraycopyIntrinsic(MethodInsnNode call) {
         return BytecodeArrays.isArraycopy(call) && !linked.containsKey(call.owner);
     }
 
     /** Active-use initialization is available with the isolated exception runtime. */
     public String initializationCall(String owner) {
-        return exceptionRuntimeEnabled() && linked.containsKey(owner)
+        return exceptionRuntimeEnabled() && !owner.equals(BytecodeObjects.OBJECT) && linked.containsKey(owner)
                 ? "call " + BytecodeInitialization.symbol(owner) : "";
     }
 
@@ -509,10 +517,11 @@ public final class BytecodeDispatch {
             if (found != null) return found;
             current = type.superName;
         }
-        return interfaceMethod(name, method, descriptor);
+        Declaration object = ownMethod(BytecodeObjects.OBJECT, method, descriptor);
+        return object != null ? object : interfaceMethod(name, method, descriptor);
     }
 
-    /** The sole Object intrinsic; reference kind must not bypass ordinary special-call checks. */
+    /** Object constructor intrinsic; reference kind must not bypass ordinary special-call checks. */
     public static boolean isObjectConstructor(MethodInsnNode call) {
         return call.getOpcode() == Opcodes.INVOKESPECIAL && !call.itf
                 && call.owner.equals("java/lang/Object") && call.name.equals("<init>") && call.desc.equals("()V");
@@ -606,7 +615,7 @@ public final class BytecodeDispatch {
                         "cannot override final java/lang/Object method");
             if ((type.access & Opcodes.ACC_INTERFACE) != 0) continue;
             String parent = type.superName;
-            while (parent != null && !parent.equals("java/lang/Object")) {
+            while (parent != null && (!parent.equals("java/lang/Object") || exceptionRuntimeEnabled())) {
                 ClassNode ancestor = linked.get(parent); // Hierarchy declarations have already been validated.
                 Declaration inherited = ownMethod(parent, method.name, method.desc);
                 if (inherited != null && (inherited.method.access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) == 0) {
@@ -625,7 +634,7 @@ public final class BytecodeDispatch {
         if ((linked.get(resolved.owner).access & Opcodes.ACC_INTERFACE) != 0) {
             // Private class methods do not implement or suppress an interface slot.
             String current = receiver;
-            while (current != null && !current.equals("java/lang/Object")) {
+            while (current != null && linked.containsKey(current)) {
                 ClassNode type = linked.get(current);
                 Declaration implementation = ownMethod(current, resolved.method.name, resolved.method.desc);
                 if (implementation != null && (implementation.method.access & Opcodes.ACC_PRIVATE) == 0) return implementation;
@@ -667,6 +676,8 @@ public final class BytecodeDispatch {
     }
 
     public BytecodeExceptions.Implicit defaultSelectionFailure(MethodInsnNode call) {
+        if (exceptionRuntimeEnabled() && call.owner.startsWith("[")
+                && BytecodeObjects.identityMethod(call.name, call.desc)) return null;
         if (BytecodeArrays.isClone(call) || call.getOpcode() != Opcodes.INVOKEVIRTUAL && call.getOpcode() != Opcodes.INVOKEINTERFACE) return null;
         try {
             Declaration declared = declaration(call.owner, call.name, call.desc, new HashSet<>());
@@ -679,14 +690,17 @@ public final class BytecodeDispatch {
     }
 
     public Map<Integer, String> targets(MethodInsnNode call) {
-        ClassNode owner = linked.get(call.owner);
+        boolean arrayOwner = exceptionRuntimeEnabled() && call.owner.startsWith("[")
+                && BytecodeObjects.identityMethod(call.name, call.desc);
+        String symbolicOwner = arrayOwner ? BytecodeObjects.OBJECT : call.owner;
+        ClassNode owner = linked.get(symbolicOwner);
         boolean interfaceCall = call.getOpcode() == Opcodes.INVOKEINTERFACE;
         if (owner == null || ((owner.access & Opcodes.ACC_INTERFACE) != 0) != interfaceCall || call.itf != interfaceCall)
             throw new IllegalArgumentException("link the declaring class/interface with the matching invocation/reference kind");
-        checkClassAccess(call.owner);
+        if (arrayOwner) typeTestIds(call.owner); else checkClassAccess(call.owner);
         if (call.name.startsWith("<"))
             throw new IllegalArgumentException("initializers cannot be invoked with virtual/interface instructions");
-        Declaration declared = declaration(call.owner, call.name, call.desc, new HashSet<>());
+        Declaration declared = declaration(symbolicOwner, call.name, call.desc, new HashSet<>());
         if (defaultSelectionFailure(call) != null) return Map.of();
         if (declared == null) declared = interfaceMethod(call.owner, call.name, call.desc);
         if (declared == null || (declared.method.access & Opcodes.ACC_STATIC) != 0)
@@ -696,8 +710,8 @@ public final class BytecodeDispatch {
         Map<Integer, String> result = new LinkedHashMap<>();
         for (var entry : classIds.entrySet()) {
             ClassNode type = linked.get(entry.getKey());
-            if ((type.access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_INTERFACE)) != 0
-                    || !subtype(type.name, call.owner, new HashSet<>())) continue;
+            if (arrayOwner || (type.access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_INTERFACE)) != 0
+                    || !subtype(type.name, symbolicOwner, new HashSet<>())) continue;
             // The JVM protected receiver rule applies outside the declaring package.
             if (crossPackageProtected(declared) && !subtype(type.name, caller, new HashSet<>())) continue;
             // Private methods never participate in overriding, even on a subclass receiver.
@@ -725,6 +739,13 @@ public final class BytecodeDispatch {
                 throw new IllegalArgumentException("link a complete hierarchy and accessible concrete class/default implementation for "
                         + type.name + "." + call.name + call.desc + "; implement abstract or re-abstracted methods");
             result.put(entry.getValue(), TypeHelper.getMethodFunctionName(implementation.owner, call.name, call.desc));
+        }
+        if (exceptionRuntimeEnabled() && BytecodeObjects.identityMethod(call.name, call.desc)
+                && (arrayOwner || call.owner.equals(BytecodeObjects.OBJECT)
+                    || call.owner.equals("java/lang/Cloneable") || call.owner.equals("java/io/Serializable"))) {
+            Set<Integer> arrays = arrayOwner ? typeTestIds(call.owner) : typeTestIds(BytecodeObjects.OBJECT);
+            for (int id : arrays) if (id < 0)
+                result.put(id, TypeHelper.getMethodFunctionName(BytecodeObjects.OBJECT, call.name, call.desc));
         }
         return result;
     }

@@ -114,7 +114,8 @@ final class BytecodeCompatibility {
                         throw failure(owner, method, instruction, "object allocation " + allocation.desc, error.getMessage());
                     }
                     ClassNode target = linked.get(allocation.desc);
-                    if (target == null || (target.access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_INTERFACE)) != 0
+                    boolean intrinsicObject = allocation.desc.equals("java/lang/Object") && dispatch.exceptionRuntimeEnabled();
+                    if ((!intrinsicObject && (target == null || (target.access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_INTERFACE)) != 0))
                             || !layouts.contains(allocation.desc))
                         throw failure(owner, method, instruction, "object allocation " + allocation.desc,
                                 "link a concrete class and its complete superclass chain through Object; cyclic or missing hierarchies are unsupported");
@@ -157,7 +158,7 @@ final class BytecodeCompatibility {
                         }
                         continue;
                     }
-                    if (dispatch.isArraycopyIntrinsic(call)) continue;
+                    if (dispatch.isArraycopyIntrinsic(call) || dispatch.isIdentityHashIntrinsic(call)) continue;
                     if (opcode == Opcodes.INVOKESTATIC) {
                         try { dispatch.staticTarget(call); }
                         catch (IllegalArgumentException error) {

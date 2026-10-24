@@ -15,6 +15,7 @@ final class BytecodeObjectLayouts {
 
     BytecodeObjectLayouts(Map<String, ClassNode> linked) {
         this.linked = linked;
+        if (BytecodeExceptionRuntime.enabled(linked)) layouts.put("java/lang/Object", new Layout(4, Map.of()));
         for (String name : linked.keySet()) build(name, new HashSet<>());
     }
 

@@ -86,6 +86,7 @@ public class BytecodeCompiler {
         for (ClassNode type : classes) implicit.addAll(BytecodeExceptions.implicitRuntime(type, runtimeDispatch));
         if (!implicit.isEmpty() || classes.stream().anyMatch(BytecodeExceptions::usesRuntime)) combinedWat.append(BytecodeExceptions.TAG_WAT);
         for (var kind : implicit) combinedWat.append(runtimeDispatch.implicitExceptionRuntimeWat(kind));
+        if (exceptionRuntime) combinedWat.append(BytecodeObjects.runtimeWat());
         combinedWat.append(BytecodeStrings.runtimeWat(linked, runtimeDispatch));
         combinedWat.append(BytecodeTraces.runtimeWat(linked, runtimeDispatch));
         for (ClassNode cn : classes) {

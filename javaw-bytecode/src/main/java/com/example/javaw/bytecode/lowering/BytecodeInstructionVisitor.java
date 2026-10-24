@@ -838,6 +838,13 @@ public class BytecodeInstructionVisitor {
             return;
         }
 
+        if (dispatch != null && dispatch.isIdentityHashIntrinsic(minsn)) {
+            emit("local.get " + argVars.get(0));
+            emit("call $__identity_hash");
+            emit("local.set " + stack.push("i32"));
+            return;
+        }
+
         String intrinsic = dispatch == null ? null : dispatch.exceptionSupportIntrinsic(minsn);
         if (intrinsic != null) {
             for (String argument : argVars) emit("local.get " + argument);
