@@ -62,7 +62,7 @@ class BytecodeDeclarationsTest implements Opcodes {
         rejects(n -> {
             n.access |= ACC_INTERFACE | ACC_ABSTRACT; n.version = V1_8;
             n.methods.add(new MethodNode(ACC_PRIVATE, "bad", "()V", null, null));
-        }, "require Java 9");
+        }, "concrete method requires a Code body");
     }
 
     @Test void rejectsInvalidMemberNamesIncludingUnusedDeclarations() {

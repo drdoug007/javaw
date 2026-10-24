@@ -93,8 +93,8 @@ final class BytecodeDeclarations implements Opcodes {
                 if (version != 0 && version < V1_8 && ((method.access & (ACC_PUBLIC | ACC_ABSTRACT)) != (ACC_PUBLIC | ACC_ABSTRACT)
                         || (method.access & ACC_STATIC) != 0))
                     fail(owner, "pre-Java-8 interface methods must be public abstract: " + label);
-                if (version != 0 && version < V9 && (method.access & ACC_PRIVATE) != 0)
-                    fail(owner, "private interface methods require Java 9: " + label);
+                // Class-file version 52 permits private concrete interface methods, including
+                // javac 8 lambda helpers. Java source did not expose private methods until Java 9.
             }
         }
         for (MethodNode method : owner.methods) {

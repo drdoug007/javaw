@@ -3,6 +3,7 @@ import java.util.function.*;
 public final class Optional<T>{
  private static final Optional<?> EMPTY=new Optional<Object>(null);private final T value;private Optional(T value){this.value=value;}
  public static <T>Optional<T> empty(){return (Optional<T>)EMPTY;}public static <T>Optional<T> of(T value){return new Optional<T>(Objects.requireNonNull(value));}public static <T>Optional<T> ofNullable(T value){return value==null?Optional.<T>empty():new Optional<T>(value);}
+ public java.util.stream.Stream<T> stream(){return value==null?java.util.stream.Stream.<T>empty():java.util.stream.Stream.of(value);}
  public boolean isPresent(){return value!=null;}public boolean isEmpty(){return value==null;}public T get(){if(value==null)throw new NoSuchElementException("No value present");return value;}
  public void ifPresent(Consumer<? super T> action){if(value!=null)action.accept(value);}public void ifPresentOrElse(Consumer<? super T> action,Runnable empty){if(value!=null)action.accept(value);else empty.run();}
  public Optional<T> filter(Predicate<? super T> predicate){Objects.requireNonNull(predicate);return value==null || predicate.test(value)?this:Optional.<T>empty();}

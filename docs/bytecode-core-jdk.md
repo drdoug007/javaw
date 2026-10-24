@@ -108,3 +108,7 @@ Revision `big-integer-v61` links the [selected BigInteger APIs](bytecode-big-int
 ## BigDecimal and rounding foundation
 
 Revision `big-decimal-v62` links [selected BigDecimal and RoundingMode APIs](bytecode-big-decimal.md) as ordinary bytecode runtime classes. JVM/Wasm comparisons cover exact decimal arithmetic, preferred scales, rounding and numeric conversions, and selected original pinned Hibernate decimal coercion methods with their lambda/exception path. MathContext, engineering formatting, streams and full framework execution remain open.
+
+## Sequential reference streams
+
+Revision `reference-streams-v63` adds [lazy sequential reference streams and selected collectors](bytecode-reference-streams.md), including Collection/Arrays/Optional sources, short-circuiting, close/error paths, and execution of four unchanged pinned Micrometer utility classes. Primitive streams, spliterators, parallel execution, broader collector families and the other core-JDK gaps remain open.

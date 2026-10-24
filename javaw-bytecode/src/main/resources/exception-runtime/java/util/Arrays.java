@@ -5,6 +5,8 @@ public final class Arrays {
     public static <T>void sort(T[] values,Comparator<? super T> comparator){sort(values,0,values.length,comparator);}
     public static void sort(Object[] values){sort(values,(Comparator)null);}
     public static <T>void sort(T[] values,int start,int end,Comparator<? super T> comparator){if(start>end)throw new IllegalArgumentException();if(start<0 || end>values.length)throw new ArrayIndexOutOfBoundsException();for(int i=start+1;i<end;i++){T value=values[i];int j=i;while(j>start && (comparator==null?((Comparable<T>)values[j-1]).compareTo(value):comparator.compare(values[j-1],value))>0){values[j]=values[j-1];j--;}values[j]=value;}}
+    public static <T> java.util.stream.Stream<T> stream(T[] values){return java.util.stream.ReferenceStream.array(values,0,values.length);}
+    public static <T> java.util.stream.Stream<T> stream(T[] values,int start,int end){return java.util.stream.ReferenceStream.array(values,start,end);}
     private Arrays(){}
     public static <T>List<T> asList(T... values){if(values==null)throw new NullPointerException();return new ArrayView<T>(values);}
     private static final class ArrayView<E> extends AbstractList<E> implements RandomAccess,java.io.Serializable{
