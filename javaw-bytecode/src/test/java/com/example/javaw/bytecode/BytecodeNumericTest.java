@@ -152,6 +152,21 @@ int hash=1;long[] values={0,1,-1,2,-2,7,-7,2147483647L,-2147483648L,4294967295L,
             """); compare(List.of("run"));
     }
 
+    @Test void extremaAndSigns() throws Exception {
+        fixture("""
+            public class Metadata { public static int run() {
+int hash=1;double[] values={0.0,-0.0,1,-1,Double.MIN_VALUE,-Double.MIN_VALUE,Double.MAX_VALUE,-Double.MAX_VALUE,Double.POSITIVE_INFINITY,Double.NEGATIVE_INFINITY,Double.NaN};
+ for(double a:values){hash=31*hash+Double.hashCode(Math.abs(a));hash=31*hash+Float.hashCode(Math.abs((float)a));hash=31*hash+Double.hashCode(Math.signum(a));hash=31*hash+Float.hashCode(Math.signum((float)a));
+ for(double b:values){hash=31*hash+Double.hashCode(Math.min(a,b));hash=31*hash+Double.hashCode(Math.max(a,b));hash=31*hash+Double.hashCode(Math.copySign(a,b));
+ hash=31*hash+Float.hashCode(Math.min((float)a,(float)b));hash=31*hash+Float.hashCode(Math.max((float)a,(float)b));hash=31*hash+Float.hashCode(Math.copySign((float)a,(float)b));}}
+ for(long a:new long[]{0,1,-1,Long.MIN_VALUE,Long.MAX_VALUE,Integer.MIN_VALUE,Integer.MAX_VALUE}){hash+=Long.hashCode(Math.abs(a))+Math.abs((int)a);
+ try{hash+=Long.hashCode(Math.absExact(a));}catch(ArithmeticException e){hash+=7;}
+ try{hash+=Math.absExact((int)a);}catch(ArithmeticException e){hash+=11;}}
+ return hash;
+            }}
+            """); compare(List.of("run"));
+    }
+
     private void compare(List<String> names) throws Exception {
         StringBuilder assertions=new StringBuilder();
         try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)){

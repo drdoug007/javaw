@@ -39,4 +39,20 @@ public final class Math {
     public static long floorMod(long a,long b){long remainder=a%b;return remainder!=0 && (a^b)<0?remainder+b:remainder;}
     public static int floorMod(long a,int b){return (int)floorMod(a,(long)b);}
 
+
+    public static int abs(int value){return value<0?-value:value;}
+    public static long abs(long value){return value<0?-value:value;}
+    public static int absExact(int value){return value<0?negateExact(value):value;}
+    public static long absExact(long value){return value<0?negateExact(value):value;}
+    public static float abs(float value){return Float.intBitsToFloat(Float.floatToRawIntBits(value)&0x7fffffff);}
+    public static double abs(double value){return Double.longBitsToDouble(Double.doubleToRawLongBits(value)&0x7fffffffffffffffL);}
+    public static float max(float a,float b){if(a!=a)return a;if(a==0 && b==0 && Float.floatToRawIntBits(a)<0)return b;return a>=b?a:b;}
+    public static double max(double a,double b){if(a!=a)return a;if(a==0 && b==0 && Double.doubleToRawLongBits(a)<0)return b;return a>=b?a:b;}
+    public static float min(float a,float b){if(a!=a)return a;if(a==0 && b==0 && Float.floatToRawIntBits(b)<0)return b;return a<=b?a:b;}
+    public static double min(double a,double b){if(a!=a)return a;if(a==0 && b==0 && Double.doubleToRawLongBits(b)<0)return b;return a<=b?a:b;}
+    public static float copySign(float magnitude,float sign){return Float.intBitsToFloat((Float.floatToRawIntBits(magnitude)&0x7fffffff)|(Float.floatToRawIntBits(sign)&0x80000000));}
+    public static double copySign(double magnitude,double sign){return Double.longBitsToDouble((Double.doubleToRawLongBits(magnitude)&0x7fffffffffffffffL)|(Double.doubleToRawLongBits(sign)&0x8000000000000000L));}
+    public static float signum(float value){return value==0 || value!=value?value:value<0?-1:1;}
+    public static double signum(double value){return value==0 || value!=value?value:value<0?-1:1;}
+
 }

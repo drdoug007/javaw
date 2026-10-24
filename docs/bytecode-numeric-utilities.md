@@ -29,3 +29,7 @@ Int/long multiplyExact (including mixed long/int), multiplyFull and signed multi
 ## 7. Math floor division and modulus
 
 All Java 17 int/long/mixed floorDiv and floorMod overloads preserve divisor-sign remainders, signed overflow behavior and catchable zero-divisor failures. JVM/Wasm tests cross positive/negative and width-boundary values. Revision `floor-division-v57`. `BytecodeNumericTest` compares javac-produced bytecode on the JVM and in Node/Wasm, in both JAR orders and two independent instances. Other APIs remain subject to admission diagnostics.
+
+## 8. Math absolute values, extrema and signs
+
+Int/long abs preserve Java minimum-value overflow; absExact throws. Float/double abs/min/max/copySign/signum preserve signed zero, infinities and NaN behavior. JVM/Wasm comparisons hash canonical NaNs and distinguish both zero signs; no NaN payload guarantee is claimed. Revision `numeric-signs-v58`. `BytecodeNumericTest` compares javac-produced bytecode on the JVM and in Node/Wasm, in both JAR orders and two independent instances. Other APIs remain subject to admission diagnostics.
