@@ -4,7 +4,7 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.*;
 import java.util.*;
 
-/** Closed-world public dispatch and statically bound private calls in validated nests. */
+/** Closed-world virtual dispatch with method access, override slots, and validated private nests. */
 public final class BytecodeDispatch {
     private final Map<String, ClassNode> linked;
     private final String caller;
@@ -118,6 +118,66 @@ public final class BytecodeDispatch {
         return TypeHelper.getMethodFunctionName(target.owner, call.name, call.desc);
     }
 
+    private boolean crossPackageProtected(Declaration method) {
+        return (method.method.access & Opcodes.ACC_PROTECTED) != 0 && caller != null
+                && !packageName(method.owner).equals(packageName(caller));
+    }
+
+    private void checkVirtualAccess(Declaration method) {
+        if ((method.method.access & Opcodes.ACC_PUBLIC) != 0) return;
+        if ((method.method.access & Opcodes.ACC_PRIVATE) != 0) {
+            checkPrivateAccess(method.owner);
+            return;
+        }
+        if (caller != null && packageName(caller).equals(packageName(method.owner))) return;
+        if (crossPackageProtected(method) && subtype(caller, method.owner, new HashSet<>())) return;
+        throw new IllegalArgumentException("inaccessible protected/package virtual method " + method.owner
+                + "; call from the declaring package or an eligible protected subclass");
+    }
+
+    private Declaration ownMethod(String name, String method, String descriptor) {
+        ClassNode type = linked.get(name);
+        if (type == null) return null;
+        for (MethodNode candidate : type.methods)
+            if (candidate.name.equals(method) && candidate.desc.equals(descriptor)) return new Declaration(name, candidate);
+        return null;
+    }
+
+    private Declaration virtualImplementation(String receiver, Declaration resolved) {
+        if ((linked.get(resolved.owner).access & Opcodes.ACC_INTERFACE) != 0) {
+            Declaration implementation = declaration(receiver, resolved.method.name, resolved.method.desc, new HashSet<>());
+            return implementation == null ? interfaceMethod(receiver, resolved.method.name, resolved.method.desc) : implementation;
+        }
+        List<String> path = new ArrayList<>();
+        String current = receiver;
+        while (!current.equals(resolved.owner)) {
+            ClassNode type = linked.get(current);
+            if (type == null || path.contains(current))
+                throw new IllegalArgumentException("link the complete receiver superclass chain through " + resolved.owner);
+            path.add(current);
+            current = type.superName;
+            if (current == null) throw new IllegalArgumentException("receiver does not extend " + resolved.owner);
+        }
+        Declaration selected = resolved;
+        Collections.reverse(path);
+        for (String name : path) {
+            Declaration candidate = ownMethod(name, resolved.method.name, resolved.method.desc);
+            if (candidate == null || (candidate.method.access & (Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC)) != 0) continue;
+            // A different-package same-named method does not override a package-private slot.
+            // Once a same-package override widens access, subsequent overrides are transitive.
+            if ((selected.method.access & (Opcodes.ACC_PUBLIC | Opcodes.ACC_PROTECTED)) != 0
+                    || packageName(selected.owner).equals(packageName(candidate.owner))) {
+                int access = candidate.method.access;
+                if ((selected.method.access & Opcodes.ACC_PUBLIC) != 0 && (access & Opcodes.ACC_PUBLIC) == 0
+                        || (selected.method.access & Opcodes.ACC_PROTECTED) != 0
+                        && (access & (Opcodes.ACC_PUBLIC | Opcodes.ACC_PROTECTED)) == 0)
+                    throw new IllegalArgumentException("override reduces virtual method visibility in " + candidate.owner);
+                selected = candidate;
+            }
+        }
+        return selected;
+    }
+
     public Map<Integer, String> targets(MethodInsnNode call) {
         ClassNode owner = linked.get(call.owner);
         boolean interfaceCall = call.getOpcode() == Opcodes.INVOKEINTERFACE;
@@ -125,24 +185,24 @@ public final class BytecodeDispatch {
             throw new IllegalArgumentException("link the declaring class/interface in the same module");
         Declaration declared = declaration(call.owner, call.name, call.desc, new HashSet<>());
         if (declared == null) declared = interfaceMethod(call.owner, call.name, call.desc);
-        if (declared == null || (declared.method.access & (Opcodes.ACC_PUBLIC | Opcodes.ACC_PRIVATE)) == 0
-                || (declared.method.access & Opcodes.ACC_STATIC) != 0)
-            throw new IllegalArgumentException("use public methods or accessible private helpers; protected/package virtual calls are unavailable");
+        if (declared == null || (declared.method.access & Opcodes.ACC_STATIC) != 0)
+            throw new IllegalArgumentException("link a matching instance method in the declaring hierarchy");
+        checkVirtualAccess(declared);
         boolean privateCall = (declared.method.access & Opcodes.ACC_PRIVATE) != 0;
-        if (privateCall) checkPrivateAccess(declared.owner);
         Map<Integer, String> result = new LinkedHashMap<>();
         for (var entry : classIds.entrySet()) {
             ClassNode type = linked.get(entry.getKey());
             if ((type.access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_INTERFACE)) != 0
                     || !subtype(type.name, call.owner, new HashSet<>())) continue;
+            // The JVM protected receiver rule applies outside the declaring package.
+            if (crossPackageProtected(declared) && !subtype(type.name, caller, new HashSet<>())) continue;
             // Private methods never participate in overriding, even on a subclass receiver.
-            Declaration implementation = privateCall ? declared : declaration(type.name, call.name, call.desc, new HashSet<>());
-            // Every class declaration takes precedence, even an abstract one.
-            if (implementation == null) implementation = interfaceMethod(type.name, call.name, call.desc);
+            Declaration implementation = privateCall ? declared : virtualImplementation(type.name, declared);
             if (!layouts.contains(type.name) || implementation == null
-                    || (implementation.method.access & (privateCall ? Opcodes.ACC_PRIVATE : Opcodes.ACC_PUBLIC)) == 0
+                    || (!privateCall && (declared.method.access & Opcodes.ACC_PUBLIC) != 0
+                        && (implementation.method.access & Opcodes.ACC_PUBLIC) == 0)
                     || (implementation.method.access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_STATIC | Opcodes.ACC_NATIVE)) != 0)
-                throw new IllegalArgumentException("link a complete hierarchy and public concrete class/default implementation for "
+                throw new IllegalArgumentException("link a complete hierarchy and accessible concrete class/default implementation for "
                         + type.name + "." + call.name + call.desc + "; implement abstract or re-abstracted methods");
             result.put(entry.getValue(), TypeHelper.getMethodFunctionName(implementation.owner, call.name, call.desc));
         }

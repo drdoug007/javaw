@@ -278,11 +278,11 @@ class BytecodeCompatibilityTest {
 
     @Test void diagnosesUnsupportedDynamicCalls() throws Exception {
         for (String source : new String[]{
-                "public class Fixture { protected int value(){return 1;} public static int call(Fixture f){return f.value();} }",
+                "public class Fixture { public static int call(Unlinked f){return f.value();} } class Unlinked { public int value(){return 1;} }",
                 "public class Fixture { public static int call(View v){return v.value();} } interface View {default int value(){return 1;} }",
                 "public class Fixture { public static int call(Missing v){return v.value();} } interface Missing {int value();}"}) {
             var bytes=fixture(source);
-            // Only Fixture is linked: the last two cases also exercise unlinked interface diagnostics.
+            // Only Fixture is linked; class and interface owners must be linked explicitly.
             var error=assertThrows(IllegalArgumentException.class, () -> BytecodeCompiler.compileClass(bytes));
             assertTrue(error.getMessage().contains("unsupported dynamic call"),error.getMessage());
             assertTrue(error.getMessage().contains("Fixture.java:"),error.getMessage());
@@ -517,6 +517,144 @@ class BytecodeCompatibilityTest {
                     () -> new ClassBytecodeCompiler(caller).compileToWat(linked));
             assertTrue(error.getMessage().contains("Caller.java:"),error.getMessage());
             assertTrue(error.getMessage().contains("reciprocal same-package"),error.getMessage());
+        }
+    }
+
+    private void compileAccessFixtures() throws Exception {
+        var sources=java.util.Map.ofEntries(
+            java.util.Map.entry("p/Base.java", """
+                package p;
+                public class Base {
+                    int hidden() { return 1; }
+                    protected int value() { return 2; }
+                    public int invokeHidden() { return hidden(); }
+                    public int invokeValue() { return value(); }
+                }
+                """),
+            java.util.Map.entry("q/Outsider.java", """
+                package q;
+                public class Outsider extends p.Base {
+                    public int hidden() { return 30; }
+                    public int value() { return 40; }
+                }
+                """),
+            java.util.Map.entry("p/Back.java", "package p; public class Back extends q.Outsider { public int hidden(){return 5;} }"),
+            java.util.Map.entry("p/Bridge.java", "package p; public class Bridge extends Base { public int hidden(){return 6;} }"),
+            java.util.Map.entry("q/BridgeChild.java", "package q; public class BridgeChild extends p.Bridge { public int hidden(){return 7;} }"),
+            java.util.Map.entry("q/NoBridgeChild.java", "package q; public class NoBridgeChild extends Outsider { public int hidden(){return 50;} }"),
+            java.util.Map.entry("r/Leaf.java", "package r; public class Leaf extends p.Back { public int hidden(){return 8;} }"),
+            java.util.Map.entry("p/PackageCaller.java", """
+                package p;
+                public class PackageCaller {
+                    public static int hidden(Base value) { return value.hidden(); }
+                    public static int protectedCall(Base value) { return value.value(); }
+                }
+                """),
+            java.util.Map.entry("q/ProtectedCaller.java", """
+                package q;
+                public class ProtectedCaller extends p.Base {
+                    protected int value() { return 90; }
+                    public static int call(ProtectedCaller receiver) { return receiver.value(); }
+                }
+                """),
+            java.util.Map.entry("q/ProtectedLeaf.java", "package q; public class ProtectedLeaf extends ProtectedCaller { public int value(){return 91;} }"),
+            java.util.Map.entry("Fixture.java", """
+                public class Fixture {
+                    public static p.Base make(int kind) {
+                        if(kind==0) return new q.Outsider();
+                        if(kind==1) return new p.Back();
+                        if(kind==2) return new q.BridgeChild();
+                        if(kind==3) return new q.NoBridgeChild();
+                        if(kind==4) return new r.Leaf();
+                        if(kind==5) return new q.ProtectedCaller();
+                        if(kind==6) return new q.ProtectedLeaf();
+                        return new p.Base();
+                    }
+                    public static int baseSlot(p.Base value) { return value.invokeHidden(); }
+                    public static int otherSlot() { q.Outsider value=new q.NoBridgeChild(); return value.hidden(); }
+                }
+                """));
+        var arguments=new java.util.ArrayList<String>(java.util.List.of("-g","-d",directory.toString()));
+        for(var source:sources.entrySet()) {
+            Path file=directory.resolve(source.getKey()); Files.createDirectories(file.getParent());
+            Files.writeString(file,source.getValue()); arguments.add(file.toString());
+        }
+        assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,arguments.toArray(String[]::new)));
+    }
+
+    private String linkAccessFixtures() throws Exception {
+        return linkJar("Fixture", "r/Leaf", "q/NoBridgeChild", "q/BridgeChild", "p/Bridge", "p/Back",
+                "q/Outsider", "q/ProtectedLeaf", "q/ProtectedCaller", "p/PackageCaller", "p/Base");
+    }
+
+    @Test void executesPackageSlotsAcrossPackagesAndTransitiveOverrides() throws Exception {
+        compileAccessFixtures();
+        Path oracle=directory.resolve("Oracle.java");
+        Files.writeString(oracle,"""
+            public class Oracle {
+                public static void main(String[] args) {
+                    for(int kind=0;kind<8;kind++) {
+                        p.Base value=Fixture.make(kind);
+                        System.out.println(Fixture.baseSlot(value));
+                        System.out.println(p.PackageCaller.hidden(value));
+                    }
+                }
+            }
+            """);
+        assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,"-cp",directory.toString(),
+                "-d",directory.toString(),oracle.toString()));
+        run("java","-cp",directory.toString(),"Oracle");
+        var results=Files.readAllLines(directory.resolve("command.log")).stream().map(Integer::parseInt)
+                .map(String::valueOf).toList();
+        assertEquals(16,results.size());
+        execute(linkAccessFixtures(), "const expected=["+String.join(",",results)+"];\n"+"""
+            for(let kind=0;kind<8;kind++) {
+                const value=e['Fixture.make'](kind);
+                assert.equal(e['Fixture.baseSlot'](value),expected[kind*2]);
+                assert.equal(e['p.PackageCaller.hidden'](value),expected[kind*2+1]);
+            }
+            assert.equal(e['Fixture.otherSlot'](),50);
+            assert.equal(e['p.PackageCaller.protectedCall'](e['Fixture.make'](0)),40);
+            assert.equal(e['p.PackageCaller.protectedCall'](e['Fixture.make'](7)),2);
+            assert.equal(e['q.ProtectedCaller.call'](e['Fixture.make'](5)),90);
+            assert.equal(e['q.ProtectedCaller.call'](e['Fixture.make'](6)),91);
+            """);
+    }
+
+    @Test void restrictsCrossPackageProtectedReceivers() throws Exception {
+        compileAccessFixtures();
+        ClassNode caller=new ClassNode();
+        Path file=directory.resolve("q/ProtectedCaller.class");
+        new ClassReader(Files.readAllBytes(file)).accept(caller,0);
+        MethodNode method=caller.methods.stream().filter(m -> m.name.equals("call")).findFirst().orElseThrow();
+        // Name the superclass symbol explicitly to expose the JVM receiver restriction.
+        method.desc="(Lp/Base;)I";
+        for(AbstractInsnNode instruction:method.instructions)
+            if(instruction instanceof MethodInsnNode call && call.name.equals("value")) call.owner="p/Base";
+        ClassWriter writer=new ClassWriter(0); caller.accept(writer); Files.write(file,writer.toByteArray());
+        execute(linkAccessFixtures(), """
+            assert.equal(e['q.ProtectedCaller.call'](e['Fixture.make'](5)),90);
+            assert.equal(e['q.ProtectedCaller.call'](e['Fixture.make'](6)),91);
+            for(const kind of [0,1,2,3,4,7])
+                assert.throws(()=>e['q.ProtectedCaller.call'](e['Fixture.make'](kind)),WebAssembly.RuntimeError);
+            assert.throws(()=>e['q.ProtectedCaller.call'](0),WebAssembly.RuntimeError);
+            """);
+    }
+
+    @Test void diagnosesInaccessibleProtectedAndPackageVirtualCalls() throws Exception {
+        compileAccessFixtures();
+        byte[] bytes=Files.readAllBytes(directory.resolve("Fixture.class"));
+        for(String methodName:new String[]{"hidden", "value"}) {
+            ClassNode caller=new ClassNode(); new ClassReader(bytes).accept(caller,0);
+            MethodNode method=caller.methods.stream().filter(m -> m.name.equals("baseSlot")).findFirst().orElseThrow();
+            for(AbstractInsnNode instruction:method.instructions)
+                if(instruction instanceof MethodInsnNode call && call.name.equals("invokeHidden")) call.name=methodName;
+            ClassWriter writer=new ClassWriter(0); caller.accept(writer);
+            Files.write(directory.resolve("Fixture.class"),writer.toByteArray());
+            var error=assertThrows(IllegalArgumentException.class, this::linkAccessFixtures);
+            assertTrue(error.getMessage().contains("Fixture.java:"),error.getMessage());
+            assertTrue(error.getMessage().contains("Fixture.baseSlot(Lp/Base;)I"),error.getMessage());
+            assertTrue(error.getMessage().contains("inaccessible protected/package"),error.getMessage());
         }
     }
 
