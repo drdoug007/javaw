@@ -12,7 +12,7 @@ final class BytecodeTraces {
 
     static boolean instrument(ClassNode type,MethodNode method,Map<String,ClassNode> linked) {
         if(!BytecodeExceptionRuntime.enabled(linked) || type.name.startsWith("java/lang/") || type.name.startsWith("javaw/runtime/")
-                || (method.access & (Opcodes.ACC_ABSTRACT|Opcodes.ACC_NATIVE))!=0)return false;
+                || (!method.name.equals("<clinit>") && (method.access & (Opcodes.ACC_ABSTRACT|Opcodes.ACC_NATIVE))!=0))return false;
         if(method.name.equals("<init>")) {
             ClassNode parent=type;Set<String> visited=new HashSet<>();
             while(parent!=null && visited.add(parent.name)) {

@@ -13,7 +13,7 @@ public final class BytecodeExceptionRuntime {
             + "VirtualMachineError OutOfMemoryError StackOverflowError NullPointerException ClassCastException ArithmeticException "
             + "IndexOutOfBoundsException ArrayIndexOutOfBoundsException ArrayStoreException NegativeArraySizeException "
             + "IllegalArgumentException IllegalStateException IncompatibleClassChangeError AbstractMethodError IllegalAccessError "
-            + "NoSuchMethodError NoSuchFieldError NoClassDefFoundError InstantiationError UnsatisfiedLinkError").split(" ");
+            + "ExceptionInInitializerError NoSuchMethodError NoSuchFieldError NoClassDefFoundError InstantiationError UnsatisfiedLinkError").split(" ");
 
     private BytecodeExceptionRuntime() {}
 

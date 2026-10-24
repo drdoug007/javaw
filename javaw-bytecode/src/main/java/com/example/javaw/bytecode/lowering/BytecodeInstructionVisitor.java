@@ -541,6 +541,7 @@ public class BytecodeInstructionVisitor {
 
             case Opcodes.NEW:
                 TypeInsnNode newInsn = (TypeInsnNode) insn;
+                if (dispatch != null) emit(dispatch.initializationCall(newInsn.desc));
                 String newRef = stack.push("i32");
                 Integer objectSize = objectSizes.get(newInsn.desc);
                 if (objectSize == null) throw new IllegalArgumentException("Missing object layout: " + newInsn.desc);
@@ -600,6 +601,7 @@ public class BytecodeInstructionVisitor {
 
             case Opcodes.GETSTATIC:
                 FieldInsnNode getStatic = (FieldInsnNode) insn;
+                emit(dispatch.initializationCall(dispatch.fieldOwner(getStatic)));
                 String gName = TypeHelper.getGlobalFieldName(dispatch.fieldOwner(getStatic), getStatic.name, getStatic.desc);
                 String pushedStatic = stack.push(TypeHelper.getWasmType(getStatic.desc));
                 emit("global.get " + gName);
@@ -608,6 +610,7 @@ public class BytecodeInstructionVisitor {
 
             case Opcodes.PUTSTATIC:
                 FieldInsnNode putStatic = (FieldInsnNode) insn;
+                emit(dispatch.initializationCall(dispatch.fieldOwner(putStatic)));
                 String psName = TypeHelper.getGlobalFieldName(dispatch.fieldOwner(putStatic), putStatic.name, putStatic.desc);
                 String poppedStatic = stack.pop();
                 emit("local.get " + poppedStatic);

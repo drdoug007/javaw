@@ -19,6 +19,7 @@ public final class BytecodeStrings {
         for(ClassNode type:linked.values()) {
             constants.add(type.name.replace('/','.'));
             if(type.sourceFile!=null)constants.add(type.sourceFile);
+            for(FieldNode field:type.fields) if(field.value instanceof String text)constants.add(text);
             for(MethodNode method:type.methods) {
                 constants.add(method.name);
                 for(AbstractInsnNode instruction:method.instructions)

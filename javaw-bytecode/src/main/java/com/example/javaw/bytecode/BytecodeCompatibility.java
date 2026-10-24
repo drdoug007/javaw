@@ -54,7 +54,8 @@ final class BytecodeCompatibility {
             dispatch.validateOverrides(declaration);
         Map<String, Integer> offsets = layouts.offsets();
         for (FieldNode field : owner.fields) {
-            if (field.value != null && !numericConstant(field.value))
+            if (field.value != null && !numericConstant(field.value)
+                    && !(field.value instanceof String && BytecodeExceptionRuntime.enabled(linked)))
                 throw failure(owner, null, null, "ConstantValue field " + field.name + field.desc,
                         "only numeric constant fields are supported; use source compilation for other constants");
             if ((field.access & Opcodes.ACC_VOLATILE) != 0 || !valueType(Type.getType(field.desc)))
@@ -64,11 +65,14 @@ final class BytecodeCompatibility {
         BytecodeLinkage.validateDescriptors(linked);
         Set<String> exports = new HashSet<>();
         for (MethodNode method : owner.methods) {
-            if (method.name.equals("<clinit>"))
-                throw failure(owner, method, null, "class initializer", "use an explicit initialization entry point; automatic JVM initialization is unavailable");
-            if ((method.access & (Opcodes.ACC_NATIVE | Opcodes.ACC_SYNCHRONIZED)) != 0)
+            if (method.name.equals("<clinit>") && !method.desc.equals("()V"))
+                throw failure(owner, method, null, "legacy class initializer descriptor",
+                        "recompile class initializers with the modern ()V descriptor");
+            if (method.name.equals("<clinit>") && !BytecodeExceptionRuntime.enabled(linked))
+                throw failure(owner, method, null, "class initializer", "select the bundled exception runtime for automatic single-threaded class initialization");
+            if (!method.name.equals("<clinit>") && (method.access & (Opcodes.ACC_NATIVE | Opcodes.ACC_SYNCHRONIZED)) != 0)
                 throw failure(owner, method, null, "native/synchronized method", "provide a supported source or explicit host adapter");
-            if ((method.access & Opcodes.ACC_ABSTRACT) != 0) continue;
+            if (!method.name.equals("<clinit>") && (method.access & Opcodes.ACC_ABSTRACT) != 0) continue;
             if ((method.access & Opcodes.ACC_PUBLIC) != 0 && !exports.add(method.name) && !BytecodeExceptionRuntime.enabled(linked))
                 throw failure(owner, method, null, "overloaded public export", "use unique public entry-point names");
             if (!method.tryCatchBlocks.isEmpty()) {

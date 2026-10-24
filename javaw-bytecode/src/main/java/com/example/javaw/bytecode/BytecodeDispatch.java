@@ -142,6 +142,12 @@ public final class BytecodeDispatch {
         return BytecodeArrays.isArraycopy(call) && !linked.containsKey(call.owner);
     }
 
+    /** Active-use initialization is available with the isolated exception runtime. */
+    public String initializationCall(String owner) {
+        return exceptionRuntimeEnabled() && linked.containsKey(owner)
+                ? "call " + BytecodeInitialization.symbol(owner) : "";
+    }
+
     public boolean exceptionRuntimeEnabled() { return BytecodeExceptionRuntime.enabled(linked); }
 
     public String exceptionSupportIntrinsic(MethodInsnNode call) {

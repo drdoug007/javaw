@@ -66,6 +66,8 @@ public class ClassBytecodeCompiler {
         if (includeNumericRuntime && BytecodeArrays.usesRuntime(classNode))
             wat.append(BytecodeArrays.runtimeWat(dispatch)).append(dispatch.referenceArrayRuntimeWat()).append(dispatch.multiArrayRuntimeWat());
 
+        wat.append(BytecodeInitialization.runtimeWat(classNode, linked));
+
         // Collect fields
         for (FieldNode fn : classNode.fields) {
             boolean isStatic = (fn.access & Opcodes.ACC_STATIC) != 0;
@@ -74,13 +76,13 @@ public class ClassBytecodeCompiler {
                 String wasmType = TypeHelper.getWasmType(fn.desc);
                 globalVariables.add(gName);
                 wat.append("    (global ").append(gName).append(" (mut ").append(wasmType != null ? wasmType : "i32")
-                   .append(") (").append(wasmType != null ? wasmType : "i32").append(".const ").append(TypeHelper.watNumber(fn.value)).append("))\n");
+                   .append(") (").append(wasmType != null ? wasmType : "i32").append(".const ").append(BytecodeInitialization.constantValue(fn)).append("))\n");
             }
         }
 
         // Collect methods
         for (MethodNode mn : classNode.methods) {
-            if ((mn.access & Opcodes.ACC_ABSTRACT) != 0 || (mn.access & Opcodes.ACC_NATIVE) != 0) {
+            if (!mn.name.equals("<clinit>") && (mn.access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_NATIVE)) != 0) {
                 continue;
             }
             compileMethod(mn, wat);
@@ -91,13 +93,13 @@ public class ClassBytecodeCompiler {
     }
 
     private void compileMethod(MethodNode mn, StringBuilder wat) {
-        boolean isStatic = (mn.access & Opcodes.ACC_STATIC) != 0;
+        boolean isStatic = mn.name.equals("<clinit>") || (mn.access & Opcodes.ACC_STATIC) != 0;
         String funcName = TypeHelper.getMethodFunctionName(classNode.name, mn.name, mn.desc);
         List<String> paramTypes = TypeHelper.getParamWasmTypes(mn.desc);
         String retType = TypeHelper.getReturnWasmType(mn.desc);
 
         wat.append("    (func ").append(funcName);
-        if ((mn.access & Opcodes.ACC_PUBLIC) != 0) {
+        if ((mn.access & Opcodes.ACC_PUBLIC) != 0 && !mn.name.equals("<clinit>")) {
             String exportName = classNode.name.replace('/', '.') + "." + mn.name;
             if (classNode.methods.stream().filter(method -> method.name.equals(mn.name)
                     && (method.access & Opcodes.ACC_PUBLIC) != 0).count() > 1) exportName += mn.desc;
@@ -163,6 +165,9 @@ public class ClassBytecodeCompiler {
             wat.append("        local.set ").append(mapper.getLocalVar(lIdx, paramTypes.get(i))).append("\n");
             lIdx += org.objectweb.asm.Type.getArgumentTypes(mn.desc)[i].getSize();
         }
+
+        if (isStatic && !mn.name.equals("<clinit>"))
+            wat.append("        ").append(dispatch.initializationCall(classNode.name)).append("\n");
 
         boolean trace = BytecodeTraces.instrument(classNode, mn, linked);
         if (trace) wat.append("        i32.const ").append(BytecodeTraces.id(classNode, mn, linked)).append("\n        call $__trace_enter\n        try\n");

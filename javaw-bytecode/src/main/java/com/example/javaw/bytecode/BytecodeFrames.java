@@ -58,7 +58,7 @@ final class BytecodeFrames implements Opcodes {
         for (var entry : declarations.entrySet()) merge(entry.getKey(), entry.getValue().frame, entry.getValue().node);
         VerificationFrame initial = emptyFrame();
         int slot = 0;
-        if ((method.access & ACC_STATIC) == 0) {
+        if ((method.access & ACC_STATIC) == 0 && !method.name.equals("<clinit>")) {
             slot = parameter(initial, slot, Type.getObjectType(owner.name));
             if (method.name.equals("<init>")) {
                 initial.setLocal(0, verifier.uninitializedThis);
@@ -238,7 +238,7 @@ final class BytecodeFrames implements Opcodes {
 
     private List<Object> initialLocals() {
         List<Object> locals = new ArrayList<>();
-        if ((method.access & ACC_STATIC) == 0) locals.add(method.name.equals("<init>") ? UNINITIALIZED_THIS : owner.name);
+        if ((method.access & ACC_STATIC) == 0 && !method.name.equals("<clinit>")) locals.add(method.name.equals("<init>") ? UNINITIALIZED_THIS : owner.name);
         for (Type type : Type.getArgumentTypes(method.desc)) locals.add(switch (type.getSort()) {
             case Type.FLOAT -> FLOAT;
             case Type.LONG -> LONG;

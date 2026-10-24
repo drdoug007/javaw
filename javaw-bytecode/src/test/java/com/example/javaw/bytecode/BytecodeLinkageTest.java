@@ -87,6 +87,7 @@ class BytecodeLinkageTest implements Opcodes {
             assertDoesNotThrow(() -> BytecodeDeclarations.validate(node));
             assertTrue(assertThrows(IllegalArgumentException.class, () -> new ClassBytecodeCompiler(node).compileToWat())
                     .getMessage().contains("class initializer"));
+            assertDoesNotThrow(() -> BytecodeCompiler.compileClassWithExceptionRuntime(bytes(node)));
         }
     }
 
