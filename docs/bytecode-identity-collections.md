@@ -10,4 +10,4 @@ The library fixture executes the entire unchanged Hibernate Core 6.4.4.Final `or
 
 Sorted/navigable collections, synchronized wrappers, broader collection implementations, primitive streams and the core dependency reachability gate remain open. No concurrent-use, memory-reclamation or JDK complexity guarantee is added.
 
-Validation: all four focused identity tests and the independent Map::copyOf test pass. The final direct/method-reference allocation regressions also pass after the allocation-discovery refinement. The reviewed 63-JAR audit passes with unchanged dependency inventory. Full-suite validation is running on the combined changes; no broader milestone completion is inferred from these focused results.
+Validation: all four focused identity tests and the independent Map::copyOf test pass. The final combined `runtime-array-factories-v69` suite passes all 312 tests with zero failures, errors or skips, including the existing object/array identity regressions. The reviewed 63-JAR audit passes with unchanged dependency inventory. These results do not establish the broader core dependency reachability gate.

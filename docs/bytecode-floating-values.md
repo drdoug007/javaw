@@ -12,4 +12,4 @@ The H2 2.2.224 artifact hash is verified (`b9d8f19358ada82a4f6eb5b174c6cfe320a37
 
 Remaining core work includes Unicode/case and other String APIs, remaining audited numeric methods, collection families/wrappers, primitive streams/spliterators, broader collectors and the closure-wide reachability gate. Property lookup for Boolean.getBoolean belongs to the selected host/property contract and is not introduced here.
 
-Validation: all four focused floating-value tests pass. The full bytecode suite is also being run while the following collection increment is developed; its final result will be recorded with that increment. The reviewed 63-JAR audit differs only in compiler revision; dependency inventory counts are unchanged.
+Validation: all four focused floating-value tests pass. The final combined `runtime-array-factories-v69` bytecode suite passes all 312 tests with zero failures, errors or skips. The reviewed 63-JAR audit passes with unchanged dependency inventory; the baseline change is compiler revision only.
