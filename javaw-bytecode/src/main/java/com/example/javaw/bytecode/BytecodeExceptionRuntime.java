@@ -9,7 +9,7 @@ import java.util.*;
 /** Explicit, isolated exception runtime. Requires a JDK to compile its bundled Java sources once. */
 public final class BytecodeExceptionRuntime {
     private static Map<String,byte[]> compiled;
-    private static final String[] NAMES = ("NumberFormatException ReflectiveOperationException InstantiationException NoSuchFieldException NoSuchMethodException IllegalAccessException Deprecated FunctionalInterface SafeVarargs ClassFormatError TypeNotPresentException EnumConstantNotPresentException Enum ClassLoader AutoCloseable Cloneable CloneNotSupportedException Class Record Comparable Number Boolean Byte Character Short Integer Long Float Double Void Throwable CharSequence StringIndexOutOfBoundsException StringBuilder String StackTraceElement Exception RuntimeException Error LinkageError "
+    private static final String[] NAMES = ("Iterable NumberFormatException ReflectiveOperationException InstantiationException NoSuchFieldException NoSuchMethodException IllegalAccessException Deprecated FunctionalInterface SafeVarargs ClassFormatError TypeNotPresentException EnumConstantNotPresentException Enum ClassLoader AutoCloseable Cloneable CloneNotSupportedException Class Record Comparable Number Boolean Byte Character Short Integer Long Float Double Void Throwable CharSequence StringIndexOutOfBoundsException StringBuilder String StackTraceElement Exception RuntimeException Error LinkageError "
             + "VirtualMachineError InternalError OutOfMemoryError StackOverflowError NullPointerException ClassCastException ArithmeticException "
             + "IndexOutOfBoundsException ArrayIndexOutOfBoundsException ArrayStoreException NegativeArraySizeException "
             + "IllegalArgumentException IllegalStateException UnsupportedOperationException IncompatibleClassChangeError AbstractMethodError IllegalAccessError "
@@ -55,6 +55,7 @@ public final class BytecodeExceptionRuntime {
             paths.add("java/lang/reflect/Executable.java");
             paths.add("java/lang/reflect/Parameter.java");
             for(String name:List.of("Type","GenericDeclaration","ParameterizedType","TypeVariable","GenericArrayType","WildcardType","GenericSignatureFormatError","AnnotatedType","AnnotatedArrayType","AnnotatedParameterizedType","AnnotatedWildcardType","AnnotatedTypeVariable"))paths.add("java/lang/reflect/"+name+".java");
+            for(String name:List.of("Iterator","ListIterator","Collection","List","RandomAccess","AbstractCollection","AbstractList","ArrayList","Collections","ConcurrentModificationException","NoSuchElementException"))paths.add("java/util/"+name+".java");
             paths.add("javaw/runtime/IntegralNumbers.java");
             paths.add("javaw/runtime/GenericSignatures.java");
             paths.add("javaw/runtime/AnnotatedTypes.java");

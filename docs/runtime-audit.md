@@ -59,3 +59,7 @@ Validation: all 242 bytecode tests pass; the reviewed 63-JAR audit baseline pass
 Revision `integral-values-v47` supplies integral parsing/formatting found in the member inventory, including Logback FormatInfo.valueOf, H2 and Spring/Hibernate conversion paths. Tests execute the unchanged pinned Logback FormatInfo class with the bundled wrappers and compare its actual parsing, value and failure semantics. This does not prove the other enclosing framework callers execute. See [the integral conversion contract](bytecode-core-jdk.md#integral-wrappers-and-radix-conversion).
 
 Validation: all 244 bytecode tests pass; the reviewed 63-JAR audit baseline passes with unchanged inventory counts and revision `integral-values-v47`.
+
+Revision `array-lists-v48` begins the collection APIs identified in member references: ArrayList construction, add/addAll, access/removal and List/Collection iterator operations. Tests execute the unchanged pinned Byte Buddy CompoundList class with all public composition overloads, including singleton fast paths and mutable copies. [The list contract](bytecode-core-jdk.md#lists-and-iterators) distinguishes this utility execution from broader Byte Buddy/framework startup and records remaining collection blockers.
+
+Validation: all 246 bytecode tests pass; the reviewed 63-JAR audit baseline passes with unchanged inventory counts and revision `array-lists-v48`.
