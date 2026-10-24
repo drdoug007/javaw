@@ -29,6 +29,15 @@ public final class BytecodeDispatch {
         return slash < 0 ? "" : name.substring(0, slash);
     }
 
+    /** JVM class accessibility uses public/package access on the symbolic class name. */
+    void checkClassAccess(String name) {
+        ClassNode type = linked.get(name);
+        if (type == null) throw new IllegalArgumentException("link the symbolic class/interface " + name);
+        if ((type.access & Opcodes.ACC_PUBLIC) == 0 && caller != null
+                && !packageName(name).equals(packageName(caller)))
+            throw new IllegalArgumentException("inaccessible symbolic class/interface " + name);
+    }
+
     private boolean nestMember(ClassNode host, ClassNode member) {
         if (!packageName(host.name).equals(packageName(member.name))) return false;
         if (member.name.equals(host.name)) return member.nestHostClass == null;
@@ -60,9 +69,7 @@ public final class BytecodeDispatch {
             ClassNode type = linked.get(target);
             if (type == null || target.startsWith("["))
                 throw new IllegalArgumentException("link the type-test class/interface; array type tests are unsupported");
-            if ((type.access & Opcodes.ACC_PUBLIC) == 0 && caller != null
-                    && !packageName(caller).equals(packageName(target)))
-                throw new IllegalArgumentException("type-test target is inaccessible outside its package");
+            checkClassAccess(target);
         }
         Set<Integer> result = new LinkedHashSet<>();
         for (var entry : classIds.entrySet()) {
@@ -109,8 +116,7 @@ public final class BytecodeDispatch {
     private FieldDeclaration fieldDeclaration(FieldInsnNode access) {
         ClassNode symbolic = linked.get(access.owner);
         if (symbolic == null) throw new IllegalArgumentException("link the field owner " + access.owner);
-        if ((symbolic.access & Opcodes.ACC_PUBLIC) == 0 && !packageName(access.owner).equals(packageName(caller)))
-            throw new IllegalArgumentException("inaccessible field owner " + access.owner);
+        checkClassAccess(access.owner);
         FieldDeclaration resolved = resolveField(access.owner, access.name, access.desc, new HashSet<>());
         if (resolved == null) throw new IllegalArgumentException("link a matching field declaration");
         boolean isStatic = access.getOpcode() == Opcodes.GETSTATIC || access.getOpcode() == Opcodes.PUTSTATIC;
@@ -206,9 +212,7 @@ public final class BytecodeDispatch {
         ClassNode symbolic = linked.get(call.owner);
         if (symbolic == null || ((symbolic.access & Opcodes.ACC_INTERFACE) != 0) != call.itf)
             throw new IllegalArgumentException("link the static owner with the matching class/interface reference kind");
-        if ((symbolic.access & Opcodes.ACC_PUBLIC) == 0 && caller != null
-                && !packageName(call.owner).equals(packageName(caller)))
-            throw new IllegalArgumentException("inaccessible static method owner " + call.owner);
+        checkClassAccess(call.owner);
         if (call.name.startsWith("<"))
             throw new IllegalArgumentException("initializers cannot be invoked with INVOKESTATIC");
         Declaration resolved = null;
@@ -250,8 +254,7 @@ public final class BytecodeDispatch {
         ClassNode owner = linked.get(call.owner), from = linked.get(caller);
         if (call.itf || owner == null || (owner.access & Opcodes.ACC_INTERFACE) != 0 || from == null)
             throw new IllegalArgumentException("link the special-call class owner and caller with a class reference");
-        if ((owner.access & Opcodes.ACC_PUBLIC) == 0 && !packageName(call.owner).equals(packageName(caller)))
-            throw new IllegalArgumentException("inaccessible special method owner " + call.owner);
+        checkClassAccess(call.owner);
         boolean constructor = call.name.equals("<init>");
         if (call.name.startsWith("<") && !constructor)
             throw new IllegalArgumentException("class initializers cannot be invoked with INVOKESPECIAL");
@@ -278,8 +281,7 @@ public final class BytecodeDispatch {
         ClassNode owner = linked.get(call.owner), from = linked.get(caller);
         if (!call.itf || owner == null || (owner.access & Opcodes.ACC_INTERFACE) == 0 || from == null)
             throw new IllegalArgumentException("link the interface-special owner and caller with an interface reference");
-        if ((owner.access & Opcodes.ACC_PUBLIC) == 0 && !packageName(call.owner).equals(packageName(caller)))
-            throw new IllegalArgumentException("inaccessible interface-special owner " + call.owner);
+        checkClassAccess(call.owner);
         if (call.name.startsWith("<"))
             throw new IllegalArgumentException("interface special calls cannot name initializers");
         if (!caller.equals(call.owner) && !from.interfaces.contains(call.owner))
@@ -359,8 +361,11 @@ public final class BytecodeDispatch {
     public Map<Integer, String> targets(MethodInsnNode call) {
         ClassNode owner = linked.get(call.owner);
         boolean interfaceCall = call.getOpcode() == Opcodes.INVOKEINTERFACE;
-        if (owner == null || ((owner.access & Opcodes.ACC_INTERFACE) != 0) != interfaceCall)
-            throw new IllegalArgumentException("link the declaring class/interface in the same module");
+        if (owner == null || ((owner.access & Opcodes.ACC_INTERFACE) != 0) != interfaceCall || call.itf != interfaceCall)
+            throw new IllegalArgumentException("link the declaring class/interface with the matching invocation/reference kind");
+        checkClassAccess(call.owner);
+        if (call.name.startsWith("<"))
+            throw new IllegalArgumentException("initializers cannot be invoked with virtual/interface instructions");
         Declaration declared = declaration(call.owner, call.name, call.desc, new HashSet<>());
         if (declared == null) declared = interfaceMethod(call.owner, call.name, call.desc);
         if (declared == null || (declared.method.access & Opcodes.ACC_STATIC) != 0)

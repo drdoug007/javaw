@@ -1596,6 +1596,97 @@ class BytecodeCompatibilityTest {
         }
     }
 
+    @Test void matchesJvmAccessibleSymbolicOwnersWithHiddenDeclarations() throws Exception {
+        var sources=java.util.Map.of(
+            "p/Open.java","""
+                package p;
+                interface HiddenView {default int defaultValue(){return 11;}}
+                class Hidden implements HiddenView {public int value(){return 20;}}
+                public class Open extends Hidden implements View {}
+                """,
+            "p/View.java","package p; public interface View extends HiddenView {}",
+            "p/Peer.java","""
+                package p;
+                public class Peer {public static int local(){
+                    Hidden value=new Hidden();return value.value()+((HiddenView)value).defaultValue();
+                }}
+                """,
+            "Fixture.java","""
+                public class Fixture {
+                    public static int run(){
+                        p.Open value=new p.Open();return value.value()+value.defaultValue()+through(value)+p.Peer.local();
+                    }
+                    public static int through(p.View value){return value.defaultValue();}
+                }
+                """);
+        var args=new java.util.ArrayList<String>(java.util.List.of("-g","-d",directory.toString()));
+        for(var source:sources.entrySet()) {
+            Path file=directory.resolve(source.getKey());Files.createDirectories(file.getParent());
+            Files.writeString(file,source.getValue());args.add(file.toString());
+        }
+        assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,args.toArray(String[]::new)));
+        // Remove javac's accessibility bridge to exercise inherited JVM resolution directly.
+        Path openFile=directory.resolve("p/Open.class");
+        ClassNode open=new ClassNode();new ClassReader(Files.readAllBytes(openFile)).accept(open,0);
+        open.methods.removeIf(method->method.name.equals("value"));
+        ClassWriter writer=new ClassWriter(0);open.accept(writer);Files.write(openFile,writer.toByteArray());
+        Path oracle=directory.resolve("Oracle.java");
+        Files.writeString(oracle,"public class Oracle {public static void main(String[] args){System.out.println(Fixture.run());}}");
+        assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,"-cp",directory.toString(),
+                "-d",directory.toString(),oracle.toString()));
+        run("java","-cp",directory.toString(),"Oracle");
+        String expected=Files.readString(directory.resolve("command.log")).trim();assertEquals("73",expected);
+        execute(linkJar("Fixture","p/Peer","p/Open","p/View","p/Hidden","p/HiddenView"),
+                "assert.equal(e['Fixture.run'](),"+expected+");");
+    }
+
+    @Test void rejectsInaccessibleAllocationAndDynamicSymbolicOwners() {
+        for(int opcode:new int[]{Opcodes.NEW,Opcodes.INVOKEVIRTUAL,Opcodes.INVOKEINTERFACE}) {
+            ClassNode target=new ClassNode();target.name="p/Hidden";target.superName="java/lang/Object";
+            if(opcode==Opcodes.INVOKEINTERFACE)target.access=Opcodes.ACC_INTERFACE|Opcodes.ACC_ABSTRACT;
+            MethodNode value=new MethodNode(Opcodes.ACC_PUBLIC,"value","()I",null,null);
+            value.instructions.add(new InsnNode(Opcodes.ICONST_1));value.instructions.add(new InsnNode(Opcodes.IRETURN));
+            value.maxLocals=1;value.maxStack=1;target.methods.add(value);
+            ClassNode caller=new ClassNode();caller.name="q/Caller";caller.superName="java/lang/Object";
+            caller.sourceFile="Caller.java";
+            MethodNode method=new MethodNode(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"call",
+                    opcode==Opcodes.NEW?"()Lp/Hidden;":"(Lp/Hidden;)I",null,null);
+            if(opcode==Opcodes.NEW)method.instructions.add(new TypeInsnNode(Opcodes.NEW,target.name));
+            else {
+                method.instructions.add(new VarInsnNode(Opcodes.ALOAD,0));
+                method.instructions.add(new MethodInsnNode(opcode,target.name,"value","()I",opcode==Opcodes.INVOKEINTERFACE));
+            }
+            method.instructions.add(new InsnNode(opcode==Opcodes.NEW?Opcodes.ARETURN:Opcodes.IRETURN));
+            method.maxLocals=1;method.maxStack=1;caller.methods.add(method);
+            String error=assertThrows(IllegalArgumentException.class,()->new ClassBytecodeCompiler(caller)
+                    .compileToWat(java.util.Map.of(caller.name,caller,target.name,target))).getMessage();
+            assertTrue(error.contains("inaccessible symbolic class/interface p/Hidden"),error);
+            assertTrue(error.contains("Caller.java:"),error);
+            assertTrue(error.contains("q.Caller.call"),error);
+        }
+    }
+
+    @Test void rejectsDynamicReferenceKindMismatchAndInitializerNames() {
+        for(int opcode:new int[]{Opcodes.INVOKEVIRTUAL,Opcodes.INVOKEINTERFACE}) {
+            for(String scenario:new String[]{"reference","constructor","initializer"}) {
+                ClassNode owner=new ClassNode();owner.name="Owner";owner.superName="java/lang/Object";owner.access=Opcodes.ACC_PUBLIC;
+                if(opcode==Opcodes.INVOKEINTERFACE)owner.access|=Opcodes.ACC_INTERFACE|Opcodes.ACC_ABSTRACT;
+                owner.methods.add(new MethodNode(Opcodes.ACC_PUBLIC|Opcodes.ACC_ABSTRACT,"value","()I",null,null));
+                ClassNode caller=new ClassNode();caller.name="Caller";caller.superName="java/lang/Object";
+                MethodNode method=new MethodNode(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"call","(LOwner;)I",null,null);
+                method.instructions.add(new VarInsnNode(Opcodes.ALOAD,0));
+                String name=scenario.equals("constructor")?"<init>":scenario.equals("initializer")?"<clinit>":"value";
+                method.instructions.add(new MethodInsnNode(opcode,owner.name,name,"()I",
+                        scenario.equals("reference")?opcode!=Opcodes.INVOKEINTERFACE:opcode==Opcodes.INVOKEINTERFACE));
+                method.instructions.add(new InsnNode(Opcodes.IRETURN));method.maxLocals=1;method.maxStack=1;caller.methods.add(method);
+                String error=assertThrows(IllegalArgumentException.class,()->new ClassBytecodeCompiler(caller)
+                        .compileToWat(java.util.Map.of(owner.name,owner,caller.name,caller))).getMessage();
+                assertTrue(error.contains("dynamic call Owner."),error);
+                assertTrue(error.contains(scenario.equals("reference")?"reference kind":"initializers cannot"),error);
+            }
+        }
+    }
+
     private String linkJar(String... names) throws Exception {
         var bytes=new java.io.ByteArrayOutputStream();
         try(var jar=new java.util.jar.JarOutputStream(bytes)) {

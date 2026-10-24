@@ -72,6 +72,10 @@ final class BytecodeCompatibility {
                     }
                 }
                 if (instruction instanceof TypeInsnNode allocation && opcode == Opcodes.NEW) {
+                    try { dispatch.checkClassAccess(allocation.desc); }
+                    catch (IllegalArgumentException error) {
+                        throw failure(owner, method, instruction, "object allocation " + allocation.desc, error.getMessage());
+                    }
                     ClassNode target = linked.get(allocation.desc);
                     if (target == null || (target.access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_INTERFACE)) != 0
                             || !layouts.contains(allocation.desc))
