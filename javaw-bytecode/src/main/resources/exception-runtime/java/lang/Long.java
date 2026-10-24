@@ -61,4 +61,31 @@ public final class Long extends Number implements Comparable<Long>,java.io.Seria
     public static long min(long a,long b){return Math.min(a,b);}
     public static long max(long a,long b){return Math.max(a,b);}
 
+
+    public static int compareUnsigned(long a,long b){return compare(a+MIN_VALUE,b+MIN_VALUE);}
+    public static long divideUnsigned(long a,long b){
+        if(b<0)return compareUnsigned(a,b)<0?0:1;
+        if(a>=0)return a/b;
+        long quotient=((a>>>1)/b)<<1,remainder=a-quotient*b;
+        return quotient+(compareUnsigned(remainder,b)>=0?1:0);
+    }
+    public static long remainderUnsigned(long a,long b){return a-divideUnsigned(a,b)*b;}
+    public static String toUnsignedString(long value){return toUnsignedString(value,10);}
+    public static String toUnsignedString(long value,int radix){
+        if(radix<2 || radix>36)radix=10;char[] chars=new char[64];int index=64;
+        do{long next=divideUnsigned(value,radix);chars[--index]=Character.forDigit((int)(value-next*radix),radix);value=next;}while(value!=0);
+        return new String(chars,index,64-index);
+    }
+    public static long parseUnsignedLong(String text){return parseUnsignedLong(text,10);}
+    public static long parseUnsignedLong(String text,int radix){if(text==null)throw new NumberFormatException();return parseUnsignedLong(text,0,text.length(),radix);}
+    public static long parseUnsignedLong(CharSequence text,int start,int end,int radix){
+        if(text==null)throw new NullPointerException();if(start<0 || end<start || end>text.length())throw new IndexOutOfBoundsException();
+        if(radix<2 || radix>36 || start==end)throw new NumberFormatException();
+        if(text.charAt(start)=='+')start++;if(start==end)throw new NumberFormatException();
+        long limit=divideUnsigned(-1L,radix),last=remainderUnsigned(-1L,radix),result=0;
+        for(int i=start;i<end;i++){int digit=Character.digit(text.charAt(i),radix);int compare=compareUnsigned(result,limit);
+            if(digit<0 || compare>0 || (compare==0 && digit>last))throw new NumberFormatException();result=result*radix+digit;}
+        return result;
+    }
+
 }

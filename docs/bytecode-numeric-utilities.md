@@ -13,3 +13,7 @@ Population/zero counts, high/low bits, reversal, rotations (including masked neg
 ## 3. Unsigned Integer arithmetic and text
 
 Unsigned comparison/division/remainder, zero-extension, radix formatting and String/CharSequence parsing support all 32-bit patterns. Overflow, negative signs (including -0), invalid input/slices and zero divisors raise Java exceptions; failure message text is not promised. Revision `unsigned-integers-v53`. `BytecodeNumericTest` compares javac-produced bytecode on the JVM and in Node/Wasm, in both JAR orders and two independent instances. Other APIs remain subject to admission diagnostics.
+
+## 4. Unsigned Long arithmetic and text
+
+Unsigned 64-bit comparison, quotient/remainder and radix parsing/formatting avoid floating-point approximation. Tests cover high-bit divisors/dividends, maximum unsigned values, every radix, Unicode digits and typed overflow/null/bounds/zero failures. Revision `unsigned-longs-v54`. `BytecodeNumericTest` compares javac-produced bytecode on the JVM and in Node/Wasm, in both JAR orders and two independent instances. Other APIs remain subject to admission diagnostics.
