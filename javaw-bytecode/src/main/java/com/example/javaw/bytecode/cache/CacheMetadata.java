@@ -3,7 +3,7 @@ package com.example.javaw.bytecode.cache;
 import java.util.*;
 
 public class CacheMetadata {
-    public static final String COMPILER_VERSION = "1.0-SNAPSHOT-i32-validated-v2";
+    public static final String COMPILER_VERSION = "1.0-SNAPSHOT-integral-typed-v3";
     private String groupId;
     private String artifactId;
     private String version;

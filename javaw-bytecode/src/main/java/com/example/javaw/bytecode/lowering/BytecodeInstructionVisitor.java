@@ -120,7 +120,7 @@ public class BytecodeInstructionVisitor {
             case Opcodes.LLOAD:
                 int lvarIdx = ((VarInsnNode) insn).var;
                 stack.push("i64");
-                emit("local.get " + stack.getLocalVar(lvarIdx));
+                emit("local.get " + stack.getLocalVar(lvarIdx, "i64"));
                 emit("local.set " + stack.peek());
                 break;
 
@@ -150,7 +150,7 @@ public class BytecodeInstructionVisitor {
                 int lstoreIdx = ((VarInsnNode) insn).var;
                 String topL = stack.pop();
                 emit("local.get " + topL);
-                emit("local.set " + stack.getLocalVar(lstoreIdx));
+                emit("local.set " + stack.getLocalVar(lstoreIdx, "i64"));
                 break;
 
             case Opcodes.FSTORE:
@@ -180,15 +180,16 @@ public class BytecodeInstructionVisitor {
                 break;
 
             case Opcodes.POP2:
-                stack.pop();
-                stack.pop();
+                takeWords(2, new ArrayList<>());
                 break;
-
             case Opcodes.DUP:
-                String currTop = stack.peek();
-                String dupNew = stack.push("i32");
-                emit("local.get " + currTop);
-                emit("local.set " + dupNew);
+            case Opcodes.DUP_X1:
+            case Opcodes.DUP_X2:
+            case Opcodes.DUP2:
+            case Opcodes.DUP2_X1:
+            case Opcodes.DUP2_X2:
+            case Opcodes.SWAP:
+                shuffle(opcode);
                 break;
 
             case Opcodes.IADD:
@@ -259,7 +260,23 @@ public class BytecodeInstructionVisitor {
                 visitBinaryOp("i64", "i64.mul");
                 break;
             case Opcodes.LDIV:
-                visitBinaryOp("i64", "i64.div_s");
+                String longDivisor = stack.pop();
+                String longDividend = stack.peek();
+                emit("local.get " + longDividend);
+                emit("i64.const -9223372036854775808");
+                emit("i64.eq");
+                emit("local.get " + longDivisor);
+                emit("i64.const -1");
+                emit("i64.eq");
+                emit("i32.and");
+                emit("if (result i64)");
+                emit("i64.const -9223372036854775808");
+                emit("else");
+                emit("local.get " + longDividend);
+                emit("local.get " + longDivisor);
+                emit("i64.div_s");
+                emit("end");
+                emit("local.set " + longDividend);
                 break;
             case Opcodes.LREM:
                 visitBinaryOp("i64", "i64.rem_s");
@@ -271,13 +288,13 @@ public class BytecodeInstructionVisitor {
                 emit("local.set " + stack.peek());
                 break;
             case Opcodes.LSHL:
-                visitBinaryOp("i64", "i64.shl");
+                visitLongShift("i64.shl");
                 break;
             case Opcodes.LSHR:
-                visitBinaryOp("i64", "i64.shr_s");
+                visitLongShift("i64.shr_s");
                 break;
             case Opcodes.LUSHR:
-                visitBinaryOp("i64", "i64.shr_u");
+                visitLongShift("i64.shr_u");
                 break;
             case Opcodes.LAND:
                 visitBinaryOp("i64", "i64.and");
@@ -287,6 +304,18 @@ public class BytecodeInstructionVisitor {
                 break;
             case Opcodes.LXOR:
                 visitBinaryOp("i64", "i64.xor");
+                break;
+
+            case Opcodes.LCMP:
+                String compareRight = stack.pop(), compareLeft = stack.pop();
+                emit("local.get " + compareLeft);
+                emit("local.get " + compareRight);
+                emit("i64.gt_s");
+                emit("local.get " + compareLeft);
+                emit("local.get " + compareRight);
+                emit("i64.lt_s");
+                emit("i32.sub");
+                emit("local.set " + stack.push("i32"));
                 break;
 
             case Opcodes.FADD:
@@ -326,9 +355,9 @@ public class BytecodeInstructionVisitor {
                 break;
 
             case Opcodes.I2L:
-                emit("local.get " + stack.peek());
+                emit("local.get " + stack.pop());
                 emit("i64.extend_i32_s");
-                emit("local.set " + stack.peek());
+                emit("local.set " + stack.push("i64"));
                 break;
             case Opcodes.I2F:
                 emit("local.get " + stack.peek());
@@ -341,9 +370,9 @@ public class BytecodeInstructionVisitor {
                 emit("local.set " + stack.peek());
                 break;
             case Opcodes.L2I:
-                emit("local.get " + stack.peek());
+                emit("local.get " + stack.pop());
                 emit("i32.wrap_i64");
-                emit("local.set " + stack.peek());
+                emit("local.set " + stack.push("i32"));
                 break;
             case Opcodes.F2I:
                 emit("local.get " + stack.peek());
@@ -453,12 +482,13 @@ public class BytecodeInstructionVisitor {
 
             case Opcodes.GETFIELD:
                 FieldInsnNode getField = (FieldInsnNode) insn;
-                String targetObj = stack.peek();
+                String targetObj = stack.pop();
                 int offset = fieldOffsets.get(getField.owner + "." + getField.name + ":" + getField.desc);
                 emitNullGuard(targetObj);
                 emit("local.get " + targetObj);
-                emit("i32.load offset=" + offset);
-                emit("local.set " + targetObj);
+                String fieldType = TypeHelper.getWasmType(getField.desc);
+                emit(fieldType + ".load offset=" + offset);
+                emit("local.set " + stack.push(fieldType));
                 break;
 
             case Opcodes.PUTFIELD:
@@ -469,7 +499,7 @@ public class BytecodeInstructionVisitor {
                 emitNullGuard(putTarget);
                 emit("local.get " + putTarget);
                 emit("local.get " + putVal);
-                emit("i32.store offset=" + pOffset);
+                emit(TypeHelper.getWasmType(putField.desc) + ".store offset=" + pOffset);
                 break;
 
             case Opcodes.GETSTATIC:
@@ -549,6 +579,53 @@ public class BytecodeInstructionVisitor {
         } else {
             throw new IllegalArgumentException("Unsupported LDC constant " + cst.getClass().getName());
         }
+    }
+
+    private record Saved(String type, String temporary) {}
+
+    private List<Saved> takeWords(int words, List<Saved> temporaries) {
+        List<Saved> values = new ArrayList<>();
+        while (words > 0) {
+            String type = stack.peekType();
+            words -= type.equals("i64") ? 2 : 1;
+            if (words < 0) throw new IllegalArgumentException("Invalid category-two stack manipulation");
+            String temporary = "$__shuffle_" + type + "_" + temporaries.size();
+            emit("local.get " + stack.pop());
+            emit("local.set " + temporary);
+            Saved value = new Saved(type, temporary);
+            temporaries.add(value);
+            values.add(value);
+        }
+        Collections.reverse(values);
+        return values;
+    }
+
+    private void restore(List<Saved> values) {
+        for (Saved value : values) {
+            emit("local.get " + value.temporary());
+            emit("local.set " + stack.push(value.type()));
+        }
+    }
+
+    private void shuffle(int opcode) {
+        int duplicateWords = opcode == Opcodes.DUP2 || opcode == Opcodes.DUP2_X1 || opcode == Opcodes.DUP2_X2 ? 2 : 1;
+        int belowWords = opcode == Opcodes.DUP_X1 || opcode == Opcodes.DUP2_X1 || opcode == Opcodes.SWAP ? 1
+                : opcode == Opcodes.DUP_X2 || opcode == Opcodes.DUP2_X2 ? 2 : 0;
+        List<Saved> temporaries = new ArrayList<>();
+        List<Saved> top = takeWords(duplicateWords, temporaries);
+        List<Saved> below = takeWords(belowWords, temporaries);
+        restore(top);
+        restore(below);
+        if (opcode != Opcodes.SWAP) restore(top);
+    }
+
+    private void visitLongShift(String operation) {
+        String distance = stack.pop(), value = stack.peek();
+        emit("local.get " + value);
+        emit("local.get " + distance);
+        emit("i64.extend_i32_u");
+        emit(operation);
+        emit("local.set " + value);
     }
 
     private void visitBinaryOp(String type, String wasmOp) {

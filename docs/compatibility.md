@@ -2,7 +2,7 @@
 
 Java source compilation and JVM bytecode compilation are different backends. A
 source facade does not make the corresponding JDK class file usable in a JAR.
-The JVM bytecode backend currently admits a conservative i32 subset. It rejects
+The JVM bytecode backend currently admits a conservative integral/reference subset. It rejects
 other constructs before WAT is returned, including constructs in unreachable
 instructions. This is intentionally stricter than the previous emitter, which
 could silently discard instructions or emit invalid typed locals.
@@ -11,34 +11,35 @@ could silently discard instructions or emit invalid typed locals.
 
 | Construct / opcode family | Current behavior |
 | --- | --- |
-| `NOP`, `ACONST_NULL`, `ICONST_M1`–`ICONST_5`, `BIPUSH`, `SIPUSH`, integer `LDC` | Admitted |
+| `NOP`, `ACONST_NULL`, `ICONST_M1`–`ICONST_5`, `BIPUSH`, `SIPUSH`, int/long `LDC` | Admitted |
 | `ILOAD`, `ALOAD`, `ISTORE`, `ASTORE`, `IINC` | Admitted; references are opaque i32 values |
-| `POP`, `DUP` | Admitted for single-slot values |
+| `POP`, `DUP`, `POP2`, `DUP_X1`, `DUP_X2`, `DUP2`, `DUP2_X1`, `DUP2_X2`, `SWAP` | Admitted for valid integral/reference category-one/two shapes |
 | `IADD`, `ISUB`, `IMUL`, `INEG`, `IAND`, `IOR`, `IXOR`, `ISHL`, `ISHR`, `IUSHR` | Admitted; Java i32 wrapping and shift widths |
 | `IDIV`, `IREM` | Admitted; signed division truncates toward zero, including MIN_VALUE / -1 overflow. Division by zero traps in Wasm; Java ArithmeticException mapping is pending |
 | `I2B`, `I2C`, `I2S` | Admitted |
 | `IFEQ`, `IFNE`, `IFLT`, `IFGE`, `IFGT`, `IFLE`, all `IF_ICMP*`, `IF_ACMPEQ`, `IF_ACMPNE`, `IFNULL`, `IFNONNULL`, `GOTO` | Admitted; state dispatch preserves branches, joins, and loop back edges |
-| `GETSTATIC`, `PUTSTATIC` | Admitted for resolved i32 fields; integer ConstantValue attributes initialize globals |
+| `GETSTATIC`, `PUTSTATIC` | Admitted for resolved i32/i64 fields; int/long ConstantValue attributes initialize globals |
 | `INVOKESTATIC`, `INVOKESPECIAL` | Admitted only for concrete linked targets with matching static/instance kind. Interface-super calls resolve direct/inherited public defaults. The empty Object constructor is a no-op |
-| `IRETURN`, `ARETURN`, `RETURN` | Admitted |
+| `IRETURN`, `LRETURN`, `ARETURN`, `RETURN` | Admitted |
 | Labels, line numbers, stack-map frames | Compiler metadata, not instructions; ASM analysis supplies entry stack depths and checks stack shape |
-| Long, float, double descriptors/fields and remaining numeric opcodes | Rejected; typed source lowering is available for supported source operations |
+| `LCONST_0/1`, `LLOAD`, `LSTORE`, `LADD`, `LSUB`, `LMUL`, `LDIV`, `LREM`, `LNEG`, `LSHL`, `LSHR`, `LUSHR`, `LAND`, `LOR`, `LXOR`, `LCMP`, `I2L`, `L2I` | Admitted; typed i64 storage, Java wrapping and shift masking, signed comparison and conversions. MIN_VALUE / -1 returns MIN_VALUE; zero division/remainder traps |
+| Float/double descriptors/fields and floating numeric opcodes | Rejected; typed source lowering is available for supported source operations |
 | String/class/method-handle/constant-dynamic `LDC` | Rejected; placeholder class pointers and uninitialized string data are not emitted |
 | `INVOKEDYNAMIC` (including javac lambdas and string concatenation) | Rejected; bootstrap/linkage support is pending. Source lambdas and concatenation have separate implementations |
 | `INVOKEVIRTUAL`, `INVOKEINTERFACE` | Admitted for public methods in linked closed-world hierarchies with class-provided or maximally-specific default implementations; interface declarations may be inherited. Accessible private helpers bind to their declaring method; protected/package virtual calls enforce caller access, override slots, and the protected receiver rule |
-| `NEW`, `GETFIELD`, `PUTFIELD` | Admitted for linked concrete classes with a complete superclass chain through Object and i32 fields; inherited parent-prefix layouts, hidden fields, and inherited symbolic field owners are supported; shared descriptor-qualified layouts and size-based zero initialization. Null access traps; Java exception mapping is pending |
+| `NEW`, `GETFIELD`, `PUTFIELD` | Admitted for linked concrete classes with a complete superclass chain through Object and i32/i64 fields; inherited parent-prefix layouts, hidden fields, and inherited symbolic field owners are supported; shared descriptor-qualified layouts and size-based zero initialization. Null access traps; Java exception mapping is pending |
 | Array creation/access, casts, `INSTANCEOF`, multianewarray | Rejected |
 | `TABLESWITCH`, `LOOKUPSWITCH` | Admitted; selector comparisons select a state-dispatch successor, preserving default, shared targets, fallthrough, and stack values below the selector. Dispatch uses a linear comparison chain |
-| `JSR`, `RET`, remaining stack manipulation | Rejected |
+| `JSR`, `RET` | Rejected |
 | `ATHROW`, exception handler tables | Rejected; use source compilation for supported Java exceptions |
 | Native/synchronized methods, volatile fields, monitor opcodes | Rejected; no general JNI, monitor, or Java Memory Model runtime |
 | `<clinit>` | Rejected; automatic JVM class initialization is pending |
-| Abstract method declarations | No function body; virtual/interface invocation remains rejected |
+| Abstract method declarations | No function body; calls must resolve to admitted concrete implementations |
 | Overloaded public method exports | Rejected with remediation; use unique public entry-point names. Internal method symbols include the descriptor |
 | Every other opcode | Rejected; the instruction visitor also fails closed if admission and lowering diverge |
 
 An admitted module imports `env.memory` (2 initial / 20 maximum pages) and
-`env.__heap_alloc`. Supported integer-only code does not allocate. This memory ABI
+`env.__heap_alloc`. Pure numeric methods need no allocation. This memory ABI
 is separate from the source backend's managed heap. References supplied to a
 bytecode module must already follow its ABI; admission does not provide a JDK
 object model, class loader, GC integration, or host-object marshalling.
@@ -94,7 +95,7 @@ adapter remains a distinct target. The roadmap keeps those broad tasks open.
 
 ### Bytecode object allocation contract
 
-`NEW` uses `env.__heap_alloc(size)` and clears the entire payload with `memory.fill`, including a four-byte runtime class-ID header; `NEW` then writes the module-local class ID. Each instance field occupies four bytes after its superclass payload; hidden fields retain distinct slots, resolved by symbolic owner, name, and descriptor; references are opaque i32 addresses. The host allocator must return a nonzero, four-byte-aligned, writable region of the requested size without overlapping live allocations. A zero result traps. These modules require WebAssembly bulk-memory support. This is a bytecode layout, with class IDs assigned in sorted internal-name order and no vtable, and is not a promise of compatibility with source-backend objects.
+`NEW` uses `env.__heap_alloc(size)` and clears the entire payload with `memory.fill`, including a four-byte runtime class-ID header; `NEW` then writes the module-local class ID. Each instance field occupies four bytes (i32/reference) or eight bytes (long) after its superclass payload; hidden fields retain distinct slots, resolved by symbolic owner, name, and descriptor; references are opaque i32 addresses. The host allocator must return a nonzero, four-byte-aligned, writable region of the requested size without overlapping live allocations. A zero result traps. These modules require WebAssembly bulk-memory support. This is a bytecode layout, with class IDs assigned in sorted internal-name order and no vtable, and is not a promise of compatibility with source-backend objects.
 
 Field access and instance calls trap on null. Catchable Java NullPointerException and OutOfMemoryError, automatic collection remain pending. Allocation requires a concrete linked class with its entire superclass chain linked through Object. Abstract intermediate superclasses are supported; allocating an abstract class or using a missing/cyclic superclass chain receives diagnostics. Static fields still require their directly declaring symbolic owner. Constructor calls use the existing direct INVOKESPECIAL path. `BytecodeCompatibilityTest` executes objects larger than 64 bytes, dirty-memory zero defaults, constructor initialization, separate allocations, aliases/cycles, null reads/writes, cross-class field access, and multilevel inheritance in a linked JAR. Inheritance tests cover abstract intermediate classes, superclass constructor initialization, hidden fields with matching/different descriptors, static-field exclusion, inherited symbolic field owners, parent/subclass aliases, independent parent/subclass allocations, and reverse JAR hierarchy order.
 
@@ -102,17 +103,17 @@ Field access and instance calls trap on null. Catchable Java NullPointerExceptio
 
 For public virtual/interface calls the compiler enumerates linked concrete receiver classes assignable to the symbolic owner and resolves the most-derived public class implementation by method name and descriptor, falling back to a maximally-specific public interface default when no class declaration exists. Calls use a linear class-ID comparison chain followed by a direct Wasm call. Class IDs and layouts agree across a linked JAR, independent of entry order. Abstract intermediate classes and inherited interface declarations are supported. Public interface declarations may be abstract or default. Each concrete eligible class must have a linked class/default implementation and a complete layout. Null or unmatched receiver IDs trap. As with all raw Wasm references, arbitrary host-supplied addresses are outside the Java object contract; IDs are not pointer validation.
 
-`NEW` installs the most-derived class ID before any constructor runs, preserving virtual calls during superclass construction. `INVOKESPECIAL` retains its direct binding, including directly declared superclass targets. Arguments are evaluated before the receiver null check; void and i32/reference results preserve the caller operand stack. Dynamic class loading, complete class/module/linkage access checks, Object methods supplied by the JDK, catchable linkage/null exceptions, and general JVM verification remain pending. Module-local class IDs and object pointers must not be shared between independently linked modules.
+`NEW` installs the most-derived class ID before any constructor runs, preserving virtual calls during superclass construction. `INVOKESPECIAL` retains its direct binding, including directly declared superclass targets. Arguments are evaluated before the receiver null check; void and i32/i64/reference results preserve the caller operand stack. Dynamic class loading, complete class/module/linkage access checks, Object methods supplied by the JDK, catchable linkage/null exceptions, and general JVM verification remain pending. Module-local class IDs and object pointers must not be shared between independently linked modules.
 
 `BytecodeCompatibilityTest` executes public class/interface overrides, inherited implementations and symbolic owners, inherited interface declarations, abstract intermediate classes, constructor-time dispatch, direct super calls, nested/multiple arguments, void and reference returns, argument side effects before null failure, and unrelated-receiver rejection. Unsupported dynamic calls include source/method diagnostics.
 
 Default resolution collects matching non-static, non-private declarations from the linked interface hierarchy and suppresses ancestor declarations whenever a subinterface redeclares the method. An abstract redeclaration suppresses an ancestor default. A class declaration takes precedence over every default, including when that class declaration is abstract. One maximally-specific concrete default supplies the implementation; conflicting concrete defaults or a concrete receiver without an implementation receive call-site diagnostics. Missing interface hierarchy dependencies also receive diagnostics when default resolution requires them. `INVOKESPECIAL` interface-super calls bind directly to the resolved public default, including an inherited default named through a direct superinterface.
 
-Executable default-method tests cover diamond inheritance, class overrides inherited from a superclass, re-abstracted methods implemented by a class, defaults calling abstract and other default methods, void/reference returns, and direct/inherited interface-super calls. Modified separately compiled class files verify diagnostics for conflicting defaults, interface re-abstraction without an override, and abstract superclass declarations suppressing a default. These rules extend the existing public i32/reference closed-world subset; private helpers and protected/package methods are supported as described below.
+Executable default-method tests cover diamond inheritance, class overrides inherited from a superclass, re-abstracted methods implemented by a class, defaults calling abstract and other default methods, void/reference returns, and direct/inherited interface-super calls. Modified separately compiled class files verify diagnostics for conflicting defaults, interface re-abstraction without an override, and abstract superclass declarations suppressing a default. These rules extend the existing integral/reference closed-world subset; private helpers and protected/package methods are supported as described below.
 
 ### Private bytecode methods and nests
 
-Private class/interface calls bind to the resolved declaring method and descriptor, even when the runtime subclass declares a same-named public method. The existing receiver class-ID checks and null traps remain in place for virtual/interface opcodes. Private helpers can return i32/reference values or void, and overloads retain distinct internal symbols. Public/default dispatch keeps its existing overriding rules.
+Private class/interface calls bind to the resolved declaring method and descriptor, even when the runtime subclass declares a same-named public method. The existing receiver class-ID checks and null traps remain in place for virtual/interface opcodes. Private helpers can return i32/i64/reference values or void, and overloads retain distinct internal symbols. Public/default dispatch keeps its existing overriding rules.
 
 Private method access requires either the declaring class itself or a validated linked nest. For nestmate calls, the caller and declaring class must name the same linked host, the host must list both members in NestMembers (unless it is itself a participant), and all participants must have the same package. Missing, mismatched, nonreciprocal, or cross-package nest metadata produces a call-site diagnostic. The checks also cover private static calls and private constructors/direct INVOKESPECIAL calls. This is private-method admission, not a complete JVM verifier, module-access model, or private-field access audit.
 
@@ -125,3 +126,11 @@ Virtual method admission checks access against the resolved declaring class and 
 Dispatch follows the resolved class-method slot through the receiver's superclass chain. A same-named method declared in another package does not override a package-private ancestor slot. A same-package override can widen access; later subclasses then override it transitively across packages. Private/static declarations do not override an instance slot. Overrides reducing public/protected visibility receive diagnostics.
 
 `BytecodeCompatibilityTest` compiles multi-package fixtures and compares Wasm results directly with JVM execution for package slots, unrelated same-named methods, returning to the original package, and transitive overrides after access widening. Tests also execute same-package protected access and subclass overrides, reject unrelated callers, and use an explicit superclass symbolic owner to verify protected base/sibling receiver traps. Complete JVM class/module accessibility, static/field access auditing, general special-call resolution, linkage exceptions, and verification remain separate work.
+
+### Long bytecode execution
+
+Long values use i64 Wasm locals and operand-stack slots. Separate typed local banks preserve JVM slot reuse across scopes; ASM entry frames restore stack types at joins. Parameter copies honor two-slot long positions in JVM descriptors, while calls consume one mapped value per argument. Long instance fields occupy eight bytes, including inherited and hidden fields; accesses allow the unaligned offsets produced by the four-byte object header and packed layout. Long ConstantValue attributes initialize i64 globals. The compiler semantics cache revision is `1.0-SNAPSHOT-integral-typed-v3`, invalidating older layouts/output.
+
+Arithmetic wraps at 64 bits. Shifts accept an i32 distance and use its low six bits, including negative distances. LCMP returns signed -1/0/1 without subtract-overflow errors; I2L sign-extends and L2I retains the low 32 bits. Division truncates toward zero and handles MIN_VALUE / -1 without a Wasm overflow trap. Division/remainder by zero still trap instead of throwing catchable ArithmeticException. Node hosts pass and receive long exports as BigInt.
+
+`BytecodeCompatibilityTest` executes signed extremes, values beyond JavaScript number precision, long branch joins/loops, int/long slot reuse, mixed-width parameters, inherited/hidden fields, long post-increment, static/default/virtual calls, and every valid integral DUP/SWAP category shape plus both POP2 forms. Long field/call results are compared directly with JVM execution; arithmetic, shifts, conversions, and comparisons are checked against exact BigInt expectations. Floating-point bytecode, numeric arrays, automatic class initialization, and exception mapping remain pending.

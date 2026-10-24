@@ -658,6 +658,183 @@ class BytecodeCompatibilityTest {
         }
     }
 
+    @Test void executesLongArithmeticLocalsJoinsConversionsAndCalls() throws Exception {
+        execute(BytecodeCompiler.compileClass(fixture("""
+            public class Fixture {
+                private static long identity(long n) { return n; }
+                private static int identity(int n) { return n; }
+                public static long mixed(int a,long b,int c,long d) { return identity(b)+a+identity(c)+d; }
+                public static long constant() { return -9007199254740993L; }
+                public static long and(long a,long b) { return a&b; }
+                public static long arithmetic(long a,long b) { return (a+b)*(a-b)^(-a|b); }
+                public static long shifts(long a,int b) { return (a<<b)^(a>>b)^(a>>>b); }
+                public static long divide(long a,long b) { return a/b; }
+                public static long remainder(long a,long b) { return a%b; }
+                public static int compare(long a,long b) { return a<b?-1:a==b?0:1; }
+                public static long joined(boolean flag,long n) { return 100L+(flag?n:7L); }
+                public static long sum(long n) { long result=0; for(long i=0;i<n;i++) result+=i; return result; }
+                public static long widen(int n) { return n; }
+                public static int narrow(long n) { return (int)n; }
+                public static int reuse(long n) {
+                    int result;
+                    { long value=n+1; result=(int)value; }
+                    { int value=3; result+=value; }
+                    return result;
+                }
+            }
+            """)), """
+            const signed=n=>BigInt.asIntN(64,n);
+            const values=[-9223372036854775808n,-9007199254740993n,-7n,-1n,0n,1n,7n,9007199254740993n,9223372036854775807n];
+            for(const a of values) {
+                for(const b of values) {
+                    assert.equal(e['Fixture.mixed'](-3,a,7,b),signed(a+b+4n));
+                    assert.equal(e['Fixture.arithmetic'](a,b),signed((a+b)*(a-b)^(-a|b)));
+                    assert.equal(e['Fixture.and'](a,b),a&b);
+                    assert.equal(e['Fixture.compare'](a,b),a<b?-1:a===b?0:1);
+                    if(b!==0n) {
+                        assert.equal(e['Fixture.divide'](a,b),signed(a/b));
+                        assert.equal(e['Fixture.remainder'](a,b),a%b);
+                    }
+                }
+                for(const distance of [-129,-65,-64,-1,0,1,31,32,63,64,65,129]) {
+                    const b=BigInt(distance&63);
+                    assert.equal(e['Fixture.shifts'](a,distance),signed((a<<b)^(a>>b)^(BigInt.asUintN(64,a)>>b)));
+                }
+                assert.equal(e['Fixture.joined'](1,a),signed(100n+a));
+                assert.equal(e['Fixture.joined'](0,a),107n);
+                assert.equal(e['Fixture.narrow'](a),Number(BigInt.asIntN(32,a)));
+                assert.equal(e['Fixture.reuse'](a),Number(BigInt.asIntN(32,a+4n)));
+            }
+            for(let n=0n;n<30n;n++) assert.equal(e['Fixture.sum'](n),n*(n-1n)/2n);
+            assert.equal(e['Fixture.widen'](-2147483648),-2147483648n);
+            assert.equal(e['Fixture.constant'](),-9007199254740993n);
+            assert.throws(()=>e['Fixture.divide'](1n,0n),WebAssembly.RuntimeError);
+            assert.throws(()=>e['Fixture.remainder'](1n,0n),WebAssembly.RuntimeError);
+            """);
+    }
+
+    @Test void executesLongFieldsAndMixedWidthVirtualInterfaceCalls() throws Exception {
+        fixture("""
+            public class Fixture {
+                static long stored;
+                public static long run(long n) {
+                    Child value=new Child(n);
+                    value.amount+=5;
+                    stored=value.amount++;
+                    return value.twice(2,n,3)+stored+value.before+value.after;
+                }
+                public static long bump() { return stored++; }
+                private static long side() { return stored; }
+                public static long discard() { side(); return 1; }
+                public static long defaults() { Blank b=new Blank(); return b.a+b.b+b.c+b.d; }
+            }
+            interface Operation {
+                long add(int first,long n,int last);
+                default long twice(int first,long n,int last) { return add(first,n,last)+add(first,n,last); }
+            }
+            class Parent implements Operation {
+                int before;
+                long amount;
+                int after;
+                Parent(int first,long n,int last) { before=first; amount=n; after=last; }
+                public long add(int first,long n,int last) { return amount+first+n+last; }
+            }
+            class Child extends Parent {
+                long amount;
+                Child(long n) { super(7,n,9); amount=n*2; }
+                public long add(int first,long n,int last) { return super.add(first,n,last)+amount; }
+            }
+            class Blank { int a; long b; int c; long d; }
+            """);
+        Path oracle=directory.resolve("LongOracle.java");
+        Files.writeString(oracle,"""
+            public class LongOracle {
+                public static void main(String[] args) {
+                    for(long n:new long[]{-9007199254740993L,-3L,0L,5L,9007199254740993L,Long.MAX_VALUE})
+                        System.out.println(Fixture.run(n));
+                }
+            }
+            """);
+        assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,"-cp",directory.toString(),
+                "-d",directory.toString(),oracle.toString()));
+        run("java","-cp",directory.toString(),"LongOracle");
+        var expected=Files.readAllLines(directory.resolve("command.log")).stream().map(Long::parseLong)
+                .map(value -> value+"n").toList();
+        assertEquals(6,expected.size());
+        execute(linkJar("Child", "Parent", "Operation", "Blank", "Fixture"),
+                "const jvm=["+String.join(",",expected)+"];\n"+"""
+            const values=[-9007199254740993n,-3n,0n,5n,9007199254740993n,9223372036854775807n];
+            for(const [index,n] of values.entries()) {
+                assert.equal(e['Fixture.run'](n),jvm[index]);
+                assert.equal(e['Fixture.run'](n),BigInt.asIntN(64,10n*n+43n));
+                assert.equal(e['Fixture.bump'](),BigInt.asIntN(64,2n*n+5n));
+                assert.equal(e['Fixture.bump'](),BigInt.asIntN(64,2n*n+6n));
+            }
+            assert.equal(e['Fixture.defaults'](),0n);
+            assert.equal(e['Fixture.discard'](),1n);
+            """);
+    }
+
+    @Test void executesAllIntegralStackShuffleShapes() throws Exception {
+        int[][] shapes={
+            {Opcodes.DUP, 1, 0,0},
+            {Opcodes.DUP_X1, 11, 1,0,1},
+            {Opcodes.DUP_X2, 111, 2,0,1,2},
+            {Opcodes.DUP_X2, 21, 1,0,1},
+            {Opcodes.DUP2, 11, 0,1,0,1},
+            {Opcodes.DUP2, 2, 0,0},
+            {Opcodes.DUP2_X1, 111, 1,2,0,1,2},
+            {Opcodes.DUP2_X1, 12, 1,0,1},
+            {Opcodes.DUP2_X2, 1111, 2,3,0,1,2,3},
+            {Opcodes.DUP2_X2, 211, 1,2,0,1,2},
+            {Opcodes.DUP2_X2, 112, 2,0,1,2},
+            {Opcodes.DUP2_X2, 22, 1,0,1},
+            {Opcodes.SWAP, 11, 1,0}
+        };
+        ClassWriter writer=new ClassWriter(ClassWriter.COMPUTE_FRAMES|ClassWriter.COMPUTE_MAXS);
+        writer.visit(Opcodes.V17,Opcodes.ACC_PUBLIC,"Shuffle",null,"java/lang/Object",null);
+        StringBuilder assertions=new StringBuilder();
+        for(int index=0;index<shapes.length;index++) {
+            int[] shape=shapes[index];
+            String categories=Integer.toString(shape[1]);
+            MethodVisitor method=writer.visitMethod(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"shape"+index,"()J",null,null);
+            method.visitCode();
+            for(int i=0;i<categories.length();i++) method.visitLdcInsn(categories.charAt(i)=='2' ? (Object)Long.valueOf(i+1) : Integer.valueOf(i+1));
+            method.visitInsn(shape[0]);
+            for(int i=shape.length-1;i>=2;i--)
+                method.visitVarInsn(categories.charAt(shape[i])=='2'?Opcodes.LSTORE:Opcodes.ISTORE,(i-2)*2);
+            method.visitInsn(Opcodes.LCONST_0);
+            long expected=0;
+            for(int i=2;i<shape.length;i++) {
+                method.visitLdcInsn(10L); method.visitInsn(Opcodes.LMUL);
+                boolean wide=categories.charAt(shape[i])=='2';
+                method.visitVarInsn(wide?Opcodes.LLOAD:Opcodes.ILOAD,(i-2)*2);
+                if(!wide) method.visitInsn(Opcodes.I2L);
+                method.visitInsn(Opcodes.LADD);
+                expected=expected*10+shape[i]+1;
+            }
+            method.visitInsn(Opcodes.LRETURN); method.visitMaxs(0,0); method.visitEnd();
+            assertions.append("assert.equal(e['Shuffle.shape").append(index).append("'](),").append(expected).append("n);\n");
+        }
+        writer.visitField(Opcodes.ACC_STATIC|Opcodes.ACC_FINAL,"MIN","J",null,Long.MIN_VALUE).visitEnd();
+        MethodVisitor constant=writer.visitMethod(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"constant","()J",null,null);
+        constant.visitCode(); constant.visitFieldInsn(Opcodes.GETSTATIC,"Shuffle","MIN","J");
+        constant.visitInsn(Opcodes.LRETURN); constant.visitMaxs(0,0); constant.visitEnd();
+        assertions.append("assert.equal(e['Shuffle.constant'](),-9223372036854775808n);\n");
+        for(boolean wide:new boolean[]{false,true}) {
+            String name=wide?"popWide":"popPair";
+            MethodVisitor method=writer.visitMethod(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,name,"()J",null,null);
+            method.visitCode(); method.visitLdcInsn(9L);
+            if(wide) method.visitLdcInsn(7L);
+            else { method.visitInsn(Opcodes.ICONST_2); method.visitInsn(Opcodes.ICONST_3); }
+            method.visitInsn(Opcodes.POP2); method.visitInsn(Opcodes.LRETURN);
+            method.visitMaxs(0,0); method.visitEnd();
+            assertions.append("assert.equal(e['Shuffle.").append(name).append("'](),9n);\n");
+        }
+        writer.visitEnd();
+        execute(BytecodeCompiler.compileClass(writer.toByteArray()),assertions.toString());
+    }
+
     private String linkJar(String... names) throws Exception {
         var bytes=new java.io.ByteArrayOutputStream();
         try(var jar=new java.util.jar.JarOutputStream(bytes)) {
@@ -699,7 +876,7 @@ class BytecodeCompatibilityTest {
                 "public static int f() { try { return 1; } catch(RuntimeException e) { return 0; } }",
                 "public static native int f();",
                 "public static synchronized int f() { return 1; }",
-                "public static long f() { return 4L; }",
+                "public static double f() { return 4.0; }",
                 "public static int f() { return Math.abs(-4); }",
                 "public static Class<?> f() { return Fixture.class; }",
                 "public static int[] f() { return new int[2]; }",

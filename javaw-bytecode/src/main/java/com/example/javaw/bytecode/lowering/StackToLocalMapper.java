@@ -5,28 +5,29 @@ import java.util.*;
 public class StackToLocalMapper {
     private final int maxLocals;
     private final int maxStack;
-    private final List<String> localTypes = new ArrayList<>();
     private final List<String> stackTypes = new ArrayList<>();
     private int currentStackDepth = 0;
 
     public StackToLocalMapper(int maxLocals, int maxStack) {
         this.maxLocals = Math.max(maxLocals, 32);
         this.maxStack = Math.max(maxStack, 32);
-        for (int i = 0; i < this.maxLocals; i++) {
-            localTypes.add("i32");
-        }
     }
 
     public String getLocalVar(int index) {
-        return "$l_" + index;
+        return getLocalVar(index, "i32");
+    }
+
+    public String getLocalVar(int index, String type) {
+        return "$l_" + index + (type.equals("i32") ? "" : "_" + type);
     }
 
     public String getStackVar(int depth) {
-        return "$stk_" + depth;
+        String type = depth < stackTypes.size() ? stackTypes.get(depth) : "i32";
+        return "$stk_" + depth + (type.equals("i32") ? "" : "_" + type);
     }
 
     public String getCurrentStackVar() {
-        return "$stk_" + (currentStackDepth - 1);
+        return peek();
     }
 
     public int getStackDepth() {
@@ -34,30 +35,37 @@ public class StackToLocalMapper {
     }
 
     public void setStackDepth(int depth) {
+        while (stackTypes.size() < depth) stackTypes.add("i32");
         this.currentStackDepth = depth;
     }
 
+    public void setStackTypes(List<String> types) {
+        stackTypes.clear();
+        stackTypes.addAll(types);
+        currentStackDepth = types.size();
+    }
+
+    public String peekType() { return stackTypes.get(currentStackDepth - 1); }
+
     public String push(String type) {
-        String var = "$stk_" + currentStackDepth;
         if (currentStackDepth >= stackTypes.size()) {
             stackTypes.add(type);
         } else {
             stackTypes.set(currentStackDepth, type);
         }
-        currentStackDepth++;
-        return var;
+        return getStackVar(currentStackDepth++);
     }
 
     public String pop() {
         if (currentStackDepth > 0) {
             currentStackDepth--;
-            return "$stk_" + currentStackDepth;
+            return getStackVar(currentStackDepth);
         }
         return "$stk_0";
     }
 
     public String peek() {
-        return "$stk_" + Math.max(0, currentStackDepth - 1);
+        return getStackVar(Math.max(0, currentStackDepth - 1));
     }
 
     public int getMaxLocals() {

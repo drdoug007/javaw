@@ -5,7 +5,7 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import java.util.*;
 
-/** Conservative admission policy for the executable i32 bytecode backend. */
+/** Conservative admission policy for the executable integral/reference bytecode backend. */
 final class BytecodeCompatibility {
     private static final Set<Integer> OPCODES = Set.of(
             Opcodes.NOP, Opcodes.ACONST_NULL, Opcodes.ICONST_M1, Opcodes.ICONST_0, Opcodes.ICONST_1,
@@ -19,6 +19,11 @@ final class BytecodeCompatibility {
             Opcodes.IF_ICMPGT, Opcodes.IF_ICMPLE, Opcodes.IF_ACMPEQ, Opcodes.IF_ACMPNE,
             Opcodes.IFNULL, Opcodes.IFNONNULL, Opcodes.GOTO, Opcodes.TABLESWITCH, Opcodes.LOOKUPSWITCH,
             Opcodes.NEW, Opcodes.GETFIELD, Opcodes.PUTFIELD, Opcodes.GETSTATIC, Opcodes.PUTSTATIC, Opcodes.INVOKESTATIC, Opcodes.INVOKESPECIAL, Opcodes.INVOKEVIRTUAL, Opcodes.INVOKEINTERFACE,
+            Opcodes.LCONST_0, Opcodes.LCONST_1, Opcodes.LLOAD, Opcodes.LSTORE,
+            Opcodes.LADD, Opcodes.LSUB, Opcodes.LMUL, Opcodes.LDIV, Opcodes.LREM, Opcodes.LNEG,
+            Opcodes.LSHL, Opcodes.LSHR, Opcodes.LUSHR, Opcodes.LAND, Opcodes.LOR, Opcodes.LXOR,
+            Opcodes.LCMP, Opcodes.I2L, Opcodes.L2I, Opcodes.LRETURN,
+            Opcodes.POP2, Opcodes.DUP_X1, Opcodes.DUP_X2, Opcodes.DUP2, Opcodes.DUP2_X1, Opcodes.DUP2_X2, Opcodes.SWAP,
             Opcodes.IRETURN, Opcodes.ARETURN, Opcodes.RETURN);
 
     static void validate(ClassNode owner, Map<String, ClassNode> linked) {
@@ -26,12 +31,12 @@ final class BytecodeCompatibility {
         BytecodeDispatch dispatch = new BytecodeDispatch(linked, owner.name);
         Map<String, Integer> offsets = layouts.offsets();
         for (FieldNode field : owner.fields) {
-            if (field.value != null && !(field.value instanceof Integer))
+            if (field.value != null && !(field.value instanceof Integer) && !(field.value instanceof Long))
                 throw failure(owner, null, null, "ConstantValue field " + field.name + field.desc,
-                        "only integer constant fields are supported; use source compilation for other constants");
-            if ((field.access & Opcodes.ACC_VOLATILE) != 0 || !i32(Type.getType(field.desc)))
+                        "only int/long constant fields are supported; use source compilation for other constants");
+            if ((field.access & Opcodes.ACC_VOLATILE) != 0 || !integralOrReference(Type.getType(field.desc)))
                 throw failure(owner, null, null, "field " + field.name + field.desc,
-                        "volatile and non-i32 fields need a typed, concurrent runtime");
+                        "volatile and floating-point fields need a typed, concurrent runtime");
         }
         Set<String> exports = new HashSet<>();
         for (MethodNode method : owner.methods) {
@@ -40,8 +45,8 @@ final class BytecodeCompatibility {
             if ((method.access & Opcodes.ACC_ABSTRACT) != 0) continue;
             if ((method.access & Opcodes.ACC_PUBLIC) != 0 && !exports.add(method.name))
                 throw failure(owner, method, null, "overloaded public export", "use unique public entry-point names");
-            if (!i32OrVoid(Type.getReturnType(method.desc)) || Arrays.stream(Type.getArgumentTypes(method.desc)).anyMatch(t -> !i32(t)))
-                throw failure(owner, method, null, "wide/floating-point method descriptor", "use the source backend for typed long/float/double lowering");
+            if (!integralOrReferenceOrVoid(Type.getReturnType(method.desc)) || Arrays.stream(Type.getArgumentTypes(method.desc)).anyMatch(t -> !integralOrReference(t)))
+                throw failure(owner, method, null, "floating-point method descriptor", "use the source backend for typed float/double lowering");
             if (!method.tryCatchBlocks.isEmpty())
                 throw failure(owner, method, method.tryCatchBlocks.get(0).start, "exception handler table", "use source compilation for Java exception handling");
             if (method.name.equals("<clinit>"))
@@ -51,9 +56,9 @@ final class BytecodeCompatibility {
                 if (opcode < 0) continue;
                 if (!OPCODES.contains(opcode)) throw failure(owner, method, instruction, opcodeName(opcode),
                         "use source compilation or replace this construct with the documented i32 subset");
-                if (instruction instanceof LdcInsnNode constant && !(constant.cst instanceof Integer))
+                if (instruction instanceof LdcInsnNode constant && !(constant.cst instanceof Integer) && !(constant.cst instanceof Long))
                     throw failure(owner, method, instruction, "LDC " + constant.cst.getClass().getSimpleName(),
-                            "only integer LDC constants are supported; use source compilation for strings/classes/dynamic constants");
+                            "only int/long LDC constants are supported; use source compilation for strings/classes/dynamic constants");
                 if (instruction instanceof TypeInsnNode allocation && opcode == Opcodes.NEW) {
                     ClassNode target = linked.get(allocation.desc);
                     if (target == null || (target.access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_INTERFACE)) != 0
@@ -111,9 +116,9 @@ final class BytecodeCompatibility {
         }
     }
 
-    private static boolean i32(Type type) { return type.getSort() != Type.VOID && type.getSort() != Type.LONG
+    private static boolean integralOrReference(Type type) { return type.getSort() != Type.VOID
             && type.getSort() != Type.FLOAT && type.getSort() != Type.DOUBLE; }
-    private static boolean i32OrVoid(Type type) { return type.getSort() == Type.VOID || i32(type); }
+    private static boolean integralOrReferenceOrVoid(Type type) { return type.getSort() == Type.VOID || integralOrReference(type); }
 
     static String opcodeName(int opcode) {
         // Opcodes also contains API versions, access flags, frame tags, and handle kinds.

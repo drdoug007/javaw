@@ -52,7 +52,7 @@ public class ClassBytecodeCompiler {
                 String wasmType = TypeHelper.getWasmType(fn.desc);
                 globalVariables.add(gName);
                 wat.append("    (global ").append(gName).append(" (mut ").append(wasmType != null ? wasmType : "i32")
-                   .append(") (").append(wasmType != null ? wasmType : "i32").append(".const ").append(fn.value instanceof Integer ? fn.value : 0).append("))\n");
+                   .append(") (").append(wasmType != null ? wasmType : "i32").append(".const ").append(fn.value instanceof Number ? fn.value : 0).append("))\n");
             }
         }
 
@@ -109,9 +109,15 @@ public class ClassBytecodeCompiler {
         // Declare locals
         for (int i = 0; i < mapper.getMaxLocals(); i++) {
             wat.append("        (local $l_").append(i).append(" i32)\n");
+            wat.append("        (local $l_").append(i).append("_i64 i64)\n");
         }
         for (int i = 0; i < mapper.getMaxStack(); i++) {
             wat.append("        (local $stk_").append(i).append(" i32)\n");
+            wat.append("        (local $stk_").append(i).append("_i64 i64)\n");
+        }
+        for (int i = 0; i < 4; i++) {
+            wat.append("        (local $__shuffle_i32_").append(i).append(" i32)\n");
+            wat.append("        (local $__shuffle_i64_").append(i).append(" i64)\n");
         }
         wat.append("        (local $__state i32)\n");
 
@@ -123,7 +129,8 @@ public class ClassBytecodeCompiler {
         }
         for (int i = 0; i < paramTypes.size(); i++) {
             wat.append("        local.get $p").append(i).append("\n");
-            wat.append("        local.set $l_").append(lIdx++).append("\n");
+            wat.append("        local.set ").append(mapper.getLocalVar(lIdx, paramTypes.get(i))).append("\n");
+            lIdx += org.objectweb.asm.Type.getArgumentTypes(mn.desc)[i].getSize();
         }
 
         // Explicit state dispatch preserves every branch target, including joins and back edges.
@@ -132,7 +139,10 @@ public class ClassBytecodeCompiler {
             AbstractInsnNode first = block.getInstructions().get(0);
             var frame = frames[mn.instructions.indexOf(first)];
             if (frame == null) continue; // Unreachable JVM instructions.
-            mapper.setStackDepth(frame.getStackSize());
+            List<String> entryTypes = new ArrayList<>();
+            for (int i = 0; i < frame.getStackSize(); i++)
+                entryTypes.add(TypeHelper.getWasmType(frame.getStack(i).getType()));
+            mapper.setStackTypes(entryTypes);
             wat.append("        local.get $__state\n        i32.const ").append(block.getId()).append("\n        i32.eq\n        if\n");
             BytecodeInstructionVisitor visitor = new BytecodeInstructionVisitor(mapper, stringPool, fieldOffsets, objectSizes, dispatch);
             AbstractInsnNode terminal = null;
@@ -168,7 +178,8 @@ public class ClassBytecodeCompiler {
                 }
                 wat.append("        br $loop_dispatch\n");
             } else if (terminal == null || terminal.getOpcode() != Opcodes.RETURN
-                    && terminal.getOpcode() != Opcodes.IRETURN && terminal.getOpcode() != Opcodes.ARETURN) {
+                    && terminal.getOpcode() != Opcodes.IRETURN && terminal.getOpcode() != Opcodes.ARETURN
+                    && terminal.getOpcode() != Opcodes.LRETURN) {
                 if (block.getFallthrough() != null) {
                     setState(wat, block.getFallthrough());
                     wat.append("        br $loop_dispatch\n");
