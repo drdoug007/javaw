@@ -1403,6 +1403,89 @@ class BytecodeCompatibilityTest {
         }
     }
 
+    @Test void matchesJvmSpecialSuperclassSelectionAndInheritedDefaults() throws Exception {
+        fixture("""
+            public class Fixture {
+                public static double run(int n) {
+                    Leaf value=new Leaf();return value.direct(n)+value.inherited(n)+value.value();
+                }
+                public static int defaultCall(){return new DefaultChild().parent();}
+            }
+            class Base {
+                protected int value(){return 10;}
+                protected double mixed(int n,long big,float fraction,double tail){return n+big+fraction+tail;}
+            }
+            class Middle extends Base {protected int value(){return 20;}}
+            class Leaf extends Middle {
+                protected int value(){return 30;}
+                public int direct(int n){return super.value()+n;}
+                public double inherited(int n){return super.mixed(n,9007199254740993L,0.25f,0.5);}
+            }
+            interface DefaultValue {default int number(){return 73;}}
+            class DefaultBase implements DefaultValue {}
+            class DefaultChild extends DefaultBase {public int parent(){return super.number();}}
+            """);
+        // A legal grandparent symbolic reference still selects Middle under ACC_SUPER.
+        Path leafFile=directory.resolve("Leaf.class");
+        ClassNode leaf=new ClassNode();new ClassReader(Files.readAllBytes(leafFile)).accept(leaf,0);
+        for(MethodNode method:leaf.methods) for(AbstractInsnNode insn:method.instructions)
+            if(insn instanceof MethodInsnNode call && call.name.equals("value")) call.owner="Base";
+        ClassWriter writer=new ClassWriter(0);leaf.accept(writer);Files.write(leafFile,writer.toByteArray());
+        Path oracle=directory.resolve("Oracle.java");
+        Files.writeString(oracle,"""
+            public class Oracle {public static void main(String[] args){
+                for(int n=-3;n<=3;n++)System.out.println(Fixture.run(n));
+                System.out.println(Fixture.defaultCall());
+            }}
+            """);
+        assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,"-cp",directory.toString(),
+                "-d",directory.toString(),oracle.toString()));
+        run("java","-cp",directory.toString(),"Oracle");
+        var expected=Files.readAllLines(directory.resolve("command.log"));assertEquals(8,expected.size());
+        execute(linkJar("DefaultChild","Leaf","Middle","DefaultBase","Base","DefaultValue","Fixture"),
+                "const expected=["+String.join(",",expected)+"];\n"+"""
+            for(let n=-3;n<=3;n++)assert.equal(e['Fixture.run'](n),expected[n+3]);
+            assert.equal(e['Fixture.defaultCall'](),expected[7]);
+            """);
+        String wat=linkJar("Fixture","DefaultValue","Base","DefaultBase","Middle","Leaf","DefaultChild");
+        execute(wat,"assert.equal(e['Fixture.defaultCall'](),73);");
+    }
+
+    @Test void diagnosesInvalidClassSpecialLinkage() {
+        for(String scenario:new String[]{"private","package","protected","static","abstract","native",
+                "owner","interface","unrelated","constructorInherited","missing","cycle","initializer"}) {
+            ClassNode base=new ClassNode();base.name="p/Base";base.superName="java/lang/Object";base.access=Opcodes.ACC_PUBLIC;
+            int flags=Opcodes.ACC_PUBLIC;
+            if(scenario.equals("private"))flags=Opcodes.ACC_PRIVATE;
+            if(scenario.equals("package"))flags=0;
+            if(scenario.equals("protected"))flags=Opcodes.ACC_PROTECTED;
+            if(scenario.equals("static"))flags|=Opcodes.ACC_STATIC;
+            if(scenario.equals("abstract"))flags|=Opcodes.ACC_ABSTRACT;
+            if(scenario.equals("native"))flags|=Opcodes.ACC_NATIVE;
+            base.methods.add(new MethodNode(flags,"value","()I",null,null));
+            ClassNode caller=new ClassNode();caller.name="q/Caller";caller.superName=base.name;caller.access=Opcodes.ACC_PUBLIC|Opcodes.ACC_SUPER;
+            MethodNode method=new MethodNode(Opcodes.ACC_PUBLIC,"call","()I",null,null);
+            MethodInsnNode call=new MethodInsnNode(Opcodes.INVOKESPECIAL,base.name,"value","()I",false);
+            method.instructions.add(new VarInsnNode(Opcodes.ALOAD,0));method.instructions.add(call);
+            method.instructions.add(new InsnNode(Opcodes.IRETURN));method.maxLocals=1;method.maxStack=1;caller.methods.add(method);
+            var linked=new java.util.LinkedHashMap<String,ClassNode>();linked.put(base.name,base);linked.put(caller.name,caller);
+            if(scenario.equals("owner"))base.access=0;
+            if(scenario.equals("interface"))base.access|=Opcodes.ACC_INTERFACE;
+            if(scenario.equals("unrelated")||scenario.equals("protected"))caller.superName="java/lang/Object";
+            if(scenario.equals("constructorInherited")) {
+                base.methods.clear();base.methods.add(new MethodNode(Opcodes.ACC_PUBLIC,"<init>","()V",null,null));
+                call.owner=caller.name;call.name="<init>";call.desc="()V";
+            }
+            if(scenario.equals("missing")){base.methods.clear();base.superName="missing/Parent";}
+            if(scenario.equals("cycle")){base.methods.clear();base.superName=base.name;}
+            if(scenario.equals("initializer"))call.name="<clinit>";
+            String error=assertThrows(IllegalArgumentException.class,
+                    ()->new ClassBytecodeCompiler(caller).compileToWat(linked),scenario).getMessage();
+            assertTrue(error.contains("special call "),scenario+": "+error);
+            assertTrue(error.contains("q.Caller.call()I"),error);
+        }
+    }
+
     private String linkJar(String... names) throws Exception {
         var bytes=new java.io.ByteArrayOutputStream();
         try(var jar=new java.util.jar.JarOutputStream(bytes)) {

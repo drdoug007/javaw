@@ -766,10 +766,11 @@ public class BytecodeInstructionVisitor {
             return;
         }
 
-        // Static calls bind to the resolved declaration; special calls retain direct binding.
+        // Validation and lowering share static/special declaration selection.
         String funcName = isStatic && dispatch != null ? dispatch.staticTarget(minsn)
                 : minsn.getOpcode() == Opcodes.INVOKESPECIAL && minsn.itf && dispatch != null
                 ? dispatch.interfaceSuperTarget(minsn)
+                : dispatch != null ? dispatch.specialTarget(minsn)
                 : TypeHelper.getMethodFunctionName(minsn.owner, minsn.name, minsn.desc);
 
         if (!isStatic) {

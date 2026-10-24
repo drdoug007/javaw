@@ -115,21 +115,10 @@ final class BytecodeCompatibility {
                         continue;
                     }
                     if (call.owner.equals("java/lang/Object") && call.name.equals("<init>") && call.desc.equals("()V")) continue;
-                    ClassNode target = linked.get(call.owner);
-                    MethodNode resolved = target == null ? null : target.methods.stream()
-                            .filter(m -> m.name.equals(call.name) && m.desc.equals(call.desc)
-                                && (m.access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_NATIVE)) == 0
-                                && ((m.access & Opcodes.ACC_STATIC) != 0) == (opcode == Opcodes.INVOKESTATIC))
-                            .findFirst().orElse(null);
-                    if (resolved == null)
-                        throw failure(owner, method, instruction, "unlinked method " + call.owner + "." + call.name + call.desc,
-                                "link all supported callees or provide an explicit source/host adapter");
-                    if ((resolved.access & Opcodes.ACC_PRIVATE) != 0) {
-                        try { dispatch.checkPrivateAccess(call.owner); }
-                        catch (IllegalArgumentException error) {
-                            throw failure(owner, method, instruction, "private method access " + call.owner + "." + call.name + call.desc,
-                                    error.getMessage());
-                        }
+                    try { dispatch.specialTarget(call); }
+                    catch (IllegalArgumentException error) {
+                        throw failure(owner, method, instruction, "special call " + call.owner + "." + call.name + call.desc,
+                                error.getMessage());
                     }
                 }
             }

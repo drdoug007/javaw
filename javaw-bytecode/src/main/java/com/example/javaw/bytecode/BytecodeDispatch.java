@@ -231,6 +231,49 @@ public final class BytecodeDispatch {
         return TypeHelper.getMethodFunctionName(resolved.owner, call.name, call.desc);
     }
 
+    private Declaration classSpecialDeclaration(String name, String method, String descriptor) {
+        Set<String> visited = new HashSet<>();
+        String current = name;
+        while (current != null && !current.equals("java/lang/Object")) {
+            ClassNode type = linked.get(current);
+            if (type == null || !visited.add(current))
+                throw new IllegalArgumentException("link a complete acyclic special method superclass chain: " + current);
+            Declaration found = ownMethod(current, method, descriptor);
+            if (found != null) return found;
+            current = type.superName;
+        }
+        return interfaceMethod(name, method, descriptor);
+    }
+
+    /** Class INVOKESPECIAL resolution, including exact constructors and ACC_SUPER selection. */
+    public String specialTarget(MethodInsnNode call) {
+        ClassNode owner = linked.get(call.owner), from = linked.get(caller);
+        if (call.itf || owner == null || (owner.access & Opcodes.ACC_INTERFACE) != 0 || from == null)
+            throw new IllegalArgumentException("link the special-call class owner and caller with a class reference");
+        if ((owner.access & Opcodes.ACC_PUBLIC) == 0 && !packageName(call.owner).equals(packageName(caller)))
+            throw new IllegalArgumentException("inaccessible special method owner " + call.owner);
+        boolean constructor = call.name.equals("<init>");
+        if (call.name.startsWith("<") && !constructor)
+            throw new IllegalArgumentException("class initializers cannot be invoked with INVOKESPECIAL");
+        Declaration resolved = constructor ? ownMethod(call.owner, call.name, call.desc)
+                : classSpecialDeclaration(call.owner, call.name, call.desc);
+        if (resolved == null)
+            throw new IllegalArgumentException("link a matching special declaration; constructors are not inherited");
+        checkMemberAccess(resolved);
+        if ((resolved.method.access & Opcodes.ACC_STATIC) != 0)
+            throw new IllegalArgumentException("special call cannot resolve to a static declaration");
+        if (!constructor) {
+            boolean superclass = !caller.equals(call.owner) && subtype(from.superName, call.owner, new HashSet<>());
+            if (!caller.equals(call.owner) && !superclass)
+                throw new IllegalArgumentException("non-constructor class special calls require the caller or a superclass owner");
+            if (superclass && ((from.access & Opcodes.ACC_SUPER) != 0 || from.version >= Opcodes.V1_8))
+                resolved = classSpecialDeclaration(from.superName, call.name, call.desc);
+        }
+        if (resolved == null || (resolved.method.access & (Opcodes.ACC_STATIC | Opcodes.ACC_ABSTRACT | Opcodes.ACC_NATIVE)) != 0)
+            throw new IllegalArgumentException("special call requires a concrete non-native instance implementation");
+        return TypeHelper.getMethodFunctionName(resolved.owner, call.name, call.desc);
+    }
+
     public String interfaceSuperTarget(MethodInsnNode call) {
         ClassNode owner = linked.get(call.owner);
         if (owner == null || (owner.access & Opcodes.ACC_INTERFACE) == 0)
