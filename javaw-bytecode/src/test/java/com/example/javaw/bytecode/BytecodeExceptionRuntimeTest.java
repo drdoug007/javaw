@@ -160,13 +160,16 @@ class BytecodeExceptionRuntimeTest implements Opcodes {
         return BytecodeCompiler.compileJar(new ByteArrayInputStream(bytes.toByteArray()));
     }
 
-    private byte[] arithmeticException() {
+    private byte[] arithmeticException() {return runtimeException("ArithmeticException",73);}
+
+    private byte[] runtimeException(String name,int marker) {
+        String owner="java/lang/"+name;
         ClassWriter writer=new ClassWriter(0);
-        writer.visit(V17,ACC_PUBLIC,"java/lang/ArithmeticException",null,"java/lang/Throwable",null);
+        writer.visit(V17,ACC_PUBLIC,owner,null,"java/lang/Throwable",null);
         writer.visitField(ACC_PUBLIC,"marker","I",null,null).visitEnd();
         MethodVisitor init=writer.visitMethod(ACC_PUBLIC,"<init>","()V",null,null);
         init.visitCode();init.visitVarInsn(ALOAD,0);init.visitMethodInsn(INVOKESPECIAL,"java/lang/Throwable","<init>","()V",false);
-        init.visitVarInsn(ALOAD,0);init.visitIntInsn(BIPUSH,73);init.visitFieldInsn(PUTFIELD,"java/lang/ArithmeticException","marker","I");
+        init.visitVarInsn(ALOAD,0);init.visitIntInsn(BIPUSH,marker);init.visitFieldInsn(PUTFIELD,owner,"marker","I");
         init.visitInsn(RETURN);init.visitMaxs(2,1);init.visitEnd();writer.visitEnd();return writer.toByteArray();
     }
 
@@ -225,6 +228,173 @@ class BytecodeExceptionRuntimeTest implements Opcodes {
             IllegalArgumentException error=assertThrows(IllegalArgumentException.class,
                     ()->new ClassBytecodeCompiler(operations).compileToWat(linked));
             assertTrue(error.getMessage().contains("implicit arithmetic exception runtime") || error.getMessage().contains("link missing superclass java/lang/Throwable"),error.getMessage());
+        }
+    }
+
+    private void referenceFixture() throws Exception {
+        Path source=directory.resolve("References.java");
+        Files.writeString(source,"""
+            public class References {
+                static int ticks;
+                private static long rhs(){ticks+=10;return 19;}
+                private static int leaf(int kind,boolean invalid) throws Throwable {
+                    RefBox box=invalid?null:new RefBox();
+                    RefFace face=box;
+                    Object value=invalid?new RefOther():box;
+                    switch(kind) {
+                        case 0:return box.get();
+                        case 1:return face.get();
+                        case 2:return (int)box.value;
+                        case 3:box.value=rhs();return (int)box.value;
+                        case 4:if(invalid)throw (Throwable)null;return 9;
+                        case 5:return ((RefBox)value).get();
+                        case 6:return ((RefFace)value).get();
+                        case 7:return ((int[])(invalid?value:new int[2])).length;
+                        case 8:return ((RefBox[][])(invalid?value:new RefBox[1][])).length;
+                        case 9:return (RefBox)(invalid?null:value)==null?1:2;
+                        case 10:return value instanceof RefBox?1:0;
+                        default:return ((RefBox[][])(Object)new RefChild[2][]).length;
+                    }
+                }
+                public static int caught(int kind,boolean invalid) {
+                    ticks=0;
+                    try {try{return 100+leaf(kind,invalid);}finally{ticks+=3;}}
+                    catch(NullPointerException e){return 200+ticks;}
+                    catch(ClassCastException e){return 300+ticks;}
+                    catch(Throwable e){return -1;}
+                }
+                public static int ticks(){return ticks;}
+                public static int escape(int kind) throws Throwable{return leaf(kind,true);}
+                public static void allocate(){new RefBox();}
+            }
+            interface RefFace {int get();}
+            class RefBox implements RefFace {long value=7;public int get(){return (int)value;}}
+            class RefChild extends RefBox {}
+            class RefOther {}
+            """);
+        assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,"-g","-d",directory.toString(),source.toString()));
+    }
+
+    private byte[] nullSpecial() {
+        ClassWriter writer=new ClassWriter(0);writer.visit(V1_5,ACC_PUBLIC,"RefSpecial",null,"java/lang/Object",null);
+        MethodVisitor target=writer.visitMethod(ACC_PRIVATE,"target","()I",null,null);
+        target.visitCode();target.visitInsn(ICONST_1);target.visitInsn(IRETURN);target.visitMaxs(1,1);target.visitEnd();
+        MethodVisitor run=writer.visitMethod(ACC_PUBLIC|ACC_STATIC,"run","()I",null,null);
+        run.visitCode();run.visitInsn(ACONST_NULL);run.visitMethodInsn(INVOKESPECIAL,"RefSpecial","target","()I",false);
+        run.visitInsn(IRETURN);run.visitMaxs(1,0);run.visitEnd();writer.visitEnd();return writer.toByteArray();
+    }
+
+    private String referenceJar(boolean reverse,boolean nulls,boolean casts) throws Exception {
+        List<String> names=new ArrayList<>(List.of("References","RefFace","RefBox","RefChild","RefOther","RefSpecial","java/lang/Throwable"));
+        if(nulls)names.add("java/lang/NullPointerException");
+        if(casts)names.add("java/lang/ClassCastException");
+        if(reverse)Collections.reverse(names);
+        ByteArrayOutputStream bytes=new ByteArrayOutputStream();
+        try(JarOutputStream jar=new JarOutputStream(bytes)) {
+            for(String name:names) {
+                jar.putNextEntry(new JarEntry(name+".class"));
+                byte[] definition=switch(name) {
+                    case "RefSpecial" -> nullSpecial();
+                    case "java/lang/Throwable" -> throwable();
+                    case "java/lang/NullPointerException" -> runtimeException("NullPointerException",81);
+                    case "java/lang/ClassCastException" -> runtimeException("ClassCastException",82);
+                    default -> Files.readAllBytes(directory.resolve(name+".class"));
+                };
+                if(name.equals("References") && (!nulls || !casts)) {
+                    ClassNode type=BytecodeInput.read(definition);
+                    type.methods.removeIf(method->method.name.equals("caught"));
+                    ClassWriter writer=new ClassWriter(0);type.accept(writer);definition=writer.toByteArray();
+                }
+                jar.write(definition);jar.closeEntry();
+            }
+        }
+        return BytecodeCompiler.compileJar(new ByteArrayInputStream(bytes.toByteArray()));
+    }
+
+    @Test void mapsNullReceiversNullThrowAndClassInterfaceArrayCastsInEitherJarOrder() throws Exception {
+        referenceFixture();Files.write(directory.resolve("RefSpecial.class"),nullSpecial());
+        StringBuilder checks=new StringBuilder();
+        try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)) {
+            Class<?> jvm=loader.loadClass("References");
+            var error=assertThrows(java.lang.reflect.InvocationTargetException.class,
+                    ()->loader.loadClass("RefSpecial").getMethod("run").invoke(null));
+            assertInstanceOf(NullPointerException.class,error.getCause());
+            for(int kind=0;kind<12;kind++) for(boolean invalid:new boolean[]{false,true}) {
+                int expected=(int)jvm.getMethod("caught",int.class,boolean.class).invoke(null,kind,invalid);
+                int ticks=(int)jvm.getMethod("ticks").invoke(null);
+                checks.append("assert.equal(e['References.caught'](").append(kind).append(',').append(invalid?1:0).append("),").append(expected).append(");");
+                checks.append("assert.equal(e['References.ticks'](),").append(ticks).append(");");
+            }
+        }
+        checks.append("""
+            assert.throws(()=>e['RefSpecial.run'](),error=>{
+                assert.ok(error.is(e.__java_exception));
+                assert.equal(new DataView(memory.buffer).getInt32(error.getArg(e.__java_exception,0)+4,true),81);return true;
+            });
+            let previous=0;
+            for(let kind=0;kind<9;kind++) {
+                assert.throws(()=>e['References.escape'](kind),error=>{
+                    assert.ok(error instanceof WebAssembly.Exception);assert.ok(error.is(e.__java_exception));
+                    const ref=error.getArg(e.__java_exception,0);assert.notEqual(ref,previous);previous=ref;
+                    assert.equal(new DataView(memory.buffer).getInt32(ref+4,true),kind<5?81:82);return true;
+                });
+            }
+            const failed=new WebAssembly.Instance(compiled,{env:{memory,__heap_alloc:()=>0}}).exports;
+            assert.throws(()=>failed['References.allocate'](),WebAssembly.RuntimeError);
+            assert.throws(()=>failed['RefSpecial.run'](),WebAssembly.RuntimeError);
+            const sentinel=new Error('host allocator');
+            const hostFailed=new WebAssembly.Instance(compiled,{env:{memory,__heap_alloc:()=>{throw sentinel;}}}).exports;
+            assert.throws(()=>hostFailed['RefSpecial.run'](),error=>error===sentinel);
+            """);
+        execute(referenceJar(false,true,true),checks.toString());execute(referenceJar(true,true,true),checks.toString());
+    }
+
+    @Test void referenceExceptionDefinitionsAreIndependentOptIns() throws Exception {
+        referenceFixture();
+        for(boolean nulls:new boolean[]{false,true}) for(boolean casts:new boolean[]{false,true}) {
+            if(nulls && casts)continue;
+            String wat=referenceJar(false,nulls,casts);
+            assertEquals(nulls,wat.contains("(func $__throw_null_pointer"));
+            assertEquals(casts,wat.contains("(func $__throw_class_cast"));
+            execute(wat,"""
+                assert.throws(()=>e['References.escape'](0),%s);
+                assert.throws(()=>e['References.escape'](5),%s);
+                assert.equal(e['References.escape'](9),1);
+                assert.equal(e['References.escape'](10),0);
+                """.formatted(nulls?"WebAssembly.Exception":"WebAssembly.RuntimeError",casts?"WebAssembly.Exception":"WebAssembly.RuntimeError"));
+        }
+    }
+
+    @Test void rejectsInvalidNullAndCastRuntimeDefinitionsBeforeLowering() {
+        for(var kind:List.of(BytecodeExceptions.Implicit.NULL_POINTER,BytecodeExceptions.Implicit.CLASS_CAST)) {
+            String name=kind.className.substring("java/lang/".length());
+            for(int variant=0;variant<6;variant++) {
+                ClassNode operations=new ClassNode();operations.version=V17;operations.access=ACC_PUBLIC;
+                operations.name="Operations";operations.superName="java/lang/Object";
+                MethodNode method=new MethodNode(ACC_PUBLIC|ACC_STATIC,"run","(Ljava/lang/Object;)Ljava/lang/Object;",null,null);
+                if(kind==BytecodeExceptions.Implicit.CLASS_CAST) {
+                    method.instructions.add(new VarInsnNode(ALOAD,0));
+                    method.instructions.add(new TypeInsnNode(CHECKCAST,"java/lang/Object"));
+                    method.instructions.add(new InsnNode(ARETURN));
+                } else {
+                    method.instructions.add(new InsnNode(ACONST_NULL));method.instructions.add(new InsnNode(ATHROW));
+                }
+                method.maxLocals=1;method.maxStack=1;operations.methods.add(method);
+                ClassNode invalid=BytecodeInput.read(runtimeException(name,80));
+                switch(variant) {
+                    case 0 -> invalid.access|=ACC_ABSTRACT;
+                    case 1 -> invalid.methods.getFirst().access=ACC_PRIVATE;
+                    case 2 -> invalid.methods.clear();
+                    case 3 -> invalid.superName="java/lang/Object";
+                    case 4 -> invalid.access=0;
+                    case 5 -> {invalid.methods.getFirst().access|=ACC_NATIVE;invalid.methods.getFirst().instructions.clear();}
+                }
+                Map<String,ClassNode> linked=Map.of(operations.name,operations,invalid.name,invalid,
+                        "java/lang/Throwable",BytecodeInput.read(throwable()));
+                IllegalArgumentException error=assertThrows(IllegalArgumentException.class,
+                        ()->new ClassBytecodeCompiler(operations).compileToWat(linked));
+                assertTrue(error.getMessage().contains(name),error.getMessage());
+            }
         }
     }
 

@@ -3,6 +3,7 @@ package com.example.javaw.bytecode.lowering;
 import com.example.javaw.bytecode.TypeHelper;
 import com.example.javaw.bytecode.BytecodeDispatch;
 import com.example.javaw.bytecode.BytecodeArrays;
+import com.example.javaw.bytecode.BytecodeExceptions.Implicit;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
@@ -528,7 +529,7 @@ public class BytecodeInstructionVisitor {
                 else {
                     emit("i32.eqz");
                     emit("if");
-                    emit("unreachable");
+                    emitImplicitFailure(Implicit.CLASS_CAST);
                     emit("end");
                 }
                 break;
@@ -541,7 +542,12 @@ public class BytecodeInstructionVisitor {
                 emit("i32.const " + objectSize);
                 emit("call $__heap_alloc");
                 emit("local.set " + newRef);
-                emitNullGuard(newRef);
+                // A null allocation is an allocation failure, not a null dereference.
+                emit("local.get " + newRef);
+                emit("i32.eqz");
+                emit("if");
+                emit("unreachable");
+                emit("end");
                 // Java defaults apply even if the host allocator returns dirty memory.
                 emit("local.get " + newRef);
                 emit("i32.const 0");
@@ -630,19 +636,23 @@ public class BytecodeInstructionVisitor {
     }
 
     private void emitArithmeticGuard(String divisor, String type) {
-        if (dispatch == null || !dispatch.hasArithmeticException()) return;
+        if (dispatch == null || !dispatch.hasImplicitException(Implicit.ARITHMETIC)) return;
         emit("local.get " + divisor);
         emit(type + ".eqz");
         emit("if");
-        emit("call $__throw_arithmetic");
+        emitImplicitFailure(Implicit.ARITHMETIC);
         emit("end");
+    }
+
+    private void emitImplicitFailure(Implicit kind) {
+        emit(dispatch != null && dispatch.hasImplicitException(kind) ? "call " + kind.helper : "unreachable");
     }
 
     private void emitNullGuard(String reference) {
         emit("local.get " + reference);
         emit("i32.eqz");
         emit("if");
-        emit("unreachable");
+        emitImplicitFailure(Implicit.NULL_POINTER);
         emit("end");
     }
 

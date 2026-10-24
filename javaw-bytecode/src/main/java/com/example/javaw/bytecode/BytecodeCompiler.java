@@ -61,9 +61,10 @@ public class BytecodeCompiler {
                         "provide exactly one definition of " + cn.name + " in the linked JAR");
         }
         BytecodeDispatch runtimeDispatch = new BytecodeDispatch(linked);
-        boolean arithmetic = runtimeDispatch.hasArithmeticException() && classes.stream().anyMatch(BytecodeExceptions::usesArithmetic);
-        if (arithmetic || classes.stream().anyMatch(BytecodeExceptions::usesRuntime)) combinedWat.append(BytecodeExceptions.TAG_WAT);
-        if (arithmetic) combinedWat.append(runtimeDispatch.arithmeticExceptionRuntimeWat());
+        Set<BytecodeExceptions.Implicit> implicit = EnumSet.noneOf(BytecodeExceptions.Implicit.class);
+        for (ClassNode type : classes) implicit.addAll(BytecodeExceptions.implicitRuntime(type, runtimeDispatch));
+        if (!implicit.isEmpty() || classes.stream().anyMatch(BytecodeExceptions::usesRuntime)) combinedWat.append(BytecodeExceptions.TAG_WAT);
+        for (var kind : implicit) combinedWat.append(runtimeDispatch.implicitExceptionRuntimeWat(kind));
         for (ClassNode cn : classes) {
             ClassBytecodeCompiler compiler = new ClassBytecodeCompiler(cn);
             String classWat = compiler.compileToWat(linked, false);

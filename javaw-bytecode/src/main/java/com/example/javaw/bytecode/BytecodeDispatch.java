@@ -133,13 +133,14 @@ public final class BytecodeDispatch {
         return BytecodeArrays.isArraycopy(call) && !linked.containsKey(call.owner);
     }
 
-    /** Linking this runtime definition opts integer zero division into Java exception execution. */
-    public boolean hasArithmeticException() {
-        return linked.containsKey("java/lang/ArithmeticException");
+    /** Explicitly linked definitions opt individual implicit failures into Java exception execution. */
+    public boolean hasImplicitException(BytecodeExceptions.Implicit kind) {
+        return linked.containsKey(kind.className);
     }
 
-    String arithmeticExceptionRuntimeWat() {
-        String name = "java/lang/ArithmeticException";
+    String implicitExceptionRuntimeWat(BytecodeExceptions.Implicit kind) {
+        String name = kind.className;
+        String simpleName = name.substring(name.lastIndexOf('/') + 1);
         ClassNode type = linked.get(name);
         if (type == null) return "";
         try {
@@ -147,13 +148,13 @@ public final class BytecodeDispatch {
             if (root == null || (root.access & Opcodes.ACC_INTERFACE) != 0
                     || (type.access & (Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT | Opcodes.ACC_INTERFACE)) != Opcodes.ACC_PUBLIC
                     || !subtype(name, "java/lang/Throwable", new HashSet<>()))
-                throw new IllegalArgumentException("link a public concrete ArithmeticException class extending linked Throwable");
+                throw new IllegalArgumentException("link a public concrete " + simpleName + " class extending linked Throwable");
             Declaration init = ownMethod(name, "<init>", "()V");
             if (init == null || (init.method.access & (Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC | Opcodes.ACC_ABSTRACT | Opcodes.ACC_NATIVE)) != Opcodes.ACC_PUBLIC)
-                throw new IllegalArgumentException("link a public bytecode ArithmeticException() constructor");
+                throw new IllegalArgumentException("link a public bytecode " + simpleName + "() constructor");
             Integer size = layouts.sizes().get(name);
-            if (size == null) throw new IllegalArgumentException("link a complete ArithmeticException object layout through Object");
-            return "    (func $__throw_arithmetic (local $exception i32)\n"
+            if (size == null) throw new IllegalArgumentException("link a complete " + simpleName + " object layout through Object");
+            return "    (func " + kind.helper + " (local $exception i32)\n"
                     + "        i32.const " + size + "\n        call $__heap_alloc\n        local.tee $exception\n"
                     + "        i32.eqz\n        if\n            unreachable\n        end\n"
                     + "        local.get $exception\n        i32.const 0\n        i32.const " + size + "\n        memory.fill\n"
@@ -161,7 +162,7 @@ public final class BytecodeDispatch {
                     + "        local.get $exception\n        call " + TypeHelper.getMethodFunctionName(name, "<init>", "()V") + "\n"
                     + "        local.get $exception\n        throw $__java_exception\n    )\n";
         } catch (IllegalArgumentException error) {
-            throw BytecodeCompatibility.failure(type, null, null, "implicit arithmetic exception runtime", error.getMessage());
+            throw BytecodeCompatibility.failure(type, null, null, "implicit " + kind.name().toLowerCase(java.util.Locale.ROOT).replace('_', ' ') + " exception runtime", error.getMessage());
         }
     }
 
