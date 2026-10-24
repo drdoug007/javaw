@@ -1581,7 +1581,7 @@ python3 -m http.server 8000
 
 The compiler lowers the unchanged `SpringBootApp.java`, `ProductRepository.java`, and `Product.java` into a unified Wasm module. `SpringApplication.run` creates singleton repositories, constructor-injected controllers, and linked `@Service`/`@Component` objects. Dependencies may be concrete classes or uniquely implemented source interfaces, resolved transitively before their consumers. Controller method bodies execute in Wasm, including repository operations, generated IDs, and lazy `orElseThrow` exception suppliers.
 
-This is ahead-of-time support for a subset of Spring APIs. It does **not** run Spring Boot, Hibernate, or the H2 SQL engine. The Maven dependencies provide the Java API types; `linkDependencies=false` keeps their JVM implementations out of the Wasm module. Repository rows use a linked list in Wasm linear memory, with linear scans for lookup. There is no SQL, transaction manager, disk persistence, query derivation, or general Spring container.
+This is ahead-of-time support for a subset of Spring APIs. It does **not** run Spring Boot, Hibernate, or the H2 SQL engine. The Maven dependencies provide the Java API types; `linkDependencies=false` keeps their JVM implementations out of the Wasm module. Repository rows use a linked list in Wasm linear memory, with linear scans for lookup. There is no SQL, transaction manager, disk persistence, or general Spring container.
 
 The compiler embeds `javaw_spring_web` metadata describing routes, parameters, and entity field offsets. `spring-web.js` uses it to pass HTTP arguments to Wasm controller instances, serialize returned entities/arrays, and translate `ResponseStatusException` into HTTP errors. Node does not store the repository rows.
 
@@ -1589,10 +1589,12 @@ Supported patterns in this example:
 
 - One constructor per managed controller, startup application, service, or component (or an implicit default constructor), with dependencies on other linked managed beans or `CrudRepository<Entity, Integer>` interfaces.
 - An entity with one generated `int`/`Integer` ID, and `String`, `BigDecimal`, `int`, or `Integer` fields.
-- `findAll`, `findById`, `save`, and `deleteById`; custom repository queries are rejected.
+- `findAll`, `findById`, `save`, and `deleteById`, plus derived equality queries named `findBy...`, `countBy...`, and `existsBy...`. Queries support direct `String`, `int`, `Integer`, and `BigDecimal` fields, `And`/`Or` predicates, and `Is`/`Equals` aliases; unsupported query forms fail compilation.
 - `findById(...).orElseThrow(() -> new ResponseStatusException(...))` with an expression supplier using method parameters.
 - Single string `@RequestMapping`, `@GetMapping`, `@PostMapping`, `@PutMapping`, and `@DeleteMapping` paths; integer `@PathVariable` arguments and JSON object fields for other arguments.
 - `HttpStatus.NOT_FOUND`, `BAD_REQUEST`, `CONFLICT`, and `INTERNAL_SERVER_ERROR`.
+
+Derived queries execute linear scans over the live Wasm rows. Multi-result queries preserve repository order and return fresh arrays of entity references; declared `List<Entity>` results use the existing array lowering. Single-result queries return the entity (or null), or a source-backed `Optional<Entity>`, and reject multiple matches with `IncorrectResultSizeDataAccessException`. Null parameters match null fields; decimal equality compares numeric value without losing precision. `SpringRepositoryQueryTest` executes this contract, and `SpringWebSupportTest` validates query-backed controller metadata. See [supported query syntax and limits](docs/spring-repository-queries.md). Transactions remain pending; `@Transactional` fails explicitly rather than implying rollback.
 
 `BigDecimal` values are arbitrary-precision Wasm objects with scale and rounding semantics. The HTTP bridge preserves decimal JSON lexemes and emits exact JSON numbers; JavaScript clients must preserve that text or use strings to avoid client-side rounding. Storage lasts for one Wasm instance. The bridge collects unreachable rows and request temporaries after responses are copied into JavaScript; retained repository rows remain roots.
 

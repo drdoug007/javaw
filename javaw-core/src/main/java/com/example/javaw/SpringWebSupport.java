@@ -21,6 +21,10 @@ final class SpringWebSupport {
         SpringWebSupport support = new SpringWebSupport();
         boolean enabled = cu.getImports().stream().anyMatch(i -> i.getNameAsString().startsWith("org.springframework."));
         if (!enabled) return support;
+        for (AnnotationExpr annotation : cu.findAll(AnnotationExpr.class)) {
+            if (annotation.getName().getIdentifier().equals("Transactional"))
+                throw JavaSourcePreparation.error(annotation, "Spring @Transactional is unsupported; repository operations are immediate and have no rollback");
+        }
         for (ClassOrInterfaceDeclaration type : cu.findAll(ClassOrInterfaceDeclaration.class)) {
             if (type.isAnnotationPresent("Entity")) support.entities.add(type.getNameAsString());
             if (type.isAnnotationPresent("RestController")) support.controllers.add(type);
@@ -37,6 +41,17 @@ final class SpringWebSupport {
                 call.getScope().map(Object::toString).orElse("").equals("SpringApplication") && call.getNameAsString().equals("run"));
         if (!bootRequested && support.controllers.isEmpty()) return support;
         for (var entry : support.repositories.entrySet()) support.lowerRepository(cu, entry.getKey(), entry.getValue());
+        LibrarySupport.add(cu, "org.springframework.dao", """
+            class IncorrectResultSizeDataAccessException extends RuntimeException {
+                private int expectedSize;
+                private int actualSize;
+                public IncorrectResultSizeDataAccessException(int expectedSize,int actualSize) {
+                    super("Incorrect repository query result size"); this.expectedSize=expectedSize; this.actualSize=actualSize;
+                }
+                public int getExpectedSize() { return expectedSize; }
+                public int getActualSize() { return actualSize; }
+            }
+            """);
         support.lowerOptional(cu);
         for (MethodCallExpr call : cu.findAll(MethodCallExpr.class)) {
             if (call.getScope().map(Object::toString).orElse("").equals("SpringApplication") && call.getNameAsString().equals("run")) {
@@ -84,10 +99,6 @@ final class SpringWebSupport {
         String key = id.getNameAsString();
         ClassOrInterfaceDeclaration repo = cu.findAll(ClassOrInterfaceDeclaration.class).stream()
                 .filter(c -> c.getNameAsString().equals(name)).findFirst().orElseThrow();
-        for (MethodDeclaration method : repo.getMethods()) {
-            if (!method.getNameAsString().equals("findAll") || !method.getParameters().isEmpty())
-                throw unsupported("Repository method " + name + "." + method.getNameAsString());
-        }
         String node = "__JavawRow_" + name;
         String source = """
             class %s {
@@ -150,6 +161,7 @@ final class SpringWebSupport {
                     .replace("row.value." + key + " == value." + key, "(int)row.value." + key + " == (int)value." + key);
         }
         CompilationUnit generated = StaticJavaParser.parse(source);
+        SpringRepositoryQueries.add(repo, model, generated.getType(1).asClassOrInterfaceDeclaration(), node);
         String packageName = repo.containsData(JavaSourcePreparation.PACKAGE) ? repo.getData(JavaSourcePreparation.PACKAGE) : "";
         generated.getTypes().forEach(type -> type.setData(JavaSourcePreparation.PACKAGE, packageName));
         repo.replace(generated.getType(1).clone());

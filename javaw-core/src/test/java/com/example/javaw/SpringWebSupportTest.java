@@ -137,9 +137,20 @@ class SpringWebSupportTest {
         assertNotNull(JavacToWasm.assembleWasm(wat, false));
     }
 
+    @Test void derivedListQueriesRetainControllerArrayMetadata() {
+        String repository=REPOSITORY.replace("java.util.List<Book> findAll();",
+                "java.util.List<Book> findAll(); java.util.List<Book> findByTitle(String title);");
+        String app=APP.replace("return books.findAll();", "return books.findByTitle(\"Seed\");");
+        String wat=JavacToWasm.generateWat(List.of(StaticJavaParser.parse(MODEL),StaticJavaParser.parse(repository),StaticJavaParser.parse(app)));
+        assertTrue(wat.contains("$Books_findByTitle"));
+        assertTrue(wat.contains("javaw_spring_web"));
+        assertTrue(wat.contains("Book[]"));
+        assertNotNull(JavacToWasm.assembleWasm(wat,false));
+    }
+
     @Test void rejectsUnimplementedRepositoryQueries() {
         IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () -> JavacToWasm.generateWat(List.of(
-                StaticJavaParser.parse(MODEL), StaticJavaParser.parse(REPOSITORY.replace("findAll()", "findByTitle(String title)")), StaticJavaParser.parse(APP))));
-        assertTrue(error.getMessage().contains("Repository method Books.findByTitle"));
+                StaticJavaParser.parse(MODEL), StaticJavaParser.parse(REPOSITORY.replace("findAll()", "findByTitleContaining(String title)")), StaticJavaParser.parse(APP))));
+        assertTrue(error.getMessage().contains("Repository method Books.findByTitleContaining"));
     }
 }

@@ -85,7 +85,7 @@ Remaining reflection compatibility (library members,
 full access and Class semantics); worker-safe allocation,
 monitor ownership, blocking wait/notify and thread lifecycle/JMM; comprehensive
 I/O/NIO/network/date-time/regex/serialization; complete JLS conversions and
-inference; general Spring bean lifecycle/proxies/annotation processing/queries;
+inference; general Spring bean lifecycle/proxies/annotation processing and broader query languages (the [derived equality subset](spring-repository-queries.md) is supported);
 JDBC, transactions, Hibernate and the actual H2 engine; and further positively
 supported third-party Maven libraries remain unimplemented. The in-memory Spring
 adapter remains a distinct target. The roadmap keeps those broad tasks open.
