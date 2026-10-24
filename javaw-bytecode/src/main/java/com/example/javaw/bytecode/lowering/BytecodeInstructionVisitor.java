@@ -671,6 +671,9 @@ public class BytecodeInstructionVisitor {
         if (cst instanceof String text && dispatch != null && dispatch.exceptionRuntimeEnabled()) {
             emit("call " + BytecodeStrings.symbol(text));
             emit("local.set " + stack.push("i32"));
+        } else if (cst instanceof Type literal && dispatch != null && dispatch.exceptionRuntimeEnabled()) {
+            emit("call " + com.example.javaw.bytecode.BytecodeClasses.symbol(literal.getDescriptor()));
+            emit("local.set " + stack.push("i32"));
         } else if (cst instanceof Integer) {
             String slot = stack.push("i32");
             emit("i32.const " + cst);

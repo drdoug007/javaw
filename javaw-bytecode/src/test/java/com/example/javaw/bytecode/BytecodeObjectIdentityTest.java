@@ -136,11 +136,7 @@ class BytecodeObjectIdentityTest implements Opcodes {
         ByteArrayOutputStream output=new ByteArrayOutputStream();
         try(JarOutputStream jar=new JarOutputStream(output)) {
             jar.putNextEntry(new JarEntry("ArraySlots.class"));jar.write(bytes);jar.closeEntry();
-            for(String marker:List.of("java/lang/Cloneable","java/io/Serializable")) {
-                ClassWriter declaration=new ClassWriter(0);
-                declaration.visit(V17,ACC_PUBLIC|ACC_ABSTRACT|ACC_INTERFACE,marker,null,"java/lang/Object",null);
-                declaration.visitEnd();jar.putNextEntry(new JarEntry(marker+".class"));jar.write(declaration.toByteArray());jar.closeEntry();
-            }
+
         }
         execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(output.toByteArray())),
                 "assert.equal(e['ArraySlots.run'](),1);");
@@ -155,8 +151,8 @@ class BytecodeObjectIdentityTest implements Opcodes {
         }
         for(byte[] bytes:List.of(call("java/lang/System","identityHashCode","(Ljava/lang/Object;)I",INVOKESTATIC,true),
                 call("java/lang/Object","hashCode","(I)I",INVOKEVIRTUAL,false),
-                call("java/lang/Object","getClass","()Ljava/lang/Class;",INVOKEVIRTUAL,false),
-                call("java/lang/Object","toString","()Ljava/lang/String;",INVOKEVIRTUAL,false)))
+                call("java/lang/Object","wait","()V",INVOKEVIRTUAL,false),
+                call("java/lang/Object","notify","()V",INVOKEVIRTUAL,false)))
             assertThrows(IllegalArgumentException.class,()->BytecodeCompiler.compileClassWithExceptionRuntime(bytes));
     }
 

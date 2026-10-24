@@ -9,7 +9,7 @@ import java.util.*;
 /** Explicit, isolated exception runtime. Requires a JDK to compile its bundled Java sources once. */
 public final class BytecodeExceptionRuntime {
     private static Map<String,byte[]> compiled;
-    private static final String[] NAMES = ("AutoCloseable Throwable String StackTraceElement Exception RuntimeException Error LinkageError "
+    private static final String[] NAMES = ("AutoCloseable Cloneable CloneNotSupportedException Class Boolean Byte Character Short Integer Long Float Double Void Throwable String StackTraceElement Exception RuntimeException Error LinkageError "
             + "VirtualMachineError OutOfMemoryError StackOverflowError NullPointerException ClassCastException ArithmeticException "
             + "IndexOutOfBoundsException ArrayIndexOutOfBoundsException ArrayStoreException NegativeArraySizeException "
             + "IllegalArgumentException IllegalStateException IncompatibleClassChangeError AbstractMethodError IllegalAccessError "
@@ -35,6 +35,7 @@ public final class BytecodeExceptionRuntime {
             Path source=temporary.resolve("source"),output=temporary.resolve("classes");
             List<String> paths=new ArrayList<>();
             for(String name:NAMES)paths.add("java/lang/"+name+".java");
+            paths.add("java/io/Serializable.java");
             paths.add("javaw/runtime/ExceptionSupport.java");
             List<String> arguments=new ArrayList<>(List.of("-g","-source","17","-target","17","-Xlint:-options",
                     "--patch-module","java.base="+source,"-d",output.toString()));

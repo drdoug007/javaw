@@ -16,6 +16,7 @@ public final class BytecodeStrings {
         if(!BytecodeExceptionRuntime.enabled(linked))return "";
         Set<String> constants=new TreeSet<>();
         constants.add("/ by zero");
+        constants.addAll(BytecodeClasses.strings(linked,dispatch));
         for(ClassNode type:linked.values()) {
             constants.add(type.name.replace('/','.'));
             if(type.sourceFile!=null)constants.add(type.sourceFile);
@@ -41,6 +42,8 @@ public final class BytecodeStrings {
             wat.append("local.get $text i32.const 0 i32.const ").append(size).append(" memory.fill\nlocal.get $text i32.const ")
                     .append(dispatch.classId("java/lang/String")).append(" i32.store\nlocal.get $text local.get $chars call ")
                     .append(TypeHelper.getMethodFunctionName("java/lang/String","<init>","([C)V")).append('\n');
+            wat.append("local.get $text call ").append(TypeHelper.getMethodFunctionName("java/lang/String","intern","()Ljava/lang/String;"))
+                    .append(" local.set $text\n");
             wat.append("local.get $text global.set ").append(global).append(" local.get $text)\n");
         }
         wat.append("(func $__exception_class_name (param $value i32) (result i32)\n");

@@ -98,9 +98,17 @@ final class BytecodeCompatibility {
                     }
                 }
                 if (instruction instanceof LdcInsnNode constant && !numericConstant(constant.cst)
-                        && !(constant.cst instanceof String && BytecodeExceptionRuntime.enabled(linked)))
+                        && !(BytecodeExceptionRuntime.enabled(linked) && (constant.cst instanceof String
+                            || constant.cst instanceof Type literal && (literal.getSort()==Type.OBJECT || literal.getSort()==Type.ARRAY))))
                     throw failure(owner, method, instruction, "LDC " + constant.cst.getClass().getSimpleName(),
                             "only numeric LDC constants are supported; use source compilation for strings/classes/dynamic constants");
+                if (instruction instanceof LdcInsnNode constant && constant.cst instanceof Type literal
+                        && BytecodeExceptionRuntime.enabled(linked)) {
+                    try { BytecodeClasses.validateLiteral(literal,dispatch); }
+                    catch(IllegalArgumentException error) {
+                        throw failure(owner,method,instruction,"class literal "+literal.getDescriptor(),error.getMessage());
+                    }
+                }
                 if (instruction instanceof TypeInsnNode test
                         && (opcode == Opcodes.CHECKCAST || opcode == Opcodes.INSTANCEOF)) {
                     try { dispatch.typeTestIds(test.desc); }

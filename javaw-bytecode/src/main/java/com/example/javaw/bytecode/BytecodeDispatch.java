@@ -54,6 +54,8 @@ public final class BytecodeDispatch {
                         collectArrays(arrays, t.desc);
                         if (t.getOpcode() == Opcodes.ANEWARRAY) collectArrays(arrays, arrayDescriptor(t.desc));
                     }
+                    if (instruction instanceof LdcInsnNode ldc && ldc.cst instanceof Type literal)
+                        collectArrays(arrays,literal.getDescriptor());
                     if (instruction instanceof MultiANewArrayInsnNode m) collectArrays(arrays, m.desc);
                     if (instruction instanceof MethodInsnNode m) {
                         collectArrays(arrays, m.desc);
@@ -93,6 +95,17 @@ public final class BytecodeDispatch {
     private static String arrayDescriptor(String component) {
         return component.startsWith("[") ? "[" + component : "[L" + component + ";";
     }
+
+    Map<String,Integer> runtimeTypes() {
+        Map<String,Integer> types=new LinkedHashMap<>();
+        classIds.forEach((name,id)->types.put("L"+name+";",id));
+        for(var primitive:BytecodeArrays.PRIMITIVES)types.put(primitive.descriptor(),primitive.classId());
+        referenceArrayIds.forEach((component,id)->types.put(arrayDescriptor(component),id));
+        types.putAll(BytecodeClasses.primitiveTokens());
+        return types;
+    }
+
+    boolean descriptorAssignable(String from,String to) { return arrayAssignable(from,to); }
 
     private boolean arrayAssignable(String from, String to) {
         if (from.equals(to)) return true;
@@ -160,6 +173,20 @@ public final class BytecodeDispatch {
 
     public String exceptionSupportIntrinsic(MethodInsnNode call) {
         if (!exceptionRuntimeEnabled() || !call.owner.equals("javaw/runtime/ExceptionSupport") || call.getOpcode() != Opcodes.INVOKESTATIC) return null;
+        String metadata = switch(call.name+call.desc) {
+            case "classMirror(I)Ljava/lang/Class;" -> "$__class_mirror";
+            case "typeName(I)Ljava/lang/String;" -> "$__type_name";
+            case "simpleName(I)Ljava/lang/String;" -> "$__type_simple";
+            case "canonicalName(I)Ljava/lang/String;" -> "$__type_canonical";
+            case "enumType(I)Z" -> "$__type_enum";
+            case "typeModifiers(I)I" -> "$__type_modifiers";
+            case "componentType(I)Ljava/lang/Class;" -> "$__type_component";
+            case "superType(I)Ljava/lang/Class;" -> "$__type_super";
+            case "interfaces(I)[Ljava/lang/Class;" -> "$__type_interfaces";
+            case "assignable(II)Z" -> "$__type_assignable";
+            default -> null;
+        };
+        if(metadata!=null)return metadata;
         if (call.name.equals("capture") && call.desc.equals("()[Ljava/lang/StackTraceElement;")) return "$__trace_capture";
         if (call.name.equals("className") && call.desc.equals("(Ljava/lang/Throwable;)Ljava/lang/String;")) return "$__exception_class_name";
         return null;
@@ -677,7 +704,7 @@ public final class BytecodeDispatch {
 
     public BytecodeExceptions.Implicit defaultSelectionFailure(MethodInsnNode call) {
         if (exceptionRuntimeEnabled() && call.owner.startsWith("[")
-                && BytecodeObjects.identityMethod(call.name, call.desc)) return null;
+                && BytecodeObjects.objectMethod(call.name, call.desc)) return null;
         if (BytecodeArrays.isClone(call) || call.getOpcode() != Opcodes.INVOKEVIRTUAL && call.getOpcode() != Opcodes.INVOKEINTERFACE) return null;
         try {
             Declaration declared = declaration(call.owner, call.name, call.desc, new HashSet<>());
@@ -691,7 +718,7 @@ public final class BytecodeDispatch {
 
     public Map<Integer, String> targets(MethodInsnNode call) {
         boolean arrayOwner = exceptionRuntimeEnabled() && call.owner.startsWith("[")
-                && BytecodeObjects.identityMethod(call.name, call.desc);
+                && BytecodeObjects.objectMethod(call.name, call.desc) && !call.name.equals("clone") && !call.name.equals("finalize");
         String symbolicOwner = arrayOwner ? BytecodeObjects.OBJECT : call.owner;
         ClassNode owner = linked.get(symbolicOwner);
         boolean interfaceCall = call.getOpcode() == Opcodes.INVOKEINTERFACE;
@@ -740,8 +767,8 @@ public final class BytecodeDispatch {
                         + type.name + "." + call.name + call.desc + "; implement abstract or re-abstracted methods");
             result.put(entry.getValue(), TypeHelper.getMethodFunctionName(implementation.owner, call.name, call.desc));
         }
-        if (exceptionRuntimeEnabled() && BytecodeObjects.identityMethod(call.name, call.desc)
-                && (arrayOwner || call.owner.equals(BytecodeObjects.OBJECT)
+        if (exceptionRuntimeEnabled() && BytecodeObjects.objectMethod(call.name, call.desc)
+                && !call.name.equals("clone") && !call.name.equals("finalize") && (arrayOwner || call.owner.equals(BytecodeObjects.OBJECT)
                     || call.owner.equals("java/lang/Cloneable") || call.owner.equals("java/io/Serializable"))) {
             Set<Integer> arrays = arrayOwner ? typeTestIds(call.owner) : typeTestIds(BytecodeObjects.OBJECT);
             for (int id : arrays) if (id < 0)

@@ -3,6 +3,12 @@ package java.lang;
 /** UTF-16 support for exception messages and trace metadata, not the complete JDK String API. */
 public final class String {
     private final char[] value;
+    private static String interned;
+    private String nextInterned;
+    public String intern() {
+        for(String text=interned;text!=null;text=text.nextInterned) if(equals(text))return text;
+        nextInterned=interned;interned=this;return this;
+    }
     public String() { value = new char[0]; }
     public String(char[] chars) { value = chars.clone(); }
     private String(char[] chars, boolean trusted) { value = chars; }
