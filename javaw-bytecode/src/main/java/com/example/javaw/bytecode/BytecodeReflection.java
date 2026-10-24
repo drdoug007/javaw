@@ -26,80 +26,33 @@ final class BytecodeReflection implements Opcodes {
         if(instruction instanceof InvokeDynamicInsnNode indy)for(Object argument:indy.bsmArgs)if(discoveryConstant(argument))return true;
         return false;
     }
-    private static void referencedCalls(Object constant,List<MethodInsnNode> calls) {
-        if(constant instanceof Handle handle && handle.getTag()>=H_INVOKEVIRTUAL && handle.getTag()<=H_INVOKEINTERFACE) {
-            int opcode=switch(handle.getTag()){case H_INVOKESTATIC->INVOKESTATIC;case H_INVOKESPECIAL,H_NEWINVOKESPECIAL->INVOKESPECIAL;case H_INVOKEINTERFACE->INVOKEINTERFACE;default->INVOKEVIRTUAL;};
-            calls.add(new MethodInsnNode(opcode,handle.getOwner(),handle.getName(),handle.getDesc(),handle.isInterface()));
-        } else if(constant instanceof ConstantDynamic dynamic)
-            for(int i=0;i<dynamic.getBootstrapMethodArgumentCount();i++)referencedCalls(dynamic.getBootstrapMethodArgument(i),calls);
-    }
-    private static boolean subtype(String name,String parent,Map<String,ClassNode> linked,Set<String> visited) {
-        if(name.equals(parent))return true;
-        if(!visited.add(name))return false;
-        ClassNode type=linked.get(name);if(type==null)return false;
-        if(type.superName!=null && subtype(type.superName,parent,linked,visited))return true;
-        for(String contract:type.interfaces)if(subtype(contract,parent,linked,visited))return true;
-        return false;
-    }
-    private static void referencedDeclaration(String owner,String name,String descriptor,Map<String,ClassNode> linked,Deque<MethodNode> pending,Set<String> visited) {
-        if(!visited.add(owner))return;
-        ClassNode type=linked.get(owner);if(type==null)return;
-        for(MethodNode method:type.methods)if(method.name.equals(name) && method.desc.equals(descriptor)){pending.add(method);return;}
-        if(type.superName!=null)referencedDeclaration(type.superName,name,descriptor,linked,pending,visited);
-        for(String contract:type.interfaces)referencedDeclaration(contract,name,descriptor,linked,pending,visited);
-    }
-    private static void referencedInitializers(String owner,Map<String,ClassNode> linked,Deque<MethodNode> pending,Set<String> visited) {
-        if(!visited.add(owner))return;
-        ClassNode type=linked.get(owner);if(type==null)return;
-        for(MethodNode method:type.methods)if(method.name.equals("<clinit>"))pending.add(method);
-        if(type.superName!=null)referencedInitializers(type.superName,linked,pending,visited);
-        for(String contract:type.interfaces)referencedInitializers(contract,linked,pending,visited);
-    }
-    // Bundled APIs can allocate typed arrays or discover enum constants internally. Follow
-    // their bytecode too; looking only at application instructions misses those contracts.
-    private static boolean reachableDiscovery(List<ClassNode> classes) {
-        Map<String,ClassNode> linked=new HashMap<>();
-        Map<String,List<MethodNode>> declarations=new HashMap<>();
-        Map<MethodNode,String> owners=new IdentityHashMap<>();
-        Deque<MethodNode> pending=new ArrayDeque<>();
-        Set<MethodNode> seen=Collections.newSetFromMap(new IdentityHashMap<>());
-        for(ClassNode type:classes) {
-            linked.put(type.name,type);
-            for(MethodNode method:type.methods) {
-                owners.put(method,type.name);
-                declarations.computeIfAbsent(method.name+method.desc,key->new ArrayList<>()).add(method);
-                if(!type.name.startsWith("java/") && !type.name.startsWith("javaw/runtime/"))pending.add(method);
-            }
-        }
-        while(!pending.isEmpty()) {
-            MethodNode method=pending.removeFirst();if(!seen.add(method))continue;
-            for(AbstractInsnNode instruction:method.instructions.toArray()) {
-                if(discoveryUse(instruction))return true;
-                // Allocation and static field access can reach discovery in a class initializer.
-                String initialized=instruction instanceof TypeInsnNode type && type.getOpcode()==NEW?type.desc:
-                    instruction instanceof FieldInsnNode field && (field.getOpcode()==GETSTATIC || field.getOpcode()==PUTSTATIC)?field.owner:null;
-                if(initialized!=null)referencedInitializers(initialized,linked,pending,new HashSet<>());
-                List<MethodInsnNode> calls=new ArrayList<>();
-                if(instruction instanceof MethodInsnNode call)calls.add(call);
-                else if(instruction instanceof LdcInsnNode ldc)referencedCalls(ldc.cst,calls);
-                else if(instruction instanceof InvokeDynamicInsnNode indy)for(Object argument:indy.bsmArgs)referencedCalls(argument,calls);
-                for(MethodInsnNode call:calls) {
-                    // Conservative virtual dispatch includes overrides even when their receiver
-                    // is supplied through a library API. Static/special calls follow inheritance.
-                    if(call.getOpcode()==INVOKEVIRTUAL || call.getOpcode()==INVOKEINTERFACE) {
-                        for(MethodNode target:declarations.getOrDefault(call.name+call.desc,List.of()))
-                            if(subtype(owners.get(target),call.owner,linked,new HashSet<>()))pending.add(target);
-                    }
-                    referencedDeclaration(call.owner,call.name,call.desc,linked,pending,new HashSet<>());
-                    referencedInitializers(call.owner,linked,pending,new HashSet<>());
+    // Bundled generic collection operations may allocate an array internally, without
+    // an application reflection call. Register their existing public array types without
+    // adding full metadata or inventing additional array ranks in the linked closure.
+    private static void runtimeArrays(List<ClassNode> classes) {
+        Map<String,ClassNode> linked=new HashMap<>();for(ClassNode type:classes)linked.put(type.name,type);
+        Set<String> components=new TreeSet<>();
+        for(ClassNode owner:classes)if(owner.name.startsWith("java/") || owner.name.startsWith("javaw/runtime/"))
+            for(MethodNode method:owner.methods)for(AbstractInsnNode instruction:method.instructions.toArray())
+                if(instruction instanceof TypeInsnNode array && array.getOpcode()==ANEWARRAY) {
+                    String base=array.desc;while(base.startsWith("["))base=base.substring(1);
+                    if(base.startsWith("L") && base.endsWith(";"))base=base.substring(1,base.length()-1);
+                    ClassNode component=linked.get(base);
+                    if(base.equals("java/lang/Object") || base.length()==1 || component!=null && base.startsWith("java/") && (component.access&ACC_PUBLIC)!=0)components.add(array.desc);
                 }
-            }
-        }
-        return false;
+        ClassNode support=linked.get("javaw/runtime/ReflectionSupport");
+        MethodNode arrays=support.methods.stream().filter(m->m.name.equals("newArray")).findFirst().orElseThrow();
+        arrays.instructions.clear();arrays.tryCatchBlocks.clear();
+        for(String component:components)arrayRoute(arrays,component,0);
+        arrays.visitTypeInsn(NEW,"java/lang/UnsupportedOperationException");arrays.visitInsn(DUP);
+        arrays.visitLdcInsn("reflective array component/rank is outside the linked array closure");
+        call(arrays,INVOKESPECIAL,"java/lang/UnsupportedOperationException","<init>","(Ljava/lang/String;)V");arrays.visitInsn(ATHROW);finish(arrays,2);
     }
     static void normalize(List<ClassNode> classes) {
         Map<String,List<MethodNode>> originalMethods=new HashMap<>();for(ClassNode type:classes)originalMethods.put(type.name,List.copyOf(type.methods));
-        boolean needed=reachableDiscovery(classes);
+        boolean needed=classes.stream().filter(c->!c.name.startsWith("java/") && !c.name.startsWith("javaw/runtime/"))
+            .flatMap(c->c.methods.stream()).flatMap(m->Arrays.stream(m.instructions.toArray()))
+            .anyMatch(BytecodeReflection::discoveryUse);
         // Caller identity is attached at the original call site, before helper generation.
         for(ClassNode caller:classes)if(!caller.name.startsWith("java/") && !caller.name.startsWith("javaw/runtime/"))
             for(MethodNode method:List.copyOf(caller.methods))for(AbstractInsnNode instruction:method.instructions.toArray())
@@ -109,7 +62,7 @@ final class BytecodeReflection implements Opcodes {
                     call.desc=call.desc.substring(0,call.desc.indexOf(')'))+"Ljava/lang/Class;"+call.desc.substring(call.desc.indexOf(')'));
                 } else if(instruction instanceof LdcInsnNode ldc)ldc.cst=callerConstant(caller,ldc.cst);
                 else if(instruction instanceof InvokeDynamicInsnNode indy)for(int i=0;i<indy.bsmArgs.length;i++)indy.bsmArgs[i]=callerConstant(caller,indy.bsmArgs[i]);
-        if(!needed && classes.stream().noneMatch(c->!c.name.startsWith("java/") && (c.access&ACC_ENUM)!=0))return;
+        if(!needed && classes.stream().noneMatch(c->!c.name.startsWith("java/") && (c.access&ACC_ENUM)!=0)){runtimeArrays(classes);return;}
         BytecodeAnnotations.normalize(classes);
         Map<String,ClassNode> linked=new LinkedHashMap<>();for(ClassNode type:classes){BytecodeDeclarations.validate(type);linked.put(type.name,type);}
         ClassNode support=linked.get("javaw/runtime/ReflectionSupport");
