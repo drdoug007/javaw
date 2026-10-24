@@ -55,7 +55,9 @@ public class ClassBytecodeCompiler {
         wat.append("    (import \"env\" \"memory\" (memory 2 20))\n");
         wat.append("    (import \"env\" \"__heap_alloc\" (func $__heap_alloc (param i32) (result i32)))\n");
 
-        if (includeNumericRuntime && BytecodeExceptions.usesRuntime(classNode)) wat.append(BytecodeExceptions.TAG_WAT);
+        boolean arithmetic = dispatch.hasArithmeticException() && BytecodeExceptions.usesArithmetic(classNode);
+        if (includeNumericRuntime && (BytecodeExceptions.usesRuntime(classNode) || arithmetic)) wat.append(BytecodeExceptions.TAG_WAT);
+        if (includeNumericRuntime && arithmetic) wat.append(dispatch.arithmeticExceptionRuntimeWat());
 
         if (includeNumericRuntime && usesFloatingRemainder(classNode))
             wat.append(FloatingPointSupport.remainderFunctionsWat());

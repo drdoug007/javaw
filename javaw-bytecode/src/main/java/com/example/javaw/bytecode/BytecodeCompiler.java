@@ -48,8 +48,6 @@ public class BytecodeCompiler {
         combinedWat.append("    (import \"env\" \"memory\" (memory 2 20))\n");
         combinedWat.append("    (import \"env\" \"__heap_alloc\" (func $__heap_alloc (param i32) (result i32)))\n");
 
-        if (classes.stream().anyMatch(BytecodeExceptions::usesRuntime)) combinedWat.append(BytecodeExceptions.TAG_WAT);
-
         if (classes.stream().anyMatch(ClassBytecodeCompiler::usesFloatingRemainder))
             combinedWat.append(FloatingPointSupport.remainderFunctionsWat());
 
@@ -62,6 +60,10 @@ public class BytecodeCompiler {
                 throw BytecodeCompatibility.failure(cn, null, null, "duplicate class declaration",
                         "provide exactly one definition of " + cn.name + " in the linked JAR");
         }
+        BytecodeDispatch runtimeDispatch = new BytecodeDispatch(linked);
+        boolean arithmetic = runtimeDispatch.hasArithmeticException() && classes.stream().anyMatch(BytecodeExceptions::usesArithmetic);
+        if (arithmetic || classes.stream().anyMatch(BytecodeExceptions::usesRuntime)) combinedWat.append(BytecodeExceptions.TAG_WAT);
+        if (arithmetic) combinedWat.append(runtimeDispatch.arithmeticExceptionRuntimeWat());
         for (ClassNode cn : classes) {
             ClassBytecodeCompiler compiler = new ClassBytecodeCompiler(cn);
             String classWat = compiler.compileToWat(linked, false);

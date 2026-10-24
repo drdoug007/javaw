@@ -92,6 +92,17 @@ class BytecodeExceptionRuntimeTest implements Opcodes {
                     try {if(kind==0)throw new Fault(1);} catch(Fault e) {return 7;}
                     throw new Fault(2);
                 }
+                private static long divide(int op,long a,long b) {
+                    switch(op) {case 0:return (int)a/(int)b;case 1:return (int)a%(int)b;case 2:return a/b;default:return a%b;}
+                }
+                public static long arithmetic(int op,long a,long b) {
+                    ticks=0;
+                    try {try{return divide(op,a,b);}finally{ticks+=3;}}
+                    catch(ArithmeticException error) {return 70+ticks;}
+                    catch(Throwable error) {return -1;}
+                }
+                public static int arithmeticTicks(){return ticks;}
+                public static long arithmeticEscape(int op,long a,long b){return divide(op,a,b);}
                 public static int implicit(int n) {try{return 10/n;}catch(Throwable e){return 55;}}
                 public static void nullThrow() throws Fault {throw (Fault)null;}
             }
@@ -126,18 +137,95 @@ class BytecodeExceptionRuntimeTest implements Opcodes {
         init.visitInsn(RETURN);init.visitMaxs(1,1);init.visitEnd();writer.visitEnd();return writer.toByteArray();
     }
 
-    private String jar(boolean reverse) throws Exception {
+    private String jar(boolean reverse) throws Exception {return jar(reverse,false);}
+
+    private String jar(boolean reverse,boolean arithmetic) throws Exception {
         List<String> names=new ArrayList<>(List.of("Fixture","Fault","Child","Other","Step","Worker","Broken","LegacyHandled","java/lang/Throwable"));
+        if(arithmetic) names.add("java/lang/ArithmeticException");
         if(reverse) Collections.reverse(names);
         ByteArrayOutputStream bytes=new ByteArrayOutputStream();
         try(JarOutputStream jar=new JarOutputStream(bytes)) {
             for(String name:names) {
                 jar.putNextEntry(new JarEntry(name+".class"));
-                jar.write(name.equals("java/lang/Throwable")?throwable():Files.readAllBytes(directory.resolve(name+".class")));
+                byte[] definition=name.equals("java/lang/Throwable")?throwable():name.equals("java/lang/ArithmeticException")?arithmeticException():Files.readAllBytes(directory.resolve(name+".class"));
+                if(name.equals("Fixture") && !arithmetic) {
+                    ClassNode type=BytecodeInput.read(definition);
+                    type.methods.removeIf(method->method.name.equals("divide") || method.name.startsWith("arithmetic"));
+                    ClassWriter writer=new ClassWriter(0);type.accept(writer);definition=writer.toByteArray();
+                }
+                jar.write(definition);
                 jar.closeEntry();
             }
         }
         return BytecodeCompiler.compileJar(new ByteArrayInputStream(bytes.toByteArray()));
+    }
+
+    private byte[] arithmeticException() {
+        ClassWriter writer=new ClassWriter(0);
+        writer.visit(V17,ACC_PUBLIC,"java/lang/ArithmeticException",null,"java/lang/Throwable",null);
+        writer.visitField(ACC_PUBLIC,"marker","I",null,null).visitEnd();
+        MethodVisitor init=writer.visitMethod(ACC_PUBLIC,"<init>","()V",null,null);
+        init.visitCode();init.visitVarInsn(ALOAD,0);init.visitMethodInsn(INVOKESPECIAL,"java/lang/Throwable","<init>","()V",false);
+        init.visitVarInsn(ALOAD,0);init.visitIntInsn(BIPUSH,73);init.visitFieldInsn(PUTFIELD,"java/lang/ArithmeticException","marker","I");
+        init.visitInsn(RETURN);init.visitMaxs(2,1);init.visitEnd();writer.visitEnd();return writer.toByteArray();
+    }
+
+    @Test void mapsLinkedArithmeticFailuresAndPreservesOverflowAndFinallySemantics() throws Exception {
+        fixture();
+        StringBuilder checks=new StringBuilder();
+        try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)) {
+            Class<?> jvm=loader.loadClass("Fixture");
+            for(int op=0;op<4;op++) for(long[] pair:new long[][]{{7,0},{-19,4},{19,-4},{Integer.MIN_VALUE,-1},{Long.MIN_VALUE,-1},{0,2}}) {
+                long expected=(long)jvm.getMethod("arithmetic",int.class,long.class,long.class).invoke(null,op,pair[0],pair[1]);
+                checks.append("assert.equal(e['Fixture.arithmetic'](").append(op).append(',').append(pair[0]).append("n,").append(pair[1]).append("n),").append(expected).append("n);");
+                checks.append("assert.equal(e['Fixture.arithmeticTicks'](),3);");
+            }
+        }
+        checks.append("""
+            let previous=0;
+            for(let op=0;op<4;op++) {
+                assert.throws(()=>e['Fixture.arithmeticEscape'](op,9n,0n),error=>{
+                    assert.ok(error instanceof WebAssembly.Exception);assert.ok(error.is(e.__java_exception));
+                    const ref=error.getArg(e.__java_exception,0);assert.notEqual(ref,previous);previous=ref;
+                    assert.equal(new DataView(memory.buffer).getInt32(ref+4,true),73);return true;
+                });
+            }
+            assert.equal(e['Fixture.implicit'](0),55);
+            const failed=new WebAssembly.Instance(compiled,{env:{memory,__heap_alloc:()=>0}}).exports;
+            assert.throws(()=>failed['Fixture.implicit'](0),WebAssembly.RuntimeError);
+            const sentinel=new Error('allocator failure');
+            const hostFailed=new WebAssembly.Instance(compiled,{env:{memory,__heap_alloc:()=>{throw sentinel;}}}).exports;
+            assert.throws(()=>hostFailed['Fixture.implicit'](0),error=>error===sentinel);
+            """);
+        execute(jar(false,true),checks.toString());execute(jar(true,true),checks.toString());
+    }
+
+    @Test void validatesOptedInRuntimeAndEmitsTagWithoutExplicitThrowOrHandlers() {
+        ClassNode operations=new ClassNode();operations.version=V17;operations.access=ACC_PUBLIC;
+        operations.name="Operations";operations.superName="java/lang/Object";
+        MethodNode remainder=new MethodNode(ACC_PUBLIC|ACC_STATIC,"rem","(II)I",null,null);
+        remainder.instructions.add(new VarInsnNode(ILOAD,0));remainder.instructions.add(new VarInsnNode(ILOAD,1));
+        remainder.instructions.add(new InsnNode(IREM));remainder.instructions.add(new InsnNode(IRETURN));
+        remainder.maxLocals=2;remainder.maxStack=2;operations.methods.add(remainder);
+        ClassNode exception=BytecodeInput.read(arithmeticException());
+        Map<String,ClassNode> linked=new LinkedHashMap<>();linked.put(operations.name,operations);
+        linked.put("java/lang/Throwable",BytecodeInput.read(throwable()));linked.put(exception.name,exception);
+        String wat=new ClassBytecodeCompiler(operations).compileToWat(linked);
+        assertTrue(wat.contains("(tag $__java_exception"));assertTrue(wat.contains("call $__throw_arithmetic"));
+        for(int variant=0;variant<5;variant++) {
+            ClassNode invalid=BytecodeInput.read(arithmeticException());
+            switch(variant) {
+                case 0 -> invalid.access|=ACC_ABSTRACT;
+                case 1 -> invalid.methods.getFirst().access=ACC_PROTECTED;
+                case 2 -> invalid.methods.clear();
+                case 3 -> invalid.superName="java/lang/Object";
+                case 4 -> linked.remove("java/lang/Throwable");
+            }
+            linked.put(invalid.name,invalid);
+            IllegalArgumentException error=assertThrows(IllegalArgumentException.class,
+                    ()->new ClassBytecodeCompiler(operations).compileToWat(linked));
+            assertTrue(error.getMessage().contains("implicit arithmetic exception runtime") || error.getMessage().contains("link missing superclass java/lang/Throwable"),error.getMessage());
+        }
     }
 
     private void run(String... args) throws Exception {

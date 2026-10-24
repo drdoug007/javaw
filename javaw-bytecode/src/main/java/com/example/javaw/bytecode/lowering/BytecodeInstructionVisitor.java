@@ -223,6 +223,7 @@ public class BytecodeInstructionVisitor {
             case Opcodes.IDIV: {
                 String divisor = stack.pop();
                 String dividend = stack.peek();
+                emitArithmeticGuard(divisor, "i32");
                 emit("local.get " + dividend);
                 emit("i32.const -2147483648");
                 emit("i32.eq");
@@ -241,6 +242,7 @@ public class BytecodeInstructionVisitor {
                 break;
             }
             case Opcodes.IREM:
+                emitArithmeticGuard(stack.peek(), "i32");
                 visitBinaryOp("i32", "i32.rem_s");
                 break;
             case Opcodes.INEG:
@@ -281,6 +283,7 @@ public class BytecodeInstructionVisitor {
             case Opcodes.LDIV:
                 String longDivisor = stack.pop();
                 String longDividend = stack.peek();
+                emitArithmeticGuard(longDivisor, "i64");
                 emit("local.get " + longDividend);
                 emit("i64.const -9223372036854775808");
                 emit("i64.eq");
@@ -298,6 +301,7 @@ public class BytecodeInstructionVisitor {
                 emit("local.set " + longDividend);
                 break;
             case Opcodes.LREM:
+                emitArithmeticGuard(stack.peek(), "i64");
                 visitBinaryOp("i64", "i64.rem_s");
                 break;
             case Opcodes.LNEG:
@@ -623,6 +627,15 @@ public class BytecodeInstructionVisitor {
             default:
                 throw new IllegalArgumentException("Unsupported bytecode opcode " + opcode);
         }
+    }
+
+    private void emitArithmeticGuard(String divisor, String type) {
+        if (dispatch == null || !dispatch.hasArithmeticException()) return;
+        emit("local.get " + divisor);
+        emit(type + ".eqz");
+        emit("if");
+        emit("call $__throw_arithmetic");
+        emit("end");
     }
 
     private void emitNullGuard(String reference) {

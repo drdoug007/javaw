@@ -8,6 +8,15 @@ import org.objectweb.asm.tree.MethodNode;
 final class BytecodeExceptions {
     static final String TAG_WAT = "    (tag $__java_exception (export \"__java_exception\") (param i32))\n";
 
+    static boolean usesArithmetic(ClassNode type) {
+        for (MethodNode method : type.methods)
+            for (var instruction : method.instructions) {
+                int op = instruction.getOpcode();
+                if (op == Opcodes.IDIV || op == Opcodes.IREM || op == Opcodes.LDIV || op == Opcodes.LREM) return true;
+            }
+        return false;
+    }
+
     static boolean usesRuntime(ClassNode type) {
         for (MethodNode method : type.methods) {
             if (!method.tryCatchBlocks.isEmpty()) return true;
