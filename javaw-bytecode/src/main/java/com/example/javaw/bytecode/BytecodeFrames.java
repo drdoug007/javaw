@@ -11,6 +11,16 @@ import java.util.*;
 
 /** Frame inference constrained by StackMapTable declarations, without loading host classes. */
 final class BytecodeFrames implements Opcodes {
+    /** The constructor flag survives overwriting or discarding every alias of local zero. */
+    private static final class VerificationFrame extends Frame<BasicValue> {
+        boolean thisUninitialized;
+        VerificationFrame(int locals, int stack) { super(locals, stack); }
+        VerificationFrame(Frame<BasicValue> source) {
+            super(source);
+            thisUninitialized = ((VerificationFrame) source).thisUninitialized;
+        }
+    }
+
     private record Declared(FrameNode node, Frame<BasicValue> frame) {}
 
     private final ClassNode owner;
@@ -44,17 +54,46 @@ final class BytecodeFrames implements Opcodes {
         requireBranchFrames();
         // Declared frames are also verification roots for otherwise unreachable code.
         for (var entry : declarations.entrySet()) merge(entry.getKey(), entry.getValue().frame, entry.getValue().node);
-        Frame<BasicValue> initial = emptyFrame();
+        VerificationFrame initial = emptyFrame();
         int slot = 0;
-        if ((method.access & ACC_STATIC) == 0) slot = parameter(initial, slot, Type.getObjectType(owner.name));
+        if ((method.access & ACC_STATIC) == 0) {
+            slot = parameter(initial, slot, Type.getObjectType(owner.name));
+            if (method.name.equals("<init>")) {
+                initial.setLocal(0, verifier.uninitializedThis);
+                initial.thisUninitialized = true;
+            }
+        }
         for (Type type : Type.getArgumentTypes(method.desc)) slot = parameter(initial, slot, type);
         merge(0, initial, instructions[0]);
         while (!pending.isEmpty()) {
             int index = pending.removeFirst(); queued[index] = false;
             AbstractInsnNode instruction = instructions[index];
-            Frame<BasicValue> after = new Frame<>(frames[index]);
+            VerificationFrame after = new VerificationFrame(frames[index]);
             try {
+                if (instruction.getOpcode() == RETURN && after.thisUninitialized)
+                    throw new AnalyzerException(instruction, "constructor returns before this/super initialization");
+                UninitializedValue receiver = null;
+                if (instruction instanceof MethodInsnNode call && call.name.equals("<init>")) {
+                    int position = after.getStackSize() - Type.getArgumentTypes(call.desc).length - 1;
+                    if (position >= 0 && after.getStack(position) instanceof UninitializedValue value) receiver = value;
+                }
+                if (instruction instanceof TypeInsnNode allocation && instruction.getOpcode() == NEW) {
+                    UninitializedValue identity = verifier.allocation(allocation);
+                    for (int i = 0; i < after.getStackSize(); i++)
+                        if (after.getStack(i) == identity)
+                            throw new AnalyzerException(instruction, "repeated NEW cannot retain its previous uninitialized value on the stack");
+                    for (int i = 0; i < after.getLocals(); i++)
+                        if (after.getLocal(i) == identity) after.setLocal(i, BasicValue.UNINITIALIZED_VALUE);
+                }
                 if (instruction.getOpcode() >= 0) after.execute(instruction, verifier);
+                if (receiver != null) {
+                    BasicValue initialized = verifier.newValue(receiver.getType());
+                    for (int i = 0; i < after.getLocals(); i++)
+                        if (after.getLocal(i) == receiver) after.setLocal(i, initialized);
+                    for (int i = 0; i < after.getStackSize(); i++)
+                        if (after.getStack(i) == receiver) after.setStack(i, initialized);
+                    if (receiver == verifier.uninitializedThis) after.thisUninitialized = false;
+                }
                 int words = 0;
                 for (int i = 0; i < after.getStackSize(); i++) words += after.getStack(i).getSize();
                 if (words > method.maxStack) throw new AnalyzerException(instruction, "operand stack exceeds max_stack");
@@ -76,8 +115,8 @@ final class BytecodeFrames implements Opcodes {
         return frames;
     }
 
-    private Frame<BasicValue> emptyFrame() {
-        Frame<BasicValue> frame = new Frame<>(method.maxLocals, method.maxStack);
+    private VerificationFrame emptyFrame() {
+        VerificationFrame frame = new VerificationFrame(method.maxLocals, method.maxStack);
         frame.setReturn(verifier.newValue(Type.getReturnType(method.desc)));
         for (int i = 0; i < method.maxLocals; i++) frame.setLocal(i, BasicValue.UNINITIALIZED_VALUE);
         return frame;
@@ -100,6 +139,8 @@ final class BytecodeFrames implements Opcodes {
         Frame<BasicValue> value = incoming;
         if (declared != null) {
             Frame<BasicValue> expected = declared.frame;
+            if (((VerificationFrame) incoming).thisUninitialized && !((VerificationFrame) expected).thisUninitialized)
+                fail(declared.node, "incoming constructor initialization flag disagrees with declaration");
             if (incoming.getStackSize() != expected.getStackSize()) fail(declared.node, "incoming stack height disagrees with declaration");
             for (int i = 0; i < expected.getLocals(); i++)
                 if (!verifier.frameAssignable(incoming.getLocal(i), expected.getLocal(i)))
@@ -111,9 +152,17 @@ final class BytecodeFrames implements Opcodes {
             value = expected; // Subsequent verification must use the declared (possibly wider) types.
         }
         boolean changed;
-        if (frames[index] == null) { frames[index] = new Frame<>(value); changed = true; }
+        if (frames[index] == null) { frames[index] = new VerificationFrame(value); changed = true; }
         else {
-            try { changed = frames[index].merge(value, verifier); }
+            try {
+                VerificationFrame current = (VerificationFrame) frames[index];
+                boolean pendingInitialization = ((VerificationFrame) value).thisUninitialized;
+                changed = current.merge(value, verifier);
+                if (pendingInitialization && !current.thisUninitialized) {
+                    current.thisUninitialized = true;
+                    changed = true;
+                }
+            }
             catch (AnalyzerException error) { throw new AnalyzerException(source, error.getMessage(), error); }
         }
         if (changed && !queued[index]) { pending.addLast(index); queued[index] = true; }
@@ -155,16 +204,18 @@ final class BytecodeFrames implements Opcodes {
                 case F_SAME1 -> { if (!entries.isEmpty() || stack.size() != 1) fail(node, "invalid same1 frame shape"); }
                 default -> fail(node, "unknown frame encoding");
             }
-            Frame<BasicValue> declared = emptyFrame();
+            VerificationFrame declared = emptyFrame();
             int slot = 0;
             for (Object token : locals) {
                 BasicValue value = value(node, token);
+                if (value == verifier.uninitializedThis) declared.thisUninitialized = true;
                 if (slot + value.getSize() > method.maxLocals) fail(node, "declared locals exceed max_locals");
                 declared.setLocal(slot, value); slot += value.getSize();
             }
             int words = 0;
             for (Object token : stack) {
                 BasicValue value = value(node, token); words += value.getSize();
+                // StackMapTable derives flagThisUninit from locals only, not stack aliases.
                 if (value.equals(BasicValue.UNINITIALIZED_VALUE)) fail(node, "TOP operand-stack entries are unsupported; recompile typed bytecode");
                 if (words > method.maxStack) fail(node, "declared stack exceeds max_stack");
                 declared.push(value);
@@ -189,10 +240,19 @@ final class BytecodeFrames implements Opcodes {
             case 3 -> BasicValue.DOUBLE_VALUE;
             case 4 -> BasicValue.LONG_VALUE;
             case 5 -> new BasicValue(Type.getObjectType("null"));
-            case 6 -> throw unsupportedUninitialized(node);
+            case 6 -> {
+                if (!method.name.equals("<init>")) throw failure(node, "uninitialized-this is only valid in constructors");
+                yield verifier.uninitializedThis;
+            }
             default -> throw failure(node, "unknown verification type tag " + tag);
         };
-        if (token instanceof LabelNode) throw unsupportedUninitialized(node);
+        if (token instanceof LabelNode label) {
+            int instruction = nextExecutable(target(label));
+            if (instruction >= instructions.length || !(instructions[instruction] instanceof TypeInsnNode allocation)
+                    || allocation.getOpcode() != NEW)
+                throw failure(node, "uninitialized frame label must identify NEW in this method");
+            return verifier.allocation(allocation);
+        }
         if (token instanceof String name) {
             Type type;
             if (name.startsWith("[")) {
@@ -209,10 +269,6 @@ final class BytecodeFrames implements Opcodes {
             return verifier.newValue(type);
         }
         throw failure(node, "invalid verification type token");
-    }
-
-    private IllegalArgumentException unsupportedUninitialized(FrameNode node) {
-        return failure(node, "uninitialized stack-map types require the separate constructor/NEW-alias verifier, which is not implemented yet");
     }
 
     private void requireBranchFrames() {

@@ -46,6 +46,50 @@ class BytecodeCompatibilityTest {
         assertEquals(0,process.exitValue(),Files.readString(log));
     }
 
+    @Test void executesStackMappedConstructorChainingAndNestedNewWithJvmComparison() throws Exception {
+        byte[] bytes = fixture("""
+            public class Fixture {
+                int n;
+                Fixture(int n) { this(n > 0 ? n : 7, 5L); }
+                private Fixture(int n, long extra) { this.n = n + (int) extra; }
+                public static int run(int n) {
+                    Fixture value = new Fixture(new Fixture(n > 2 ? n : 3).n);
+                    return value.n;
+                }
+            }
+            """);
+        try (var loader = new java.net.URLClassLoader(new java.net.URL[]{directory.toUri().toURL()})) {
+            var run = loader.loadClass("Fixture").getMethod("run", int.class);
+            execute(BytecodeCompiler.compileClass(bytes),
+                    "assert.equal(e['Fixture.run'](9)," + run.invoke(null, 9) + ");"
+                    + "assert.equal(e['Fixture.run'](-2)," + run.invoke(null, -2) + ");");
+        }
+    }
+
+    @Test void executesPreSuperOwnFieldWriteWithJvmComparison() throws Exception {
+        fixture("""
+            public class Fixture {
+                int n;
+                Fixture() { n = 5; }
+                public static int run() { return new Fixture().n; }
+            }
+            """);
+        ClassNode owner = readFixture("Fixture");
+        MethodNode init = owner.methods.stream().filter(m -> m.name.equals("<init>")).findFirst().orElseThrow();
+        AbstractInsnNode load = null, call = null, put = null;
+        for (AbstractInsnNode instruction : init.instructions) {
+            if (instruction instanceof MethodInsnNode m && m.name.equals("<init>")) {
+                call = instruction; load = instruction.getPrevious();
+            }
+            if (instruction.getOpcode() == Opcodes.PUTFIELD) put = instruction;
+        }
+        init.instructions.remove(load); init.instructions.remove(call);
+        init.instructions.insert(put, call); init.instructions.insert(put, load);
+        var jvm = linkedLoader(java.util.Map.of(owner.name, owner)).loadClass("Fixture");
+        execute(BytecodeCompiler.compileClass(classBytes(owner)),
+                "assert.equal(e['Fixture.run']()," + jvm.getMethod("run").invoke(null) + ");");
+    }
+
     @Test void executesSealedClassesAndInterfacesInEitherJarOrder() throws Exception {
         fixture("""
             public class Fixture {
