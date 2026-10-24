@@ -121,9 +121,9 @@ class SpringRepositoryQueryTest {
         }
     }
 
-    @Test void transactionsAreExplicitlyRejected() {
+    @Test void unsupportedTransactionOptionsAreExplicitlyRejected() {
         var error=assertThrows(IllegalArgumentException.class, () -> JavacToWasm.compile("Transaction.java",IMPORTS
-                +"@SpringBootApplication @org.springframework.transaction.annotation.Transactional class App {}",false));
-        assertTrue(error.getMessage().contains("@Transactional is unsupported"));
+                +"@SpringBootApplication @org.springframework.transaction.annotation.Transactional(readOnly=true) class App {}",false));
+        assertTrue(error.getMessage().contains("@Transactional options are unsupported"));
     }
 }

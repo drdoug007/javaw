@@ -21,10 +21,7 @@ final class SpringWebSupport {
         SpringWebSupport support = new SpringWebSupport();
         boolean enabled = cu.getImports().stream().anyMatch(i -> i.getNameAsString().startsWith("org.springframework."));
         if (!enabled) return support;
-        for (AnnotationExpr annotation : cu.findAll(AnnotationExpr.class)) {
-            if (annotation.getName().getIdentifier().equals("Transactional"))
-                throw JavaSourcePreparation.error(annotation, "Spring @Transactional is unsupported; repository operations are immediate and have no rollback");
-        }
+        SpringTransactions transactions = SpringTransactions.prepare(cu);
         for (ClassOrInterfaceDeclaration type : cu.findAll(ClassOrInterfaceDeclaration.class)) {
             if (type.isAnnotationPresent("Entity")) support.entities.add(type.getNameAsString());
             if (type.isAnnotationPresent("RestController")) support.controllers.add(type);
@@ -39,8 +36,8 @@ final class SpringWebSupport {
         }
         boolean bootRequested = cu.findAll(MethodCallExpr.class).stream().anyMatch(call ->
                 call.getScope().map(Object::toString).orElse("").equals("SpringApplication") && call.getNameAsString().equals("run"));
-        if (!bootRequested && support.controllers.isEmpty()) return support;
-        for (var entry : support.repositories.entrySet()) support.lowerRepository(cu, entry.getKey(), entry.getValue());
+        if (!bootRequested && support.controllers.isEmpty() && !transactions.enabled()) return support;
+        for (var entry : support.repositories.entrySet()) support.lowerRepository(cu, entry.getKey(), entry.getValue(), transactions.enabled());
         LibrarySupport.add(cu, "org.springframework.dao", """
             class IncorrectResultSizeDataAccessException extends RuntimeException {
                 private int expectedSize;
@@ -84,10 +81,11 @@ final class SpringWebSupport {
 
         support.lowerLists(cu);
         support.addBootstrap(cu);
+        transactions.lower(cu, support.repositories.keySet());
         return support;
     }
 
-    private void lowerRepository(CompilationUnit cu, String name, String entity) {
+    private void lowerRepository(CompilationUnit cu, String name, String entity, boolean transactional) {
         ClassOrInterfaceDeclaration model = cu.findAll(ClassOrInterfaceDeclaration.class).stream()
                 .filter(c -> c.getNameAsString().equals(entity)).findFirst().orElseThrow(() -> unsupported("Missing entity " + entity));
         if (!entities.contains(entity)) throw unsupported(entity + " must have @Entity");
@@ -162,10 +160,12 @@ final class SpringWebSupport {
         }
         CompilationUnit generated = StaticJavaParser.parse(source);
         SpringRepositoryQueries.add(repo, model, generated.getType(1).asClassOrInterfaceDeclaration(), node);
+        if (transactional) SpringTransactions.addSnapshot(generated, model, name, node);
         String packageName = repo.containsData(JavaSourcePreparation.PACKAGE) ? repo.getData(JavaSourcePreparation.PACKAGE) : "";
         generated.getTypes().forEach(type -> type.setData(JavaSourcePreparation.PACKAGE, packageName));
         repo.replace(generated.getType(1).clone());
         cu.getTypes().add(generated.getType(0).clone());
+        for (int i=2; i<generated.getTypes().size(); i++) cu.getTypes().add(generated.getType(i).clone());
     }
 
     private void lowerOptional(CompilationUnit cu) {
@@ -246,13 +246,13 @@ final class SpringWebSupport {
             if (type.isAnnotationPresent("Service") || type.isAnnotationPresent("Component"))
                 graph.add(type, "__bean_" + type.getNameAsString());
         }
-        StringBuilder source = new StringBuilder("class __JavawSpringContext { private int marker; static int __boot_state;");
+        StringBuilder source = new StringBuilder("class __JavawSpringContext { private int marker; static int __boot_state; static boolean __tx_ready;");
         source.append(graph.declarations());
         source.append("static void __javaw_boot() {")
                 .append("if (__boot_state == 2) return;")
                 .append("if (__boot_state != 0) throw new IllegalStateException(\"Spring context is initializing or failed\");")
                 .append("__boot_state = 1; try {")
-                .append(graph.initialization());
+                .append(graph.initialization()).append("__tx_ready = true;");
         for (var controller : controllers) {
             String name = controller.getNameAsString();
             String base = controller.getAnnotationByName("RequestMapping").map(SpringWebSupport::annotationValue).orElse("");

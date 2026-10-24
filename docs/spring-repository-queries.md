@@ -25,7 +25,7 @@ A predicate consists of direct entity property names, capitalized as in `findByN
 
 Queries admit String, int, Integer, and BigDecimal properties. Integers compare by numeric value, Strings by content, and BigDecimals using compareTo, so numerically equal values with different scales match without converting through JavaScript or floating point. A null argument matches a null field, including for decimal fields. String equality retains the existing runtime's string semantics.
 
-A multi-result query returns a fresh reference array in repository traversal/insertion order. List<Entity> declarations use the existing Spring entity-list-to-array lowering; they do not acquire general List operations. Changing a result-array slot does not alter repository membership, but the entities themselves are shared live references. Mutating an entity field affects subsequent queries, as does saving or deleting a row. There is no transaction snapshot or concurrent-query guarantee.
+A multi-result query returns a fresh reference array in repository traversal/insertion order. List<Entity> declarations use the existing Spring entity-list-to-array lowering; they do not acquire general List operations. Changing a result-array slot does not alter repository membership, but the entities themselves are shared live references. Mutating an entity field affects subsequent queries, as does saving or deleting a row. Queries observe the current in-memory state; they do not create an isolation snapshot or provide a concurrent-query guarantee.
 
 A single Entity result is null when absent. Optional results use the reusable source-backed Optional runtime. Both single-result forms reject more than one matching row with IncorrectResultSizeDataAccessException. Its subset implementation extends RuntimeException and exposes getExpectedSize/getActualSize; the full Spring DataAccessException hierarchy, constructors, and cause metadata are not implemented. countBy scans all rows; existsBy returns on the first match.
 
@@ -33,7 +33,7 @@ A single Entity result is null when absent. Optional results use the reusable so
 
 Invalid property names/operators, arity/types, return types, query annotations (including Query), default/static/generic methods, varargs, sorting, paging, projections, nested properties, non-equality operators, and modifying queries are rejected before WAT is returned. Diagnostics include source location, repository/method, and a suggestion to implement unsupported filtering in a source service. Redeclaring built-in findById/save/deleteById is rejected; the established built-in lookup lowering remains unchanged. An unannotated findAll declaration with its existing array/List result is still accepted.
 
-Transaction semantics remain open. Transactional annotations receive an explicit diagnostic: writes and mutations are immediate and there is no rollback, isolation, JDBC, or transaction manager. General query languages and advanced Spring Data return types remain future work.
+The [default REQUIRED transaction subset](spring-transactions.md) snapshots repository rows and restores membership and original entity fields on rollback. Unannotated operations still take effect immediately. JDBC, concurrent isolation, advanced transaction policies, general query languages, and advanced Spring Data return types remain future work.
 
 ## Verification
 

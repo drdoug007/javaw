@@ -41,7 +41,7 @@ The state guard is for synchronous startup, not concurrent workers. Shared-memor
 
 ## Explicit limits
 
-Field/setter Autowired, Inject/Resource/Value, Qualifier/Primary, Scope/Lazy/DependsOn, ordering annotations, and PostConstruct/PreDestroy callbacks on managed beans are rejected rather than silently interpreted. Constructor Autowired options are also rejected; use one required constructor. General Bean factories, configuration enhancement, proxies, annotation processing, bean names, optional/multiple injection, collection injection, framework lifecycle events, broader query languages, and transactions remain pending. A separate [derived equality-query subset](spring-repository-queries.md) is implemented. No additional JMM or Spring/Hibernate/H2 compatibility is implied.
+Field/setter Autowired, Inject/Resource/Value, Qualifier/Primary, Scope/Lazy/DependsOn, ordering annotations, and PostConstruct/PreDestroy callbacks on managed beans are rejected rather than silently interpreted. Constructor Autowired options are also rejected; use one required constructor. General Bean factories, configuration enhancement, proxies, annotation processing, bean names, optional/multiple injection, collection injection, framework lifecycle events, broader query languages, and advanced transaction policies remain pending. The [default REQUIRED transaction subset](spring-transactions.md) operates on initialized managed singletons. A separate [derived equality-query subset](spring-repository-queries.md) is implemented. No additional JMM or Spring/Hibernate/H2 compatibility is implied.
 
 ## Evidence
 
