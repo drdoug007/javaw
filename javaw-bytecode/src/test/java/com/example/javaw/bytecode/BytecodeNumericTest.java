@@ -102,6 +102,27 @@ int hash=1;long[] values={0,1,-1,Long.MIN_VALUE,Long.MAX_VALUE,4294967295L,-4294
             """); compare(List.of("run"));
     }
 
+    @Test void checkedAdditiveArithmetic() throws Exception {
+        fixture("""
+            public class Metadata { public static int run() {
+int hash=1;long[] values={0,1,-1,Integer.MIN_VALUE,Integer.MAX_VALUE,2147483648L,-2147483649L,Long.MIN_VALUE,Long.MAX_VALUE};
+ for(long a:values){for(long b:values){
+ try{hash=31*hash+Long.hashCode(Math.addExact(a,b));}catch(ArithmeticException e){hash+=7;}
+ try{hash=31*hash+Long.hashCode(Math.subtractExact(a,b));}catch(ArithmeticException e){hash+=11;}
+ try{hash=31*hash+Math.addExact((int)a,(int)b);}catch(ArithmeticException e){hash+=13;}
+ try{hash=31*hash+Math.subtractExact((int)a,(int)b);}catch(ArithmeticException e){hash+=17;}}
+ try{hash+=Math.toIntExact(a);}catch(ArithmeticException e){hash+=19;}
+ try{hash+=Long.hashCode(Math.incrementExact(a));}catch(ArithmeticException e){hash+=23;}
+ try{hash+=Long.hashCode(Math.decrementExact(a));}catch(ArithmeticException e){hash+=29;}
+ try{hash+=Long.hashCode(Math.negateExact(a));}catch(ArithmeticException e){hash+=31;}
+ try{hash+=Math.incrementExact((int)a);}catch(ArithmeticException e){hash+=37;}
+ try{hash+=Math.decrementExact((int)a);}catch(ArithmeticException e){hash+=41;}
+ try{hash+=Math.negateExact((int)a);}catch(ArithmeticException e){hash+=43;}}
+ return hash;
+            }}
+            """); compare(List.of("run"));
+    }
+
     private void compare(List<String> names) throws Exception {
         StringBuilder assertions=new StringBuilder();
         try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)){

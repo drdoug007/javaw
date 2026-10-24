@@ -17,3 +17,7 @@ Unsigned comparison/division/remainder, zero-extension, radix formatting and Str
 ## 4. Unsigned Long arithmetic and text
 
 Unsigned 64-bit comparison, quotient/remainder and radix parsing/formatting avoid floating-point approximation. Tests cover high-bit divisors/dividends, maximum unsigned values, every radix, Unicode digits and typed overflow/null/bounds/zero failures. Revision `unsigned-longs-v54`. `BytecodeNumericTest` compares javac-produced bytecode on the JVM and in Node/Wasm, in both JAR orders and two independent instances. Other APIs remain subject to admission diagnostics.
+
+## 5. Checked additive Math operations
+
+Int/long addExact, subtractExact, incrementExact, decrementExact, negateExact and toIntExact throw catchable ArithmeticException on overflow. Cross-products include both signed extrema and narrowing boundaries; exception messages remain unspecified. Revision `checked-additive-v55`. `BytecodeNumericTest` compares javac-produced bytecode on the JVM and in Node/Wasm, in both JAR orders and two independent instances. Other APIs remain subject to admission diagnostics.
