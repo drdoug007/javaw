@@ -23,11 +23,11 @@ final class BytecodeDynamic implements Opcodes {
         List<ClassNode> generated = new ArrayList<>();
         for (ClassNode owner : classes) {
             int ordinal=0;
-            Map<ConstantDynamic,MethodInsnNode> constants=new HashMap<>();
+            Map<Object,MethodInsnNode> constants=new HashMap<>();
             for (MethodNode method : List.copyOf(owner.methods)) {
                 for (AbstractInsnNode instruction : method.instructions.toArray()) {
                     if (!(instruction instanceof InvokeDynamicInsnNode) &&
-                            !(instruction instanceof LdcInsnNode ldc && ldc.cst instanceof ConstantDynamic)) continue;
+                            !(instruction instanceof LdcInsnNode ldc && (ldc.cst instanceof ConstantDynamic || ldc.cst instanceof Type type && type.getSort()==Type.METHOD))) continue;
                     try {
                         String name=owner.name+"$$javaw$dynamic$"+ordinal++;
                         if (!names.add(name)) throw new IllegalArgumentException("reserved adapter name collision: "+name);
@@ -46,6 +46,16 @@ final class BytecodeDynamic implements Opcodes {
                             else if(dynamic.bsm.getOwner().equals("java/lang/runtime/ObjectMethods")) record(adapter,owner,dynamic,linked);
                             else if(dynamic.bsm.getOwner().equals(LAMBDA)) lambda(adapter,owner,dynamic,linked,generated,names);
                             else throw new IllegalArgumentException("unsupported bootstrap "+dynamic.bsm);
+                        } else if(((LdcInsnNode)instruction).cst instanceof Type methodType) {
+                            if(versions.get(owner.name)<V1_7)throw new IllegalArgumentException("method-type constants require Java 7+ class files");
+                            if(!BytecodeDeclarations.validDescriptor(methodType.getDescriptor(),true))throw new IllegalArgumentException("invalid method-type constant descriptor");
+                            MethodInsnNode existing=constants.get(methodType);
+                            if(existing!=null) {
+                                method.instructions.set(instruction,new MethodInsnNode(INVOKESTATIC,existing.owner,existing.name,existing.desc,false));
+                                continue;
+                            }
+                            descriptor="()Ljava/lang/invoke/MethodType;";
+                            methodType(adapter,owner,methodType,linked);
                         } else {
                             ConstantDynamic constant=(ConstantDynamic)((LdcInsnNode)instruction).cst;
                             if(versions.get(owner.name)<V11)throw new IllegalArgumentException("constant-dynamic requires Java 11+ class files");
@@ -70,7 +80,7 @@ final class BytecodeDynamic implements Opcodes {
                         }
                         MethodInsnNode call=new MethodInsnNode(INVOKESTATIC,name,"link",descriptor,false);
                         method.instructions.set(instruction,call);
-                        if(instruction instanceof LdcInsnNode ldc)constants.put((ConstantDynamic)ldc.cst,call);
+                        if(instruction instanceof LdcInsnNode ldc)constants.put(ldc.cst,call);
                         generated.add(adapter);
                     } catch (IllegalArgumentException error) {
                         throw BytecodeCompatibility.failure(owner,method,instruction,"dynamic bootstrap",error.getMessage());
@@ -79,6 +89,34 @@ final class BytecodeDynamic implements Opcodes {
             }
         }
         classes.addAll(generated);
+    }
+
+    private static void methodType(ClassNode adapter,ClassNode caller,Type signature,Map<String,ClassNode> linked) {
+        if(argsSlots(signature.getArgumentTypes())>255)throw new IllegalArgumentException("method-type constant exceeds 255 parameter slots");
+        BytecodeDispatch dispatch=new BytecodeDispatch(linked,caller.name);
+        List<Type> types=new ArrayList<>(List.of(signature.getArgumentTypes()));types.add(signature.getReturnType());
+        for(Type type:types)if(reference(type))BytecodeClasses.validateLiteral(type,dispatch);
+        if(caller.nestHostClass==null || linked.containsKey(caller.nestHostClass))nest(adapter,caller,linked);
+        String descriptor="Ljava/lang/invoke/MethodType;";
+        adapter.fields.add(new FieldNode(ACC_PRIVATE|ACC_STATIC,"value",descriptor,null,null));
+        MethodNode code=method(adapter,ACC_PUBLIC|ACC_STATIC,"link","()"+descriptor);
+        Label ready=new Label();code.visitFieldInsn(GETSTATIC,adapter.name,"value",descriptor);code.visitInsn(DUP);
+        code.visitJumpInsn(IFNONNULL,ready);code.visitInsn(POP);
+        mirror(code,signature.getReturnType());
+        Type[] parameters=signature.getArgumentTypes();code.visitLdcInsn(parameters.length);code.visitTypeInsn(ANEWARRAY,"java/lang/Class");
+        for(int i=0;i<parameters.length;i++) {
+            code.visitInsn(DUP);code.visitLdcInsn(i);mirror(code,parameters[i]);code.visitInsn(AASTORE);
+        }
+        call(code,INVOKESTATIC,"java/lang/invoke/MethodType","methodType","(Ljava/lang/Class;[Ljava/lang/Class;)"+descriptor);
+        code.visitInsn(DUP);code.visitFieldInsn(PUTSTATIC,adapter.name,"value",descriptor);
+        code.visitLabel(ready);code.visitFrame(F_SAME1,0,null,1,new Object[]{"java/lang/invoke/MethodType"});code.visitInsn(ARETURN);finish(code,0);
+    }
+    private static void mirror(MethodVisitor code,Type type) {
+        if(reference(type))code.visitLdcInsn(type);
+        else {
+            code.visitLdcInsn(BytecodeClasses.primitiveTokens().get(type.getDescriptor()));
+            call(code,INVOKESTATIC,"javaw/runtime/ExceptionSupport","classMirror","(I)Ljava/lang/Class;");
+        }
     }
 
     private static void sourceLine(ClassNode type,int line) {

@@ -288,9 +288,9 @@ class BytecodeClassMetadataTest implements Opcodes {
                 "assert.equal(e['Metadata.flags'](),2);");
     }
 
-    @Test void rejectsUnlinkedInaccessibleAndInvalidClassConstantsAndRetainsMethodTypeDiagnostics() throws Exception {
+    @Test void rejectsUnlinkedInaccessibleClassAndMethodTypeConstantsAndUnsupportedHandles() throws Exception {
         for(Object constant:List.of(Type.getObjectType("missing/Type"),Type.getType("[Lmissing/Type;"),
-                Type.getMethodType("()V"),new Handle(H_INVOKESTATIC,"missing/Type","run","()V",false))) {
+                Type.getMethodType("(Lmissing/Type;)V"),new Handle(H_INVOKESTATIC,"missing/Type","run","()V",false))) {
             ClassWriter writer=new ClassWriter(ClassWriter.COMPUTE_MAXS);writer.visit(V17,ACC_PUBLIC,"BadLiteral",null,"java/lang/Object",null);
             MethodVisitor method=writer.visitMethod(ACC_PRIVATE|ACC_STATIC,"unused","()Ljava/lang/Object;",null,null);
             method.visitCode();method.visitLdcInsn(constant);method.visitInsn(ARETURN);method.visitMaxs(0,0);method.visitEnd();writer.visitEnd();

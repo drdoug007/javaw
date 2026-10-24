@@ -25,7 +25,7 @@ final class BytecodeInvokes {
                 call.name="javaw"+(read?"Get":"Set")+new String[]{"Short","Char","Int","Long","Float","Double"}[index];
             }
             if(call.owner.equals("java/lang/invoke/MethodHandles") && !call.name.equals("byteArrayViewVarHandle") && !call.name.equals("<init>") ||
-                    call.owner.equals("java/lang/invoke/MethodHandle") || call.owner.equals("java/lang/invoke/MethodType") ||
+                    call.owner.equals("java/lang/invoke/MethodHandle") ||
                     call.owner.equals("java/lang/reflect/Proxy") || call.owner.equals("java/lang/invoke/MethodHandles$Lookup") ||
                     (call.name.equals("defineClass") || call.name.equals("defineHiddenClass") || call.name.equals("defineAnonymousClass")) &&
                             (call.owner.contains("ClassLoader") || call.owner.contains("Unsafe")))

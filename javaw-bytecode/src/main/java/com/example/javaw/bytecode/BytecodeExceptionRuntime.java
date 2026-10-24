@@ -44,6 +44,7 @@ public final class BytecodeExceptionRuntime {
             paths.add("java/lang/invoke/WrongMethodTypeException.java");
             paths.add("java/lang/invoke/SerializedLambda.java");
             paths.add("java/lang/invoke/MethodHandles.java");
+            paths.add("java/lang/invoke/MethodType.java");
             paths.add("java/lang/invoke/VarHandle.java");
             paths.add("java/nio/ByteOrder.java");
             paths.add("javaw/runtime/ExceptionSupport.java");
