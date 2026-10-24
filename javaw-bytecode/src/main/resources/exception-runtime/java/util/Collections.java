@@ -1,14 +1,57 @@
 package java.util;
 public final class Collections{
+ public static <T>Collection<T> unmodifiableCollection(Collection<? extends T> source){return new UnmodifiableViews.CollectionView<T>(source);}
+ public static <T>List<T> unmodifiableList(List<? extends T> source){return UnmodifiableViews.list(source);}
+ public static <T>Set<T> unmodifiableSet(Set<? extends T> source){return new UnmodifiableViews.SetView<T>(source);}
+ public static <K,V>Map<K,V> unmodifiableMap(Map<? extends K,? extends V> source){return new UnmodifiableViews.MapView<K,V>(source);}
+ public static final List EMPTY_LIST=new Frozen<Object>(new Object[0]);
+ public static final Set EMPTY_SET=new SmallSet<Object>(new Object[0]);
+ public static final Map EMPTY_MAP=new SmallMap<Object,Object>(new HashMap<Object,Object>());
+ public static <T>Set<T> emptySet(){return (Set<T>)EMPTY_SET;}
+ public static <K,V>Map<K,V> emptyMap(){return (Map<K,V>)EMPTY_MAP;}
+ public static <T>Set<T> singleton(T value){return new SmallSet<T>(new Object[]{value});}
+ public static <K,V>Map<K,V> singletonMap(K key,V value){HashMap<K,V> map=new HashMap<K,V>();map.put(key,value);return new SmallMap<K,V>(map);}
+ public static <T>List<T> nCopies(int count,T value){if(count<0)throw new IllegalArgumentException();return new Copies<T>(count,value);}
+ private static final class Copies<T> extends AbstractList<T> implements RandomAccess,java.io.Serializable {
+  final int count;final T value;Copies(int count,T value){this.count=count;this.value=value;}public int size(){return count;}public T get(int index){if(index<0 || index>=count)throw new IndexOutOfBoundsException();return value;}
+ }
+
+
+ private static final class SmallSet<T> extends AbstractSet<T> implements java.io.Serializable {
+  final Object[] values;SmallSet(Object[] values){this.values=values;}public int size(){return values.length;}public boolean contains(Object value){return values.length!=0 && Objects.equals(value,values[0]);}
+  public Iterator<T> iterator(){if(values.length==0)return emptyIterator();return new Iterator<T>(){boolean consumed;public boolean hasNext(){return !consumed;}public T next(){if(consumed)throw new NoSuchElementException();consumed=true;return (T)values[0];}};}
+  public boolean removeIf(java.util.function.Predicate<? super T> predicate){if(values.length!=0)throw new UnsupportedOperationException();Objects.requireNonNull(predicate);return false;}
+ }
+ private static final class SmallMap<K,V> extends UnmodifiableViews.MapView<K,V> {
+  SmallMap(Map<K,V> map){super(map);}public V remove(Object key){if(containsKey(key))throw new UnsupportedOperationException();return null;}
+  public void clear(){if(!isEmpty())throw new UnsupportedOperationException();}public void putAll(Map<? extends K,? extends V> map){if(!map.isEmpty())throw new UnsupportedOperationException();}
+  public void replaceAll(java.util.function.BiFunction<? super K,? super V,? extends V> function){if(!isEmpty())throw new UnsupportedOperationException();Objects.requireNonNull(function);}
+  public Set<K> keySet(){return isEmpty()?Collections.<K>emptySet():Collections.singleton(source.entrySet().iterator().next().getKey());}
+  public Collection<V> values(){return isEmpty()?Collections.<V>emptySet():Collections.singleton(source.entrySet().iterator().next().getValue());}
+  public Set<Map.Entry<K,V>> entrySet(){return isEmpty()?Collections.<Map.Entry<K,V>>emptySet():Collections.<Map.Entry<K,V>>singleton(new AbstractMap.SimpleImmutableEntry<K,V>(source.entrySet().iterator().next()));}
+ }
+ public static <T>Iterator<T> emptyIterator(){return new Iterator<T>(){public boolean hasNext(){return false;}public T next(){throw new NoSuchElementException();}public void remove(){throw new IllegalStateException();}};}
+ public static <T>ListIterator<T> emptyListIterator(){return new ListIterator<T>(){public boolean hasNext(){return false;}public T next(){throw new NoSuchElementException();}public boolean hasPrevious(){return false;}public T previous(){throw new NoSuchElementException();}public int nextIndex(){return 0;}public int previousIndex(){return -1;}public void remove(){throw new IllegalStateException();}public void add(T value){throw new UnsupportedOperationException();}public void set(T value){throw new UnsupportedOperationException();}};}
+ public static <T>Enumeration<T> emptyEnumeration(){return enumeration(Collections.<T>emptyList());}
+ public static <T>Enumeration<T> enumeration(Collection<T> values){final Iterator<T> cursor=values.iterator();return new Enumeration<T>(){public boolean hasMoreElements(){return cursor.hasNext();}public T nextElement(){return cursor.next();}};}
+ public static <T>ArrayList<T> list(Enumeration<T> values){ArrayList<T> result=new ArrayList<T>();while(values.hasMoreElements())result.add(values.nextElement());return result;}
+ public static <E>Set<E> newSetFromMap(Map<E,Boolean> map){return new SetFromMap<E>(map);}
+ private static final class SetFromMap<E> extends AbstractSet<E> implements java.io.Serializable {
+  final Map<E,Boolean> map;SetFromMap(Map<E,Boolean> map){if(!map.isEmpty())throw new IllegalArgumentException();this.map=map;}
+  public int size(){return map.size();}public boolean contains(Object value){return map.containsKey(value);}public boolean add(E value){return map.put(value,Boolean.TRUE)==null;}public boolean remove(Object value){return map.remove(value)!=null;}public void clear(){map.clear();}public Iterator<E> iterator(){return map.keySet().iterator();}
+ }
  public static <T>Comparator<T> reverseOrder(){return new Reverse<T>(null);}
  public static <T>Comparator<T> reverseOrder(Comparator<T> comparator){if(comparator instanceof Reverse)return ((Reverse<T>)comparator).order==null?(Comparator<T>)Comparator.naturalOrder():((Reverse<T>)comparator).order;return new Reverse<T>(comparator);}
  private static final class Reverse<T> implements Comparator<T>,java.io.Serializable{final Comparator<T> order;Reverse(Comparator<T> order){this.order=order;}public int compare(T a,T b){return order==null?((Comparable<T>)b).compareTo(a):order.compare(b,a);}public Comparator<T> reversed(){return order==null?(Comparator<T>)Comparator.naturalOrder():order;}}
- private Collections(){}private static final List<?> EMPTY=new Frozen<Object>(new Object[0]);
+ private Collections(){}private static final List<?> EMPTY=EMPTY_LIST;
  public static <T>List<T> emptyList(){return (List<T>)EMPTY;}
  public static <T>List<T> singletonList(T value){return new Frozen<T>(new Object[]{value});}
  private static final class Frozen<E> extends AbstractList<E> implements RandomAccess,java.io.Serializable{
   final Object[] values;Frozen(Object[] values){this.values=values;}public int size(){return values.length;}public E get(int index){index(index);return (E)values[index];}
   public void clear(){if(values.length!=0)throw new UnsupportedOperationException();}
+  public void sort(Comparator<? super E> comparator){}
+  public void replaceAll(java.util.function.UnaryOperator<E> operator){if(values.length!=0)throw new UnsupportedOperationException();Objects.requireNonNull(operator);}
+  public boolean removeIf(java.util.function.Predicate<? super E> predicate){if(values.length!=0)throw new UnsupportedOperationException();Objects.requireNonNull(predicate);return false;}
  }
 
  public static <T extends Comparable<? super T>> void sort(List<T> values){values.sort(null);}
