@@ -52,7 +52,11 @@ public class BytecodeCompiler {
             combinedWat.append(FloatingPointSupport.remainderFunctionsWat());
 
         Map<String, ClassNode> linked = new LinkedHashMap<>();
-        for (ClassNode cn : classes) linked.put(cn.name, cn);
+        for (ClassNode cn : classes) {
+            if (linked.putIfAbsent(cn.name, cn) != null)
+                throw BytecodeCompatibility.failure(cn, null, null, "duplicate class declaration",
+                        "provide exactly one definition of " + cn.name + " in the linked JAR");
+        }
         for (ClassNode cn : classes) {
             ClassBytecodeCompiler compiler = new ClassBytecodeCompiler(cn);
             String classWat = compiler.compileToWat(linked, false);

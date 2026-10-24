@@ -155,6 +155,195 @@ class BytecodeCompatibilityTest {
         }
     }
 
+    private byte[] classBytes(ClassNode type) {
+        ClassWriter writer = new ClassWriter(0); type.accept(writer); return writer.toByteArray();
+    }
+
+    private ClassLoader linkedLoader(java.util.Map<String, ClassNode> linked) {
+        return new ClassLoader(null) {
+            @Override protected Class<?> findClass(String name) throws ClassNotFoundException {
+                ClassNode type = linked.get(name.replace('.', '/'));
+                if (type == null) throw new ClassNotFoundException(name);
+                byte[] bytes = classBytes(type); return defineClass(name, bytes, 0, bytes.length);
+            }
+        };
+    }
+
+    private ClassNode readFixture(String name) throws Exception {
+        return BytecodeInput.read(Files.readAllBytes(directory.resolve(name + ".class")));
+    }
+
+    private String linkNodes(java.util.Map<String, ClassNode> nodes) throws Exception {
+        var output = new java.io.ByteArrayOutputStream();
+        try (var jar = new java.util.jar.JarOutputStream(output)) {
+            for (ClassNode type : nodes.values()) {
+                jar.putNextEntry(new java.util.jar.JarEntry(type.name + ".class"));
+                jar.write(classBytes(type)); jar.closeEntry();
+            }
+        }
+        return BytecodeCompiler.compileJar(new java.io.ByteArrayInputStream(output.toByteArray()));
+    }
+
+    @Test void preservesJvmStaticInstanceSlotsInsteadOfApplyingJavaSourceRestrictions() throws Exception {
+        fixture("""
+            public class Fixture {
+                public static int run() { Base b = new Child(); return b.value() + Base.hidden(); }
+            }
+            class Base { public final int value() { return 10; } static int hidden() { return 20; } }
+            class Child extends Base {}
+            """);
+        ClassNode entry = readFixture("Fixture"), base = readFixture("Base"), child = readFixture("Child");
+        // These declarations are legal JVM bytecode although javac forbids them in Java source.
+        MethodNode staticValue = integerDeclaration(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC);
+        child.methods.add(staticValue);
+        MethodNode instanceHidden = integerDeclaration(Opcodes.ACC_PUBLIC); instanceHidden.name = "hidden";
+        child.methods.add(instanceHidden);
+        MethodNode run = entry.methods.stream().filter(m -> m.name.equals("run")).findFirst().orElseThrow();
+        var extra = new InsnList();
+        extra.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "Child", "value", "()I", false));
+        extra.add(new InsnNode(Opcodes.IADD)); extra.add(new TypeInsnNode(Opcodes.NEW, "Child"));
+        extra.add(new InsnNode(Opcodes.DUP));
+        extra.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, "Child", "<init>", "()V", false));
+        extra.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "Child", "hidden", "()I", false));
+        extra.add(new InsnNode(Opcodes.IADD)); run.instructions.insertBefore(java.util.Arrays.stream(run.instructions.toArray())
+                .filter(insn -> insn.getOpcode() == Opcodes.IRETURN).findFirst().orElseThrow(), extra); run.maxStack = 4;
+        var linked = new java.util.LinkedHashMap<String, ClassNode>();
+        linked.put(entry.name, entry); linked.put(base.name, base); linked.put(child.name, child);
+        Object expected = linkedLoader(linked).loadClass("Fixture").getMethod("run").invoke(null);
+        assertEquals(32, expected);
+        execute(linkNodes(linked), "assert.equal(e['Fixture.run']()," + expected + ");");
+        var reversed = new java.util.LinkedHashMap<String, ClassNode>();
+        reversed.put(child.name, child); reversed.put(base.name, base); reversed.put(entry.name, entry);
+        execute(linkNodes(reversed), "assert.equal(e['Fixture.run'](),32);");
+    }
+
+    @Test void executesDistinctJvmIdentitiesAndEscapesUnusualExportNames() throws Exception {
+        var linked = new java.util.LinkedHashMap<String, ClassNode>();
+        ClassNode entry = new ClassNode(); entry.version = Opcodes.V17; entry.access = Opcodes.ACC_PUBLIC;
+        entry.name = "Fixture"; entry.superName = "java/lang/Object";
+        MethodNode run = new MethodNode(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "run", "()I", null, null);
+        run.instructions.add(new InsnNode(Opcodes.ICONST_0)); run.maxStack = 2; entry.methods.add(run); linked.put(entry.name, entry);
+        int expected = 0;
+        for (String name : new String[]{"A$B", "A_B", "Odd(Name)"}) {
+            ClassNode type = new ClassNode(); type.version = Opcodes.V17; type.access = Opcodes.ACC_PUBLIC;
+            type.name = name; type.superName = "java/lang/Object";
+            for (String member : new String[]{"m$", "m_", "quote\"\\λ"}) {
+                int number = ++expected;
+                String descriptor = name.equals("Odd(Name)") ? "(LOdd(Name);)I" : "()I";
+                MethodNode method = new MethodNode(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, member, descriptor, null, null);
+                method.instructions.add(new IntInsnNode(Opcodes.BIPUSH, number)); method.instructions.add(new InsnNode(Opcodes.IRETURN));
+                method.maxStack = 1; method.maxLocals = name.equals("Odd(Name)") ? 1 : 0; type.methods.add(method);
+                if (name.equals("Odd(Name)")) run.instructions.add(new InsnNode(Opcodes.ACONST_NULL));
+                run.instructions.add(new MethodInsnNode(Opcodes.INVOKESTATIC, name, member, descriptor, false));
+                run.instructions.add(new InsnNode(Opcodes.IADD));
+            }
+            linked.put(name, type);
+        }
+        run.instructions.add(new InsnNode(Opcodes.IRETURN));
+        Object result = linkedLoader(linked).loadClass("Fixture").getMethod("run").invoke(null);
+        assertEquals(45, result);
+        execute(linkNodes(linked), "assert.equal(e['Fixture.run'](),45);");
+    }
+
+    @Test void rejectsWrongSpecialReceiversLikeJvmForClassAndInterfaceCalls() throws Exception {
+        for (boolean iface : new boolean[]{false, true}) {
+            fixture(iface ? """
+                public class Fixture implements View { public int call(View other) { return View.super.value(); } }
+                interface View {default int value() {return 9;}}
+                """ : """
+                public class Fixture extends Base { public int call(Base other) { return super.value(); } }
+                class Base {public int value() {return 9;}}
+                """);
+            ClassNode entry = readFixture("Fixture"), parent = readFixture(iface ? "View" : "Base");
+            MethodNode method = entry.methods.stream().filter(m -> m.name.equals("call")).findFirst().orElseThrow();
+            for (AbstractInsnNode insn : method.instructions)
+                if (insn instanceof VarInsnNode local && local.getOpcode() == Opcodes.ALOAD) local.var = 1;
+            var linked = java.util.Map.of(entry.name, entry, parent.name, parent);
+            assertThrows(VerifyError.class, () -> linkedLoader(linked).loadClass("Fixture").getDeclaredMethods());
+            String error = assertThrows(IllegalArgumentException.class, () -> new ClassBytecodeCompiler(entry).compileToWat(linked)).getMessage();
+            assertTrue(error.contains("special receiver must be assignable to the caller"), error);
+        }
+    }
+
+    @Test void matchesJvmAccSuperSelectionWithPrivateResolvedMethod() throws Exception {
+        fixture("""
+            public class Fixture {
+                public static int run() { return new Child().call(); }
+                static class Grand { private int value() { return 11; } }
+                static class Parent extends Grand { public int value() { return 22; } }
+                static class Child extends Parent { public int call() { return super.value(); } }
+            }
+            """);
+        var linked = new java.util.LinkedHashMap<String, ClassNode>();
+        for (String name : new String[]{"Fixture", "Fixture$Grand", "Fixture$Parent", "Fixture$Child"})
+            linked.put(name, readFixture(name));
+        for (MethodNode method : linked.get("Fixture$Child").methods)
+            for (AbstractInsnNode instruction : method.instructions)
+                if (instruction instanceof MethodInsnNode call && call.name.equals("value")) call.owner = "Fixture$Grand";
+        Object expected = linkedLoader(linked).loadClass("Fixture").getMethod("run").invoke(null);
+        assertEquals(22, expected);
+        execute(linkNodes(linked), "assert.equal(e['Fixture.run'](),22);");
+    }
+
+    @Test void preservesFieldIdentitiesContainingDescriptorSeparators() throws Exception {
+        fixture("""
+            public class Fixture {
+                public static int run() {
+                    Box box = new Box(); box.first = new C(); box.first.marker = 123;
+                    box.second = null; return box.first.marker;
+                }
+            }
+            class Box { C first; B second; }
+            class C { int marker; }
+            class B {}
+            """);
+        var names = java.util.Map.of("C", "c", "B", "b:Lc");
+        var linked = new java.util.LinkedHashMap<String, ClassNode>();
+        for (String name : new String[]{"Fixture", "Box", "C", "B"}) {
+            ClassNode type = readFixture(name); type.name = names.getOrDefault(name, name);
+            for (FieldNode field : type.fields) {
+                if (type.name.equals("Box")) field.name = field.name.equals("first") ? "a:Lb" : "a";
+                field.desc = field.desc.replace("LC;", "Lc;").replace("LB;", "Lb:Lc;");
+            }
+            for (MethodNode method : type.methods) {
+                for (AbstractInsnNode insn : method.instructions) {
+                    if (insn instanceof TypeInsnNode reference) reference.desc = names.getOrDefault(reference.desc, reference.desc);
+                    if (insn instanceof MethodInsnNode call) call.owner = names.getOrDefault(call.owner, call.owner);
+                    if (insn instanceof FieldInsnNode field) {
+                        if (field.owner.equals("Box")) field.name = field.name.equals("first") ? "a:Lb" : "a";
+                        field.owner = names.getOrDefault(field.owner, field.owner);
+                        field.desc = field.desc.replace("LC;", "Lc;").replace("LB;", "Lb:Lc;");
+                    }
+                }
+            }
+            linked.put(type.name, type);
+        }
+        Object expected = linkedLoader(linked).loadClass("Fixture").getMethod("run").invoke(null);
+        assertEquals(123, expected);
+        execute(linkNodes(linked), "assert.equal(e['Fixture.run'](),123);");
+    }
+
+    @Test void executesPrivateJvmSurrogateNamesAndDiagnosesUnrepresentableExports() throws Exception {
+        ClassNode type = new ClassNode(); type.version = Opcodes.V17; type.access = Opcodes.ACC_PUBLIC;
+        type.name = "Fixture"; type.superName = "java/lang/Object";
+        MethodNode run = new MethodNode(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "run", "()I", null, null);
+        int number = 0;
+        for (String name : new String[]{"\uD800", "\uD801"}) {
+            MethodNode method = new MethodNode(Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC, name, "()I", null, null);
+            method.instructions.add(new IntInsnNode(Opcodes.BIPUSH, ++number));
+            method.instructions.add(new InsnNode(Opcodes.IRETURN)); method.maxStack = 1; type.methods.add(method);
+            run.instructions.add(new MethodInsnNode(Opcodes.INVOKESTATIC, type.name, name, "()I", false));
+        }
+        run.instructions.add(new InsnNode(Opcodes.IADD)); run.instructions.add(new InsnNode(Opcodes.IRETURN));
+        run.maxStack = 2; type.methods.add(run);
+        assertEquals(3, linkedLoader(java.util.Map.of(type.name, type)).loadClass("Fixture").getMethod("run").invoke(null));
+        execute(new ClassBytecodeCompiler(type).compileToWat(), "assert.equal(e['Fixture.run'](),3);");
+        type.methods.get(0).access = Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC;
+        String error = assertThrows(IllegalArgumentException.class, () -> new ClassBytecodeCompiler(type).compileToWat()).getMessage();
+        assertTrue(error.contains("public export name"), error);
+        assertTrue(error.contains("well-formed Unicode"), error);
+    }
+
     @Test void matchesJvmDescriptorDistinctStaticFields() throws Exception {
         ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_MAXS);
         writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "FieldIdentity", null, "java/lang/Object", null);
@@ -414,7 +603,7 @@ class BytecodeCompatibilityTest {
             var bytes=fixture(source);
             // Only Fixture is linked; class and interface owners must be linked explicitly.
             var error=assertThrows(IllegalArgumentException.class, () -> BytecodeCompiler.compileClass(bytes));
-            assertTrue(error.getMessage().contains("unsupported dynamic call"),error.getMessage());
+            assertTrue(error.getMessage().contains("unsupported descriptor resolution"),error.getMessage());
             assertTrue(error.getMessage().contains("Fixture.java:"),error.getMessage());
         }
     }
@@ -1508,7 +1697,7 @@ class BytecodeCompatibilityTest {
             if(scenario.equals("instance")) flags=Opcodes.ACC_PUBLIC;
             if(scenario.equals("native")) flags|=Opcodes.ACC_NATIVE;
             if(scenario.equals("abstract")) flags|=Opcodes.ACC_ABSTRACT;
-            MethodNode target=new MethodNode(flags,"value","()I",null,null);base.methods.add(target);
+            MethodNode target=integerDeclaration(flags);base.methods.add(target);
             ClassNode caller=new ClassNode();caller.name="q/Caller";caller.superName="java/lang/Object";caller.access=Opcodes.ACC_PUBLIC;
             MethodNode method=new MethodNode(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"call","()I",null,null);
             MethodInsnNode call=new MethodInsnNode(Opcodes.INVOKESTATIC,base.name,"value","()I",false);
@@ -1529,6 +1718,8 @@ class BytecodeCompatibilityTest {
             String error=assertThrows(IllegalArgumentException.class,
                     ()->new ClassBytecodeCompiler(caller).compileToWat(linked),scenario).getMessage();
             if (scenario.equals("abstract")) assertTrue(error.contains("incompatible abstract flags"), error);
+            else if (scenario.equals("missing") || scenario.equals("cycle"))
+                assertTrue(error.contains("hierarchy declaration"), error);
             else {
                 assertTrue(error.contains("static call "),scenario+": "+error);
                 assertTrue(error.contains("q.Caller.call()I"),error);
@@ -1595,7 +1786,7 @@ class BytecodeCompatibilityTest {
             if(scenario.equals("static"))flags|=Opcodes.ACC_STATIC;
             if(scenario.equals("abstract"))flags|=Opcodes.ACC_ABSTRACT;
             if(scenario.equals("native"))flags|=Opcodes.ACC_NATIVE;
-            base.methods.add(new MethodNode(flags,"value","()I",null,null));
+            base.methods.add(integerDeclaration(flags));
             ClassNode caller=new ClassNode();caller.name="q/Caller";caller.superName=base.name;caller.access=Opcodes.ACC_PUBLIC|Opcodes.ACC_SUPER;
             MethodNode method=new MethodNode(Opcodes.ACC_PUBLIC,"call","()I",null,null);
             MethodInsnNode call=new MethodInsnNode(Opcodes.INVOKESPECIAL,base.name,"value","()I",false);
@@ -1603,10 +1794,13 @@ class BytecodeCompatibilityTest {
             method.instructions.add(new InsnNode(Opcodes.IRETURN));method.maxLocals=1;method.maxStack=1;caller.methods.add(method);
             var linked=new java.util.LinkedHashMap<String,ClassNode>();linked.put(base.name,base);linked.put(caller.name,caller);
             if(scenario.equals("owner"))base.access=0;
-            if(scenario.equals("interface"))base.access|=Opcodes.ACC_INTERFACE;
+            if(scenario.equals("interface"))base.access|=Opcodes.ACC_INTERFACE|Opcodes.ACC_ABSTRACT;
             if(scenario.equals("unrelated")||scenario.equals("protected"))caller.superName="java/lang/Object";
             if(scenario.equals("constructorInherited")) {
-                base.methods.clear();base.methods.add(new MethodNode(Opcodes.ACC_PUBLIC,"<init>","()V",null,null));
+                base.methods.clear();
+                MethodNode constructor = new MethodNode(Opcodes.ACC_PUBLIC,"<init>","()V",null,null);
+                constructor.instructions.add(new InsnNode(Opcodes.RETURN)); constructor.maxLocals=1;
+                base.methods.add(constructor);
                 call.owner=caller.name;call.name="<init>";call.desc="()V";
             }
             if(scenario.equals("missing")){base.methods.clear();base.superName="missing/Parent";}
@@ -1705,7 +1899,7 @@ class BytecodeCompatibilityTest {
             if(scenario.equals("abstract"))flags|=Opcodes.ACC_ABSTRACT;
             if(scenario.equals("native"))flags|=Opcodes.ACC_NATIVE;
             if(scenario.equals("private"))flags=Opcodes.ACC_PRIVATE;
-            iface.methods.add(new MethodNode(flags,"value","()I",null,null));
+            iface.methods.add(integerDeclaration(flags));
             ClassNode caller=new ClassNode();caller.name="q/Caller";caller.superName="java/lang/Object";caller.access=Opcodes.ACC_PUBLIC;
             caller.interfaces.add(iface.name);
             MethodNode method=new MethodNode(Opcodes.ACC_PUBLIC,"call","()I",null,null);
@@ -1731,6 +1925,7 @@ class BytecodeCompatibilityTest {
             if(java.util.Set.of("inaccessible","classOwner","missing","cycle").contains(scenario))
                 assertTrue(error.contains("hierarchy declaration"),scenario+": "+error);
             else if (scenario.equals("native")) assertTrue(error.contains("invalid interface method flags"), error);
+            else if (scenario.equals("initializer")) assertTrue(error.contains("constructor references must return void"), error);
             else {
                 assertTrue(error.contains(scenario.equals("wrongReference")?"special call ":"interface super call "),scenario+": "+error);
                 assertTrue(error.contains("Caller.call()I"),error);
@@ -1823,8 +2018,11 @@ class BytecodeCompatibilityTest {
                 method.instructions.add(new InsnNode(Opcodes.IRETURN));method.maxLocals=1;method.maxStack=1;caller.methods.add(method);
                 String error=assertThrows(IllegalArgumentException.class,()->new ClassBytecodeCompiler(caller)
                         .compileToWat(java.util.Map.of(owner.name,owner,caller.name,caller))).getMessage();
-                assertTrue(error.contains("dynamic call Owner."),error);
-                assertTrue(error.contains(scenario.equals("reference")?"reference kind":"initializers cannot"),error);
+                if (scenario.equals("constructor")) assertTrue(error.contains("constructor references must return void"), error);
+                else {
+                    assertTrue(error.contains("dynamic call Owner."),error);
+                    assertTrue(error.contains(scenario.equals("reference")?"reference kind":"initializers cannot"),error);
+                }
             }
         }
     }
@@ -1979,6 +2177,16 @@ class BytecodeCompatibilityTest {
                         .noneMatch(insn->insn.getOpcode()==Opcodes.JSR||insn.getOpcode()==Opcodes.RET));
             }
         }
+    }
+
+    private MethodNode integerDeclaration(int flags) {
+        MethodNode method = new MethodNode(flags, "value", "()I", null, null);
+        if ((flags & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_NATIVE)) == 0) {
+            method.instructions.add(new InsnNode(Opcodes.ICONST_1));
+            method.instructions.add(new InsnNode(Opcodes.IRETURN));
+            method.maxStack = 1; method.maxLocals = (flags & Opcodes.ACC_STATIC) == 0 ? 1 : 0;
+        }
+        return method;
     }
 
     private String linkJar(String... names) throws Exception {

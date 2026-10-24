@@ -91,7 +91,10 @@ public class ClassBytecodeCompiler {
         wat.append("    (func ").append(funcName);
         if ((mn.access & Opcodes.ACC_PUBLIC) != 0) {
             String exportName = classNode.name.replace('/', '.') + "." + mn.name;
-            wat.append(" (export \"").append(exportName).append("\")");
+            try { wat.append(" (export \"").append(TypeHelper.watString(exportName)).append("\")"); }
+            catch (IllegalArgumentException error) {
+                throw BytecodeCompatibility.failure(classNode, mn, null, "public export name", error.getMessage());
+            }
         }
 
         int paramIndex = 0;

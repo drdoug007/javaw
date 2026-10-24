@@ -89,6 +89,7 @@ class BytecodeDeclarationsTest implements Opcodes {
                     "D".repeat(127) + (instance ? "" : "I"), "[J".repeat(limit)}) {
                 ClassNode legal = type();
                 legal.methods.add(new MethodNode(instance ? 0 : ACC_STATIC, "accept", "(" + parameters + ")V", null, null));
+                legal.methods.get(0).instructions.add(new InsnNode(RETURN));
                 assertDoesNotThrow(() -> BytecodeDeclarations.validate(legal));
                 rejects(n -> n.methods.add(new MethodNode(instance ? 0 : ACC_STATIC, "accept",
                         "(" + parameters + "I)V", null, null)), "exceeds 255 slots");

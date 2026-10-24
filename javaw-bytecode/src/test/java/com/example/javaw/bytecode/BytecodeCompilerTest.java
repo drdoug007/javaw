@@ -39,8 +39,8 @@ public class BytecodeCompilerTest {
 
         String wat = BytecodeCompiler.compileClass(classBytes);
         assertNotNull(wat);
-        assertTrue(wat.contains("(func $com_example_calc_Calculator_add"));
-        assertTrue(wat.contains("(func $com_example_calc_Calculator_multiply"));
+        assertTrue(wat.contains("(func " + TypeHelper.getMethodFunctionName("com/example/calc/Calculator", "add", "(II)I")));
+        assertTrue(wat.contains("(func " + TypeHelper.getMethodFunctionName("com/example/calc/Calculator", "multiply", "(II)I")));
         assertTrue(wat.contains("i32.add"));
         assertTrue(wat.contains("i32.mul"));
         assertTrue(wat.contains("export \"com.example.calc.Calculator.add\""));
@@ -87,7 +87,7 @@ public class BytecodeCompilerTest {
 
         String wat = BytecodeCompiler.compileClass(classBytes);
         assertNotNull(wat);
-        assertTrue(wat.contains("$com_example_calc_LoopMath_sumTo"));
+        assertTrue(wat.contains(TypeHelper.getMethodFunctionName("com/example/calc/LoopMath", "sumTo", "(I)I")));
         assertTrue(wat.contains("loop"));
         assertTrue(wat.contains("br $loop"));
     }

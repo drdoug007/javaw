@@ -3,9 +3,14 @@ package com.example.javaw.bytecode;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.AbstractInsnNode;
+import org.objectweb.asm.tree.MethodInsnNode;
+import org.objectweb.asm.tree.analysis.AnalyzerException;
+import org.objectweb.asm.tree.analysis.BasicValue;
 import org.objectweb.asm.tree.analysis.SimpleVerifier;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -13,6 +18,7 @@ import java.util.Set;
 final class BytecodeVerifier extends SimpleVerifier {
     private static final Type OBJECT = Type.getObjectType("java/lang/Object");
     private final Map<String, ClassNode> linked;
+    private final Type callerType;
 
     BytecodeVerifier(ClassNode owner, Map<String, ClassNode> linked) {
         super(Opcodes.ASM9, Type.getObjectType(owner.name),
@@ -20,6 +26,19 @@ final class BytecodeVerifier extends SimpleVerifier {
                 owner.interfaces.stream().map(Type::getObjectType).toList(),
                 (owner.access & Opcodes.ACC_INTERFACE) != 0);
         this.linked = linked;
+        this.callerType = Type.getObjectType(owner.name);
+    }
+
+    @Override public BasicValue naryOperation(AbstractInsnNode instruction, List<? extends BasicValue> values)
+            throws AnalyzerException {
+        BasicValue result = super.naryOperation(instruction, values);
+        if (instruction instanceof MethodInsnNode call && call.getOpcode() == Opcodes.INVOKESPECIAL
+                && !call.name.equals("<init>") && !values.isEmpty()) {
+            Type receiver = values.get(0).getType();
+            if (receiver == null || !isAssignableFrom(callerType, receiver))
+                throw new AnalyzerException(instruction, "non-constructor special receiver must be assignable to the caller");
+        }
+        return result;
     }
 
     @Override protected boolean isInterface(Type type) {

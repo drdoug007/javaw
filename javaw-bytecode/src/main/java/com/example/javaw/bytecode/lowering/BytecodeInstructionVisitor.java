@@ -547,7 +547,7 @@ public class BytecodeInstructionVisitor {
             case Opcodes.GETFIELD:
                 FieldInsnNode getField = (FieldInsnNode) insn;
                 String targetObj = stack.pop();
-                int offset = fieldOffsets.get(getField.owner + "." + getField.name + ":" + getField.desc);
+                int offset = fieldOffsets.get(TypeHelper.getGlobalFieldName(getField.owner, getField.name, getField.desc));
                 emitNullGuard(targetObj);
                 emitFieldReceiverGuard(getField, targetObj);
                 emit("local.get " + targetObj);
@@ -560,7 +560,7 @@ public class BytecodeInstructionVisitor {
                 FieldInsnNode putField = (FieldInsnNode) insn;
                 String putVal = stack.pop();
                 String putTarget = stack.pop();
-                int pOffset = fieldOffsets.get(putField.owner + "." + putField.name + ":" + putField.desc);
+                int pOffset = fieldOffsets.get(TypeHelper.getGlobalFieldName(putField.owner, putField.name, putField.desc));
                 emitNullGuard(putTarget);
                 emitFieldReceiverGuard(putField, putTarget);
                 emit("local.get " + putTarget);
@@ -742,7 +742,7 @@ public class BytecodeInstructionVisitor {
         if (!isStatic) emitNullGuard(thisVar);
 
         // java.lang.Object's empty constructor has no runtime action in this layout.
-        if (minsn.owner.equals("java/lang/Object") && minsn.name.equals("<init>") && minsn.desc.equals("()V")) return;
+        if (BytecodeDispatch.isObjectConstructor(minsn)) return;
 
         if (minsn.getOpcode() == Opcodes.INVOKEVIRTUAL || minsn.getOpcode() == Opcodes.INVOKEINTERFACE) {
             if (dispatch == null) throw new IllegalArgumentException("Dynamic calls require a linked dispatch context");

@@ -8,7 +8,8 @@ import java.util.*;
 
 /** Shared parent-prefix layouts, independent of JAR entry order. */
 final class BytecodeObjectLayouts {
-    private record Layout(int size, Map<String, Integer> fields) {}
+    private record FieldKey(String name, String descriptor) {}
+    private record Layout(int size, Map<FieldKey, Integer> fields) {}
     private final Map<String, Layout> layouts = new HashMap<>();
     private final Map<String, ClassNode> linked;
 
@@ -26,9 +27,9 @@ final class BytecodeObjectLayouts {
                 ? new Layout(4, Map.of()) : build(type.superName, visiting);
         if (parent == null) return null;
         int size = parent.size();
-        Map<String, Integer> fields = new LinkedHashMap<>(parent.fields());
+        Map<FieldKey, Integer> fields = new LinkedHashMap<>(parent.fields());
         for (FieldNode field : type.fields) {
-            String signature = field.name + ":" + field.desc;
+            FieldKey signature = new FieldKey(field.name, field.desc);
             if ((field.access & Opcodes.ACC_STATIC) == 0) {
                 fields.put(signature, size);
                 size += (field.desc.equals("J") || field.desc.equals("D")) ? 8 : 4;
@@ -54,7 +55,7 @@ final class BytecodeObjectLayouts {
     Map<String, Integer> offsets() {
         Map<String, Integer> result = new LinkedHashMap<>();
         layouts.forEach((name, layout) -> layout.fields().forEach((field, offset) ->
-                result.put(name + "." + field, offset)));
+                result.put(TypeHelper.getGlobalFieldName(name, field.name, field.descriptor), offset)));
         return result;
     }
 }

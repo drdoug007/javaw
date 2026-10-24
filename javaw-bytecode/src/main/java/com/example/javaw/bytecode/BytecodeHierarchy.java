@@ -10,13 +10,17 @@ import java.util.Set;
 /** Declaration checks for the closed-world class/interface inheritance graph. */
 final class BytecodeHierarchy {
     static void validate(ClassNode owner, Map<String, ClassNode> linked) {
-        visit(owner, linked, new HashSet<>(), new HashSet<>());
+        Set<String> complete = new HashSet<>();
+        visit(owner, linked, new HashSet<>(), complete);
+        for (ClassNode declaration : linked.values()) visit(declaration, linked, new HashSet<>(), complete);
     }
 
     private static void visit(ClassNode type, Map<String, ClassNode> linked,
                               Set<String> visiting, Set<String> complete) {
         if (complete.contains(type.name)) return;
         if (!visiting.add(type.name)) throw failure(type, "cyclic superclass/superinterface hierarchy");
+        if ("java/lang/Object".equals(type.name) && type.superName != null)
+            throw failure(type, "java/lang/Object must not declare a superclass");
         boolean isInterface = (type.access & Opcodes.ACC_INTERFACE) != 0;
         if (isInterface && !"java/lang/Object".equals(type.superName))
             throw failure(type, "an interface must name java/lang/Object as its superclass");
@@ -50,6 +54,9 @@ final class BytecodeHierarchy {
             throw failure(child, "inaccessible superclass/superinterface " + name);
         if (parent.permittedSubclasses != null && !parent.permittedSubclasses.contains(child.name))
             throw failure(child, "sealed parent " + name + " does not permit " + child.name);
+        // The compiler links a single unnamed module, so sealed children must share a runtime package.
+        if (parent.permittedSubclasses != null && !packageName(child.name).equals(packageName(name)))
+            throw failure(child, "sealed parent and child must share a package in the unnamed module: " + name);
         return parent;
     }
 

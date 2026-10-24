@@ -66,20 +66,34 @@ public class TypeHelper {
         return name.replace('/', '_').replace('.', '_').replace('$', '_').replace('<', '_').replace('>', '_');
     }
 
-    public static String getMethodFunctionName(String ownerInternalName, String methodName, String methodDescriptor) {
-        String owner = sanitizeName(ownerInternalName);
-        String name = sanitizeName(methodName);
-        if ("_init_".equals(name)) {
-            name = "_init";
-        } else if ("_clinit_".equals(name)) {
-            name = "_clinit";
+    private static String encode(String value) {
+        // Encode UTF-16 code units individually, including any unpaired surrogates in JVM names.
+        StringBuilder result = new StringBuilder(value.length() * 4);
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            for (int shift = 12; shift >= 0; shift -= 4) result.append(Character.forDigit(c >>> shift & 15, 16));
         }
-        return "$" + owner + "_" + name + "_" + java.util.HexFormat.of().formatHex(methodDescriptor.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        return result.toString();
+    }
+
+    public static String getMethodFunctionName(String ownerInternalName, String methodName, String methodDescriptor) {
+        return "$method_" + encode(ownerInternalName) + "_" + encode(methodName) + "_" + encode(methodDescriptor);
     }
 
     public static String getGlobalFieldName(String ownerInternalName, String fieldName, String descriptor) {
-        // Encode the complete symbolic identity: sanitizing names alone is not injective.
-        return "$global_" + java.util.HexFormat.of().formatHex(
-                (ownerInternalName + "." + fieldName + ":" + descriptor).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        return "$global_" + encode(ownerInternalName) + "_" + encode(fieldName) + "_" + encode(descriptor);
+    }
+
+    /** Escape export names as UTF-8 WAT string literals, preserving ordinary readable names. */
+    public static String watString(String value) {
+        if (!java.nio.charset.StandardCharsets.UTF_8.newEncoder().canEncode(value))
+            throw new IllegalArgumentException("public export names require well-formed Unicode; rename the class or method");
+        StringBuilder result = new StringBuilder();
+        for (byte octet : value.getBytes(java.nio.charset.StandardCharsets.UTF_8)) {
+            int b = octet & 255;
+            if (b >= 32 && b <= 126 && b != '"' && b != '\\') result.append((char) b);
+            else result.append('\\').append(Character.forDigit(b >>> 4, 16)).append(Character.forDigit(b & 15, 16));
+        }
+        return result.toString();
     }
 }

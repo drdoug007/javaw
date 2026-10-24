@@ -6,6 +6,8 @@ import java.util.*;
 
 /** Closed-world virtual dispatch with method access, override slots, and validated private nests. */
 public final class BytecodeDispatch {
+    private static final Set<String> FINAL_OBJECT_METHODS = Set.of("getClass()Ljava/lang/Class;", "notify()V", "notifyAll()V",
+            "wait()V", "wait(J)V", "wait(JI)V");
     private final Map<String, ClassNode> linked;
     private final String caller;
     private final BytecodeObjectLayouts layouts;
@@ -249,6 +251,12 @@ public final class BytecodeDispatch {
         return interfaceMethod(name, method, descriptor);
     }
 
+    /** The sole Object intrinsic; reference kind must not bypass ordinary special-call checks. */
+    public static boolean isObjectConstructor(MethodInsnNode call) {
+        return call.getOpcode() == Opcodes.INVOKESPECIAL && !call.itf
+                && call.owner.equals("java/lang/Object") && call.name.equals("<init>") && call.desc.equals("()V");
+    }
+
     /** Class INVOKESPECIAL resolution, including exact constructors and ACC_SUPER selection. */
     public String specialTarget(MethodInsnNode call) {
         ClassNode owner = linked.get(call.owner), from = linked.get(caller);
@@ -269,7 +277,7 @@ public final class BytecodeDispatch {
             boolean superclass = !caller.equals(call.owner) && subtype(from.superName, call.owner, new HashSet<>());
             if (!caller.equals(call.owner) && !superclass)
                 throw new IllegalArgumentException("non-constructor class special calls require the caller or a superclass owner");
-            if (superclass && ((from.access & Opcodes.ACC_SUPER) != 0 || from.version >= Opcodes.V1_8))
+            if (superclass && ((from.access & Opcodes.ACC_SUPER) != 0 || (from.version & 0xffff) >= Opcodes.V1_8))
                 resolved = classSpecialDeclaration(from.superName, call.name, call.desc);
         }
         if (resolved == null || (resolved.method.access & (Opcodes.ACC_STATIC | Opcodes.ACC_ABSTRACT | Opcodes.ACC_NATIVE)) != 0)
@@ -325,10 +333,17 @@ public final class BytecodeDispatch {
 
     /** Check declared non-private instance overrides even when no virtual call reaches them. */
     void validateOverrides() {
-        ClassNode type = linked.get(caller);
-        if (type == null || (type.access & Opcodes.ACC_INTERFACE) != 0) return;
+        validateOverrides(linked.get(caller));
+    }
+
+    void validateOverrides(ClassNode type) {
+        if (type == null) return;
         for (MethodNode method : type.methods) {
             if (method.name.startsWith("<") || (method.access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) != 0) continue;
+            if (!type.name.equals("java/lang/Object") && FINAL_OBJECT_METHODS.contains(method.name + method.desc))
+                throw BytecodeCompatibility.failure(type, method, null, "method override " + method.name + method.desc,
+                        "cannot override final java/lang/Object method");
+            if ((type.access & Opcodes.ACC_INTERFACE) != 0) continue;
             String parent = type.superName;
             while (parent != null && !parent.equals("java/lang/Object")) {
                 ClassNode ancestor = linked.get(parent); // Hierarchy declarations have already been validated.

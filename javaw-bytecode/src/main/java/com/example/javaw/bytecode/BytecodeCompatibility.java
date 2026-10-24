@@ -36,11 +36,19 @@ final class BytecodeCompatibility {
     static boolean admittedOpcode(int opcode) { return OPCODES.contains(opcode); }
 
     static void validate(ClassNode owner, Map<String, ClassNode> linked) {
+        for (var entry : linked.entrySet()) {
+            if (!entry.getKey().equals(entry.getValue().name))
+                throw failure(entry.getValue(), null, null, "class identity", "link metadata by its declared internal name");
+            BytecodeDeclarations.validate(entry.getValue());
+            if (entry.getKey().equals("java/lang/Object"))
+                throw failure(entry.getValue(), null, null, "intrinsic class redefinition",
+                        "java/lang/Object is supplied by the bytecode runtime; linking a replacement is unsupported");
+        }
         BytecodeHierarchy.validate(owner, linked);
-        for (ClassNode declaration : linked.values()) BytecodeDeclarations.validate(declaration);
         BytecodeObjectLayouts layouts = new BytecodeObjectLayouts(linked);
         BytecodeDispatch dispatch = new BytecodeDispatch(linked, owner.name);
-        dispatch.validateOverrides();
+        for (ClassNode declaration : linked.values())
+            dispatch.validateOverrides(declaration);
         Map<String, Integer> offsets = layouts.offsets();
         for (FieldNode field : owner.fields) {
             if (field.value != null && !numericConstant(field.value))
@@ -50,8 +58,11 @@ final class BytecodeCompatibility {
                 throw failure(owner, null, null, "field " + field.name + field.desc,
                         "volatile fields require a concurrent runtime; fields must have a JVM value type");
         }
+        BytecodeLinkage.validateDescriptors(linked);
         Set<String> exports = new HashSet<>();
         for (MethodNode method : owner.methods) {
+            if (method.name.equals("<clinit>"))
+                throw failure(owner, method, null, "class initializer", "use an explicit initialization entry point; automatic JVM initialization is unavailable");
             if ((method.access & (Opcodes.ACC_NATIVE | Opcodes.ACC_SYNCHRONIZED)) != 0)
                 throw failure(owner, method, null, "native/synchronized method", "provide a supported source or explicit host adapter");
             if ((method.access & Opcodes.ACC_ABSTRACT) != 0) continue;
@@ -59,8 +70,6 @@ final class BytecodeCompatibility {
                 throw failure(owner, method, null, "overloaded public export", "use unique public entry-point names");
             if (!method.tryCatchBlocks.isEmpty())
                 throw failure(owner, method, method.tryCatchBlocks.get(0).start, "exception handler table", "use source compilation for Java exception handling");
-            if (method.name.equals("<clinit>"))
-                throw failure(owner, method, null, "class initializer", "use an explicit initialization entry point; automatic JVM initialization is unavailable");
             for (AbstractInsnNode instruction : method.instructions) {
                 int opcode = instruction.getOpcode();
                 if (opcode < 0) continue;
@@ -87,11 +96,12 @@ final class BytecodeCompatibility {
                         throw failure(owner, method, instruction, "object allocation " + allocation.desc,
                                 "link a concrete class and its complete superclass chain through Object; cyclic or missing hierarchies are unsupported");
                 }
+                BytecodeLinkage.validateReference(owner, method, instruction);
                 if (instruction instanceof FieldInsnNode field) {
                     try {
                         dispatch.validateField(field, method);
                         if ((opcode == Opcodes.GETFIELD || opcode == Opcodes.PUTFIELD)
-                                && !offsets.containsKey(field.owner + "." + field.name + ":" + field.desc))
+                                && !offsets.containsKey(TypeHelper.getGlobalFieldName(field.owner, field.name, field.desc)))
                             throw new IllegalArgumentException("link a supported instance layout");
                     } catch (IllegalArgumentException error) {
                         throw failure(owner, method, instruction, "field access " + field.owner + "." + field.name,
@@ -123,7 +133,7 @@ final class BytecodeCompatibility {
                         }
                         continue;
                     }
-                    if (call.owner.equals("java/lang/Object") && call.name.equals("<init>") && call.desc.equals("()V")) continue;
+                    if (BytecodeDispatch.isObjectConstructor(call)) continue;
                     try { dispatch.specialTarget(call); }
                     catch (IllegalArgumentException error) {
                         throw failure(owner, method, instruction, "special call " + call.owner + "." + call.name + call.desc,
