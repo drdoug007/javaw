@@ -16,6 +16,8 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
 
 `javaw` implements a Java subset with selected JDK facades and ahead-of-time API translations. Parsing Java 17 syntax, compiling a sample, or caching a dependency does not establish full language, JDK, JVM, or third-party library compatibility. A checked roadmap item describes the implemented subset.
 
+In [Todo.md](Todo.md), a checked child records that increment; its parent stays open until the complete stated scope is verified. Remaining work is listed as unchecked children. Reference verification and array execution are complete for the documented bytecode ABI; core-JDK closure coverage remains open, including primitive streams/spliterators, broader collection APIs, MathContext and other audited gaps.
+
 | Area | Current limit |
 | :--- | :--- |
 | Collections | Source-backed `ArrayList`, bucketed/resizing `HashMap`, `HashSet`, `List`/`Set`/`Map`/`Collection`/`Iterable`/`Iterator` interfaces, enhanced for, live map key/value/entry views, backed nested sublists, bulk mutations, and iterator removal. Complete JDK collection coverage remains pending. |
