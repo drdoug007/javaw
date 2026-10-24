@@ -4,18 +4,48 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.*;
 import java.util.*;
 
-/** Closed-world dispatch for public methods with class or maximally-specific interface implementations. */
+/** Closed-world public dispatch and statically bound private calls in validated nests. */
 public final class BytecodeDispatch {
     private final Map<String, ClassNode> linked;
+    private final String caller;
     private final BytecodeObjectLayouts layouts;
     private final Map<String, Integer> classIds = new LinkedHashMap<>();
     private record Declaration(String owner, MethodNode method) {}
 
     public BytecodeDispatch(Map<String, ClassNode> linked) {
+        this(linked, null);
+    }
+
+    public BytecodeDispatch(Map<String, ClassNode> linked, String caller) {
+        this.caller = caller;
         this.linked = linked;
         this.layouts = new BytecodeObjectLayouts(linked);
         int id = 1;
         for (String name : new TreeSet<>(linked.keySet())) classIds.put(name, id++);
+    }
+
+    private String packageName(String name) {
+        int slash = name.lastIndexOf('/');
+        return slash < 0 ? "" : name.substring(0, slash);
+    }
+
+    private boolean nestMember(ClassNode host, ClassNode member) {
+        if (!packageName(host.name).equals(packageName(member.name))) return false;
+        if (member.name.equals(host.name)) return member.nestHostClass == null;
+        return host.name.equals(member.nestHostClass) && host.nestMembers != null
+                && host.nestMembers.contains(member.name);
+    }
+
+    void checkPrivateAccess(String declaringOwner) {
+        if (declaringOwner.equals(caller)) return;
+        ClassNode from = linked.get(caller), target = linked.get(declaringOwner);
+        if (from != null && target != null) {
+            String hostName = from.nestHostClass == null ? from.name : from.nestHostClass;
+            ClassNode host = linked.get(hostName);
+            if (host != null && host.nestHostClass == null && nestMember(host, from) && nestMember(host, target)) return;
+        }
+        throw new IllegalArgumentException("private method access requires the declaring class or a validated linked nest; "
+                + "link the nest host and reciprocal same-package NestHost/NestMembers metadata");
     }
 
     public int classId(String name) {
@@ -81,9 +111,10 @@ public final class BytecodeDispatch {
             throw new IllegalArgumentException("link the interface-super owner and its complete hierarchy");
         Declaration target = declaration(call.owner, call.name, call.desc, new HashSet<>());
         if (target == null) target = interfaceMethod(call.owner, call.name, call.desc);
-        if (target == null || (target.method.access & Opcodes.ACC_PUBLIC) == 0
+        if (target != null && (target.method.access & Opcodes.ACC_PRIVATE) != 0) checkPrivateAccess(target.owner);
+        if (target == null || (target.method.access & (Opcodes.ACC_PUBLIC | Opcodes.ACC_PRIVATE)) == 0
                 || (target.method.access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_STATIC | Opcodes.ACC_NATIVE)) != 0)
-            throw new IllegalArgumentException("interface-super calls require a public concrete default implementation");
+            throw new IllegalArgumentException("interface-special calls require an accessible concrete default/private implementation");
         return TypeHelper.getMethodFunctionName(target.owner, call.name, call.desc);
     }
 
@@ -94,19 +125,22 @@ public final class BytecodeDispatch {
             throw new IllegalArgumentException("link the declaring class/interface in the same module");
         Declaration declared = declaration(call.owner, call.name, call.desc, new HashSet<>());
         if (declared == null) declared = interfaceMethod(call.owner, call.name, call.desc);
-        if (declared == null || (declared.method.access & Opcodes.ACC_PUBLIC) == 0
+        if (declared == null || (declared.method.access & (Opcodes.ACC_PUBLIC | Opcodes.ACC_PRIVATE)) == 0
                 || (declared.method.access & Opcodes.ACC_STATIC) != 0)
-            throw new IllegalArgumentException("use public virtual/interface methods; non-public virtual calls are unavailable");
+            throw new IllegalArgumentException("use public methods or accessible private helpers; protected/package virtual calls are unavailable");
+        boolean privateCall = (declared.method.access & Opcodes.ACC_PRIVATE) != 0;
+        if (privateCall) checkPrivateAccess(declared.owner);
         Map<Integer, String> result = new LinkedHashMap<>();
         for (var entry : classIds.entrySet()) {
             ClassNode type = linked.get(entry.getKey());
             if ((type.access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_INTERFACE)) != 0
                     || !subtype(type.name, call.owner, new HashSet<>())) continue;
-            Declaration implementation = declaration(type.name, call.name, call.desc, new HashSet<>());
+            // Private methods never participate in overriding, even on a subclass receiver.
+            Declaration implementation = privateCall ? declared : declaration(type.name, call.name, call.desc, new HashSet<>());
             // Every class declaration takes precedence, even an abstract one.
             if (implementation == null) implementation = interfaceMethod(type.name, call.name, call.desc);
             if (!layouts.contains(type.name) || implementation == null
-                    || (implementation.method.access & Opcodes.ACC_PUBLIC) == 0
+                    || (implementation.method.access & (privateCall ? Opcodes.ACC_PRIVATE : Opcodes.ACC_PUBLIC)) == 0
                     || (implementation.method.access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_STATIC | Opcodes.ACC_NATIVE)) != 0)
                 throw new IllegalArgumentException("link a complete hierarchy and public concrete class/default implementation for "
                         + type.name + "." + call.name + call.desc + "; implement abstract or re-abstracted methods");

@@ -35,7 +35,7 @@ public class ClassBytecodeCompiler {
 
     String compileToWat(Map<String, ClassNode> linked) {
         BytecodeCompatibility.validate(classNode, linked);
-        dispatch = new BytecodeDispatch(linked);
+        dispatch = new BytecodeDispatch(linked, classNode.name);
         BytecodeObjectLayouts layouts = new BytecodeObjectLayouts(linked);
         fieldOffsets.putAll(layouts.offsets());
         objectSizes.putAll(layouts.sizes());

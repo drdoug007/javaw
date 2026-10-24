@@ -384,6 +384,142 @@ class BytecodeCompatibilityTest {
         }
     }
 
+    @Test void executesPrivateClassAndInterfaceHelpersWithoutOverriding() throws Exception {
+        byte[] bytes=fixture("""
+            public class Fixture {
+                int state;
+                static int ticks;
+                private int helper(int n) { return n+1; }
+                private int helper(boolean b) { return b?5:6; }
+                private void write(int n) { state=n; }
+                private Fixture self() { return this; }
+                public int evaluate(int n) { write(n); return self().helper(n)+helper(true)+state; }
+                public static int run(int n) { Fixture value=new Child(); return value.evaluate(n); }
+                static int tick() { ticks++; return 1; }
+                public static int nullCall() { Fixture value=null; return value.helper(tick()); }
+                public static int tickCount() { return ticks; }
+                public static int interfaceCall(int n) { PrivateView value=new HelperDevice(); return value.result(n); }
+            }
+            class Child extends Fixture { public int helper(int n) { return 900; } }
+            interface PrivateView {
+                private int helper(int n) { return n+10; }
+                private int helper(boolean b) { return b?2:3; }
+                private static int twice(int n) { return n*2; }
+                default int result(int n) { return helper(n)+helper(true)+twice(n); }
+            }
+            class HelperDevice implements PrivateView { public int helper(int n) { return 800; } }
+            """);
+        ClassNode node=new ClassNode(); new ClassReader(bytes).accept(node,0);
+        assertTrue(node.methods.stream().flatMap(m -> java.util.Arrays.stream(m.instructions.toArray()))
+                .anyMatch(i -> i instanceof MethodInsnNode call && call.name.equals("helper")
+                        && call.getOpcode()==Opcodes.INVOKEVIRTUAL));
+        execute(linkJar("HelperDevice", "PrivateView", "Child", "Fixture"), """
+            for(let n=-5;n<20;n++) {
+                assert.equal(e['Fixture.run'](n),2*n+6);
+                assert.equal(e['Fixture.interfaceCall'](n),3*n+12);
+            }
+            assert.throws(()=>e['Fixture.nullCall'](),WebAssembly.RuntimeError);
+            assert.equal(e['Fixture.tickCount'](),1);
+            """);
+    }
+
+    @Test void executesPrivateNestmateCallsAndConstructors() throws Exception {
+        fixture("""
+            public class Fixture {
+                private static int adjust() { return -1; }
+                public static int run(int n) {
+                    Secret value=new Child(n);
+                    return value.helper(2)+Secret.twice(n)+Reader.read(value);
+                }
+                static class Secret {
+                    int state;
+                    private Secret(int n) { state=n; }
+                    private int helper(int n) { return state+n; }
+                    private static int twice(int n) { return n*2; }
+                }
+                static class Child extends Secret {
+                    Child(int n) { super(n); }
+                    public int helper(int n) { return 999; }
+                }
+                static class Reader {
+                    static int read(Secret value) { return value.helper(3)+adjust(); }
+                }
+            }
+            """);
+        execute(linkJar("Fixture$Reader", "Fixture$Child", "Fixture$Secret", "Fixture"), """
+            for(let n=-5;n<20;n++) assert.equal(e['Fixture.run'](n),4*n+4);
+            """);
+    }
+
+    @Test void rejectsMissingOrNonreciprocalPrivateNests() throws Exception {
+        fixture("""
+            public class Fixture {
+                static class Secret { private int helper() { return 2; } }
+                static class Reader { public static int call(Secret value) { return value.helper(); } }
+            }
+            """);
+        var missing=assertThrows(IllegalArgumentException.class, () -> linkJar("Fixture$Reader", "Fixture$Secret"));
+        assertTrue(missing.getMessage().contains("validated linked nest"),missing.getMessage());
+        ClassNode host=new ClassNode();
+        new ClassReader(Files.readAllBytes(directory.resolve("Fixture.class"))).accept(host,0);
+        host.nestMembers.remove("Fixture$Secret");
+        ClassWriter writer=new ClassWriter(0); host.accept(writer);
+        Files.write(directory.resolve("Fixture.class"),writer.toByteArray());
+        var invalid=assertThrows(IllegalArgumentException.class,
+                () -> linkJar("Fixture$Reader", "Fixture$Secret", "Fixture"));
+        assertTrue(invalid.getMessage().contains("Fixture.java:"),invalid.getMessage());
+        assertTrue(invalid.getMessage().contains("Fixture$Reader.call"),invalid.getMessage());
+        assertTrue(invalid.getMessage().contains("reciprocal same-package"),invalid.getMessage());
+    }
+
+    @Test void executesLegacyPrivateSpecialCalls() throws Exception {
+        Path source=directory.resolve("Fixture.java");
+        Files.writeString(source,"""
+            public class Fixture {
+                private Fixture() {}
+                private int helper(int n) { return n+2; }
+                public static int run(int n) { return new Fixture().helper(n); }
+            }
+            """);
+        assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,"--release","8","-g",
+                "-d",directory.toString(),source.toString()));
+        byte[] bytes=Files.readAllBytes(directory.resolve("Fixture.class"));
+        ClassNode node=new ClassNode(); new ClassReader(bytes).accept(node,0);
+        assertTrue(node.methods.stream().flatMap(m -> java.util.Arrays.stream(m.instructions.toArray()))
+                .anyMatch(i -> i instanceof MethodInsnNode call && call.name.equals("helper")
+                        && call.getOpcode()==Opcodes.INVOKESPECIAL));
+        execute(BytecodeCompiler.compileClass(bytes), "assert.equal(e['Fixture.run'](40),42);");
+    }
+
+    @Test void rejectsForgedCrossPackageNestsForEveryPrivateCallKind() {
+        for(int opcode:new int[]{Opcodes.INVOKEVIRTUAL, Opcodes.INVOKESPECIAL, Opcodes.INVOKESTATIC}) {
+            ClassNode caller=new ClassNode(), target=new ClassNode(), host=new ClassNode();
+            caller.name="a/Caller"; target.name="b/Secret"; host.name="a/Host";
+            for(ClassNode node:new ClassNode[]{caller,target,host}) {
+                node.version=Opcodes.V17; node.access=Opcodes.ACC_PUBLIC;
+                node.superName="java/lang/Object";
+            }
+            caller.sourceFile="Caller.java";
+            caller.nestHostClass=host.name; target.nestHostClass=host.name;
+            host.nestMembers=new java.util.ArrayList<>(java.util.List.of(caller.name,target.name));
+            MethodNode helper=new MethodNode(Opcodes.ACC_PRIVATE
+                    | (opcode==Opcodes.INVOKESTATIC?Opcodes.ACC_STATIC:0),"helper","()I",null,null);
+            helper.instructions.add(new InsnNode(Opcodes.ICONST_2));
+            helper.instructions.add(new InsnNode(Opcodes.IRETURN));
+            helper.maxLocals=1; helper.maxStack=1; target.methods.add(helper);
+            MethodNode method=new MethodNode(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"call","(Lb/Secret;)I",null,null);
+            if(opcode!=Opcodes.INVOKESTATIC) method.instructions.add(new VarInsnNode(Opcodes.ALOAD,0));
+            method.instructions.add(new MethodInsnNode(opcode,target.name,"helper","()I",false));
+            method.instructions.add(new InsnNode(Opcodes.IRETURN));
+            method.maxLocals=1; method.maxStack=1; caller.methods.add(method);
+            var linked=java.util.Map.of(caller.name,caller,target.name,target,host.name,host);
+            var error=assertThrows(IllegalArgumentException.class,
+                    () -> new ClassBytecodeCompiler(caller).compileToWat(linked));
+            assertTrue(error.getMessage().contains("Caller.java:"),error.getMessage());
+            assertTrue(error.getMessage().contains("reciprocal same-package"),error.getMessage());
+        }
+    }
+
     private String linkJar(String... names) throws Exception {
         var bytes=new java.io.ByteArrayOutputStream();
         try(var jar=new java.util.jar.JarOutputStream(bytes)) {
