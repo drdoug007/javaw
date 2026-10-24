@@ -41,6 +41,18 @@ final class BytecodeVerifier extends SimpleVerifier {
         return result;
     }
 
+    /** JVM verification treats an interface target as Object; runtime dispatch checks membership. */
+    @Override protected boolean isSubTypeOf(BasicValue value, BasicValue expected) {
+        Type source = value.getType(), target = expected.getType();
+        if (source == null || target == null) return value.equals(expected);
+        if (!reference(target)) return source.equals(target);
+        return reference(source) && (isAssignableFrom(target, source) || isInterface(target));
+    }
+
+    boolean frameAssignable(BasicValue value, BasicValue expected) {
+        return expected.equals(BasicValue.UNINITIALIZED_VALUE) || isSubTypeOf(value, expected);
+    }
+
     @Override protected boolean isInterface(Type type) {
         if (type.getSort() != Type.OBJECT) return false;
         String name = type.getInternalName();

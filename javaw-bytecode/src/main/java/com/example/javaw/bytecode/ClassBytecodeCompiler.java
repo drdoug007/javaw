@@ -112,13 +112,14 @@ public class ClassBytecodeCompiler {
         }
         wat.append("\n");
 
-        ControlFlowGraph cfg = ControlFlowGraph.build(mn);
         org.objectweb.asm.tree.analysis.Frame<org.objectweb.asm.tree.analysis.BasicValue>[] frames;
         try {
-            frames = new org.objectweb.asm.tree.analysis.Analyzer<>(new BytecodeVerifier(classNode, linked)).analyze(classNode.name, mn);
+            frames = BytecodeFrames.analyze(classNode, mn, linked);
         } catch (org.objectweb.asm.tree.analysis.AnalyzerException error) {
             throw BytecodeCompatibility.failure(classNode, mn, error.node, "invalid operand stack", "recompile valid typed Java bytecode and link required hierarchy metadata: " + error.getMessage());
         }
+
+        ControlFlowGraph cfg = ControlFlowGraph.build(mn);
 
         // Locals mapping
         StackToLocalMapper mapper = new StackToLocalMapper(mn.maxLocals, mn.maxStack);

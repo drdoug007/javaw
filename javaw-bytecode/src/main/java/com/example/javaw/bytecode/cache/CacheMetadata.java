@@ -3,7 +3,7 @@ package com.example.javaw.bytecode.cache;
 import java.util.*;
 
 public class CacheMetadata {
-    public static final String COMPILER_VERSION = "1.0-SNAPSHOT-declaration-linkage-v20";
+    public static final String COMPILER_VERSION = "1.0-SNAPSHOT-stack-maps-v21";
     private String groupId;
     private String artifactId;
     private String version;
