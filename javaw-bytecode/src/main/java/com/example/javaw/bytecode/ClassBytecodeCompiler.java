@@ -13,6 +13,7 @@ import java.util.*;
 public class ClassBytecodeCompiler {
     private final ClassNode classNode;
     private BytecodeDispatch dispatch;
+    private Map<String, ClassNode> linked;
     private final Map<String, Integer> stringPool = new LinkedHashMap<>();
     private final Map<String, Integer> fieldOffsets = new LinkedHashMap<>();
     private final Map<String, Integer> objectSizes = new LinkedHashMap<>();
@@ -44,6 +45,7 @@ public class ClassBytecodeCompiler {
 
     String compileToWat(Map<String, ClassNode> linked, boolean includeNumericRuntime) {
         BytecodeCompatibility.validate(classNode, linked);
+        this.linked = linked;
         dispatch = new BytecodeDispatch(linked, classNode.name);
         BytecodeObjectLayouts layouts = new BytecodeObjectLayouts(linked);
         fieldOffsets.putAll(layouts.offsets());
@@ -110,9 +112,9 @@ public class ClassBytecodeCompiler {
         ControlFlowGraph cfg = ControlFlowGraph.build(mn);
         org.objectweb.asm.tree.analysis.Frame<org.objectweb.asm.tree.analysis.BasicValue>[] frames;
         try {
-            frames = new org.objectweb.asm.tree.analysis.Analyzer<>(new org.objectweb.asm.tree.analysis.BasicInterpreter()).analyze(classNode.name, mn);
+            frames = new org.objectweb.asm.tree.analysis.Analyzer<>(new BytecodeVerifier(classNode, linked)).analyze(classNode.name, mn);
         } catch (org.objectweb.asm.tree.analysis.AnalyzerException error) {
-            throw BytecodeCompatibility.failure(classNode, mn, error.node, "invalid operand stack", "recompile valid Java bytecode: " + error.getMessage());
+            throw BytecodeCompatibility.failure(classNode, mn, error.node, "invalid operand stack", "recompile valid typed Java bytecode and link required hierarchy metadata: " + error.getMessage());
         }
 
         // Locals mapping
