@@ -65,6 +65,39 @@ class BytecodeDeclarationsTest implements Opcodes {
         }, "require Java 9");
     }
 
+    @Test void rejectsInvalidMemberNamesIncludingUnusedDeclarations() {
+        for (String name : new String[]{"", "a.b", "a;b", "a[b", "a/b"}) {
+            rejects(n -> n.fields.add(new FieldNode(0, name, "I", null, null)), "invalid name for field");
+            rejects(n -> n.methods.add(new MethodNode(ACC_STATIC, name, "()V", null, null)), "invalid name for method");
+        }
+        for (String name : new String[]{"<other>", "a<b", "a>b", "<init>x"})
+            rejects(n -> n.methods.add(new MethodNode(ACC_STATIC, name, "()V", null, null)), "invalid name for method");
+        ClassNode entry = type(), unused = type(); unused.name = "Unused";
+        unused.fields.add(new FieldNode(0, "bad/name", "I", null, null));
+        assertThrows(IllegalArgumentException.class, () -> new ClassBytecodeCompiler(entry)
+                .compileToWat(java.util.Map.of(entry.name, entry, unused.name, unused)));
+        // Field names may contain angle brackets; ordinary method names may not.
+        ClassNode legal = type();
+        legal.fields.add(new FieldNode(ACC_STATIC, "<value>", "I", null, null));
+        assertDoesNotThrow(() -> new ClassBytecodeCompiler(legal).compileToWat());
+    }
+
+    @Test void checksParameterSlotLimitWithReceiverWideValuesAndArrays() {
+        for (boolean instance : new boolean[]{false, true}) {
+            int limit = instance ? 254 : 255;
+            for (String parameters : new String[]{"I".repeat(limit), "J".repeat(127) + (instance ? "" : "I"),
+                    "D".repeat(127) + (instance ? "" : "I"), "[J".repeat(limit)}) {
+                ClassNode legal = type();
+                legal.methods.add(new MethodNode(instance ? 0 : ACC_STATIC, "accept", "(" + parameters + ")V", null, null));
+                assertDoesNotThrow(() -> BytecodeDeclarations.validate(legal));
+                rejects(n -> n.methods.add(new MethodNode(instance ? 0 : ACC_STATIC, "accept",
+                        "(" + parameters + "I)V", null, null)), "exceeds 255 slots");
+            }
+        }
+        rejects(n -> n.methods.add(new MethodNode(0, "<init>", "(" + "J".repeat(128) + ")V", null, null)),
+                "exceeds 255 slots");
+    }
+
     @Test void acceptsDescriptorDistinctFieldsAndRejectsUnusedLinkedDuplicates() {
         ClassNode node = type();
         node.fields.add(new FieldNode(ACC_STATIC, "value", "I", null, null));

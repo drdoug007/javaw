@@ -1,6 +1,7 @@
 package com.example.javaw.bytecode;
 
 import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.FieldNode;
 import org.objectweb.asm.tree.MethodNode;
@@ -31,6 +32,7 @@ final class BytecodeDeclarations implements Opcodes {
         Set<String> fields = new HashSet<>();
         for (FieldNode field : owner.fields) {
             String label = "field " + field.name + field.desc;
+            if (!validMemberName(field.name, false)) fail(owner, "invalid name for " + label);
             visibility(owner, field.access, label);
             if (!fields.add(field.name + ":" + field.desc)) fail(owner, "duplicate " + label);
             if (!validDescriptor(field.desc, false)) fail(owner, "invalid descriptor for " + label);
@@ -43,9 +45,14 @@ final class BytecodeDeclarations implements Opcodes {
         Set<String> methods = new HashSet<>();
         for (MethodNode method : owner.methods) {
             String label = "method " + method.name + method.desc;
+            if (!validMemberName(method.name, true)) fail(owner, "invalid name for " + label);
             visibility(owner, method.access, label);
             if (!methods.add(method.name + method.desc)) fail(owner, "duplicate " + label);
             if (!validDescriptor(method.desc, true)) fail(owner, "invalid descriptor for " + label);
+            int parameterSlots = (method.access & ACC_STATIC) == 0 ? 1 : 0;
+            for (Type parameter : Type.getArgumentTypes(method.desc))
+                parameterSlots += parameter.getSize();
+            if (parameterSlots > 255) fail(owner, "method parameter length exceeds 255 slots: " + label);
             if ((method.access & ACC_ABSTRACT) != 0
                     && (method.access & (ACC_PRIVATE | ACC_STATIC | ACC_FINAL | ACC_SYNCHRONIZED | ACC_NATIVE | ACC_STRICT)) != 0)
                 fail(owner, "incompatible abstract flags for " + label);
@@ -68,6 +75,16 @@ final class BytecodeDeclarations implements Opcodes {
                     fail(owner, "private interface methods require Java 9: " + label);
             }
         }
+    }
+
+    private static boolean validMemberName(String name, boolean method) {
+        if (name == null || name.isEmpty()) return false;
+        if (method && (name.equals("<init>") || name.equals("<clinit>"))) return true;
+        for (int i = 0; i < name.length(); i++) {
+            char c = name.charAt(i);
+            if (".;[/".indexOf(c) >= 0 || method && (c == '<' || c == '>')) return false;
+        }
+        return true;
     }
 
     private static void visibility(ClassNode owner, int access, String label) {

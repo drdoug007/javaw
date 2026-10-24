@@ -68,6 +68,35 @@ class BytecodeCompatibilityTest {
         }
     }
 
+    @Test void executesMaximumParameterSlotsWithJvmComparison() throws Exception {
+        String ints = java.util.stream.IntStream.range(0, 255)
+                .mapToObj(i -> "int p" + i).collect(java.util.stream.Collectors.joining(","));
+        String longs = java.util.stream.IntStream.range(0, 127)
+                .mapToObj(i -> "long p" + i).collect(java.util.stream.Collectors.joining(","));
+        String arguments = java.util.stream.IntStream.range(0, 127)
+                .mapToObj(i -> i + "L").collect(java.util.stream.Collectors.joining(","));
+        byte[] bytes = fixture("public class Fixture {"
+                + " public static int ints(" + ints + ") { return p0 + p254; }"
+                + " public static long wide(" + longs + ", int end) { return p126 + end; }"
+                + " private long instance(" + longs + ") { return p126; }"
+                + " public static long run() { return new Fixture().instance(" + arguments + "); } }");
+        try (var loader = new java.net.URLClassLoader(new java.net.URL[]{directory.toUri().toURL()})) {
+            Class<?> jvm = loader.loadClass("Fixture");
+            Class<?>[] intTypes = new Class<?>[255]; java.util.Arrays.fill(intTypes, int.class);
+            Object[] intArgs = java.util.stream.IntStream.range(0, 255).boxed().toArray();
+            Class<?>[] wideTypes = new Class<?>[128]; java.util.Arrays.fill(wideTypes, long.class); wideTypes[127] = int.class;
+            Object[] wideArgs = new Object[128];
+            for (int i = 0; i < 127; i++) wideArgs[i] = (long) i;
+            wideArgs[127] = 5;
+            execute(BytecodeCompiler.compileClass(bytes),
+                    "assert.equal(e['Fixture.ints'](...Array.from({length:255},(_,i)=>i)),"
+                    + jvm.getMethod("ints", intTypes).invoke(null, intArgs) + ");"
+                    + "assert.equal(e['Fixture.wide'](...Array.from({length:127},(_,i)=>BigInt(i)),5),"
+                    + jvm.getMethod("wide", wideTypes).invoke(null, wideArgs) + "n);"
+                    + "assert.equal(e['Fixture.run']()," + jvm.getMethod("run").invoke(null) + "n);");
+        }
+    }
+
     @Test void matchesJvmDescriptorDistinctStaticFields() throws Exception {
         ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_MAXS);
         writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "FieldIdentity", null, "java/lang/Object", null);
