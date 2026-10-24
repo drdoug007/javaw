@@ -206,6 +206,130 @@ int hash=1;
         compare(List.of("run"));
     }
 
+    @Test void mathContextValueContractsAndFailures() throws Exception {
+        fixture("""
+            import java.math.*;
+            public class Metadata {public static int run(){int hash=1;
+                for(MathContext c:new MathContext[]{MathContext.UNLIMITED,MathContext.DECIMAL32,MathContext.DECIMAL64,MathContext.DECIMAL128,new MathContext(Integer.MAX_VALUE)}){
+                    hash=31*hash+c.toString().hashCode();hash+=c.getPrecision()+c.getRoundingMode().ordinal();
+                    if(!c.equals(new MathContext(c.toString())) || c.equals(null) || c.equals("x"))throw new Error();
+                    if(c.hashCode()!=c.getPrecision()+59*c.getRoundingMode().hashCode())throw new Error();
+                }
+                for(RoundingMode m:RoundingMode.values())for(int p:new int[]{0,1,7,34}){
+                    MathContext c=new MathContext(p,m);if(!c.equals(new MathContext(p,m)) || c.hashCode()!=new MathContext(p,m).hashCode())throw new Error();
+                    hash=31*hash+new MathContext(c.toString()).toString().hashCode();
+                }
+                for(String s:new String[]{"precision=+2 roundingMode=UP","precision=００２ roundingMode=DOWN","precision=-0 roundingMode=HALF_EVEN"})hash=31*hash+new MathContext(s).toString().hashCode();
+                for(String s:new String[]{"","2","precision= roundingMode=UP","precision=-1 roundingMode=UP","precision=2147483648 roundingMode=UP","precision=2  roundingMode=UP","precision=2 roundingMode=up","precision=2 roundingMode=UP ","precision=2"})try{new MathContext(s);throw new Error();}catch(IllegalArgumentException e){hash++;}
+                try{new MathContext((String)null);throw new Error();}catch(NullPointerException e){hash++;}
+                try{new MathContext(1,null);throw new Error();}catch(NullPointerException e){hash++;}
+                try{new MathContext(-1,null);throw new Error();}catch(IllegalArgumentException e){hash++;}
+                return hash;
+            }}
+            """);compare(List.of("run"));
+    }
+
+    @Test void precisionRoundingCarriesTiesAndScaleBoundaries() throws Exception {
+        fixture("""
+            import java.math.*;
+            public class Metadata {public static int run(){int hash=1;
+                for(String s:new String[]{"0.000","1.2345","-1.2345","2.50","-3.50","9.99","-99.95","999999999999999999999999999999999995","1.0000","1E+100","0.000000125"})
+                for(RoundingMode mode:RoundingMode.values())for(int precision:new int[]{0,1,2,3,7,34}){
+                    BigDecimal a=new BigDecimal(s);MathContext c=new MathContext(precision,mode);
+                    try{BigDecimal result=a.round(c);hash=31*hash+result.toString().hashCode()+result.scale()+result.precision();
+                        if(!result.equals(a.plus(c)) || !result.equals(new BigDecimal(s,c)))throw new Error();
+                        hash=31*hash+a.abs(c).toString().hashCode();hash=31*hash+a.negate(c).toString().hashCode();
+                    }catch(ArithmeticException e){hash+=7;}
+                }
+                for(int scale:new int[]{Integer.MIN_VALUE,Integer.MIN_VALUE+1,Integer.MAX_VALUE})for(long raw:new long[]{0,1,99,999,-999}){
+                    BigDecimal a=BigDecimal.valueOf(raw,scale);
+                    try{hash=31*hash+a.round(new MathContext(1)).toString().hashCode();}catch(ArithmeticException e){hash+=11;}
+                }
+                try{BigDecimal.ONE.round(null);throw new Error();}catch(NullPointerException e){hash++;}
+                try{BigDecimal.ZERO.plus(null);throw new Error();}catch(NullPointerException e){hash++;}
+                return hash;
+            }}
+            """);compare(List.of("run"));
+    }
+
+    @Test void contextConstructorsPreserveExactInputBeforeRounding() throws Exception {
+        fixture("""
+            import java.math.*;
+            public class Metadata {public static int run(){int hash=1;
+                for(MathContext c:new MathContext[]{MathContext.UNLIMITED,new MathContext(1),new MathContext(5,RoundingMode.HALF_EVEN)}){
+                    hash=31*hash+new BigDecimal(12345,c).toString().hashCode();hash=31*hash+new BigDecimal(Long.MIN_VALUE,c).toString().hashCode();
+                    hash=31*hash+new BigDecimal(new BigInteger("999999999999999999999"),c).toString().hashCode();
+                    hash=31*hash+new BigDecimal(new BigInteger("999999999999999999999"),8,c).toString().hashCode();
+                    hash=31*hash+new BigDecimal("123.450".toCharArray(),c).toString().hashCode();
+                    hash=31*hash+new BigDecimal("x-99.95z".toCharArray(),1,6,c).toString().hashCode();
+                    for(double d:new double[]{0.0,-0.0,0.1,-0.1,1.23456789,Double.MIN_VALUE,Double.MAX_VALUE})hash=31*hash+new BigDecimal(d,c).toString().hashCode();
+                }
+                try{new BigDecimal(0,(MathContext)null);throw new Error();}catch(NullPointerException e){hash++;}
+                try{new BigDecimal("1.1",new MathContext(1,RoundingMode.UNNECESSARY));throw new Error();}catch(ArithmeticException e){hash++;}
+                return hash;
+            }}
+            """);compare(List.of("run"));
+    }
+
+    @Test void contextConstructorsAvoidSubclassCallbacksAndUnaryDispatchMatchesJdk() throws Exception {
+        fixture("""
+            import java.math.*;
+            public class Metadata {
+                static class Decimal extends BigDecimal {
+                    Decimal(){super("1.2345",new MathContext(2));}
+                    public BigDecimal round(MathContext c){throw new Error("constructor called round");}
+                    public BigDecimal plus(MathContext c){return new BigDecimal("7.89");}
+                }
+                static class PlusDecimal extends BigDecimal {
+                    PlusDecimal(){super("1.2345");}
+                    public BigDecimal plus(MathContext c){return BigDecimal.TEN;}
+                }
+                public static int run(){Decimal value=new Decimal();
+                    if(!value.toString().equals("1.2"))throw new Error();
+                    if(!value.abs(MathContext.DECIMAL32).toString().equals("7.89"))throw new Error();
+                    if(new PlusDecimal().round(MathContext.DECIMAL32)!=BigDecimal.TEN)throw new Error();
+                    return value.hashCode();
+                }
+            }
+            """);compare(List.of("run"));
+    }
+
+    @Test void executesSelectedPinnedH2RoundingInstructionSequence() throws Exception {
+        Path repository=Path.of(System.getProperty("maven.repo.local",Path.of(System.getProperty("user.home"),".m2","repository").toString()));
+        Path artifact=repository.resolve("com/h2database/h2/2.2.224/h2-2.2.224.jar");
+        assertDigest(artifact,"b9d8f19358ada82a4f6eb5b174c6cfe320a375b5a9cb5a4fe456d623e6e55497");
+        try(JarFile jar=new JarFile(artifact.toFile())){
+            ClassNode original=new ClassNode();new ClassReader(jar.getInputStream(jar.getJarEntry("org/h2/expression/function/TruncateValueFunction.class")).readAllBytes()).accept(original,0);
+            MethodNode method=original.methods.stream().filter(m->m.name.equals("getValue")).findFirst().orElseThrow();
+            // Lift just the first NEW MathContext ... BigDecimal.round sequence, with original
+            // operands and local 5 unchanged. The adapter supplies the decimal already on stack.
+            ClassWriter adapter=new ClassWriter(ClassWriter.COMPUTE_MAXS);
+            adapter.visit(V17,ACC_PUBLIC,"SelectedH2Rounding",null,"java/lang/Object",null);
+            MethodVisitor out=adapter.visitMethod(ACC_PUBLIC|ACC_STATIC,"round","(Ljava/math/BigDecimal;IIIIJ)Ljava/math/BigDecimal;",null,null);
+            out.visitCode();out.visitVarInsn(ALOAD,0);
+            boolean copying=false;int count=0;
+            for(AbstractInsnNode instruction:method.instructions){
+                if(instruction instanceof TypeInsnNode type && type.getOpcode()==NEW && type.desc.equals("java/math/MathContext"))copying=true;
+                if(copying && instruction.getOpcode()>=0){instruction.accept(out);count++;}
+                if(copying && instruction instanceof MethodInsnNode call && call.owner.equals("java/math/BigDecimal") && call.name.equals("round"))break;
+            }
+            assertEquals(6,count);out.visitInsn(ARETURN);out.visitMaxs(0,0);out.visitEnd();adapter.visitEnd();
+            writeClass("SelectedH2Rounding",adapter.toByteArray());
+            ClassNode helper=new ClassNode();new ClassReader(jar.getInputStream(jar.getJarEntry("org/h2/util/MathUtils.class")).readAllBytes()).accept(helper,0);
+            helper.fields.clear();helper.methods.removeIf(m->!m.name.equals("convertLongToInt"));assertEquals(1,helper.methods.size());
+            ClassWriter writer=new ClassWriter(0);helper.accept(writer);writeClass(helper.name,writer.toByteArray());
+        }
+        fixtureClasspath=directory.toString();
+        fixture("""
+            import java.math.*;
+            public class Metadata {public static int run(){int hash=1;
+                for(String s:new String[]{"0.00","1.2345","-1.2345","999.95","123456789012345678901234567890"})for(long p:new long[]{0,1,2,7,34,Long.MAX_VALUE,-1,Long.MIN_VALUE}){
+                    try{BigDecimal a=SelectedH2Rounding.round(new BigDecimal(s),0,0,0,0,p);hash=31*hash+a.toString().hashCode()+a.scale();}catch(IllegalArgumentException e){hash+=7;}
+                }return hash;
+            }}
+            """);compare(List.of("run"));
+    }
+
     private void writeClass(String name,byte[] bytes) throws Exception {
         Path file=directory.resolve(name+".class");Files.createDirectories(file.getParent());Files.write(file,bytes);
     }

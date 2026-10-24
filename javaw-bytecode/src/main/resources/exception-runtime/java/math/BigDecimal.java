@@ -154,6 +154,33 @@ public class BigDecimal extends Number implements Comparable<BigDecimal>,java.io
     private static String slice(char[] value,int offset,int length){if(value==null)throw new NullPointerException();if(offset<0 || length<0 || offset>value.length-length)throw new NumberFormatException();return new String(value,offset,length);}
     public static BigDecimal valueOf(double value){return new BigDecimal(Double.toString(value));}
     public BigDecimal plus(){return this;}
+    private BigDecimal roundedContext(MathContext context){
+        int target=context.getPrecision();
+        if(target==0)return this;
+        BigInteger value=coefficient;int scale=decimalScale;
+        int drop=value.precision()-target;
+        // A carry (999 -> 1000) can require one more digit to be removed.
+        while(drop>0){
+            scale=scaleChecked((long)scale-drop);
+            value=rounded(value,BigInteger.ONE.timesTen(drop),context.getRoundingMode());
+            drop=value.precision()-target;
+        }
+        return new BigDecimal(value,scale);
+    }
+    public BigDecimal round(MathContext context){return plus(context);}
+    public BigDecimal plus(MathContext context){return roundedContext(context);}
+    public BigDecimal negate(MathContext context){return negate().plus(context);}
+    public BigDecimal abs(MathContext context){return signum()<0?negate(context):plus(context);}
+    private void applyContext(MathContext context){BigDecimal result=roundedContext(context);coefficient=result.coefficient;decimalScale=result.decimalScale;}
+    public BigDecimal(String value,MathContext context){this(value);applyContext(context);}
+    public BigDecimal(char[] value,MathContext context){this(value);applyContext(context);}
+    public BigDecimal(char[] value,int offset,int length,MathContext context){this(value,offset,length);applyContext(context);}
+    public BigDecimal(BigInteger value,MathContext context){this(value);applyContext(context);}
+    public BigDecimal(BigInteger value,int scale,MathContext context){this(value,scale);applyContext(context);}
+    public BigDecimal(int value,MathContext context){this(value);applyContext(context);}
+    public BigDecimal(long value,MathContext context){this(value);applyContext(context);}
+    public BigDecimal(double value,MathContext context){this(value);applyContext(context);}
+
     public BigDecimal ulp(){return new BigDecimal(BigInteger.ONE,decimalScale);}
     private static int clampedScale(long scale){return scale<Integer.MIN_VALUE?Integer.MIN_VALUE:scale>Integer.MAX_VALUE?Integer.MAX_VALUE:(int)scale;}
     private int checkedScale(long scale){return signum()==0?clampedScale(scale):scaleChecked(scale);}

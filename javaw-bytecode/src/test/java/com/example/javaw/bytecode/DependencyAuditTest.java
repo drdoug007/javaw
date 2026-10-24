@@ -79,7 +79,7 @@ class DependencyAuditTest {
         assertEquals("declared-signature",CoreJdkCoverage.status(definitions,"java/math/BigInteger","add","(Ljava/math/BigInteger;)Ljava/math/BigInteger;"));
         assertEquals("missing-member",CoreJdkCoverage.status(definitions,"java/math/BigInteger","and","(Ljava/math/BigInteger;)Ljava/math/BigInteger;"));
         assertEquals("declared-signature",CoreJdkCoverage.status(definitions,"java/math/BigDecimal","add","(Ljava/math/BigDecimal;)Ljava/math/BigDecimal;"));
-        assertEquals("missing-owner",CoreJdkCoverage.status(definitions,"java/math/MathContext","getPrecision","()I"));
+        assertEquals("declared-signature",CoreJdkCoverage.status(definitions,"java/math/MathContext","getPrecision","()I"));
         assertTrue(CoreJdkCoverage.includes("java/util/Map$Entry"));assertTrue(CoreJdkCoverage.includes("java/math/BigDecimal"));assertFalse(CoreJdkCoverage.includes("java/util/Properties"));assertFalse(CoreJdkCoverage.includes("java/util/concurrent/ConcurrentHashMap"));
     }
 
@@ -95,6 +95,7 @@ class DependencyAuditTest {
         method.visitMethodInsn(Opcodes.INVOKESTATIC,"java/util/Optional","missing","()V",false);
         method.visitMethodInsn(Opcodes.INVOKESTATIC,"java/math/BigInteger","missing","()V",false);
         method.visitMethodInsn(Opcodes.INVOKESTATIC,"java/math/MathContext","missing","()V",false);
+        method.visitMethodInsn(Opcodes.INVOKESTATIC,"java/lang/StringBuffer","missing","()V",false);
         method.visitInsn(Opcodes.RETURN);method.visitMaxs(1,0);method.visitEnd();writer.visitEnd();
         Path input=jar("core.jar",false,Map.of("Core.class",writer.toByteArray()));
         DependencyAudit audit=new DependencyAudit();audit.scan("core:first",input,17);audit.scan("core:second",input,17);
@@ -103,8 +104,9 @@ class DependencyAuditTest {
         assertTrue(report.contains("core:first\t184\tjava/util/Optional\tempty\t()Ljava/util/Optional;\t2\tCore.run()V\tdeclared-signature"),report);
         assertTrue(report.contains("java/util/Optional\tmissing\t()V\t1\tCore.run()V\tmissing-member"),report);
         assertTrue(report.contains("java/math/BigInteger\tmissing\t()V\t1\tCore.run()V\tmissing-member"),report);
-        assertTrue(report.contains("java/math/MathContext\tmissing\t()V\t1\tCore.run()V\tmissing-owner"),report);
-        assertEquals("status\tdistinctSignatures\ndeclared-signature\t1\nmissing-member\t2\nmissing-owner\t1\n",
+        assertTrue(report.contains("java/math/MathContext\tmissing\t()V\t1\tCore.run()V\tmissing-member"),report);
+        assertTrue(report.contains("java/lang/StringBuffer\tmissing\t()V\t1\tCore.run()V\tmissing-owner"),report);
+        assertEquals("status\tdistinctSignatures\ndeclared-signature\t1\nmissing-member\t3\nmissing-owner\t1\n",
                 Files.readString(output.resolve("core-jdk-linkage-summary.tsv")));
     }
 

@@ -16,7 +16,7 @@ With built-in linear memory allocation, static string constant pooling, dynamic 
 
 `javaw` implements a Java subset with selected JDK facades and ahead-of-time API translations. Parsing Java 17 syntax, compiling a sample, or caching a dependency does not establish full language, JDK, JVM, or third-party library compatibility. A checked roadmap item describes the implemented subset.
 
-In [Todo.md](Todo.md), a checked child records that increment; its parent stays open until the complete stated scope is verified. Remaining work is listed as unchecked children. Reference verification and array execution are complete for the documented bytecode ABI; core-JDK closure coverage remains open, including primitive streams/spliterators, broader collection APIs, MathContext and other audited gaps.
+In [Todo.md](Todo.md), a checked child records that increment; its parent stays open until the complete stated scope is verified. Remaining work is listed as unchecked children. Reference verification and array execution are complete for the documented bytecode ABI; core-JDK closure coverage remains open, including primitive streams/spliterators, broader collection APIs, remaining text/numeric APIs and other audited gaps.
 
 | Area | Current limit |
 | :--- | :--- |
@@ -1904,3 +1904,7 @@ Validation: all 280 bytecode regressions pass, including eight BigDecimal tests 
 Core JDK bytecode progress (`reference-streams-v63`): lazy sequential reference streams, Collection/Arrays/Optional sources, selected collectors, typed arrays, unmodifiable toList snapshots and close/error semantics now have JVM/Wasm comparisons. Tests execute four unchanged pinned Micrometer Commons 1.12.4 utility classes, including KeyName.merge and its original flatMap pipeline. They also cover Java-8 class-file private interface helpers. See [the reference-stream contract](docs/bytecode-reference-streams.md). Primitive streams, spliterators, parallel execution, broader collectors and the core JDK parent remain open.
 
 Validation: the full 289-test bytecode run passed 288 tests; its sole failure was the obsolete Java-8 private-interface rejection assertion. After correcting the fixture expectation to its actual missing-Code defect, all seven declaration tests passed. All nine new stream tests passed in the full run. The reviewed 63-JAR audit baseline passes with unchanged inventory counts and revision `reference-streams-v63`.
+
+Core JDK bytecode progress (`decimal-context-v64`): MathContext constants/construction/value contracts, BigDecimal precision rounding, context constructors and context unary operations now execute in Wasm. JVM comparisons cover rounding ties/carries, scale boundaries, typed failures and a selected original pinned H2 rounding instruction sequence plus its precision-conversion helper. See [the exact evidence and remaining context APIs](docs/bytecode-big-decimal.md#precision-contexts-decimal-context-v64). Full H2 execution, context arithmetic overloads, the remaining audited APIs and the core-JDK parent remain open.
+
+Validation: the required full bytecode suite passes all 293 tests. After the final constructor/subclass-dispatch refinement, all 13 decimal tests and five audit tests pass on rerun. The reviewed 63-JAR audit baseline passes with unchanged dependency inventory and revision `decimal-context-v64`.

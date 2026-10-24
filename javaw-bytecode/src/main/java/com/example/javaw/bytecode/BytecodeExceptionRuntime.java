@@ -64,6 +64,7 @@ public final class BytecodeExceptionRuntime {
             paths.add("java/math/BigInteger.java");
             paths.add("java/math/BigDecimal.java");
             paths.add("java/math/RoundingMode.java");
+            paths.add("java/math/MathContext.java");
             paths.add("javaw/runtime/GenericSignatures.java");
             paths.add("javaw/runtime/AnnotatedTypes.java");
             paths.add("java/lang/reflect/AnnotatedElement.java");
