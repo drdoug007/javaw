@@ -9,3 +9,7 @@ Population/zero counts, high/low bits, reversal, rotations (including masked neg
 ## 2. Long bit operations and reductions
 
 64-bit population/zero counts, high/low bits, byte/bit reversal, masked rotations, signum and sum/min/max execute across zero, every single-bit position, extremes and deterministic mixed patterns. Revision `long-bits-v52`. `BytecodeNumericTest` compares javac-produced bytecode on the JVM and in Node/Wasm, in both JAR orders and two independent instances. Other APIs remain subject to admission diagnostics.
+
+## 3. Unsigned Integer arithmetic and text
+
+Unsigned comparison/division/remainder, zero-extension, radix formatting and String/CharSequence parsing support all 32-bit patterns. Overflow, negative signs (including -0), invalid input/slices and zero divisors raise Java exceptions; failure message text is not promised. Revision `unsigned-integers-v53`. `BytecodeNumericTest` compares javac-produced bytecode on the JVM and in Node/Wasm, in both JAR orders and two independent instances. Other APIs remain subject to admission diagnostics.

@@ -61,4 +61,19 @@ public final class Integer extends Number implements Comparable<Integer>,java.io
     public static int min(int a,int b){return Math.min(a,b);}
     public static int max(int a,int b){return Math.max(a,b);}
 
+
+    public static long toUnsignedLong(int value){return value&0xffffffffL;}
+    public static int compareUnsigned(int a,int b){return compare(a+MIN_VALUE,b+MIN_VALUE);}
+    public static int divideUnsigned(int a,int b){return (int)(toUnsignedLong(a)/toUnsignedLong(b));}
+    public static int remainderUnsigned(int a,int b){return (int)(toUnsignedLong(a)%toUnsignedLong(b));}
+    public static String toUnsignedString(int value){return toUnsignedString(value,10);}
+    public static String toUnsignedString(int value,int radix){return Long.toString(toUnsignedLong(value),radix);}
+    public static int parseUnsignedInt(String text){return parseUnsignedInt(text,10);}
+    public static int parseUnsignedInt(String text,int radix){if(text==null)throw new NumberFormatException();return parseUnsignedInt(text,0,text.length(),radix);}
+    public static int parseUnsignedInt(CharSequence text,int start,int end,int radix){
+        if(text==null)throw new NullPointerException();if(start<0 || end<start || end>text.length())throw new IndexOutOfBoundsException();
+        if(start<end && text.charAt(start)=='-')throw new NumberFormatException();
+        return (int)javaw.runtime.IntegralNumbers.parse(text,start,end,radix,0,0xffffffffL);
+    }
+
 }

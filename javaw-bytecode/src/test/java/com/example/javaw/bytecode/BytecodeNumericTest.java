@@ -67,6 +67,24 @@ int hash=1;long value=123456789;
             """); compare(List.of("run"));
     }
 
+    @Test void unsignedIntegers() throws Exception {
+        fixture("""
+            public class Metadata { public static int run() {
+int hash=1;int[] values={0,1,-1,Integer.MIN_VALUE,Integer.MAX_VALUE,65535,-65536,7,-7};
+ for(int a:values){for(int b:values){hash=31*hash+Integer.compareUnsigned(a,b);if(b!=0){hash=31*hash+Integer.divideUnsigned(a,b);hash=31*hash+Integer.remainderUnsigned(a,b);}}
+ for(int r=2;r<=36;r++){String s=Integer.toUnsignedString(a,r);hash=31*hash+s.hashCode();if(Integer.parseUnsignedInt(s,r)!=a)throw new Error();}
+ hash+=Long.hashCode(Integer.toUnsignedLong(a));}
+ hash+=Integer.parseUnsignedInt(new StringBuilder("x+4294967295z"),1,12,10);hash+=Integer.parseUnsignedInt("+１２٣",10)+Integer.parseUnsignedInt("42");
+ for(String s:new String[]{null,"","+","-0","-1","4294967296"," 1","1_0"})try{Integer.parseUnsignedInt(s);throw new Error();}catch(NumberFormatException e){hash++;}
+ try{Integer.divideUnsigned(1,0);throw new Error();}catch(ArithmeticException e){hash++;}
+ try{Integer.remainderUnsigned(1,0);throw new Error();}catch(ArithmeticException e){hash++;}
+ try{Integer.parseUnsignedInt((CharSequence)null,0,1,10);throw new Error();}catch(NullPointerException e){hash++;}
+ try{Integer.parseUnsignedInt("x",-1,1,10);throw new Error();}catch(IndexOutOfBoundsException e){hash++;}
+ return hash;
+            }}
+            """); compare(List.of("run"));
+    }
+
     private void compare(List<String> names) throws Exception {
         StringBuilder assertions=new StringBuilder();
         try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)){
