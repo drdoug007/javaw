@@ -44,7 +44,7 @@ public final class BytecodeDispatch {
             ClassNode host = linked.get(hostName);
             if (host != null && host.nestHostClass == null && nestMember(host, from) && nestMember(host, target)) return;
         }
-        throw new IllegalArgumentException("private method access requires the declaring class or a validated linked nest; "
+        throw new IllegalArgumentException("private member access requires the declaring class or a validated linked nest; "
                 + "link the nest host and reciprocal same-package NestHost/NestMembers metadata");
     }
 
@@ -84,6 +84,70 @@ public final class BytecodeDispatch {
         for (String iface : type.interfaces) validateTypeHierarchy(iface, visiting, complete);
         visiting.remove(name);
         complete.add(name);
+    }
+
+    private record FieldDeclaration(String owner, FieldNode field) {}
+
+    private FieldDeclaration resolveField(String name, String field, String descriptor, Set<String> visiting) {
+        if ("java/lang/Object".equals(name) || name == null) return null;
+        ClassNode type = linked.get(name);
+        if (type == null || !visiting.add(name))
+            throw new IllegalArgumentException("link a complete acyclic field hierarchy: " + name);
+        for (FieldNode candidate : type.fields)
+            if (candidate.name.equals(field) && candidate.desc.equals(descriptor))
+                return new FieldDeclaration(name, candidate);
+        // JVM field resolution searches direct superinterfaces before the superclass.
+        for (String iface : type.interfaces) {
+            FieldDeclaration found = resolveField(iface, field, descriptor, visiting);
+            if (found != null) return found;
+        }
+        FieldDeclaration found = resolveField(type.superName, field, descriptor, visiting);
+        visiting.remove(name);
+        return found;
+    }
+
+    private FieldDeclaration fieldDeclaration(FieldInsnNode access) {
+        ClassNode symbolic = linked.get(access.owner);
+        if (symbolic == null) throw new IllegalArgumentException("link the field owner " + access.owner);
+        if ((symbolic.access & Opcodes.ACC_PUBLIC) == 0 && !packageName(access.owner).equals(packageName(caller)))
+            throw new IllegalArgumentException("inaccessible field owner " + access.owner);
+        FieldDeclaration resolved = resolveField(access.owner, access.name, access.desc, new HashSet<>());
+        if (resolved == null) throw new IllegalArgumentException("link a matching field declaration");
+        boolean isStatic = access.getOpcode() == Opcodes.GETSTATIC || access.getOpcode() == Opcodes.PUTSTATIC;
+        int flags = resolved.field.access;
+        if (((flags & Opcodes.ACC_STATIC) != 0) != isStatic)
+            throw new IllegalArgumentException("field opcode does not match static/instance declaration");
+        if ((flags & Opcodes.ACC_PUBLIC) == 0) {
+            if ((flags & Opcodes.ACC_PRIVATE) != 0) checkPrivateAccess(resolved.owner);
+            else if (!packageName(resolved.owner).equals(packageName(caller))
+                    && ((flags & Opcodes.ACC_PROTECTED) == 0 || !subtype(caller, resolved.owner, new HashSet<>())))
+                throw new IllegalArgumentException("inaccessible protected/package field " + resolved.owner);
+        }
+        return resolved;
+    }
+
+    public String fieldOwner(FieldInsnNode access) {
+        return fieldDeclaration(access).owner;
+    }
+
+    void validateField(FieldInsnNode access, MethodNode method) {
+        FieldDeclaration resolved = fieldDeclaration(access);
+        boolean write = access.getOpcode() == Opcodes.PUTFIELD || access.getOpcode() == Opcodes.PUTSTATIC;
+        if (write && (resolved.field.access & Opcodes.ACC_FINAL) != 0
+                && (!resolved.owner.equals(caller) || !method.name.equals(
+                    access.getOpcode() == Opcodes.PUTFIELD ? "<init>" : "<clinit>")))
+            throw new IllegalArgumentException("final field writes require the declaring class initializer/constructor");
+    }
+
+    /** Null means no extra receiver restriction; otherwise the permitted runtime class IDs. */
+    public Set<Integer> fieldReceiverIds(FieldInsnNode access) {
+        FieldDeclaration resolved = fieldDeclaration(access);
+        if ((resolved.field.access & Opcodes.ACC_PROTECTED) == 0
+                || packageName(resolved.owner).equals(packageName(caller))) return null;
+        Set<Integer> result = new LinkedHashSet<>();
+        for (var entry : classIds.entrySet())
+            if (subtype(entry.getKey(), caller, new HashSet<>())) result.add(entry.getValue());
+        return result;
     }
 
     private Declaration declaration(String name, String method, String descriptor, Set<String> visited) {

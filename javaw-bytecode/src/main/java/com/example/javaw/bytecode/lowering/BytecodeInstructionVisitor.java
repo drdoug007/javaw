@@ -39,6 +39,24 @@ public class BytecodeInstructionVisitor {
         return out.toString();
     }
 
+    private void emitFieldReceiverGuard(FieldInsnNode field, String receiver) {
+        if (dispatch == null) return;
+        Set<Integer> ids = dispatch.fieldReceiverIds(field);
+        if (ids == null) return;
+        emit("i32.const 0");
+        for (int id : ids) {
+            emit("local.get " + receiver);
+            emit("i32.load");
+            emit("i32.const " + id);
+            emit("i32.eq");
+            emit("i32.or");
+        }
+        emit("i32.eqz");
+        emit("if");
+        emit("unreachable");
+        emit("end");
+    }
+
     private void emit(String line) {
         out.append("        ").append(line).append("\n");
     }
@@ -531,6 +549,7 @@ public class BytecodeInstructionVisitor {
                 String targetObj = stack.pop();
                 int offset = fieldOffsets.get(getField.owner + "." + getField.name + ":" + getField.desc);
                 emitNullGuard(targetObj);
+                emitFieldReceiverGuard(getField, targetObj);
                 emit("local.get " + targetObj);
                 String fieldType = TypeHelper.getWasmType(getField.desc);
                 emit(fieldType + ".load offset=" + offset);
@@ -543,6 +562,7 @@ public class BytecodeInstructionVisitor {
                 String putTarget = stack.pop();
                 int pOffset = fieldOffsets.get(putField.owner + "." + putField.name + ":" + putField.desc);
                 emitNullGuard(putTarget);
+                emitFieldReceiverGuard(putField, putTarget);
                 emit("local.get " + putTarget);
                 emit("local.get " + putVal);
                 emit(TypeHelper.getWasmType(putField.desc) + ".store offset=" + pOffset);
@@ -550,7 +570,7 @@ public class BytecodeInstructionVisitor {
 
             case Opcodes.GETSTATIC:
                 FieldInsnNode getStatic = (FieldInsnNode) insn;
-                String gName = TypeHelper.getGlobalFieldName(getStatic.owner, getStatic.name);
+                String gName = TypeHelper.getGlobalFieldName(dispatch.fieldOwner(getStatic), getStatic.name);
                 String pushedStatic = stack.push(TypeHelper.getWasmType(getStatic.desc));
                 emit("global.get " + gName);
                 emit("local.set " + pushedStatic);
@@ -558,7 +578,7 @@ public class BytecodeInstructionVisitor {
 
             case Opcodes.PUTSTATIC:
                 FieldInsnNode putStatic = (FieldInsnNode) insn;
-                String psName = TypeHelper.getGlobalFieldName(putStatic.owner, putStatic.name);
+                String psName = TypeHelper.getGlobalFieldName(dispatch.fieldOwner(putStatic), putStatic.name);
                 String poppedStatic = stack.pop();
                 emit("local.get " + poppedStatic);
                 emit("global.set " + psName);

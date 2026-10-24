@@ -79,15 +79,15 @@ final class BytecodeCompatibility {
                                 "link a concrete class and its complete superclass chain through Object; cyclic or missing hierarchies are unsupported");
                 }
                 if (instruction instanceof FieldInsnNode field) {
-                    ClassNode target = linked.get(field.owner);
-                    boolean isStatic = opcode == Opcodes.GETSTATIC || opcode == Opcodes.PUTSTATIC;
-                    boolean resolved = isStatic
-                            ? target != null && target.fields.stream().anyMatch(f -> f.name.equals(field.name)
-                                && f.desc.equals(field.desc) && (f.access & Opcodes.ACC_STATIC) != 0)
-                            : offsets.containsKey(field.owner + "." + field.name + ":" + field.desc);
-                    if (!resolved)
-                        throw failure(owner, method, instruction, "unlinked or unsupported field " + field.owner + "." + field.name,
-                                "link a supported declaring class in the same JAR/module");
+                    try {
+                        dispatch.validateField(field, method);
+                        if ((opcode == Opcodes.GETFIELD || opcode == Opcodes.PUTFIELD)
+                                && !offsets.containsKey(field.owner + "." + field.name + ":" + field.desc))
+                            throw new IllegalArgumentException("link a supported instance layout");
+                    } catch (IllegalArgumentException error) {
+                        throw failure(owner, method, instruction, "field access " + field.owner + "." + field.name,
+                                error.getMessage());
+                    }
                 }
                 if (instruction instanceof MethodInsnNode call) {
                     if (opcode == Opcodes.INVOKEVIRTUAL || opcode == Opcodes.INVOKEINTERFACE) {

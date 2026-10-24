@@ -1198,6 +1198,118 @@ class BytecodeCompatibilityTest {
                 .getMessage().contains("complete acyclic"));
     }
 
+    @Test void executesInheritedStaticFieldsAndProtectedFieldReceivers() throws Exception {
+        var sources=java.util.Map.of(
+            "p/Base.java","""
+                package p;
+                public class Base {
+                    protected static long shared;
+                    protected int value;
+                    public final int fixed;
+                    public Base(){value=17;fixed=9;}
+                    public int hidden;
+                }
+                """,
+            "q/Sub.java","""
+                package q;
+                public class Sub extends p.Base {
+                    public long hidden;
+                    public static int read(Sub value){return value.value;}
+                    public static void write(Sub value,int n){value.value=n;}
+                    public static long sharedRead(){return Sub.shared;}
+                    public static void sharedWrite(long n){Sub.shared=n;}
+                }
+                """,
+            "q/Leaf.java","package q; public class Leaf extends Sub {}",
+            "Fixture.java","""
+                public class Fixture {
+                    private static int secret;
+                    private int own;
+                    public static p.Base make(int n){return n==0?new p.Base():(n==1?new q.Sub():new q.Leaf());}
+                    public static int fixed(p.Base b){return b.fixed;}
+                    public static int hidden(q.Sub s){s.hidden=41;((p.Base)s).hidden=3;return (int)s.hidden+(int)s.hidden+((p.Base)s).hidden;}
+                    public static int nested(){Fixture f=new Fixture();Nest.write(f);return secret+f.own;}
+                    static class Nest {static void write(Fixture f){secret=20;f.own=22;}}
+                }
+                """);
+        var args=new java.util.ArrayList<String>(java.util.List.of("-g","-d",directory.toString()));
+        for(var source:sources.entrySet()) {
+            Path file=directory.resolve(source.getKey());Files.createDirectories(file.getParent());
+            Files.writeString(file,source.getValue());args.add(file.toString());
+        }
+        assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,args.toArray(String[]::new)));
+        execute(linkJar("q/Leaf","Fixture$Nest","q/Sub","Fixture","p/Base"),"""
+            const base=e['Fixture.make'](0),sub=e['Fixture.make'](1),leaf=e['Fixture.make'](2);
+            assert.equal(e['q.Sub.read'](sub),17);
+            assert.equal(e['q.Sub.read'](leaf),17);
+            e['q.Sub.write'](leaf,123);
+            assert.equal(e['q.Sub.read'](leaf),123);
+            assert.equal(e['q.Sub.read'](sub),17);
+            assert.throws(()=>e['q.Sub.read'](base),WebAssembly.RuntimeError);
+            assert.throws(()=>e['q.Sub.write'](base,7),WebAssembly.RuntimeError);
+            assert.throws(()=>e['q.Sub.read'](0),WebAssembly.RuntimeError);
+            e['q.Sub.sharedWrite'](9007199254740993n);
+            assert.equal(e['q.Sub.sharedRead'](),9007199254740993n);
+            assert.equal(e['Fixture.fixed'](sub),9);
+            assert.equal(e['Fixture.hidden'](sub),85);
+            assert.equal(e['Fixture.nested'](),42);
+            """);
+    }
+
+    @Test void diagnosesInvalidFieldAccessAndFinalWrites() {
+        for(int flags:new int[]{Opcodes.ACC_PRIVATE,0,Opcodes.ACC_PROTECTED,
+                Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,Opcodes.ACC_PUBLIC|Opcodes.ACC_FINAL}) {
+            ClassNode base=new ClassNode();base.name="p/Base";base.superName="java/lang/Object";base.access=Opcodes.ACC_PUBLIC;
+            base.fields.add(new FieldNode(flags,"value","I",null,null));
+            ClassNode caller=new ClassNode();caller.name="q/Caller";caller.superName="java/lang/Object";caller.access=Opcodes.ACC_PUBLIC;
+            MethodNode method=new MethodNode(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"write","(Lp/Base;I)V",null,null);
+            method.instructions.add(new VarInsnNode(Opcodes.ALOAD,0));
+            method.instructions.add(new VarInsnNode(Opcodes.ILOAD,1));
+            method.instructions.add(new FieldInsnNode(Opcodes.PUTFIELD,base.name,"value","I"));
+            method.instructions.add(new InsnNode(Opcodes.RETURN));method.maxLocals=2;method.maxStack=2;caller.methods.add(method);
+            var linked=java.util.Map.of(base.name,base,caller.name,caller);
+            String error=assertThrows(IllegalArgumentException.class,
+                    ()->new ClassBytecodeCompiler(caller).compileToWat(linked)).getMessage();
+            assertTrue(error.contains("field access p/Base.value"),error);
+            assertTrue(error.contains("q.Caller.write"),error);
+        }
+        ClassNode owner=new ClassNode();owner.name="Owner";owner.superName="java/lang/Object";
+        owner.fields.add(new FieldNode(Opcodes.ACC_FINAL,"value","I",null,null));
+        var dispatch=new BytecodeDispatch(java.util.Map.of(owner.name,owner),owner.name);
+        var write=new FieldInsnNode(Opcodes.PUTFIELD,owner.name,"value","I");
+        assertThrows(IllegalArgumentException.class,()->dispatch.validateField(write,
+                new MethodNode(0,"ordinary","()V",null,null)));
+        assertDoesNotThrow(()->dispatch.validateField(write,new MethodNode(0,"<init>","()V",null,null)));
+        owner.fields.get(0).access|=Opcodes.ACC_STATIC;
+        var staticWrite=new FieldInsnNode(Opcodes.PUTSTATIC,owner.name,"value","I");
+        assertThrows(IllegalArgumentException.class,()->dispatch.validateField(staticWrite,
+                new MethodNode(Opcodes.ACC_STATIC,"ordinary","()V",null,null)));
+        assertDoesNotThrow(()->dispatch.validateField(staticWrite,
+                new MethodNode(Opcodes.ACC_STATIC,"<clinit>","()V",null,null)));
+    }
+
+    @Test void resolvesInterfaceFieldsBeforeSuperclassFields() throws Exception {
+        ClassNode iface=new ClassNode();iface.name="Values";iface.superName="java/lang/Object";
+        iface.access=Opcodes.ACC_PUBLIC|Opcodes.ACC_INTERFACE|Opcodes.ACC_ABSTRACT;
+        iface.fields.add(new FieldNode(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC|Opcodes.ACC_FINAL,"value","I",null,77));
+        ClassNode parent=new ClassNode();parent.name="Parent";parent.superName="java/lang/Object";parent.access=Opcodes.ACC_PUBLIC;
+        parent.fields.add(new FieldNode(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"value","I",null,11));
+        ClassNode child=new ClassNode();child.name="Child";child.superName=parent.name;child.access=Opcodes.ACC_PUBLIC;
+        child.interfaces.add(iface.name);
+        MethodNode method=new MethodNode(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"read","()I",null,null);
+        method.instructions.add(new FieldInsnNode(Opcodes.GETSTATIC,child.name,"value","I"));
+        method.instructions.add(new InsnNode(Opcodes.IRETURN));method.maxStack=1;child.methods.add(method);
+        var bytes=new java.io.ByteArrayOutputStream();
+        try(var jar=new java.util.jar.JarOutputStream(bytes)) {
+            for(ClassNode type:new ClassNode[]{child,parent,iface}) {
+                ClassWriter writer=new ClassWriter(0);type.version=Opcodes.V17;type.accept(writer);
+                jar.putNextEntry(new java.util.jar.JarEntry(type.name+".class"));jar.write(writer.toByteArray());jar.closeEntry();
+            }
+        }
+        execute(BytecodeCompiler.compileJar(new java.io.ByteArrayInputStream(bytes.toByteArray())),
+                "assert.equal(e['Child.read'](),77);");
+    }
+
     private String linkJar(String... names) throws Exception {
         var bytes=new java.io.ByteArrayOutputStream();
         try(var jar=new java.util.jar.JarOutputStream(bytes)) {
