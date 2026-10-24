@@ -136,6 +136,22 @@ int hash=1;long[] values={0,1,-1,2,-2,2147483647L,-2147483648L,4294967295L,30370
             """); compare(List.of("run"));
     }
 
+    @Test void floorDivision() throws Exception {
+        fixture("""
+            public class Metadata { public static int run() {
+int hash=1;long[] values={0,1,-1,2,-2,7,-7,2147483647L,-2147483648L,4294967295L,Long.MIN_VALUE,Long.MAX_VALUE};
+ for(long a:values)for(long b:values){
+ try{hash=31*hash+Long.hashCode(Math.floorDiv(a,b));}catch(ArithmeticException e){hash+=7;}
+ try{hash=31*hash+Long.hashCode(Math.floorMod(a,b));}catch(ArithmeticException e){hash+=11;}
+ try{hash=31*hash+Long.hashCode(Math.floorDiv(a,(int)b));}catch(ArithmeticException e){hash+=13;}
+ try{hash=31*hash+Math.floorMod(a,(int)b);}catch(ArithmeticException e){hash+=17;}
+ try{hash=31*hash+Math.floorDiv((int)a,(int)b);}catch(ArithmeticException e){hash+=19;}
+ try{hash=31*hash+Math.floorMod((int)a,(int)b);}catch(ArithmeticException e){hash+=23;}}
+ return hash;
+            }}
+            """); compare(List.of("run"));
+    }
+
     private void compare(List<String> names) throws Exception {
         StringBuilder assertions=new StringBuilder();
         try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)){

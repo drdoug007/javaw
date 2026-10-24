@@ -31,4 +31,12 @@ public final class Math {
         return ah*bh+(t>>32)+(middle>>32);
     }
 
+
+    public static int floorDiv(int a,int b){int quotient=a/b;if((a^b)<0 && quotient*b!=a)quotient--;return quotient;}
+    public static long floorDiv(long a,long b){long quotient=a/b;if((a^b)<0 && quotient*b!=a)quotient--;return quotient;}
+    public static long floorDiv(long a,int b){return floorDiv(a,(long)b);}
+    public static int floorMod(int a,int b){int remainder=a%b;return remainder!=0 && (a^b)<0?remainder+b:remainder;}
+    public static long floorMod(long a,long b){long remainder=a%b;return remainder!=0 && (a^b)<0?remainder+b:remainder;}
+    public static int floorMod(long a,int b){return (int)floorMod(a,(long)b);}
+
 }

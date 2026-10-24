@@ -25,3 +25,7 @@ Int/long addExact, subtractExact, incrementExact, decrementExact, negateExact an
 ## 6. Checked multiplication and full/high products
 
 Int/long multiplyExact (including mixed long/int), multiplyFull and signed multiplyHigh preserve full-width products. Tests compare signed boundaries and 2,000 deterministic high-product pairs; overflow throws ArithmeticException. Revision `checked-products-v56`. `BytecodeNumericTest` compares javac-produced bytecode on the JVM and in Node/Wasm, in both JAR orders and two independent instances. Other APIs remain subject to admission diagnostics.
+
+## 7. Math floor division and modulus
+
+All Java 17 int/long/mixed floorDiv and floorMod overloads preserve divisor-sign remainders, signed overflow behavior and catchable zero-divisor failures. JVM/Wasm tests cross positive/negative and width-boundary values. Revision `floor-division-v57`. `BytecodeNumericTest` compares javac-produced bytecode on the JVM and in Node/Wasm, in both JAR orders and two independent instances. Other APIs remain subject to admission diagnostics.
