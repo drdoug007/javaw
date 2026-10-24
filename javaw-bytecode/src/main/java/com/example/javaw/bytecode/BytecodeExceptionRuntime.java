@@ -12,7 +12,7 @@ public final class BytecodeExceptionRuntime {
     private static final String[] NAMES = ("AutoCloseable Cloneable CloneNotSupportedException Class Record Comparable Number Boolean Byte Character Short Integer Long Float Double Void Throwable String StackTraceElement Exception RuntimeException Error LinkageError "
             + "VirtualMachineError InternalError OutOfMemoryError StackOverflowError NullPointerException ClassCastException ArithmeticException "
             + "IndexOutOfBoundsException ArrayIndexOutOfBoundsException ArrayStoreException NegativeArraySizeException "
-            + "IllegalArgumentException IllegalStateException IncompatibleClassChangeError AbstractMethodError IllegalAccessError "
+            + "IllegalArgumentException IllegalStateException UnsupportedOperationException IncompatibleClassChangeError AbstractMethodError IllegalAccessError "
             + "BootstrapMethodError ExceptionInInitializerError NoSuchMethodError NoSuchFieldError NoClassDefFoundError InstantiationError UnsatisfiedLinkError").split(" ");
 
     private BytecodeExceptionRuntime() {}
@@ -37,10 +37,15 @@ public final class BytecodeExceptionRuntime {
             for(String name:NAMES)paths.add("java/lang/"+name+".java");
             paths.add("java/io/Serializable.java");
             paths.add("java/util/Objects.java");
+            paths.add("java/util/Arrays.java");
+            paths.add("java/util/UUID.java");
             paths.add("java/lang/invoke/StringConcatException.java");
             paths.add("java/lang/invoke/LambdaConversionException.java");
             paths.add("java/lang/invoke/WrongMethodTypeException.java");
             paths.add("java/lang/invoke/SerializedLambda.java");
+            paths.add("java/lang/invoke/MethodHandles.java");
+            paths.add("java/lang/invoke/VarHandle.java");
+            paths.add("java/nio/ByteOrder.java");
             paths.add("javaw/runtime/ExceptionSupport.java");
             paths.add("javaw/runtime/Decimal.java");
             List<String> arguments=new ArrayList<>(List.of("-g","-source","17","-target","17","-Xlint:-options",

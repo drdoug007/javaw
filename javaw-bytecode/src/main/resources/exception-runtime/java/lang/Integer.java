@@ -23,6 +23,7 @@ public final class Integer extends Number implements Comparable<Integer>,java.io
     }
     public String toString(){return String.valueOf((int)value);}
     public static String toString(int value){return String.valueOf((int)value);}
+    public static int signum(int value){return value==0?0:value<0?-1:1;}
     public static int compare(int left,int right){return left==right?0:left<right?-1:1;}
     public boolean equals(Object other){return other instanceof Integer && value==((Integer)other).value;}
     public int hashCode(){return (int)value;}

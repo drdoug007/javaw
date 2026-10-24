@@ -26,6 +26,7 @@ public final class DependencyAudit {
     private final SortedSet<String> resources = new TreeSet<>(), providers = new TreeSet<>(), artifacts = new TreeSet<>();
     private final SortedSet<String> duplicateClasses = new TreeSet<>();
     private final SortedSet<String> bootstrapSites = new TreeSet<>();
+    private final SortedMap<String,Finding> dynamicRuntime=new TreeMap<>();
     private int classCount;
 
     private void finding(Map<String, Finding> table, String key, String site) {
@@ -166,6 +167,8 @@ public final class DependencyAudit {
     private void member(String artifact, Set<String> refs, int opcode, String owner, String name, String desc, String site) {
         addType(refs, owner); descriptor(refs, desc);
         finding(members, row(artifact, opcode, owner, name, desc), site);
+        String dynamicCategory=dynamicCategory(owner,name);
+        if(dynamicCategory!=null)finding(dynamicRuntime,row(artifact,dynamicCategory,opcode,owner,name,desc),site);
         String category = owner.startsWith("java/lang/reflect/") || owner.equals("java/lang/Class") ? "reflection"
                 : owner.startsWith("java/lang/invoke/") ? "method-handles"
                 : owner.startsWith("java/io/") || owner.startsWith("java/nio/") ? "io-nio"
@@ -175,6 +178,21 @@ public final class DependencyAudit {
                 : owner.startsWith("sun/") || owner.startsWith("jdk/") ? "jdk-internal"
                 : owner.equals("java/lang/System") || owner.equals("java/lang/Runtime") ? "platform" : null;
         if (category != null) finding(features, row(artifact, category, owner + "." + name + desc), site);
+    }
+
+    /** Mechanism inventory only: callers in excluded/optional paths are included. */
+    private static String dynamicCategory(String owner,String name) {
+        if(name.startsWith("define") && (owner.contains("ClassLoader") || owner.contains("Unsafe") || owner.equals("java/lang/invoke/MethodHandles$Lookup")))return "class-definition";
+        if(owner.equals("java/lang/reflect/Proxy"))return "dynamic-proxy";
+        if(owner.equals("java/lang/invoke/VarHandle"))return "var-handle";
+        if(owner.equals("java/lang/invoke/MethodType"))return "method-type";
+        if(owner.equals("java/lang/invoke/MethodHandle"))return "method-handle";
+        if(owner.equals("java/lang/invoke/MethodHandles") || owner.startsWith("java/lang/invoke/MethodHandles$"))return "lookup-factory";
+        if(owner.contains("cglib/") && (name.startsWith("create") || name.startsWith("generate")))return "cglib-generation";
+        if((owner.startsWith("net/bytebuddy/dynamic/DynamicType$Builder") && name.equals("make") ||
+                owner.startsWith("net/bytebuddy/dynamic/DynamicType$Unloaded") && name.equals("load") ||
+                owner.startsWith("net/bytebuddy/dynamic/loading/") && (name.equals("load") || name.equals("inject") || name.startsWith("defineClass"))))return "byte-buddy-generation";
+        return null;
     }
 
     private void handle(String artifact, Set<String> refs, Handle handle, String site) {
@@ -272,6 +290,7 @@ public final class DependencyAudit {
         findings(directory, "unsupported-opcodes.tsv", "artifact\topcode\tname", opcodes);
         findings(directory, "member-references.tsv", "artifact\topcodeOrNegativeHandleTag\towner\tmember\tdescriptor", members);
         files(directory,"bootstrap-sites.tsv","artifact\tsite\tinstructionOrdinal\tkind\tname\tdescriptor\tbootstrap\targuments\targumentTypes\timplementationHandleTag\tlambdaFlags",bootstrapSites);
+        findings(directory,"dynamic-runtime.tsv","artifact\tmechanism\topcodeOrNegativeHandleTag\towner\tmember\tdescriptor",dynamicRuntime);
         findings(directory, "requirements.tsv", "artifact\tcategory\tsymbol", features);
         files(directory, "summary.tsv", "metric\tvalue", List.of(
                 row("compilerRevision", CacheMetadata.COMPILER_VERSION), row("javaFeature", javaFeature),

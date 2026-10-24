@@ -50,6 +50,9 @@ class DependencyAuditTest {
         method.visitInsn(Opcodes.POP);
         method.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Class", "forName", "(Ljava/lang/String;)Ljava/lang/Class;", false);
         method.visitInsn(Opcodes.POP);
+        method.visitMethodInsn(Opcodes.INVOKEVIRTUAL,"java/lang/invoke/VarHandle","get","([BI)J",false);
+        method.visitMethodInsn(Opcodes.INVOKESTATIC,"java/lang/reflect/Proxy","newProxyInstance","()Ljava/lang/Object;",false);
+        method.visitMethodInsn(Opcodes.INVOKEVIRTUAL,"java/lang/invoke/MethodHandles$Lookup","defineHiddenClass","([BZ)Ljava/lang/Object;",false);
         method.visitLabel(end); method.visitInsn(Opcodes.RETURN);
         method.visitLabel(handler); method.visitInsn(Opcodes.ATHROW);
         method.visitMaxs(4, 0); method.visitEnd(); writer.visitEnd(); return writer.toByteArray();
@@ -84,6 +87,10 @@ class DependencyAuditTest {
         try (var paths = Files.list(first)) {
             for (Path path : paths.toList()) assertEquals(Files.readString(path), Files.readString(second.resolve(path.getFileName())));
         }
+        String dynamic=Files.readString(first.resolve("dynamic-runtime.tsv"));
+        assertTrue(dynamic.contains("var-handle\t182\tjava/lang/invoke/VarHandle\tget\t([BI)J\t1\tRoot.<clinit>()V"),dynamic);
+        assertTrue(dynamic.contains("dynamic-proxy\t184\tjava/lang/reflect/Proxy"),dynamic);
+        assertTrue(dynamic.contains("class-definition\t182\tjava/lang/invoke/MethodHandles$Lookup"),dynamic);
         String summary = Files.readString(first.resolve("summary.tsv"));
         assertTrue(summary.contains("classDefinitions\t3\n"), summary);
         String classes = Files.readString(first.resolve("classes.tsv"));
