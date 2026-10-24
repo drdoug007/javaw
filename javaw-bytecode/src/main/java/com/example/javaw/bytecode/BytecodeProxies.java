@@ -74,7 +74,9 @@ final class BytecodeProxies implements Opcodes {
             MethodNode metadata=method(type,ACC_PRIVATE|ACC_STATIC,getter,"()L"+METHOD+";");Label ready=new Label();metadata.visitFieldInsn(GETSTATIC,name,field,"L"+METHOD+";");metadata.visitInsn(DUP);metadata.visitJumpInsn(IFNONNULL,ready);metadata.visitInsn(POP);
             metadata.visitTypeInsn(NEW,METHOD);metadata.visitInsn(DUP);metadata.visitLdcInsn(Type.getObjectType(first.owner));metadata.visitLdcInsn(declared.name);metadata.visitLdcInsn(Type.getMethodType(declared.desc));
             metadata.visitLdcInsn(new Handle(first.owner.equals("java/lang/Object")?H_INVOKEVIRTUAL:H_INVOKEINTERFACE,first.owner,declared.name,declared.desc,!first.owner.equals("java/lang/Object")));
-            metadata.visitLdcInsn(declared.access);call(metadata,INVOKESPECIAL,METHOD,"<init>","(Ljava/lang/Class;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodHandle;I)V");
+            metadata.visitLdcInsn(declared.access);metadata.visitLdcInsn(declared.exceptions.size());metadata.visitTypeInsn(ANEWARRAY,"java/lang/Class");
+            for(int i=0;i<declared.exceptions.size();i++){metadata.visitInsn(DUP);metadata.visitLdcInsn(i);metadata.visitLdcInsn(Type.getObjectType(declared.exceptions.get(i)));metadata.visitInsn(AASTORE);}
+            call(metadata,INVOKESPECIAL,METHOD,"<init>","(Ljava/lang/Class;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodHandle;I[Ljava/lang/Class;)V");
             metadata.visitInsn(DUP);metadata.visitFieldInsn(PUTSTATIC,name,field,"L"+METHOD+";");metadata.visitLabel(ready);metadata.visitFrame(F_SAME1,0,null,1,new Object[]{METHOD});metadata.visitInsn(ARETURN);finish(metadata,0);
             MethodNode invoke=method(type,ACC_PUBLIC|ACC_FINAL,declared.name,declared.desc);Type[] parameters=Type.getArgumentTypes(declared.desc);
             Label start=new Label(),end=new Label(),handler=new Label(),rethrow=new Label(),wrap=new Label();invoke.visitTryCatchBlock(start,end,handler,"java/lang/Throwable");

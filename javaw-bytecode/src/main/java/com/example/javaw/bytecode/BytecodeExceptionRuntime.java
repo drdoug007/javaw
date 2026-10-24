@@ -54,6 +54,7 @@ public final class BytecodeExceptionRuntime {
             paths.add("java/lang/invoke/VarHandle.java");
             paths.add("java/nio/ByteOrder.java");
             paths.add("javaw/runtime/ExceptionSupport.java");
+            paths.add("javaw/runtime/ReflectionSupport.java");
             paths.add("javaw/runtime/Decimal.java");
             List<String> arguments=new ArrayList<>(List.of("-g","-source","17","-target","17","-Xlint:-options",
                     "--patch-module","java.base="+source,"-d",output.toString()));

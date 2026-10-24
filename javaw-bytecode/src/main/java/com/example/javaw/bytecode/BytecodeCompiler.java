@@ -76,6 +76,7 @@ public class BytecodeCompiler {
             classes.addAll(runtime.values());
         }
         if (exceptionRuntime) {
+            BytecodeReflection.normalize(classes);
             BytecodeProxies.normalize(classes,proxyShapes);
             BytecodeLookups.normalize(classes);
             BytecodeHandles.normalize(classes);

@@ -1,0 +1,23 @@
+# Bytecode reflection: declared methods
+
+Revision `declared-methods-v44` begins the reflection milestone in the explicit bundled bytecode runtime. It supplies `Class.getDeclaredMethods()`, `Class.getDeclaredMethod(String, Class<?>...)` and declared exception metadata for original linked application/library classes. The larger reflection milestone remains open.
+
+Discovery uses original class-file declarations, before compiler-generated lookup, handle, bootstrap or proxy helpers are added. Constructors and class initializers are excluded. All visibility levels, static and instance methods, interface default/private methods, bridge/synthetic methods and varargs flags are retained. No superclass methods are included. Discovery order is deterministic for the compiler but is not an application contract; Java does not specify reflection enumeration order.
+
+Method metadata exposes declaring class, name, erased return/parameter classes, parameter count, modifiers, default/bridge/synthetic/varargs flags, exception classes in declaration order, equality and hash code. Method, parameter and exception arrays returned by discovery/inspection are independent and defensive. Equality includes the declaring class and complete method descriptor. Selection by name and exact parameter classes chooses the most specific return type among matching covariant/bridge declarations. Null parameter arrays mean zero parameters; a null parameter element does not match a declaration; a null name throws NullPointerException. Missing names/signatures, constructors and inherited-only methods throw NoSuchMethodException. Empty method sets are returned for primitive/void and array mirrors.
+
+Class mirrors and signature resolution remain lazy and do not initialize the represented class, signature classes or declared exception classes. Tables use the selected single-loader closed-world identity. Linked private signature types use available lexical nest metadata. Missing nest hosts do not prevent discovery of otherwise accessible declarations; inaccessible signature types still require their access/nest linkage. Methods refer to linked types and existing declaration/hierarchy validation still applies before lowering.
+
+Discovery does not grant invocation rights. `Method.invoke` on a discovered method explicitly throws UnsupportedOperationException until caller/access-sensitive reflective invocation is implemented. The existing fixed proxy-Method invocation contract remains available, and proxy Method exception inspection now reports its foremost interface declaration's exceptions. No access suppression or private invocation bypass is introduced.
+
+Reflection metadata for bundled platform classes and compiler-generated classes is not yet supplied: discovering those classes reports UnsupportedOperationException instead of returning an incomplete empty list. General public/inherited discovery (`getMethods`/`getMethod`), fields, constructors/newInstance, annotations/default values, generic Type signatures, parameter names/annotations, member-discovery access policies, caller-sensitive invocation and framework startup remain open. Method metadata here describes erased declarations; it is not a replacement for these additional APIs.
+
+## Evidence
+
+The pinned `member-references.tsv` includes declared-method discovery in Jackson AnnotatedCreatorCollector/AnnotatedMethod, Classmate ResolvedType, H2 JdbcUtils/Upgrade and framework reflection utilities. This increment establishes their discovery primitive, not execution of those full callers.
+
+`BytecodeReflectionTest` compares javac fixtures with the JVM for private nested signatures, wide parameters, checked exception order, modifiers, default/private interface methods, varargs, generic bridges, covariant selection, defensive arrays, absent/inherited/constructor lookups and null arguments. It verifies class initialization stays dormant. Tests run with reversed JAR order and independent Wasm instances. Explicit boundary tests exercise unsupported platform discovery and discovered-method invocation.
+
+A real-library regression verifies the SHA-256 of pinned Spring Boot Autoconfigure 3.2.4 and discovers the unchanged `RabbitConnectionDetails$Address` record's method count, host/port accessors and equals descriptor on JVM and Wasm. The original class artifact remains unchanged, including its absent outer nest host in the selected Wasm fixture. This is isolated library metadata discovery, not Spring startup or general record reflection.
+
+Validation: 231 bytecode tests and the pinned 63-JAR audit pass. The reviewed audit changes only compiler revision; artifact and instruction inventories are unchanged.

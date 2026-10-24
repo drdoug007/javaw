@@ -4,6 +4,22 @@ package java.lang;
 public final class Class<T> implements java.io.Serializable {
     private final int token;
     private Class(int token) { this.token=token; }
+    public java.lang.reflect.Method[] getDeclaredMethods() {
+        if(isPrimitive() || isArray())return new java.lang.reflect.Method[0];
+        return javaw.runtime.ReflectionSupport.declaredMethods(this);
+    }
+    public java.lang.reflect.Method getDeclaredMethod(String name,Class<?>... parameters) throws NoSuchMethodException {
+        if(name==null)throw new NullPointerException();
+        int count=parameters==null?0:parameters.length;
+        java.lang.reflect.Method selected=null;
+        for(java.lang.reflect.Method candidate:getDeclaredMethods()) {
+            if(!name.equals(candidate.getName()) || count!=candidate.getParameterCount())continue;
+            Class<?>[] actual=candidate.getParameterTypes();boolean matches=true;
+            for(int i=0;i<count;i++)if(parameters[i]!=actual[i])matches=false;
+            if(matches && (selected==null || selected.getReturnType().isAssignableFrom(candidate.getReturnType())))selected=candidate;
+        }
+        if(selected==null)throw new NoSuchMethodException(name);return selected;
+    }
     public ClassLoader getClassLoader() {
         if(isArray())return getComponentType().getClassLoader();if(isPrimitive())return null;
         String name=getName();

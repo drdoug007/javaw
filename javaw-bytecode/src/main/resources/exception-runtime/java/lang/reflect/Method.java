@@ -2,11 +2,19 @@ package java.lang.reflect;
 
 import java.lang.invoke.*;
 
-/** Metadata and invocation for explicitly generated proxy methods, not member discovery. */
+/** Declared application metadata and fixed proxy invocation; general reflection is incremental. */
 public final class Method {
     private final Class<?> owner;private final String name;private final MethodType signature;private final MethodHandle target;private final int modifiers;
+    private final Class<?>[] exceptions;
+    public Method(Class<?> owner,String name,MethodType signature,int modifiers,Class<?>[] exceptions){
+        this.owner=owner;this.name=name;this.signature=signature;this.target=null;this.modifiers=modifiers;this.exceptions=exceptions;
+    }
+    public Class<?>[] getExceptionTypes(){Class<?>[] copy=new Class<?>[exceptions.length];System.arraycopy(exceptions,0,copy,0,copy.length);return copy;}
     public Method(Class<?> owner,String name,MethodType signature,MethodHandle target,int modifiers){
-        this.owner=owner;this.name=name;this.signature=signature;this.target=target;this.modifiers=modifiers;
+        this(owner,name,signature,target,modifiers,new Class<?>[0]);
+    }
+    public Method(Class<?> owner,String name,MethodType signature,MethodHandle target,int modifiers,Class<?>[] exceptions){
+        this.owner=owner;this.name=name;this.signature=signature;this.target=target;this.modifiers=modifiers;this.exceptions=exceptions;
     }
     public String getName(){return name;}
     public Class<?> getDeclaringClass(){return owner;}
@@ -21,6 +29,7 @@ public final class Method {
     public boolean equals(Object other){return other instanceof Method && owner==((Method)other).owner && name.equals(((Method)other).name) && signature.equals(((Method)other).signature);}
     public int hashCode(){return owner.getName().hashCode()^name.hashCode();}
     public Object invoke(Object receiver,Object... arguments) throws IllegalAccessException,InvocationTargetException {
+        if(target==null)throw new UnsupportedOperationException("invocation of discovered methods requires the reflective access/invocation runtime");
         MethodHandle handle=target;
         if((modifiers&8)==0){if(receiver==null)throw new NullPointerException();if(!owner.isInstance(receiver))throw new IllegalArgumentException();handle=handle.bindTo(receiver);}
         int count=arguments==null?0:arguments.length;if(count!=signature.parameterCount())throw new IllegalArgumentException();

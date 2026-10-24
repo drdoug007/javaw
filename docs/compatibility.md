@@ -548,3 +548,8 @@ Validation: 215 bytecode tests pass. JVM/Wasm comparisons cover the exact audite
 ## Bytecode closed-world handles and AOT proxies
 
 The bundled runtime supports fixed direct handle constants, exact/adapting invocation, binding, caller/private/special lookup and ordered registered interface proxies. See [the API and framework AOT contract](aot-dynamic-runtime.md) for supported descriptors, registration examples, JVM/Wasm evidence and explicit exclusions. This completes the dynamic-runtime mechanism milestone for the selected single-threaded AOT target; full reflection and Spring/Hibernate integration remain separate roadmap work.
+
+
+## Bytecode declared-method reflection
+
+The bundled runtime now discovers original linked application/library method declarations through `Class.getDeclaredMethods` and `getDeclaredMethod`, retaining erased signatures, flags, declared exceptions and covariant-return selection without active class initialization. See [the reflection contract and boundaries](bytecode-reflection.md). This begins the separate reflection milestone; general member discovery, access-sensitive invocation, generics and annotations remain open.
