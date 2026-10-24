@@ -3,6 +3,7 @@ package com.example.javaw.bytecode.lowering;
 import com.example.javaw.bytecode.TypeHelper;
 import com.example.javaw.bytecode.BytecodeDispatch;
 import com.example.javaw.bytecode.BytecodeArrays;
+import com.example.javaw.bytecode.BytecodeStrings;
 import com.example.javaw.bytecode.BytecodeExceptions.Implicit;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -16,6 +17,7 @@ public class BytecodeInstructionVisitor {
     private final Map<String, Integer> stringPool;
     private final Map<String, Integer> fieldOffsets;
     private final Map<String, Integer> objectSizes;
+    private boolean traceEnabled;
     private final StringBuilder out = new StringBuilder();
 
     public BytecodeInstructionVisitor(StackToLocalMapper stack, Map<String, Integer> stringPool, Map<String, Integer> fieldOffsets) {
@@ -36,6 +38,9 @@ public class BytecodeInstructionVisitor {
         this.stringPool = stringPool;
         this.fieldOffsets = fieldOffsets;
     }
+
+    public void setTraceEnabled(boolean enabled) { traceEnabled = enabled; }
+    public void sourceLine(int line) { emit("i32.const " + line); emit("call $__trace_line"); }
 
     public String getOutput() {
         return out.toString();
@@ -623,10 +628,12 @@ public class BytecodeInstructionVisitor {
             case Opcodes.DRETURN:
                 String retVal = stack.pop();
                 emit("local.get " + retVal);
+                if (traceEnabled) emit("call $__trace_exit");
                 emit("return");
                 break;
 
             case Opcodes.RETURN:
+                if (traceEnabled) emit("call $__trace_exit");
                 emit("return");
                 break;
 
@@ -658,7 +665,10 @@ public class BytecodeInstructionVisitor {
 
     private void visitLdc(LdcInsnNode ldc) {
         Object cst = ldc.cst;
-        if (cst instanceof Integer) {
+        if (cst instanceof String text && dispatch != null && dispatch.exceptionRuntimeEnabled()) {
+            emit("call " + BytecodeStrings.symbol(text));
+            emit("local.set " + stack.push("i32"));
+        } else if (cst instanceof Integer) {
             String slot = stack.push("i32");
             emit("i32.const " + cst);
             emit("local.set " + slot);
@@ -816,6 +826,14 @@ public class BytecodeInstructionVisitor {
         if (dispatch != null && dispatch.isArraycopyIntrinsic(minsn)) {
             for (String argument : argVars) emit("local.get " + argument);
             emit("call $__arraycopy");
+            return;
+        }
+
+        String intrinsic = dispatch == null ? null : dispatch.exceptionSupportIntrinsic(minsn);
+        if (intrinsic != null) {
+            for (String argument : argVars) emit("local.get " + argument);
+            emit("call " + intrinsic);
+            emit("local.set " + stack.push(TypeHelper.getWasmType(retType)));
             return;
         }
 

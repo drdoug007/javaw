@@ -25,7 +25,17 @@ public class BytecodeCompiler {
         return compileClass(baos.toByteArray());
     }
 
-    public static String compileJar(InputStream jarInputStream) throws IOException {
+    public static String compileJarWithExceptionRuntime(InputStream input) throws IOException {
+        return compileJar(input, true);
+    }
+
+    public static String compileClassWithExceptionRuntime(byte[] bytes) throws IOException {
+        return compileClasses(new ArrayList<>(List.of(BytecodeInput.read(bytes))), true);
+    }
+
+    public static String compileJar(InputStream jarInputStream) throws IOException { return compileJar(jarInputStream, false); }
+
+    private static String compileJar(InputStream jarInputStream, boolean exceptionRuntime) throws IOException {
         JarInputStream jis = new JarInputStream(jarInputStream);
         JarEntry entry;
         List<ClassNode> classes = new ArrayList<>();
@@ -43,6 +53,18 @@ public class BytecodeCompiler {
             }
         }
 
+        return compileClasses(classes, exceptionRuntime);
+    }
+
+    private static String compileClasses(List<ClassNode> classes, boolean exceptionRuntime) throws IOException {
+        if (exceptionRuntime) {
+            Map<String, ClassNode> runtime = BytecodeExceptionRuntime.definitions();
+            for (ClassNode type : classes)
+                if (runtime.containsKey(type.name))
+                    throw BytecodeCompatibility.failure(type, null, null, "exception runtime redefinition",
+                            "use the isolated bundled runtime or explicitly linked definitions, not both");
+            classes.addAll(runtime.values());
+        }
         StringBuilder combinedWat = new StringBuilder();
         combinedWat.append("(module\n");
         combinedWat.append("    (import \"env\" \"memory\" (memory 2 20))\n");
@@ -64,6 +86,8 @@ public class BytecodeCompiler {
         for (ClassNode type : classes) implicit.addAll(BytecodeExceptions.implicitRuntime(type, runtimeDispatch));
         if (!implicit.isEmpty() || classes.stream().anyMatch(BytecodeExceptions::usesRuntime)) combinedWat.append(BytecodeExceptions.TAG_WAT);
         for (var kind : implicit) combinedWat.append(runtimeDispatch.implicitExceptionRuntimeWat(kind));
+        combinedWat.append(BytecodeStrings.runtimeWat(linked, runtimeDispatch));
+        combinedWat.append(BytecodeTraces.runtimeWat(linked, runtimeDispatch));
         for (ClassNode cn : classes) {
             ClassBytecodeCompiler compiler = new ClassBytecodeCompiler(cn);
             String classWat = compiler.compileToWat(linked, false);

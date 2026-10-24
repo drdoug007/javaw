@@ -99,6 +99,8 @@ public class ClassBytecodeCompiler {
         wat.append("    (func ").append(funcName);
         if ((mn.access & Opcodes.ACC_PUBLIC) != 0) {
             String exportName = classNode.name.replace('/', '.') + "." + mn.name;
+            if (classNode.methods.stream().filter(method -> method.name.equals(mn.name)
+                    && (method.access & Opcodes.ACC_PUBLIC) != 0).count() > 1) exportName += mn.desc;
             try { wat.append(" (export \"").append(TypeHelper.watString(exportName)).append("\")"); }
             catch (IllegalArgumentException error) {
                 throw BytecodeCompatibility.failure(classNode, mn, null, "public export name", error.getMessage());
@@ -162,6 +164,15 @@ public class ClassBytecodeCompiler {
             lIdx += org.objectweb.asm.Type.getArgumentTypes(mn.desc)[i].getSize();
         }
 
+        boolean trace = BytecodeTraces.instrument(classNode, mn, linked);
+        if (trace) wat.append("        i32.const ").append(BytecodeTraces.id(classNode, mn, linked)).append("\n        call $__trace_enter\n        try\n");
+        Map<AbstractInsnNode, Integer> sourceLines = new IdentityHashMap<>();
+        int sourceLine = -1;
+        for (AbstractInsnNode instruction : mn.instructions) {
+            if (instruction instanceof LineNumberNode line) sourceLine = line.line;
+            sourceLines.put(instruction, sourceLine);
+        }
+
         // Explicit state dispatch preserves every branch target, including joins and back edges.
         wat.append("        (loop $loop_dispatch\n");
         for (BasicBlock block : cfg.getBlocks()) {
@@ -175,9 +186,13 @@ public class ClassBytecodeCompiler {
             mapper.setStackTypes(entryTypes);
             wat.append("        local.get $__state\n        i32.const ").append(block.getId()).append("\n        i32.eq\n        if\n");
             BytecodeInstructionVisitor visitor = new BytecodeInstructionVisitor(mapper, stringPool, fieldOffsets, objectSizes, dispatch);
+            visitor.setTraceEnabled(trace);
             AbstractInsnNode terminal = null;
             for (AbstractInsnNode instruction : block.getInstructions()) {
-                if (instruction.getOpcode() >= 0) terminal = instruction;
+                if (instruction.getOpcode() >= 0) {
+                    terminal = instruction;
+                    if (trace) visitor.sourceLine(sourceLines.get(instruction));
+                }
                 if (!(instruction instanceof JumpInsnNode)
                         && !(instruction instanceof TableSwitchInsnNode)
                         && !(instruction instanceof LookupSwitchInsnNode)) visitor.visitInsn(instruction);
@@ -246,7 +261,9 @@ public class ClassBytecodeCompiler {
             }
             wat.append("        end\n");
         }
-        wat.append("        unreachable\n        )\n        unreachable\n    )\n");
+        wat.append("        unreachable\n        )\n        unreachable\n");
+        if (trace) wat.append("        catch_all\n        call $__trace_exit\n        rethrow 0\n        end\n        unreachable\n");
+        wat.append("    )\n");
     }
 
     private void setState(StringBuilder wat, BasicBlock target) {

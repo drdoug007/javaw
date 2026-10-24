@@ -497,6 +497,117 @@ class BytecodeExceptionRuntimeTest implements Opcodes {
         }
     }
 
+    @Test void executesBundledThrowableMessagesCausesSuppressionTracesAndTryWithResources() throws Exception {
+        Path source=directory.resolve("ThrowableProgram.java");
+        Files.writeString(source,"""
+            public class ThrowableProgram {
+                static int closes;
+                private static Exception captured(){return new Exception("trace");}
+                public static int messages(){
+                    Throwable root=new Throwable("root");Throwable wrapper=new Throwable(root);
+                    int result=0;
+                    if(wrapper.getCause()==root && wrapper.getMessage().equals("java.lang.Throwable: root"))result++;
+                    if(root.getLocalizedMessage().equals("root") && root.toString().equals("java.lang.Throwable: root"))result+=2;
+                    Throwable uninitialized=new Throwable();
+                    if(uninitialized.initCause(null)==uninitialized && uninitialized.getCause()==null)result+=4;
+                    try{uninitialized.initCause(root);}catch(IllegalStateException e){result+=8;}
+                    try{new Throwable().initCause(root).initCause(null);}catch(IllegalStateException e){result+=16;}
+                    Throwable self=new Throwable();try{self.initCause(self);}catch(IllegalArgumentException e){result+=32;}
+                    root.addSuppressed(wrapper);root.addSuppressed(wrapper);
+                    Throwable[] copy=root.getSuppressed();copy[0]=null;
+                    if(root.getSuppressed().length==2 && root.getSuppressed()[0]==wrapper)result+=64;
+                    try{root.addSuppressed(root);}catch(IllegalArgumentException e){result+=128;}
+                    try{root.addSuppressed(null);}catch(NullPointerException e){result+=256;}
+                    String unicode="a😀\0";
+                    if(unicode.length()==4 && unicode.charAt(3)==0 && unicode=="a😀\0")result+=512;
+                    if(String.valueOf(-2147483648).equals("-2147483648"))result+=1024;
+                    try {int zero=root.getSuppressed().length-2;int ignored=5/zero;return ignored;}
+                    catch(ArithmeticException error){if(error.getMessage().equals("/ by zero"))result+=2048;}
+                    return result;
+                }
+                public static int disabled(){
+                    Quiet quiet=new Quiet();int result=0;
+                    quiet.addSuppressed(new Exception());
+                    if(quiet.getSuppressed().length==0 && quiet.getStackTrace().length==0)result++;
+                    try{quiet.addSuppressed(quiet);}catch(IllegalArgumentException e){result+=2;}
+                    try{quiet.addSuppressed(null);}catch(NullPointerException e){result+=4;}
+                    quiet.setStackTrace(new StackTraceElement[]{new StackTraceElement("A","b","C",1)});
+                    if(quiet.getStackTrace().length==0)result+=8;
+                    try{quiet.setStackTrace(new StackTraceElement[]{null});}catch(NullPointerException e){result+=16;}
+                    return result;
+                }
+                public static int traces(){
+                    Exception error=captured();StackTraceElement[] trace=error.getStackTrace();int result=0;
+                    if(trace.length>=2 && trace[0].getClassName().equals("ThrowableProgram")
+                        && trace[0].getMethodName().equals("captured") && trace[0].getFileName().equals("ThrowableProgram.java")
+                        && trace[0].getLineNumber()>0 && trace[1].getMethodName().equals("traces"))result++;
+                    StackTraceElement value=new StackTraceElement("A","b","C",12);
+                    StackTraceElement[] custom={value};error.setStackTrace(custom);custom[0]=null;
+                    if(error.getStackTrace()[0]==value && value.toString().equals("A.b(C:12)"))result+=2;
+                    if(error.fillInStackTrace()==error && error.getStackTrace()[0].getMethodName().equals("traces"))result+=4;
+                    try{error.setStackTrace(null);}catch(NullPointerException e){result+=8;}
+                    return result;
+                }
+                public static int resources(int mode){
+                    closes=0;
+                    try(Resource first=new Resource(1,false);Resource second=mode==4?null:new Resource(2,mode==3)) {
+                        if(mode==1)throw new Exception("body");
+                        return 999;
+                    }catch(Exception error){
+                        Throwable[] suppressed=error.getSuppressed();
+                        int result=closes+suppressed.length*100;
+                        if(error.getMessage().equals("body"))result+=1000;
+                        if(suppressed.length>0 && suppressed[0].getMessage().equals(mode==1?"two":"one"))result+=10000;
+                        if(suppressed.length>1 && suppressed[1].getMessage().equals("one"))result+=100000;
+                        return result;
+                    }
+                }
+                private static void recurse(int depth){if(depth>0)recurse(depth-1);}
+                public static int overflow(int depth){try{recurse(depth);return 0;}catch(StackOverflowError error){return 1;}}
+                public static int exhausted(){try{new Throwable();return 0;}catch(OutOfMemoryError error){return error.getCause()==null && error.getMessage()==null?9:8;}}
+            }
+            class Quiet extends Exception {Quiet(){super("quiet",null,false,false);}}
+            class Resource implements AutoCloseable {
+                int id;
+                Resource(int id,boolean fail) throws Exception {this.id=id;if(fail)throw new Exception("construction");}
+                public void close() throws Exception {ThrowableProgram.closes=ThrowableProgram.closes*10+id;throw new Exception(id==1?"one":"two");}
+            }
+            """);
+        assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,"-g","-d",directory.toString(),source.toString()));
+        StringBuilder checks=new StringBuilder();
+        try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)) {
+            Class<?> jvm=loader.loadClass("ThrowableProgram");
+            for(String name:List.of("messages","disabled","traces"))
+                checks.append("assert.equal(e['ThrowableProgram.").append(name).append("'](),").append(jvm.getMethod(name).invoke(null)).append(");");
+            for(int mode=0;mode<5;mode++)checks.append("assert.equal(e['ThrowableProgram.resources'](").append(mode).append("),")
+                    .append(jvm.getMethod("resources",int.class).invoke(null,mode)).append(");");
+        }
+        checks.append("""
+            assert.equal(e['ThrowableProgram.overflow'](1000),1);
+            assert.equal(e['ThrowableProgram.overflow'](1),0);
+            assert.equal(e['ThrowableProgram.traces'](),15);
+            const exhausted=new WebAssembly.Instance(compiled,{env:{memory:new WebAssembly.Memory({initial:2,maximum:20}),__heap_alloc:()=>0}}).exports;
+            assert.equal(exhausted['ThrowableProgram.exhausted'](),9);
+            const sentinel=new Error('allocator');let failOnce=true;
+            const host=new WebAssembly.Instance(compiled,{env:{memory,__heap_alloc:size=>{
+                if(failOnce){failOnce=false;throw sentinel;}const address=heap;heap+=size;return address;
+            }}}).exports;
+            assert.throws(()=>host['ThrowableProgram.messages'](),error=>error===sentinel);
+            assert.equal(host['ThrowableProgram.traces'](),15);
+            """);
+        for(boolean reverse:new boolean[]{false,true}) {
+            List<String> names=new ArrayList<>(List.of("ThrowableProgram","Quiet","Resource"));if(reverse)Collections.reverse(names);
+            ByteArrayOutputStream bytes=new ByteArrayOutputStream();
+            try(JarOutputStream jar=new JarOutputStream(bytes)) {
+                for(String name:names){jar.putNextEntry(new JarEntry(name+".class"));jar.write(Files.readAllBytes(directory.resolve(name+".class")));jar.closeEntry();}
+            }
+            String wat=BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(bytes.toByteArray()));
+            assertEquals(1,wat.split("\\(tag \\$__java_exception",-1).length-1);
+            assertTrue(wat.contains("Throwable.<init>(Ljava/lang/String;)V"));
+            execute(wat,checks.toString());
+        }
+    }
+
     private void run(String... args) throws Exception {
         Path log=directory.resolve("command.log");
         Process process=new ProcessBuilder(args).redirectErrorStream(true).redirectOutput(log.toFile()).start();
@@ -514,6 +625,7 @@ class BytecodeExceptionRuntimeTest implements Opcodes {
             const instance=new WebAssembly.Instance(compiled,{env:{memory,__heap_alloc:size=>{
                 const address=heap;heap+=size;new Uint8Array(memory.buffer,address,size).fill(0x7f);return address;
             }}});const e=instance.exports;
+            heap=Math.max(heap,e.__exception_heap_base?.value??0);
             """+assertions);
         run("node",script.toString(),output.toString());
     }

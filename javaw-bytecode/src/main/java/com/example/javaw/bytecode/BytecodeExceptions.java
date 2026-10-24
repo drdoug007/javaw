@@ -17,7 +17,8 @@ public final class BytecodeExceptions {
         BOUNDS("ArrayIndexOutOfBoundsException", "bounds"),
         ARRAY_STORE("ArrayStoreException", "array_store"),
         NEGATIVE_SIZE("NegativeArraySizeException", "negative_size"),
-        OUT_OF_MEMORY("OutOfMemoryError", "out_of_memory");
+        OUT_OF_MEMORY("OutOfMemoryError", "out_of_memory"),
+        STACK_OVERFLOW("StackOverflowError", "stack_overflow");
 
         public final String className;
         public final String helper;
@@ -52,6 +53,7 @@ public final class BytecodeExceptions {
                 if (dispatch.hasImplicitException(kind)) result.add(kind);
         // Allocating any exception may itself exhaust the host heap.
         if (!result.isEmpty() && dispatch.hasImplicitException(Implicit.OUT_OF_MEMORY)) result.add(Implicit.OUT_OF_MEMORY);
+        if (dispatch.exceptionRuntimeEnabled()) result.add(Implicit.STACK_OVERFLOW);
         return result;
     }
 

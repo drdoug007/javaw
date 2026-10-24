@@ -11,7 +11,7 @@ This target pins the real-library workload behind Todo section 12. It does not c
 | Jakarta Persistence / Transactions | 3.1.0 / 2.0.1 |
 | H2 / JDBC driver | 2.2.224, embedded `org.h2.Driver` |
 | Embedded servlet stack | Tomcat 10.1.19 (later web milestone) |
-| Wasm reference host | Node 24.19.0; module-local linear-memory objects, bulk memory, saturating numeric conversions and Wasm exception tags for explicit bytecode throws |
+| Wasm reference host | Node 24.19.0; module-local linear-memory objects, bulk memory, saturating numeric conversions and Wasm exception tags for bytecode throws/implicit failures; optional isolated Throwable runtime with reserved-prefix bounded stack traces |
 | Runtime artifacts | 63 exact third-party JARs, with SHA-256 identities in `runtime-target/dependencies.lock.json` |
 
 `runtime-target/pom.xml` manages every artifact in that runtime closure explicitly. This deliberately preserves the resolved versions from the existing demo, including mediation results, rather than depending on a newly selected BOM. Test-only JUnit and Maven/compiler tooling are outside the library runtime lock. The lock verifies artifact bytes, not JDK/toolchain binaries. The reference tests currently run on the installed Java 25.0.3 JVM while compiling the fixture for Java 17; execution on a Java 17 JVM remains an additional toolchain validation task. Unused versioned entries above Java 17 must not become audit requirements.

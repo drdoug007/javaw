@@ -69,7 +69,7 @@ final class BytecodeCompatibility {
             if ((method.access & (Opcodes.ACC_NATIVE | Opcodes.ACC_SYNCHRONIZED)) != 0)
                 throw failure(owner, method, null, "native/synchronized method", "provide a supported source or explicit host adapter");
             if ((method.access & Opcodes.ACC_ABSTRACT) != 0) continue;
-            if ((method.access & Opcodes.ACC_PUBLIC) != 0 && !exports.add(method.name))
+            if ((method.access & Opcodes.ACC_PUBLIC) != 0 && !exports.add(method.name) && !BytecodeExceptionRuntime.enabled(linked))
                 throw failure(owner, method, null, "overloaded public export", "use unique public entry-point names");
             if (!method.tryCatchBlocks.isEmpty()) {
                 try { BytecodeFrames.analyze(owner, method, linked); }
@@ -93,7 +93,8 @@ final class BytecodeCompatibility {
                         throw failure(owner, method, instruction, "ATHROW", "link the Throwable class hierarchy: " + error.getMessage());
                     }
                 }
-                if (instruction instanceof LdcInsnNode constant && !numericConstant(constant.cst))
+                if (instruction instanceof LdcInsnNode constant && !numericConstant(constant.cst)
+                        && !(constant.cst instanceof String && BytecodeExceptionRuntime.enabled(linked)))
                     throw failure(owner, method, instruction, "LDC " + constant.cst.getClass().getSimpleName(),
                             "only numeric LDC constants are supported; use source compilation for strings/classes/dynamic constants");
                 if (instruction instanceof TypeInsnNode test

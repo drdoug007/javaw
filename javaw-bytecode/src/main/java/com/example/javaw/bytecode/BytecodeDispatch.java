@@ -133,6 +133,15 @@ public final class BytecodeDispatch {
         return BytecodeArrays.isArraycopy(call) && !linked.containsKey(call.owner);
     }
 
+    public boolean exceptionRuntimeEnabled() { return BytecodeExceptionRuntime.enabled(linked); }
+
+    public String exceptionSupportIntrinsic(MethodInsnNode call) {
+        if (!exceptionRuntimeEnabled() || !call.owner.equals("javaw/runtime/ExceptionSupport") || call.getOpcode() != Opcodes.INVOKESTATIC) return null;
+        if (call.name.equals("capture") && call.desc.equals("()[Ljava/lang/StackTraceElement;")) return "$__trace_capture";
+        if (call.name.equals("className") && call.desc.equals("(Ljava/lang/Throwable;)Ljava/lang/String;")) return "$__exception_class_name";
+        return null;
+    }
+
     /** Explicitly linked definitions opt individual implicit failures into Java exception execution. */
     public boolean hasImplicitException(BytecodeExceptions.Implicit kind) {
         return linked.containsKey(kind.className);
@@ -158,23 +167,29 @@ public final class BytecodeDispatch {
                 throw new IllegalArgumentException("link a public bytecode " + simpleName + "() constructor");
             Integer size = layouts.sizes().get(name);
             if (size == null) throw new IllegalArgumentException("link a complete " + simpleName + " object layout through Object");
-            if (kind == BytecodeExceptions.Implicit.OUT_OF_MEMORY) {
+            if (kind == BytecodeExceptions.Implicit.OUT_OF_MEMORY || kind == BytecodeExceptions.Implicit.STACK_OVERFLOW) {
                 // The host must reserve this exported prefix. Throwing OOME cannot allocate.
                 StringBuilder data = new StringBuilder();
                 for (int i = 0; i < size; i++) {
                     int value = i < 4 ? (classId(name) >>> (i * 8)) & 255 : 0;
                     data.append(String.format(java.util.Locale.ROOT, "\\%02x", value));
                 }
-                return "    (global (export \"__exception_heap_base\") i32 (i32.const " + (8 + size) + "))\n"
-                        + "    (data (i32.const 8) \"" + data + "\")\n"
-                        + "    (func " + kind.helper + " i32.const 8 throw $__java_exception)\n";
+                int address = BytecodeTraces.emergencyAddress(kind, linked);
+                String prefix = kind == BytecodeExceptions.Implicit.OUT_OF_MEMORY
+                        ? "    (global (export \"__exception_heap_base\") i32 (i32.const "
+                            + (exceptionRuntimeEnabled() ? BytecodeTraces.stackBase(linked) + BytecodeTraces.CAPACITY * 8 : 8 + size) + "))\n" : "";
+                return prefix + "    (data (i32.const " + address + ") \"" + data + "\")\n"
+                        + "    (func " + kind.helper + " i32.const " + address + " throw $__java_exception)\n";
             }
             return "    (func " + kind.helper + " (local $exception i32)\n"
                     + "        i32.const " + size + "\n        call $__heap_alloc\n        local.tee $exception\n"
                     + "        i32.eqz\n        if\n            " + implicitFailureWat(BytecodeExceptions.Implicit.OUT_OF_MEMORY) + "\n        end\n"
                     + "        local.get $exception\n        i32.const 0\n        i32.const " + size + "\n        memory.fill\n"
                     + "        local.get $exception\n        i32.const " + classId(name) + "\n        i32.store\n"
-                    + "        local.get $exception\n        call " + TypeHelper.getMethodFunctionName(name, "<init>", "()V") + "\n"
+                    + "        local.get $exception\n"
+                    + (exceptionRuntimeEnabled() && kind == BytecodeExceptions.Implicit.ARITHMETIC ? "        call " + BytecodeStrings.symbol("/ by zero") + "\n" : "")
+                    + "        call " + TypeHelper.getMethodFunctionName(name, "<init>",
+                            exceptionRuntimeEnabled() && kind == BytecodeExceptions.Implicit.ARITHMETIC ? "(Ljava/lang/String;)V" : "()V") + "\n"
                     + "        local.get $exception\n        throw $__java_exception\n    )\n";
         } catch (IllegalArgumentException error) {
             throw BytecodeCompatibility.failure(type, null, null, "implicit " + kind.name().toLowerCase(java.util.Locale.ROOT).replace('_', ' ') + " exception runtime", error.getMessage());
