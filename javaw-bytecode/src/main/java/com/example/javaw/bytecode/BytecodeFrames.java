@@ -33,6 +33,7 @@ final class BytecodeFrames implements Opcodes {
     private final Frame<BasicValue>[] frames;
     private final Deque<Integer> pending = new ArrayDeque<>();
     private final boolean[] queued;
+    private List<BytecodeExceptionHandlers.Handler> handlers;
 
     @SuppressWarnings("unchecked")
     private BytecodeFrames(ClassNode owner, MethodNode method, Map<String, ClassNode> linked) {
@@ -50,6 +51,7 @@ final class BytecodeFrames implements Opcodes {
     }
 
     private Frame<BasicValue>[] analyze() throws AnalyzerException {
+        handlers = BytecodeExceptionHandlers.validate(owner, method, linked);
         decode();
         requireBranchFrames();
         // Declared frames are also verification roots for otherwise unreachable code.
@@ -101,6 +103,26 @@ final class BytecodeFrames implements Opcodes {
             } catch (AnalyzerException error) { throw error; }
             catch (RuntimeException error) {
                 throw new AnalyzerException(instruction, "invalid typed frame: " + error.getMessage(), error);
+            }
+            if (instruction.getOpcode() >= 0) {
+                for (var handler : handlers) {
+                    if (index < handler.start() || index >= handler.end()) continue;
+                    VerificationFrame exceptional = new VerificationFrame(frames[index]);
+                    if (instruction instanceof MethodInsnNode call && call.name.equals("<init>")) {
+                        int position = exceptional.getStackSize() - Type.getArgumentTypes(call.desc).length - 1;
+                        if (position >= 0 && exceptional.getStack(position) instanceof UninitializedValue receiver) {
+                            if (receiver == verifier.uninitializedThis)
+                                throw new AnalyzerException(instruction, "handlers covering this/super constructor initialization are not yet supported");
+                            // A constructor that throws cannot leave an initializable alias in a handler.
+                            for (int i = 0; i < exceptional.getLocals(); i++)
+                                if (exceptional.getLocal(i) == receiver) exceptional.setLocal(i, BasicValue.UNINITIALIZED_VALUE);
+                        }
+                    }
+                    exceptional.clearStack();
+                    if (method.maxStack < 1) throw new AnalyzerException(instruction, "exception handler requires max_stack of at least one");
+                    exceptional.push(verifier.newValue(handler.type()));
+                    merge(handler.target(), exceptional, instruction);
+                }
             }
             if (instruction instanceof JumpInsnNode jump) {
                 merge(target(jump.label), after, instruction);
@@ -318,6 +340,9 @@ final class BytecodeFrames implements Opcodes {
 
     private void requireBranchFrames() {
         boolean required = (owner.version & 0xffff) >= V1_7;
+        for (var handler : handlers)
+            if (required && !declarations.containsKey(handler.target()))
+                fail(handler.declaration().handler, "missing frame at exception handler target");
         for (int i = 0; i < instructions.length; i++) {
             AbstractInsnNode instruction = instructions[i];
             if (instruction instanceof JumpInsnNode jump) requireTarget(jump.label, required, instruction);

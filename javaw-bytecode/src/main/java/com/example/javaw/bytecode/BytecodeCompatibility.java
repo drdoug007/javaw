@@ -71,8 +71,14 @@ final class BytecodeCompatibility {
             if ((method.access & Opcodes.ACC_ABSTRACT) != 0) continue;
             if ((method.access & Opcodes.ACC_PUBLIC) != 0 && !exports.add(method.name))
                 throw failure(owner, method, null, "overloaded public export", "use unique public entry-point names");
-            if (!method.tryCatchBlocks.isEmpty())
-                throw failure(owner, method, method.tryCatchBlocks.get(0).start, "exception handler table", "use source compilation for Java exception handling");
+            if (!method.tryCatchBlocks.isEmpty()) {
+                try { BytecodeFrames.analyze(owner, method, linked); }
+                catch (org.objectweb.asm.tree.analysis.AnalyzerException error) {
+                    throw failure(owner, method, error.node, "exception handler frame", "recompile valid typed bytecode: " + error.getMessage());
+                }
+                throw failure(owner, method, method.tryCatchBlocks.get(0).start, "exception handler table",
+                        "handler metadata and frames verify, but bytecode exception execution is not implemented; use source compilation for Java exception handling");
+            }
             for (AbstractInsnNode instruction : method.instructions) {
                 int opcode = instruction.getOpcode();
                 if (opcode < 0) continue;
