@@ -1899,3 +1899,5 @@ Validation: all 255 bytecode tests pass; the reviewed 63-JAR audit baseline pass
 - Bytecode core JDK subset: Math floor division and modulus; validated by `BytecodeNumericTest` against JVM execution. See [the numeric and utility contract](docs/bytecode-numeric-utilities.md).
 
 - Bytecode core JDK subset: Math absolute values, extrema and signs; validated by `BytecodeNumericTest` against JVM execution. See [the numeric and utility contract](docs/bytecode-numeric-utilities.md).
+
+- Bytecode core JDK subset: Math floor, ceil, rint and round; validated by `BytecodeNumericTest` against JVM execution. See [the numeric and utility contract](docs/bytecode-numeric-utilities.md).

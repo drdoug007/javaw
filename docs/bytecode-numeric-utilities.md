@@ -33,3 +33,7 @@ All Java 17 int/long/mixed floorDiv and floorMod overloads preserve divisor-sign
 ## 8. Math absolute values, extrema and signs
 
 Int/long abs preserve Java minimum-value overflow; absExact throws. Float/double abs/min/max/copySign/signum preserve signed zero, infinities and NaN behavior. JVM/Wasm comparisons hash canonical NaNs and distinguish both zero signs; no NaN payload guarantee is claimed. Revision `numeric-signs-v58`. `BytecodeNumericTest` compares javac-produced bytecode on the JVM and in Node/Wasm, in both JAR orders and two independent instances. Other APIs remain subject to admission diagnostics.
+
+## 9. Math floor, ceil, rint and round
+
+Floating rounding supports ties-to-even rint, ties-toward-positive-infinity round, saturating integral results, NaN/infinity and signed zero. Bit-based round avoids adding 0.5 before rounding. Boundary tests and 10,000 deterministic floating bit patterns compare against the JVM; transcendental and remaining Math APIs stay open. Revision `floating-rounding-v59`. `BytecodeNumericTest` compares javac-produced bytecode on the JVM and in Node/Wasm, in both JAR orders and two independent instances. Other APIs remain subject to admission diagnostics.

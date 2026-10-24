@@ -55,4 +55,31 @@ public final class Math {
     public static float signum(float value){return value==0 || value!=value?value:value<0?-1:1;}
     public static double signum(double value){return value==0 || value!=value?value:value<0?-1:1;}
 
+
+    public static double floor(double value){
+        if(value!=value || value==0 || abs(value)>=0x1.0p52)return value;
+        long integer=(long)value;return value<integer?(double)(integer-1):(double)integer;
+    }
+    public static double ceil(double value){
+        if(value!=value || value==0 || abs(value)>=0x1.0p52)return value;
+        if(value<0 && value>-1)return -0.0;
+        long integer=(long)value;return value>integer?(double)(integer+1):(double)integer;
+    }
+    public static double rint(double value){
+        if(value!=value || value==0 || abs(value)>=0x1.0p52)return value;
+        double low=floor(value),fraction=value-low,result;
+        if(fraction<0.5)result=low;else if(fraction>0.5)result=low+1;else result=(((long)low&1)==0)?low:low+1;
+        return result==0?copySign(0.0,value):result;
+    }
+    public static int round(float value){
+        int bits=Float.floatToRawIntBits(value),shift=149-((bits>>>23)&255);
+        if((shift&-32)==0){int significand=(bits&0x7fffff)|0x800000;if(bits<0)significand=-significand;return ((significand>>shift)+1)>>1;}
+        return (int)value;
+    }
+    public static long round(double value){
+        long bits=Double.doubleToRawLongBits(value);int shift=1074-(int)((bits>>>52)&2047);
+        if((shift&-64)==0){long significand=(bits&0xfffffffffffffL)|0x10000000000000L;if(bits<0)significand=-significand;return ((significand>>shift)+1)>>1;}
+        return (long)value;
+    }
+
 }

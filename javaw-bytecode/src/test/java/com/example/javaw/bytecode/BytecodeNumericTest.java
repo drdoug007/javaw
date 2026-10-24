@@ -167,6 +167,18 @@ int hash=1;double[] values={0.0,-0.0,1,-1,Double.MIN_VALUE,-Double.MIN_VALUE,Dou
             """); compare(List.of("run"));
     }
 
+    @Test void floatingRounding() throws Exception {
+        fixture("""
+            public class Metadata { public static int run() {
+int hash=1;double[] values={0.0,-0.0,0.5,-0.5,1.5,-1.5,2.5,-2.5,0.49999999999999994,-0.5000000000000001,0x1.0p52,-0x1.0p52,0x1.0p63,-0x1.0p63,Double.MIN_VALUE,-Double.MIN_VALUE,Double.MAX_VALUE,Double.POSITIVE_INFINITY,Double.NEGATIVE_INFINITY,Double.NaN};
+ for(double value:values){hash=31*hash+Double.hashCode(Math.floor(value));hash=31*hash+Double.hashCode(Math.ceil(value));hash=31*hash+Double.hashCode(Math.rint(value));hash=31*hash+Long.hashCode(Math.round(value));hash=31*hash+Math.round((float)value);}
+ long bits=123456789;for(int i=0;i<10000;i++){bits=bits*6364136223846793005L+1442695040888963407L;double value=Double.longBitsToDouble(bits);float f=Float.intBitsToFloat((int)(bits>>>32));
+ hash=31*hash+Double.hashCode(Math.floor(value));hash=31*hash+Double.hashCode(Math.ceil(value));hash=31*hash+Double.hashCode(Math.rint(value));hash=31*hash+Long.hashCode(Math.round(value));hash=31*hash+Math.round(f);}
+ return hash;
+            }}
+            """); compare(List.of("run"));
+    }
+
     private void compare(List<String> names) throws Exception {
         StringBuilder assertions=new StringBuilder();
         try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)){

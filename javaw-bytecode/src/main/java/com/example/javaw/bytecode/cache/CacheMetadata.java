@@ -3,7 +3,7 @@ package com.example.javaw.bytecode.cache;
 import java.util.*;
 
 public class CacheMetadata {
-    public static final String COMPILER_VERSION = "1.0-SNAPSHOT-numeric-signs-v58";
+    public static final String COMPILER_VERSION = "1.0-SNAPSHOT-floating-rounding-v59";
     private String groupId;
     private String artifactId;
     private String version;
