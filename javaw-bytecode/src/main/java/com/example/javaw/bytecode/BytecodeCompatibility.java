@@ -81,6 +81,14 @@ final class BytecodeCompatibility {
                         }
                         continue;
                     }
+                    if (opcode == Opcodes.INVOKESPECIAL && call.itf) {
+                        try { dispatch.interfaceSuperTarget(call); }
+                        catch (IllegalArgumentException error) {
+                            throw failure(owner, method, instruction, "interface super call " + call.owner + "." + call.name + call.desc,
+                                    error.getMessage());
+                        }
+                        continue;
+                    }
                     if (call.owner.equals("java/lang/Object") && call.name.equals("<init>") && call.desc.equals("()V")) continue;
                     ClassNode target = linked.get(call.owner);
                     if (target == null || target.methods.stream().noneMatch(m -> m.name.equals(call.name) && m.desc.equals(call.desc)

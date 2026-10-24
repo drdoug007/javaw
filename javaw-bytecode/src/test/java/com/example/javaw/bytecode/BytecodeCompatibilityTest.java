@@ -287,9 +287,101 @@ class BytecodeCompatibilityTest {
             assertTrue(error.getMessage().contains("unsupported dynamic call"),error.getMessage());
             assertTrue(error.getMessage().contains("Fixture.java:"),error.getMessage());
         }
-        fixture("public class Fixture { public static int call(View v){return v.value();} } interface View {default int value(){return 1;} }");
-        var error=assertThrows(IllegalArgumentException.class, () -> linkJar("Fixture", "View"));
-        assertTrue(error.getMessage().contains("default methods are unavailable"),error.getMessage());
+    }
+
+    @Test void executesMostSpecificInterfaceDefaultsAndClassPrecedence() throws Exception {
+        fixture("""
+            public class Fixture {
+                public static int run(int n) {
+                    Root value=new Device();
+                    value.set(n);
+                    return 100+value.self().value(2)+value.pair(3,4);
+                }
+                public static int classOwner() { return new Device().value(2); }
+                public static int inheritedInterface() { Diamond d=new Device(); return d.value(2); }
+                public static int classWins() { Root r=new ClassChild(); return r.value(2); }
+                public static int redeclared() { Root r=new Redeclared(); return r.value(2); }
+                public static int inheritedSuper() { Root r=new ExplicitSuper(); return r.value(2); }
+                public static int nullCall() { Root r=null; return r.value(2); }
+            }
+            interface Root {
+                int seed();
+                void write(int n);
+                default int value(int n) { return seed()+n; }
+                default int pair(int a,int b) { return value(a)+value(b); }
+                default Root self() { return this; }
+                default void set(int n) { write(n); }
+            }
+            interface Left extends Root {}
+            interface Fancy extends Root {
+                default int value(int n) { return Root.super.value(n)*2; }
+            }
+            interface Diamond extends Left, Fancy {}
+            class Device implements Diamond {
+                int state=3;
+                public int seed() { return state; }
+                public void write(int n) { state=n; }
+            }
+            class Parent {
+                public int value(int n) { return 70+n; }
+            }
+            class ClassChild extends Parent implements Fancy {
+                public int seed() { return 1; }
+                public void write(int n) {}
+            }
+            class ExplicitSuper implements Left {
+                public int seed() { return 3; }
+                public void write(int n) {}
+                public int value(int n) { return Left.super.value(n)+10; }
+            }
+            interface AbstractAgain extends Fancy { int value(int n); }
+            class Redeclared implements AbstractAgain {
+                public int value(int n) { return 90+n; }
+                public int seed() { return 0; }
+                public void write(int n) {}
+            }
+            """);
+        execute(linkJar("ExplicitSuper", "Redeclared", "AbstractAgain", "ClassChild", "Parent", "Device", "Diamond",
+                "Fancy", "Left", "Root", "Fixture"), """
+            for(let n=-5;n<10;n++) assert.equal(e['Fixture.run'](n),6*n+118);
+            assert.equal(e['Fixture.classOwner'](),10);
+            assert.equal(e['Fixture.inheritedInterface'](),10);
+            assert.equal(e['Fixture.classWins'](),72);
+            assert.equal(e['Fixture.redeclared'](),92);
+            assert.equal(e['Fixture.inheritedSuper'](),15);
+            assert.throws(()=>e['Fixture.nullCall'](),WebAssembly.RuntimeError);
+            """);
+    }
+
+    @Test void rejectsConflictingAndReabstractedDefaultsWithCallSiteDiagnostics() throws Exception {
+        fixture("""
+            public class Fixture { public static int call(Root r) { return r.value(); } }
+            interface Root { default int value() { return 1; } }
+            interface Other { default int value() { return 2; } }
+            class Conflicted implements Root, Other { public int value() { return 3; } }
+            interface Reabstract extends Root { int value(); }
+            class Missing implements Reabstract { public int value() { return 4; } }
+            abstract class AbstractBase implements Root { public abstract int value(); }
+            class AbstractMissing extends AbstractBase { public int value() { return 5; } }
+            """);
+        // Model separately compiled binaries whose overrides have been removed.
+        for(String name:new String[]{"Conflicted", "Missing", "AbstractMissing"}) {
+            ClassNode node=new ClassNode();
+            new ClassReader(Files.readAllBytes(directory.resolve(name+".class"))).accept(node,0);
+            node.methods.removeIf(method -> method.name.equals("value"));
+            ClassWriter writer=new ClassWriter(0); node.accept(writer);
+            Files.write(directory.resolve(name+".class"),writer.toByteArray());
+        }
+        for(String[] names:new String[][]{
+                {"Fixture", "Root", "Other", "Conflicted"},
+                {"Fixture", "Root", "Reabstract", "Missing"},
+                {"Fixture", "Root", "AbstractBase", "AbstractMissing"}}) {
+            var error=assertThrows(IllegalArgumentException.class, () -> linkJar(names));
+            assertTrue(error.getMessage().contains("Fixture.java:"),error.getMessage());
+            assertTrue(error.getMessage().contains("Fixture.call(LRoot;)I"),error.getMessage());
+            assertTrue(error.getMessage().contains(names.length==4 && names[2].equals("Other")
+                    ? "conflicting maximally-specific" : "re-abstracted"),error.getMessage());
+        }
     }
 
     private String linkJar(String... names) throws Exception {

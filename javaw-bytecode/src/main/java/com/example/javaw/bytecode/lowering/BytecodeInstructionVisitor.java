@@ -603,7 +603,9 @@ public class BytecodeInstructionVisitor {
         }
 
         // Statically bound calls retain their declared target.
-        String funcName = TypeHelper.getMethodFunctionName(minsn.owner, minsn.name, minsn.desc);
+        String funcName = minsn.getOpcode() == Opcodes.INVOKESPECIAL && minsn.itf && dispatch != null
+                ? dispatch.interfaceSuperTarget(minsn)
+                : TypeHelper.getMethodFunctionName(minsn.owner, minsn.name, minsn.desc);
 
         if (!isStatic) {
             emit("local.get " + thisVar);
