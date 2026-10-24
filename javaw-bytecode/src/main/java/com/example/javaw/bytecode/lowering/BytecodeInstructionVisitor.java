@@ -11,9 +11,16 @@ public class BytecodeInstructionVisitor {
     private final StackToLocalMapper stack;
     private final Map<String, Integer> stringPool;
     private final Map<String, Integer> fieldOffsets;
+    private final Map<String, Integer> objectSizes;
     private final StringBuilder out = new StringBuilder();
 
     public BytecodeInstructionVisitor(StackToLocalMapper stack, Map<String, Integer> stringPool, Map<String, Integer> fieldOffsets) {
+        this(stack, stringPool, fieldOffsets, Map.of());
+    }
+
+    public BytecodeInstructionVisitor(StackToLocalMapper stack, Map<String, Integer> stringPool,
+                                      Map<String, Integer> fieldOffsets, Map<String, Integer> objectSizes) {
+        this.objectSizes = objectSizes;
         this.stack = stack;
         this.stringPool = stringPool;
         this.fieldOffsets = fieldOffsets;
@@ -403,9 +410,17 @@ public class BytecodeInstructionVisitor {
             case Opcodes.NEW:
                 TypeInsnNode newInsn = (TypeInsnNode) insn;
                 String newRef = stack.push("i32");
-                emit("i32.const 64"); // Allocate standard object struct
+                Integer objectSize = objectSizes.get(newInsn.desc);
+                if (objectSize == null) throw new IllegalArgumentException("Missing object layout: " + newInsn.desc);
+                emit("i32.const " + objectSize);
                 emit("call $__heap_alloc");
                 emit("local.set " + newRef);
+                emitNullGuard(newRef);
+                // Java defaults apply even if the host allocator returns dirty memory.
+                emit("local.get " + newRef);
+                emit("i32.const 0");
+                emit("i32.const " + objectSize);
+                emit("memory.fill");
                 break;
 
             case Opcodes.NEWARRAY:
@@ -425,7 +440,8 @@ public class BytecodeInstructionVisitor {
             case Opcodes.GETFIELD:
                 FieldInsnNode getField = (FieldInsnNode) insn;
                 String targetObj = stack.peek();
-                int offset = fieldOffsets.getOrDefault(getField.owner + "." + getField.name, 4);
+                int offset = fieldOffsets.get(getField.owner + "." + getField.name + ":" + getField.desc);
+                emitNullGuard(targetObj);
                 emit("local.get " + targetObj);
                 emit("i32.load offset=" + offset);
                 emit("local.set " + targetObj);
@@ -435,7 +451,8 @@ public class BytecodeInstructionVisitor {
                 FieldInsnNode putField = (FieldInsnNode) insn;
                 String putVal = stack.pop();
                 String putTarget = stack.pop();
-                int pOffset = fieldOffsets.getOrDefault(putField.owner + "." + putField.name, 4);
+                int pOffset = fieldOffsets.get(putField.owner + "." + putField.name + ":" + putField.desc);
+                emitNullGuard(putTarget);
                 emit("local.get " + putTarget);
                 emit("local.get " + putVal);
                 emit("i32.store offset=" + pOffset);
@@ -481,6 +498,14 @@ public class BytecodeInstructionVisitor {
             default:
                 throw new IllegalArgumentException("Unsupported bytecode opcode " + opcode);
         }
+    }
+
+    private void emitNullGuard(String reference) {
+        emit("local.get " + reference);
+        emit("i32.eqz");
+        emit("if");
+        emit("unreachable");
+        emit("end");
     }
 
     private void visitLdc(LdcInsnNode ldc) {
@@ -535,6 +560,8 @@ public class BytecodeInstructionVisitor {
         if (!isStatic) {
             thisVar = stack.pop();
         }
+
+        if (!isStatic) emitNullGuard(thisVar);
 
         // java.lang.Object's empty constructor has no runtime action in this layout.
         if (minsn.owner.equals("java/lang/Object") && minsn.name.equals("<init>") && minsn.desc.equals("()V")) return;

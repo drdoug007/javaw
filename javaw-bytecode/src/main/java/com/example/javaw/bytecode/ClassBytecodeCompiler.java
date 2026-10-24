@@ -14,6 +14,7 @@ public class ClassBytecodeCompiler {
     private final ClassNode classNode;
     private final Map<String, Integer> stringPool = new LinkedHashMap<>();
     private final Map<String, Integer> fieldOffsets = new LinkedHashMap<>();
+    private final Map<String, Integer> objectSizes = new LinkedHashMap<>();
     private final List<String> globalVariables = new ArrayList<>();
 
     public ClassBytecodeCompiler(ClassNode classNode) {
@@ -33,13 +34,23 @@ public class ClassBytecodeCompiler {
 
     String compileToWat(Map<String, ClassNode> linked) {
         BytecodeCompatibility.validate(classNode, linked);
+        // Layouts must agree in every separately emitted class in a linked JAR.
+        for (ClassNode type : linked.values()) {
+            int size = 4; // Reserved object header; references are linear-memory pointers.
+            for (FieldNode field : type.fields) {
+                if ((field.access & Opcodes.ACC_STATIC) == 0) {
+                    fieldOffsets.put(type.name + "." + field.name + ":" + field.desc, size);
+                    size += 4;
+                }
+            }
+            objectSizes.put(type.name, size);
+        }
         StringBuilder wat = new StringBuilder();
         wat.append("(module\n");
         wat.append("    (import \"env\" \"memory\" (memory 2 20))\n");
         wat.append("    (import \"env\" \"__heap_alloc\" (func $__heap_alloc (param i32) (result i32)))\n");
 
         // Collect fields
-        int instanceOffset = 4; // 0 is vtable
         for (FieldNode fn : classNode.fields) {
             boolean isStatic = (fn.access & Opcodes.ACC_STATIC) != 0;
             if (isStatic) {
@@ -48,11 +59,6 @@ public class ClassBytecodeCompiler {
                 globalVariables.add(gName);
                 wat.append("    (global ").append(gName).append(" (mut ").append(wasmType != null ? wasmType : "i32")
                    .append(") (").append(wasmType != null ? wasmType : "i32").append(".const ").append(fn.value instanceof Integer ? fn.value : 0).append("))\n");
-            } else {
-                fieldOffsets.put(classNode.name + "." + fn.name, instanceOffset);
-                String wasmType = TypeHelper.getWasmType(fn.desc);
-                int size = ("i64".equals(wasmType) || "f64".equals(wasmType)) ? 8 : 4;
-                instanceOffset += size;
             }
         }
 
@@ -134,7 +140,7 @@ public class ClassBytecodeCompiler {
             if (frame == null) continue; // Unreachable JVM instructions.
             mapper.setStackDepth(frame.getStackSize());
             wat.append("        local.get $__state\n        i32.const ").append(block.getId()).append("\n        i32.eq\n        if\n");
-            BytecodeInstructionVisitor visitor = new BytecodeInstructionVisitor(mapper, stringPool, fieldOffsets);
+            BytecodeInstructionVisitor visitor = new BytecodeInstructionVisitor(mapper, stringPool, fieldOffsets, objectSizes);
             AbstractInsnNode terminal = null;
             for (AbstractInsnNode instruction : block.getInstructions()) {
                 if (instruction.getOpcode() >= 0) terminal = instruction;

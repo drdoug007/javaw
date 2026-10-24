@@ -26,8 +26,14 @@ class BytecodeCompatibilityTest {
         Files.writeString(script,"""
             const assert=require('node:assert/strict');
             const fs=require('node:fs');
+            const memory=new WebAssembly.Memory({initial:2,maximum:20});
+            let heap=1024;
             const instance=new WebAssembly.Instance(new WebAssembly.Module(fs.readFileSync(process.argv[2])),
-                {env:{memory:new WebAssembly.Memory({initial:2,maximum:20}),__heap_alloc:()=>{throw Error('unexpected allocation')}}});
+                {env:{memory,__heap_alloc:(size)=>{
+                    const ptr=heap; heap+=size;
+                    new Uint8Array(memory.buffer,ptr,size).fill(0x7f);
+                    return ptr;
+                }}});
             const e=instance.exports;
             """+assertions);
         run("node",script.toString(),output.toString());
@@ -123,14 +129,45 @@ class BytecodeCompatibilityTest {
             """);
     }
 
+    @Test void executesObjectAllocationConstructorsAliasesAndNullGuards() throws Exception {
+        execute(BytecodeCompiler.compileClass(fixture("""
+            public class Fixture {
+                int a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t;
+                Fixture next;
+                Fixture(int value) { a=value; t=3; }
+                public static int calculate(int n) {
+                    Fixture first=new Fixture(n), second=new Fixture(n+1);
+                    first.next=second; second.next=first;
+                    Fixture alias=first.next;
+                    alias.t=8;
+                    return first.a*100+first.t*10+second.a+second.t+first.b+second.s
+                        +(second.next==first ? 1000 : 0);
+                }
+                public static int defaults() {
+                    Fixture value=new Fixture(0);
+                    return value.b+value.s+(value.next==null ? 1 : 0);
+                }
+                public static int readNull() { Fixture value=null; return value.t; }
+                public static void writeNull() { Fixture value=null; value.a=9; }
+            }
+            """)), """
+            assert.equal(e['Fixture.defaults'](),1);
+            for(let n=-3;n<20;n++) assert.equal(e['Fixture.calculate'](n),101*n+1039);
+            assert.throws(()=>e['Fixture.readNull'](),WebAssembly.RuntimeError);
+            assert.throws(()=>e['Fixture.writeNull'](),WebAssembly.RuntimeError);
+            assert.equal(new DataView(memory.buffer).getInt32(4,true),0);
+            """);
+    }
+
     @Test void linksSupportedClassesWithinOneJar() throws Exception {
         fixture("""
             public class Fixture {
-                public static int calculate(int n) { return Helper.doubleValue(n)+1; }
+                public static int calculate(int n) { Helper value=new Helper(n); value.extra=3; return Helper.doubleValue(value)+value.extra; }
             }
             class Helper {
-                static int stored;
-                static int doubleValue(int n) { stored=n; return stored*2; }
+                int unused, stored, extra;
+                Helper(int n) { stored=n; }
+                static int doubleValue(Helper value) { return value.stored*2+value.unused; }
             }
             """);
         var bytes=new java.io.ByteArrayOutputStream();
@@ -141,7 +178,7 @@ class BytecodeCompatibilityTest {
             }
         }
         execute(BytecodeCompiler.compileJar(new java.io.ByteArrayInputStream(bytes.toByteArray())),
-                "assert.equal(e['Fixture.calculate'](20),41); assert.equal(e['Fixture.calculate'](-3),-5);");
+                "assert.equal(e['Fixture.calculate'](20),43); assert.equal(e['Fixture.calculate'](-3),-3);");
     }
 
     @Test void rejectsUnsupportedJavacConstructsWithSourceMethodAndRemediation() throws Exception {
@@ -156,6 +193,8 @@ class BytecodeCompatibilityTest {
                 "public static int f() { return Math.abs(-4); }",
                 "public static Class<?> f() { return Fixture.class; }",
                 "public static int[] f() { return new int[2]; }",
+                "public static Object f() { return new Object(); }",
+                "public static class Child extends Fixture {} public static Object f(){ return new Child(); }",
                 "static int x=compute(); static int compute(){ return 1; }",
                 "public static int f(int n){ return n; } public static int f(){ return 1; }"}) {
             byte[] bytes=fixture("public class Fixture {\n"+body+"\n}");

@@ -26,7 +26,8 @@ could silently discard instructions or emit invalid typed locals.
 | String/class/method-handle/constant-dynamic `LDC` | Rejected; placeholder class pointers and uninitialized string data are not emitted |
 | `INVOKEDYNAMIC` (including javac lambdas and string concatenation) | Rejected; bootstrap/linkage support is pending. Source lambdas and concatenation have separate implementations |
 | `INVOKEVIRTUAL`, `INVOKEINTERFACE` | Rejected; JVM dynamic dispatch is pending |
-| `NEW`, array creation/access, instance field access, casts, `INSTANCEOF`, multianewarray | Rejected; the old provisional heap lowering is not an admitted compatibility target |
+| `NEW`, `GETFIELD`, `PUTFIELD` | Admitted for linked concrete classes extending Object directly and directly declared i32 fields; shared descriptor-qualified layouts and size-based zero initialization. Null access traps; Java exception mapping is pending |
+| Array creation/access, casts, `INSTANCEOF`, multianewarray, inherited object layouts | Rejected |
 | `TABLESWITCH`, `LOOKUPSWITCH` | Admitted; selector comparisons select a state-dispatch successor, preserving default, shared targets, fallthrough, and stack values below the selector. Dispatch uses a linear comparison chain |
 | `JSR`, `RET`, remaining stack manipulation | Rejected |
 | `ATHROW`, exception handler tables | Rejected; use source compilation for supported Java exceptions |
@@ -90,3 +91,9 @@ inference; general Spring bean lifecycle/proxies/annotation processing and broad
 JDBC, advanced transaction policies, Hibernate and the actual H2 engine (the [synchronous in-memory REQUIRED subset](spring-transactions.md) is supported); and further positively
 supported third-party Maven libraries remain unimplemented. The in-memory Spring
 adapter remains a distinct target. The roadmap keeps those broad tasks open.
+
+### Bytecode object allocation contract
+
+`NEW` uses `env.__heap_alloc(size)` and clears the entire payload with `memory.fill`, including a reserved four-byte header. Each directly declared instance field occupies four bytes; references are opaque i32 addresses. The host allocator must return a nonzero, four-byte-aligned, writable region of the requested size without overlapping live allocations. A zero result traps. These modules require WebAssembly bulk-memory support. This is a bytecode layout, without a vtable or class identity, and is not a promise of compatibility with source-backend objects.
+
+Field access and instance calls trap on null. Catchable Java NullPointerException and OutOfMemoryError, automatic collection, inherited layouts, and virtual/interface dispatch remain pending. Allocation requires a concrete linked class whose superclass is Object; unlinked classes, abstract classes, and inherited layouts receive diagnostics. Constructor calls use the existing direct INVOKESPECIAL path. `BytecodeCompatibilityTest` executes objects larger than 64 bytes, dirty-memory zero defaults, constructor initialization, separate allocations, aliases/cycles, null reads/writes, and cross-class field access in a linked JAR.

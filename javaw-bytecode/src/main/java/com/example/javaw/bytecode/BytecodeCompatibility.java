@@ -18,7 +18,7 @@ final class BytecodeCompatibility {
             Opcodes.IF_ICMPEQ, Opcodes.IF_ICMPNE, Opcodes.IF_ICMPLT, Opcodes.IF_ICMPGE,
             Opcodes.IF_ICMPGT, Opcodes.IF_ICMPLE, Opcodes.IF_ACMPEQ, Opcodes.IF_ACMPNE,
             Opcodes.IFNULL, Opcodes.IFNONNULL, Opcodes.GOTO, Opcodes.TABLESWITCH, Opcodes.LOOKUPSWITCH,
-            Opcodes.GETSTATIC, Opcodes.PUTSTATIC, Opcodes.INVOKESTATIC, Opcodes.INVOKESPECIAL,
+            Opcodes.NEW, Opcodes.GETFIELD, Opcodes.PUTFIELD, Opcodes.GETSTATIC, Opcodes.PUTSTATIC, Opcodes.INVOKESTATIC, Opcodes.INVOKESPECIAL,
             Opcodes.IRETURN, Opcodes.ARETURN, Opcodes.RETURN);
 
     static void validate(ClassNode owner, Map<String, ClassNode> linked) {
@@ -51,11 +51,20 @@ final class BytecodeCompatibility {
                 if (instruction instanceof LdcInsnNode constant && !(constant.cst instanceof Integer))
                     throw failure(owner, method, instruction, "LDC " + constant.cst.getClass().getSimpleName(),
                             "only integer LDC constants are supported; use source compilation for strings/classes/dynamic constants");
+                if (instruction instanceof TypeInsnNode allocation && opcode == Opcodes.NEW) {
+                    ClassNode target = linked.get(allocation.desc);
+                    if (target == null || (target.access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_INTERFACE)) != 0
+                            || !"java/lang/Object".equals(target.superName))
+                        throw failure(owner, method, instruction, "object allocation " + allocation.desc,
+                                "link a concrete class extending Object directly; inherited object layouts are unavailable");
+                }
                 if (instruction instanceof FieldInsnNode field) {
                     ClassNode target = linked.get(field.owner);
-                    if (target == null || target.fields.stream().noneMatch(f -> f.name.equals(field.name) && f.desc.equals(field.desc)
-                            && (f.access & Opcodes.ACC_STATIC) != 0))
-                        throw failure(owner, method, instruction, "unlinked static field " + field.owner + "." + field.name,
+                    boolean isStatic = opcode == Opcodes.GETSTATIC || opcode == Opcodes.PUTSTATIC;
+                    if (target == null || (!isStatic && !"java/lang/Object".equals(target.superName))
+                            || target.fields.stream().noneMatch(f -> f.name.equals(field.name) && f.desc.equals(field.desc)
+                            && ((f.access & Opcodes.ACC_STATIC) != 0) == isStatic))
+                        throw failure(owner, method, instruction, "unlinked or unsupported field " + field.owner + "." + field.name,
                                 "link a supported declaring class in the same JAR/module");
                 }
                 if (instruction instanceof MethodInsnNode call) {
