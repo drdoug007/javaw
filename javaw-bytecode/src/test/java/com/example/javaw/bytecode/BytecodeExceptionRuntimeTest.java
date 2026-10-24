@@ -117,6 +117,26 @@ class BytecodeExceptionRuntimeTest implements Opcodes {
             """);
         assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,"-g","-d",directory.toString(),source.toString()));
         Files.write(directory.resolve("LegacyHandled.class"),legacyHandler());
+        Files.write(directory.resolve("ConstructorHandled.class"),constructorHandler());
+    }
+
+    private byte[] constructorHandler() {
+        ClassWriter writer=new ClassWriter(0);writer.visit(V1_5,ACC_PUBLIC,"ConstructorHandled",null,"Broken",null);
+        MethodVisitor init=writer.visitMethod(ACC_PUBLIC,"<init>","()V",null,null);
+        init.visitCode();Label start=new Label(),end=new Label(),handler=new Label();
+        init.visitTryCatchBlock(start,end,handler,null);
+        init.visitVarInsn(ALOAD,0);init.visitInsn(DUP);init.visitVarInsn(ASTORE,1);
+        init.visitLabel(start);init.visitMethodInsn(INVOKESPECIAL,"Broken","<init>","()V",false);
+        init.visitLabel(end);init.visitInsn(RETURN);init.visitLabel(handler);init.visitInsn(ATHROW);
+        init.visitMaxs(2,2);init.visitEnd();
+        MethodVisitor run=writer.visitMethod(ACC_PUBLIC|ACC_STATIC,"run","()I",null,null);
+        run.visitCode();start=new Label();end=new Label();handler=new Label();
+        run.visitTryCatchBlock(start,end,handler,"Fault");run.visitLabel(start);
+        run.visitTypeInsn(NEW,"ConstructorHandled");run.visitInsn(DUP);
+        run.visitMethodInsn(INVOKESPECIAL,"ConstructorHandled","<init>","()V",false);
+        run.visitInsn(POP);run.visitLabel(end);run.visitInsn(ICONST_0);run.visitInsn(IRETURN);
+        run.visitLabel(handler);run.visitFieldInsn(GETFIELD,"Fault","code","J");run.visitInsn(L2I);run.visitInsn(IRETURN);
+        run.visitMaxs(2,0);run.visitEnd();writer.visitEnd();return writer.toByteArray();
     }
 
     private byte[] legacyHandler() {
@@ -140,7 +160,7 @@ class BytecodeExceptionRuntimeTest implements Opcodes {
     private String jar(boolean reverse) throws Exception {return jar(reverse,false);}
 
     private String jar(boolean reverse,boolean arithmetic) throws Exception {
-        List<String> names=new ArrayList<>(List.of("Fixture","Fault","Child","Other","Step","Worker","Broken","LegacyHandled","java/lang/Throwable"));
+        List<String> names=new ArrayList<>(List.of("Fixture","Fault","Child","Other","Step","Worker","Broken","LegacyHandled","ConstructorHandled","java/lang/Throwable"));
         if(arithmetic) names.add("java/lang/ArithmeticException");
         if(reverse) Collections.reverse(names);
         ByteArrayOutputStream bytes=new ByteArrayOutputStream();
@@ -502,6 +522,7 @@ class BytecodeExceptionRuntimeTest implements Opcodes {
         fixture();
         try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)) {
             Class<?> jvm=loader.loadClass("Fixture");StringBuilder checks=new StringBuilder();
+            checks.append("assert.equal(e['ConstructorHandled.run'](),").append(loader.loadClass("ConstructorHandled").getMethod("run").invoke(null)).append(");");
             for(String name:new String[]{"caught","dynamic","multi","unmatched","stacked"}) for(int kind=0;kind<4;kind++) {
                 Object expected=jvm.getMethod(name,int.class).invoke(null,kind);
                 checks.append("assert.equal(e['Fixture.").append(name).append("'](").append(kind).append("),")

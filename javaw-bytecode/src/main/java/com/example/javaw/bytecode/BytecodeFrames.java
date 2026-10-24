@@ -111,8 +111,8 @@ final class BytecodeFrames implements Opcodes {
                     if (instruction instanceof MethodInsnNode call && call.name.equals("<init>")) {
                         int position = exceptional.getStackSize() - Type.getArgumentTypes(call.desc).length - 1;
                         if (position >= 0 && exceptional.getStack(position) instanceof UninitializedValue receiver) {
-                            if (receiver == verifier.uninitializedThis)
-                                throw new AnalyzerException(instruction, "handlers covering this/super constructor initialization are not yet supported");
+                            // Preserve flagThisUninit after a failed this/super call, while making
+                            // every receiver alias unusable on the exceptional edge.
                             // A constructor that throws cannot leave an initializable alias in a handler.
                             for (int i = 0; i < exceptional.getLocals(); i++)
                                 if (exceptional.getLocal(i) == receiver) exceptional.setLocal(i, BasicValue.UNINITIALIZED_VALUE);

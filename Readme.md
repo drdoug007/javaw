@@ -1811,3 +1811,6 @@ Bytecode null ATHROW, null instance field/call receivers and failed CHECKCAST op
 
 
 Array and allocation exception mappings now execute with explicitly linked runtime definitions: array null/bounds/store/negative-size failures, checked arraycopy prefixes, multidimensional checks, allocation overflow and null allocator results. An emergency OutOfMemoryError resides in a reserved memory prefix, exported as `__exception_heap_base`; hosts must allocate beyond it. Validation: 167 bytecode tests and the reviewed 63-JAR audit pass (revision `array-exceptions-v32`, inventory unchanged). Throwable APIs, constructor handlers and runtime linkage behavior continue under the exception milestone. See [the failure contract](docs/compatibility.md#bytecode-array-and-allocation-exceptions).
+
+
+Constructor exception handlers now admit JVM-legal protected this/super calls. Failed receiver aliases become unusable while the pending initialization flag prevents handlers from returning an uninitialized object. JVM/Wasm tests execute a failed super constructor with aliased this and rethrow in both JAR orders; verifier comparisons reject invalid handler returns and alias reuse. All 167 bytecode tests and the reviewed 63-JAR audit pass; revision `constructor-handlers-v33`.

@@ -175,7 +175,7 @@ class BytecodeExceptionHandlerTest implements Opcodes {
         }
     }
 
-    @Test void explicitlyDiagnosesUnsupportedHandlersAcrossThisOrSuperInitialization() {
+    @Test void verifiesHandlersAcrossThisOrSuperInitializationWithoutRevivingFailedThis() {
         ClassNode owner=type("HandlerFixture","java/lang/Object");owner.version=V1_5;
         MethodNode init=new MethodNode(ACC_PUBLIC,"<init>","()V",null,null);init.maxLocals=1;init.maxStack=1;owner.methods.add(init);
         LabelNode start=new LabelNode(),end=new LabelNode(),handler=new LabelNode();var code=init.instructions;
@@ -184,8 +184,12 @@ class BytecodeExceptionHandlerTest implements Opcodes {
         code.add(end);code.add(new InsnNode(RETURN));code.add(handler);code.add(new InsnNode(ATHROW));
         init.tryCatchBlocks.add(new TryCatchBlockNode(start,end,handler,null));
         assertDoesNotThrow(()->jvm(owner));
-        Exception error=assertThrows(Exception.class,()->analyze(owner));
-        assertTrue(error.getMessage().contains("handlers covering this/super constructor initialization"),error.getMessage());
+        assertDoesNotThrow(()->analyze(owner));
+        // A failed super call cannot allow normal constructor return or reuse of this.
+        code.set(code.getLast(),new InsnNode(RETURN));
+        assertThrows(LinkageError.class,()->jvm(owner));assertThrows(Exception.class,()->analyze(owner));
+        code.set(code.getLast(),new VarInsnNode(ALOAD,0));code.add(new InsnNode(ATHROW));
+        assertThrows(LinkageError.class,()->jvm(owner));assertThrows(Exception.class,()->analyze(owner));
     }
 
     @Test void rejectsInvalidThrowOperandsLikeJvmAndRequiresLinkedThrowableMetadata() {
