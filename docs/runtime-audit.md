@@ -55,3 +55,7 @@ Validation: all 240 bytecode tests pass; the reviewed 63-JAR audit baseline pass
 Revision `core-text-v46` implements the first audited core text subset. Logback's unchanged pinned JsonEscapeUtil class now executes with the bundled StringBuilder, String.toCharArray and existing string character operations, including its static escape-table initializer. JVM/Wasm comparisons retain the actual library's behavior. See [the core JDK text contract](bytecode-core-jdk.md); this does not establish whole-Logback startup or complete core JDK coverage.
 
 Validation: all 242 bytecode tests pass; the reviewed 63-JAR audit baseline passes with unchanged inventory counts and revision `core-text-v46`.
+
+Revision `integral-values-v47` supplies integral parsing/formatting found in the member inventory, including Logback FormatInfo.valueOf, H2 and Spring/Hibernate conversion paths. Tests execute the unchanged pinned Logback FormatInfo class with the bundled wrappers and compare its actual parsing, value and failure semantics. This does not prove the other enclosing framework callers execute. See [the integral conversion contract](bytecode-core-jdk.md#integral-wrappers-and-radix-conversion).
+
+Validation: all 244 bytecode tests pass; the reviewed 63-JAR audit baseline passes with unchanged inventory counts and revision `integral-values-v47`.

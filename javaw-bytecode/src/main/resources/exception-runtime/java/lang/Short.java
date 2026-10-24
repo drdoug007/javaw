@@ -3,6 +3,13 @@ package java.lang;
 /** Value and identity operations required by bootstrap adapters. */
 public final class Short extends Number implements Comparable<Short>,java.io.Serializable {
     public static final Class<Short> TYPE=(Class<Short>)javaw.runtime.ExceptionSupport.classMirror(-23);
+    public static final short MIN_VALUE=-32768,MAX_VALUE=32767;
+    public Short(String text){this(parseShort(text));}
+    public static short parseShort(String text){return parseShort(text,10);}
+    public static short parseShort(String text,int radix){int value=Integer.parseInt(text,radix);if(value<MIN_VALUE || value>MAX_VALUE)throw new NumberFormatException();return (short)value;}
+    public static Short valueOf(String text){return valueOf(parseShort(text));}
+    public static Short valueOf(String text,int radix){return valueOf(parseShort(text,radix));}
+    public static Short decode(String text){int value=Integer.decode(text).intValue();if(value<MIN_VALUE || value>MAX_VALUE)throw new NumberFormatException();return valueOf((short)value);}
     private final short value;
     public Short(short value){this.value=value;}
     public short shortValue(){return value;}

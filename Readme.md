@@ -1861,3 +1861,7 @@ Validation: all 240 bytecode tests pass; the reviewed 63-JAR audit baseline pass
 Core JDK bytecode coverage now begins with UTF-16 String slices/search/comparison and a mutable StringBuilder runtime (`core-text-v46`). JVM/Wasm comparisons execute the unchanged pinned Logback Core 1.4.14 JsonEscapeUtil class, including its static initializer, and verify builder mutation, snapshots, growth, null/bounds failures and Unicode behavior. See [the supported text APIs and boundaries](docs/bytecode-core-jdk.md). The core JDK parent milestone remains open for collections, streams, numeric utilities and the remaining text/functional APIs.
 
 Validation: all 242 bytecode tests pass; the reviewed 63-JAR audit baseline passes with unchanged inventory counts and revision `core-text-v46`.
+
+The core JDK bytecode increment now supports signed Integer/Long radix parsing and formatting, wrapper constructors/valueOf/decode, Byte/Short narrowing checks, and BMP digit conversion (`integral-values-v47`). JVM/Wasm tests execute the unchanged pinned Logback FormatInfo class and compare signed limits, radix conversions, Unicode digits, cache reuse and typed failures. See [the integral API contract](docs/bytecode-core-jdk.md#integral-wrappers-and-radix-conversion). The parent core JDK milestone remains open for collections, broader numeric/big-number APIs and the remaining wrappers/functional APIs.
+
+Validation: all 244 bytecode tests pass; the reviewed 63-JAR audit baseline passes with unchanged inventory counts and revision `integral-values-v47`.

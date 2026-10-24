@@ -557,3 +557,7 @@ The bundled runtime supplies original linked-class member discovery, public/inhe
 ## Bytecode core JDK text subset
 
 Revision `core-text-v46` adds bundled CharSequence, String copying/slices/search/comparison and StringBuilder construction, growth, append/mutation and immutable snapshots. [The core JDK contract](bytecode-core-jdk.md) lists supported APIs, exclusions and JVM/Wasm evidence from the unchanged pinned Logback JsonEscapeUtil class. The broader core JDK and framework milestones remain open.
+
+## Bytecode integral wrapper conversions
+
+Revision `integral-values-v47` supplies Integer/Long signed radix parsing and formatting, CharSequence slices, decode, string construction/boxing and unsigned hex/octal/binary text; Byte/Short range-checked parsing/decode and BMP Character digit conversion. [The integral contract](bytecode-core-jdk.md#integral-wrappers-and-radix-conversion) records exact supported APIs, failures, exclusions and unchanged pinned Logback FormatInfo JVM/Wasm evidence. Broader core JDK coverage remains open.
