@@ -18,7 +18,7 @@ final class BytecodeCompatibility {
             Opcodes.IF_ICMPEQ, Opcodes.IF_ICMPNE, Opcodes.IF_ICMPLT, Opcodes.IF_ICMPGE,
             Opcodes.IF_ICMPGT, Opcodes.IF_ICMPLE, Opcodes.IF_ACMPEQ, Opcodes.IF_ACMPNE,
             Opcodes.IFNULL, Opcodes.IFNONNULL, Opcodes.GOTO, Opcodes.TABLESWITCH, Opcodes.LOOKUPSWITCH,
-            Opcodes.NEW, Opcodes.GETFIELD, Opcodes.PUTFIELD, Opcodes.GETSTATIC, Opcodes.PUTSTATIC, Opcodes.INVOKESTATIC, Opcodes.INVOKESPECIAL, Opcodes.INVOKEVIRTUAL, Opcodes.INVOKEINTERFACE,
+            Opcodes.CHECKCAST, Opcodes.INSTANCEOF, Opcodes.NEW, Opcodes.GETFIELD, Opcodes.PUTFIELD, Opcodes.GETSTATIC, Opcodes.PUTSTATIC, Opcodes.INVOKESTATIC, Opcodes.INVOKESPECIAL, Opcodes.INVOKEVIRTUAL, Opcodes.INVOKEINTERFACE,
             Opcodes.LCONST_0, Opcodes.LCONST_1, Opcodes.LLOAD, Opcodes.LSTORE,
             Opcodes.LADD, Opcodes.LSUB, Opcodes.LMUL, Opcodes.LDIV, Opcodes.LREM, Opcodes.LNEG,
             Opcodes.LSHL, Opcodes.LSHR, Opcodes.LUSHR, Opcodes.LAND, Opcodes.LOR, Opcodes.LXOR,
@@ -64,6 +64,13 @@ final class BytecodeCompatibility {
                 if (instruction instanceof LdcInsnNode constant && !numericConstant(constant.cst))
                     throw failure(owner, method, instruction, "LDC " + constant.cst.getClass().getSimpleName(),
                             "only numeric LDC constants are supported; use source compilation for strings/classes/dynamic constants");
+                if (instruction instanceof TypeInsnNode test
+                        && (opcode == Opcodes.CHECKCAST || opcode == Opcodes.INSTANCEOF)) {
+                    try { dispatch.typeTestIds(test.desc); }
+                    catch (IllegalArgumentException error) {
+                        throw failure(owner, method, instruction, "type test " + test.desc, error.getMessage());
+                    }
+                }
                 if (instruction instanceof TypeInsnNode allocation && opcode == Opcodes.NEW) {
                     ClassNode target = linked.get(allocation.desc);
                     if (target == null || (target.access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_INTERFACE)) != 0

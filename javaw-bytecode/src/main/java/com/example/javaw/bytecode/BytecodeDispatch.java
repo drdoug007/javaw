@@ -54,6 +54,38 @@ public final class BytecodeDispatch {
         return id;
     }
 
+    /** Concrete runtime IDs assignable to a linked class/interface type-test target. */
+    public Set<Integer> typeTestIds(String target) {
+        if (!target.equals("java/lang/Object")) {
+            ClassNode type = linked.get(target);
+            if (type == null || target.startsWith("["))
+                throw new IllegalArgumentException("link the type-test class/interface; array type tests are unsupported");
+            if ((type.access & Opcodes.ACC_PUBLIC) == 0 && caller != null
+                    && !packageName(caller).equals(packageName(target)))
+                throw new IllegalArgumentException("type-test target is inaccessible outside its package");
+        }
+        Set<Integer> result = new LinkedHashSet<>();
+        for (var entry : classIds.entrySet()) {
+            ClassNode type = linked.get(entry.getKey());
+            validateTypeHierarchy(type.name, new HashSet<>(), new HashSet<>());
+            if ((type.access & (Opcodes.ACC_INTERFACE | Opcodes.ACC_ABSTRACT)) == 0
+                    && layouts.contains(type.name) && subtype(type.name, target, new HashSet<>()))
+                result.add(entry.getValue());
+        }
+        return result;
+    }
+
+    private void validateTypeHierarchy(String name, Set<String> visiting, Set<String> complete) {
+        if ("java/lang/Object".equals(name) || complete.contains(name)) return;
+        ClassNode type = linked.get(name);
+        if (type == null || !visiting.add(name))
+            throw new IllegalArgumentException("link a complete acyclic type-test hierarchy: " + name);
+        if (type.superName != null) validateTypeHierarchy(type.superName, visiting, complete);
+        for (String iface : type.interfaces) validateTypeHierarchy(iface, visiting, complete);
+        visiting.remove(name);
+        complete.add(name);
+    }
+
     private Declaration declaration(String name, String method, String descriptor, Set<String> visited) {
         if (!visited.add(name)) return null;
         ClassNode type = linked.get(name);

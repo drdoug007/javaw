@@ -464,6 +464,33 @@ public class BytecodeInstructionVisitor {
                 emit("i32.store offset=0");
                 break;
 
+            case Opcodes.INSTANCEOF:
+            case Opcodes.CHECKCAST:
+                String testedRef = stack.peek();
+                TypeInsnNode typeTest = (TypeInsnNode) insn;
+                emit("local.get " + testedRef);
+                emit("i32.eqz");
+                emit("if (result i32)");
+                emit("i32.const " + (opcode == Opcodes.CHECKCAST ? 1 : 0));
+                emit("else");
+                emit("i32.const 0");
+                for (int id : dispatch.typeTestIds(typeTest.desc)) {
+                    emit("local.get " + testedRef);
+                    emit("i32.load");
+                    emit("i32.const " + id);
+                    emit("i32.eq");
+                    emit("i32.or");
+                }
+                emit("end");
+                if (opcode == Opcodes.INSTANCEOF) emit("local.set " + testedRef);
+                else {
+                    emit("i32.eqz");
+                    emit("if");
+                    emit("unreachable");
+                    emit("end");
+                }
+                break;
+
             case Opcodes.NEW:
                 TypeInsnNode newInsn = (TypeInsnNode) insn;
                 String newRef = stack.push("i32");

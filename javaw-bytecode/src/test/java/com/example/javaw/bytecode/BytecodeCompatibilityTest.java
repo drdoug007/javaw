@@ -1113,6 +1113,91 @@ class BytecodeCompatibilityTest {
             """);
     }
 
+    @Test void executesLinkedClassAndInterfaceTypeTests() throws Exception {
+        fixture("""
+            public class Fixture {
+                public static Object make(int n) {
+                    if(n==0) return null;
+                    if(n==1) return new Child();
+                    if(n==2) return new Other();
+                    return new Plain();
+                }
+                public static int classify(Object value) {
+                    return (value instanceof Object?1:0)+(value instanceof Base?2:0)
+                        +(value instanceof Child?4:0)+(value instanceof Root?8:0)
+                        +(value instanceof Leaf?16:0)+(value instanceof Other?32:0)
+                        +(value instanceof Empty?64:0);
+                }
+                public static int castClass(Object value) { return ((Base)value).value; }
+                public static int castInterface(Object value) { return ((Root)value).get(); }
+                public static Object castNull(Object value) { return (Child)value; }
+                public static int joined(Object value,boolean flag) {
+                    Base base=flag?(Base)value:new Child(); return base.value;
+                }
+                public static int nested(Object value) { return ((Root)(Base)value).get()+7; }
+            }
+            interface Empty {}
+            interface Root { int get(); }
+            interface Leaf extends Root {}
+            abstract class Base implements Leaf { int value; Base(){value=23;} }
+            class Child extends Base { public int get(){return value+1;} }
+            class Other implements Root { public int get(){return 99;} }
+            class Plain {}
+            """);
+        execute(linkJar("Empty","Plain","Other","Child","Base","Leaf","Root","Fixture"),"""
+            const nil=e['Fixture.make'](0),child=e['Fixture.make'](1),other=e['Fixture.make'](2),plain=e['Fixture.make'](3);
+            assert.equal(e['Fixture.classify'](nil),0);
+            assert.equal(e['Fixture.classify'](child),31);
+            assert.equal(e['Fixture.classify'](other),41);
+            assert.equal(e['Fixture.classify'](plain),1);
+            assert.equal(e['Fixture.castClass'](child),23);
+            assert.equal(e['Fixture.castInterface'](child),24);
+            assert.equal(e['Fixture.castInterface'](other),99);
+            assert.equal(e['Fixture.castNull'](nil),0);
+            assert.equal(e['Fixture.castNull'](child),child);
+            assert.equal(e['Fixture.joined'](child,1),23);
+            assert.equal(e['Fixture.joined'](other,0),23);
+            assert.equal(e['Fixture.nested'](child),31);
+            assert.throws(()=>e['Fixture.castNull'](other),WebAssembly.RuntimeError);
+            assert.throws(()=>e['Fixture.castClass'](other),WebAssembly.RuntimeError);
+            assert.throws(()=>e['Fixture.castInterface'](plain),WebAssembly.RuntimeError);
+            assert.throws(()=>e['Fixture.castClass'](nil),WebAssembly.RuntimeError);
+            """);
+    }
+
+    @Test void rejectsUnlinkedArrayInaccessibleAndIncompleteTypeTests() throws Exception {
+        byte[] bytes=fixture("""
+            public class Fixture {
+                public static boolean test(Object value) { return value instanceof Fixture; }
+            }
+            """);
+        for(String target:new String[]{"missing/Type","[I","[Ljava/lang/Object;"}) {
+            ClassNode type=new ClassNode(); new ClassReader(bytes).accept(type,0);
+            for(MethodNode method:type.methods) for(AbstractInsnNode insn:method.instructions)
+                if(insn instanceof TypeInsnNode test) test.desc=target;
+            ClassWriter writer=new ClassWriter(0); type.accept(writer);
+            String message=assertThrows(IllegalArgumentException.class,
+                    ()->BytecodeCompiler.compileClass(writer.toByteArray())).getMessage();
+            assertTrue(message.contains("type test "+target),message);
+            assertTrue(message.contains("Fixture.java:"),message);
+        }
+        ClassNode caller=new ClassNode(); new ClassReader(bytes).accept(caller,0);
+        ClassNode hidden=new ClassNode(); hidden.name="other/Hidden"; hidden.superName="java/lang/Object";
+        var linked=new java.util.LinkedHashMap<String,ClassNode>();
+        linked.put(caller.name,caller); linked.put(hidden.name,hidden);
+        assertTrue(assertThrows(IllegalArgumentException.class,
+                ()->new BytecodeDispatch(linked,caller.name).typeTestIds(hidden.name))
+                .getMessage().contains("inaccessible"));
+        hidden.access=Opcodes.ACC_PUBLIC; hidden.interfaces.add("missing/Interface");
+        assertTrue(assertThrows(IllegalArgumentException.class,
+                ()->new BytecodeDispatch(linked,caller.name).typeTestIds(caller.name))
+                .getMessage().contains("complete acyclic"));
+        hidden.interfaces.clear(); hidden.superName=hidden.name;
+        assertTrue(assertThrows(IllegalArgumentException.class,
+                ()->new BytecodeDispatch(linked,caller.name).typeTestIds(caller.name))
+                .getMessage().contains("complete acyclic"));
+    }
+
     private String linkJar(String... names) throws Exception {
         var bytes=new java.io.ByteArrayOutputStream();
         try(var jar=new java.util.jar.JarOutputStream(bytes)) {
