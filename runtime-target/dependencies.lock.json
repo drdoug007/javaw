@@ -1,0 +1,383 @@
+{
+  "schemaVersion": 1,
+  "artifacts": [
+    {
+      "groupId": "ch.qos.logback",
+      "artifactId": "logback-classic",
+      "version": "1.4.14",
+      "sha256": "8e832f7263ca606ae36dabb2d8b24c2f43d82cf634e81dad9d1640fa6ee3c596"
+    },
+    {
+      "groupId": "ch.qos.logback",
+      "artifactId": "logback-core",
+      "version": "1.4.14",
+      "sha256": "f8c2f05f42530b1852739507c1792f0080167850ed8f396444c6913d6617a293"
+    },
+    {
+      "groupId": "com.fasterxml",
+      "artifactId": "classmate",
+      "version": "1.5.1",
+      "sha256": "aab4de3006808c09d25dd4ff4a3611cfb63c95463cfd99e73d2e1680d229a33b"
+    },
+    {
+      "groupId": "com.fasterxml.jackson.core",
+      "artifactId": "jackson-annotations",
+      "version": "2.15.4",
+      "sha256": "f204ebbd552614a22b8531ffe350d47f8fd42c45bb60517c07974dc27a5a1dd3"
+    },
+    {
+      "groupId": "com.fasterxml.jackson.core",
+      "artifactId": "jackson-core",
+      "version": "2.15.4",
+      "sha256": "8dc9210dd285db366f45f518dd1e6a9ccfeb0f1a8e184a899fe96d29edf1fd94"
+    },
+    {
+      "groupId": "com.fasterxml.jackson.core",
+      "artifactId": "jackson-databind",
+      "version": "2.15.4",
+      "sha256": "0f99ff7719eef3ee85608b3dee6ecf3c698003fe9d6e34eabbfabccdc9b5ac2c"
+    },
+    {
+      "groupId": "com.fasterxml.jackson.datatype",
+      "artifactId": "jackson-datatype-jdk8",
+      "version": "2.15.4",
+      "sha256": "3efb9d55b62f50e64b11fe00625800285fef8781736b80bd206677fb56040aac"
+    },
+    {
+      "groupId": "com.fasterxml.jackson.datatype",
+      "artifactId": "jackson-datatype-jsr310",
+      "version": "2.15.4",
+      "sha256": "472498cbba2726012ff82f86fc8feef9593663bda1a695a17db804a63fa733ff"
+    },
+    {
+      "groupId": "com.fasterxml.jackson.module",
+      "artifactId": "jackson-module-parameter-names",
+      "version": "2.15.4",
+      "sha256": "a620ee11f89deae6e2ce6cd5a64d9f2d1480bf08b45ec2f0730bddf9177f37fc"
+    },
+    {
+      "groupId": "com.h2database",
+      "artifactId": "h2",
+      "version": "2.2.224",
+      "sha256": "b9d8f19358ada82a4f6eb5b174c6cfe320a375b5a9cb5a4fe456d623e6e55497"
+    },
+    {
+      "groupId": "com.sun.istack",
+      "artifactId": "istack-commons-runtime",
+      "version": "4.1.1",
+      "sha256": "7e8148c5bf5d5ae6f8c4534c1873f82e80bf7f9164fd09ee573df0013918dcd3"
+    },
+    {
+      "groupId": "com.zaxxer",
+      "artifactId": "HikariCP",
+      "version": "5.0.1",
+      "sha256": "26d492397e6775b4296737a8919bf04047afe5827fdd2c08b4557595436b3a2b"
+    },
+    {
+      "groupId": "io.micrometer",
+      "artifactId": "micrometer-commons",
+      "version": "1.12.4",
+      "sha256": "62e46f3b46e234e38f8333cf3e3a5ff54d0a9f3ca890e4b9773674d180c36914"
+    },
+    {
+      "groupId": "io.micrometer",
+      "artifactId": "micrometer-observation",
+      "version": "1.12.4",
+      "sha256": "51a670bb33cf979bca49b46391bd744c3a4e23699d0a305c2134ef0d01a910f3"
+    },
+    {
+      "groupId": "io.smallrye",
+      "artifactId": "jandex",
+      "version": "3.1.2",
+      "sha256": "dee12fa1787d5523ed1a02d6c63b19e7aef6ac560f7c6d70595db01aa37e041e"
+    },
+    {
+      "groupId": "jakarta.activation",
+      "artifactId": "jakarta.activation-api",
+      "version": "2.1.0",
+      "sha256": "56e8d994095fe49c28138c60291482f66f18d12ac2b720e938697dce6a3135c7"
+    },
+    {
+      "groupId": "jakarta.annotation",
+      "artifactId": "jakarta.annotation-api",
+      "version": "2.1.1",
+      "sha256": "5f65fdaf424eee2b55e1d882ba9bb376be93fb09b37b808be6e22e8851c909fe"
+    },
+    {
+      "groupId": "jakarta.inject",
+      "artifactId": "jakarta.inject-api",
+      "version": "2.0.1",
+      "sha256": "f7dc98062fccf14126abb751b64fab12c312566e8cbdc8483598bffcea93af7c"
+    },
+    {
+      "groupId": "jakarta.persistence",
+      "artifactId": "jakarta.persistence-api",
+      "version": "3.1.0",
+      "sha256": "475389446d35c6f46c565728b756dc508c284644ea2690644e0d8e7e339d42fd"
+    },
+    {
+      "groupId": "jakarta.transaction",
+      "artifactId": "jakarta.transaction-api",
+      "version": "2.0.1",
+      "sha256": "50c0a7c760c13ae6c042acf182b28f0047413db95b4636fb8879bcffab5ba875"
+    },
+    {
+      "groupId": "jakarta.xml.bind",
+      "artifactId": "jakarta.xml.bind-api",
+      "version": "4.0.0",
+      "sha256": "57e3796ad5753640088f5f9d3c53c183f2c250b7dad90529ea3e19a5515aa122"
+    },
+    {
+      "groupId": "net.bytebuddy",
+      "artifactId": "byte-buddy",
+      "version": "1.14.11",
+      "sha256": "62ae28187ed2b062813da6a9d567bfee733c341582699b62dd980230729a0313"
+    },
+    {
+      "groupId": "org.antlr",
+      "artifactId": "antlr4-runtime",
+      "version": "4.13.0",
+      "sha256": "bd7f7b5d07bc0b047f10915b32ca4bb1de9e57d8049098882e4453c88c076a5d"
+    },
+    {
+      "groupId": "org.apache.logging.log4j",
+      "artifactId": "log4j-api",
+      "version": "2.21.1",
+      "sha256": "1db48e180881bef1deb502022006a025a248d8f6a26186789b0c7ce487c602d6"
+    },
+    {
+      "groupId": "org.apache.logging.log4j",
+      "artifactId": "log4j-to-slf4j",
+      "version": "2.21.1",
+      "sha256": "de143c565ba78b0f2c0be58f132c7aec75e6e1a10845ebda5a4f17c2a35d9990"
+    },
+    {
+      "groupId": "org.apache.tomcat.embed",
+      "artifactId": "tomcat-embed-core",
+      "version": "10.1.19",
+      "sha256": "ca35025eda35fbef0798ed4ae79d0fbfa11d0a7a4d82fffd3e1a2bfa34abddbe"
+    },
+    {
+      "groupId": "org.apache.tomcat.embed",
+      "artifactId": "tomcat-embed-el",
+      "version": "10.1.19",
+      "sha256": "acd1b9ad8c60c72c99b5ed01d3ef6747f85be6c51b5b045a365686de889bfae4"
+    },
+    {
+      "groupId": "org.apache.tomcat.embed",
+      "artifactId": "tomcat-embed-websocket",
+      "version": "10.1.19",
+      "sha256": "c620bc4bbe425fb93c503cf4ba6106c21c8e2390d8b8b314523e4f3193074c67"
+    },
+    {
+      "groupId": "org.aspectj",
+      "artifactId": "aspectjweaver",
+      "version": "1.9.21",
+      "sha256": "cc3397d9d3a114894756fc67779941f5f04b06e32e41aa9408564c671a1504ba"
+    },
+    {
+      "groupId": "org.eclipse.angus",
+      "artifactId": "angus-activation",
+      "version": "2.0.0",
+      "sha256": "3a12d321a0f35aa9458ff9b6ee93a3de76b78e3f18b077c81721473d83079147"
+    },
+    {
+      "groupId": "org.glassfish.jaxb",
+      "artifactId": "jaxb-core",
+      "version": "4.0.2",
+      "sha256": "d7ff2954ad78480bbab9391cccff3a22f42a82b6e09aeca1c7d502411c470ccd"
+    },
+    {
+      "groupId": "org.glassfish.jaxb",
+      "artifactId": "jaxb-runtime",
+      "version": "4.0.2",
+      "sha256": "1bc271e61b71ca4bd89eb053f3d2c91d478211b02a8982cb520f216fe0e9a939"
+    },
+    {
+      "groupId": "org.glassfish.jaxb",
+      "artifactId": "txw2",
+      "version": "4.0.2",
+      "sha256": "ea71912e4f0a42530f77c9840ae90019c46402dedfdf007cff03797429a0cf0c"
+    },
+    {
+      "groupId": "org.hibernate.common",
+      "artifactId": "hibernate-commons-annotations",
+      "version": "6.0.6.Final",
+      "sha256": "cd974e0a8481fafdbaf9b4a0f08bb5a6c969b0365482763eedf77e6fd7f493b7"
+    },
+    {
+      "groupId": "org.hibernate.orm",
+      "artifactId": "hibernate-core",
+      "version": "6.4.4.Final",
+      "sha256": "a1324b7c80c800826c9a5d74b61b0de768141f967c2b082650cb7bf4675570a7"
+    },
+    {
+      "groupId": "org.jboss.logging",
+      "artifactId": "jboss-logging",
+      "version": "3.5.0.Final",
+      "sha256": "7bb135b081952f6d32d83374619ae5201b05ca3bf862a28dd111016ce19b2c07"
+    },
+    {
+      "groupId": "org.slf4j",
+      "artifactId": "jul-to-slf4j",
+      "version": "2.0.12",
+      "sha256": "84f02864cab866ffb196ed2022b1b8da682ea6fb3d4a161069429e8391ee2979"
+    },
+    {
+      "groupId": "org.slf4j",
+      "artifactId": "slf4j-api",
+      "version": "2.0.2",
+      "sha256": "f920e120b32ffddb2fdf5af96eed3cd5320199693f47a36b0c2afde3913d7071"
+    },
+    {
+      "groupId": "org.springframework",
+      "artifactId": "spring-aop",
+      "version": "6.1.5",
+      "sha256": "1e03dacb0da992938ef597daa9627104992efcb5a224fcb0ba10761f5603db70"
+    },
+    {
+      "groupId": "org.springframework",
+      "artifactId": "spring-aspects",
+      "version": "6.1.5",
+      "sha256": "7febbf1c7f485fd9da615b4dfd83c1256411de75cee63f3aa2521841e2f020ed"
+    },
+    {
+      "groupId": "org.springframework",
+      "artifactId": "spring-beans",
+      "version": "6.1.5",
+      "sha256": "bdcf61036293fc3475272e743b625d679e06d152b781134951c907b185f0f5f1"
+    },
+    {
+      "groupId": "org.springframework",
+      "artifactId": "spring-context",
+      "version": "6.1.5",
+      "sha256": "8f85eb0abe1e80f62a831f74be135e3cbbe0587a510417af74fdd2e3bea4eec7"
+    },
+    {
+      "groupId": "org.springframework",
+      "artifactId": "spring-core",
+      "version": "6.1.5",
+      "sha256": "476dac28509b3f47d0b5e895a639fa75ac2218f074ce214e44832a836c469f7e"
+    },
+    {
+      "groupId": "org.springframework",
+      "artifactId": "spring-expression",
+      "version": "6.1.5",
+      "sha256": "1f37b50dcaf091a43bb10d946178fff4082674497fd821438327815da14f7fd0"
+    },
+    {
+      "groupId": "org.springframework",
+      "artifactId": "spring-jcl",
+      "version": "6.1.5",
+      "sha256": "c53540419e482242c815db6d6a8cd80af85a6a895e38329b9d9bd6b4616503eb"
+    },
+    {
+      "groupId": "org.springframework",
+      "artifactId": "spring-jdbc",
+      "version": "6.1.5",
+      "sha256": "121a0243170fc2ecfef9f2a529f9fd09bb465d905eaa0e2982308e64519372d5"
+    },
+    {
+      "groupId": "org.springframework",
+      "artifactId": "spring-orm",
+      "version": "6.1.5",
+      "sha256": "d4de64f0ec46ca1480b120db55eb953904a7e5c68dabb9dfd9646b9a1d2a82ca"
+    },
+    {
+      "groupId": "org.springframework",
+      "artifactId": "spring-tx",
+      "version": "6.1.5",
+      "sha256": "bbd4376391f4c950960f6bdf4d7dcfc7ce1c40339610468acfafdd03685dad44"
+    },
+    {
+      "groupId": "org.springframework",
+      "artifactId": "spring-web",
+      "version": "6.1.5",
+      "sha256": "b9faabe70744346ded2ef8bb7aa8f72e637622948788d00fc5d1e0f2647cefb2"
+    },
+    {
+      "groupId": "org.springframework",
+      "artifactId": "spring-webmvc",
+      "version": "6.1.5",
+      "sha256": "f4fbe0c336d4c6b339d84c26418428a34c5e5408321da4e5ab0a5783b1793225"
+    },
+    {
+      "groupId": "org.springframework.boot",
+      "artifactId": "spring-boot",
+      "version": "3.2.4",
+      "sha256": "f9bbba10663bbe4675264aeb07197629f1bbcac611189f8987a46c82f7ffb95a"
+    },
+    {
+      "groupId": "org.springframework.boot",
+      "artifactId": "spring-boot-autoconfigure",
+      "version": "3.2.4",
+      "sha256": "14b4694e1a782ea946264a7676da2936d2474abf0f875739b1af5da3bb7ad85b"
+    },
+    {
+      "groupId": "org.springframework.boot",
+      "artifactId": "spring-boot-starter",
+      "version": "3.2.4",
+      "sha256": "2fd859463321453117a0f9ddb17d460d4ecc433d10ec10c12e7933e03a5cd6dc"
+    },
+    {
+      "groupId": "org.springframework.boot",
+      "artifactId": "spring-boot-starter-aop",
+      "version": "3.2.4",
+      "sha256": "097b0252b823a7300d87d4c1181ba74b468da253b26b250ca22bd183d84a9583"
+    },
+    {
+      "groupId": "org.springframework.boot",
+      "artifactId": "spring-boot-starter-data-jpa",
+      "version": "3.2.4",
+      "sha256": "b297eae0cedf54905a28c49e570f646b6a3bea6a1df636153b03eef864af8b58"
+    },
+    {
+      "groupId": "org.springframework.boot",
+      "artifactId": "spring-boot-starter-jdbc",
+      "version": "3.2.4",
+      "sha256": "d5d2f1138909d77e73b72866bfaaa0052c678ef0b2387d97a8fd0f6fdb6f6c26"
+    },
+    {
+      "groupId": "org.springframework.boot",
+      "artifactId": "spring-boot-starter-json",
+      "version": "3.2.4",
+      "sha256": "f48d50ea19f3198d32ef3557bd572b5fe2704a9ad6239da56d1cce41dfad432e"
+    },
+    {
+      "groupId": "org.springframework.boot",
+      "artifactId": "spring-boot-starter-logging",
+      "version": "3.2.4",
+      "sha256": "34908ea7f473b5431c293714838294e1f630cb93d6c419cb1370b7ab35cf2424"
+    },
+    {
+      "groupId": "org.springframework.boot",
+      "artifactId": "spring-boot-starter-tomcat",
+      "version": "3.2.4",
+      "sha256": "a51c8879be5369ab2c2f8724e1b6ce79ae20233df574ec715e097a46a2a58a5e"
+    },
+    {
+      "groupId": "org.springframework.boot",
+      "artifactId": "spring-boot-starter-web",
+      "version": "3.2.4",
+      "sha256": "603eec34e3ae03e1bf559f1533e834b40c59d20c72b075c46b866555e8697140"
+    },
+    {
+      "groupId": "org.springframework.data",
+      "artifactId": "spring-data-commons",
+      "version": "3.2.4",
+      "sha256": "35d95442ab476e46d9ac4d60074f9b9c30b18c106fd1ec71d1d68c00d8080f6d"
+    },
+    {
+      "groupId": "org.springframework.data",
+      "artifactId": "spring-data-jpa",
+      "version": "3.2.4",
+      "sha256": "9827852e02118529c74cdbe23dd43269cc5550caa4b00cfe6da8949200fccc9a"
+    },
+    {
+      "groupId": "org.yaml",
+      "artifactId": "snakeyaml",
+      "version": "2.2",
+      "sha256": "1467931448a0817696ae2805b7b8b20bfb082652bf9c4efaed528930dc49389b"
+    }
+  ]
+}

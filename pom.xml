@@ -15,6 +15,7 @@
         <module>javaw-maven-plugin</module>
         <module>examples</module>
         <module>examples/springboot-h2</module>
+        <module>runtime-target</module>
     </modules>
 
     <properties>
