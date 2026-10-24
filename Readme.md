@@ -1893,3 +1893,5 @@ Validation: all 255 bytecode tests pass; the reviewed 63-JAR audit baseline pass
 - Bytecode core JDK subset: Unsigned Long arithmetic and text; validated by `BytecodeNumericTest` against JVM execution. See [the numeric and utility contract](docs/bytecode-numeric-utilities.md).
 
 - Bytecode core JDK subset: Checked additive Math operations; validated by `BytecodeNumericTest` against JVM execution. See [the numeric and utility contract](docs/bytecode-numeric-utilities.md).
+
+- Bytecode core JDK subset: Checked multiplication and full/high products; validated by `BytecodeNumericTest` against JVM execution. See [the numeric and utility contract](docs/bytecode-numeric-utilities.md).

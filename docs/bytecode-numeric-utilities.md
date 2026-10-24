@@ -21,3 +21,7 @@ Unsigned 64-bit comparison, quotient/remainder and radix parsing/formatting avoi
 ## 5. Checked additive Math operations
 
 Int/long addExact, subtractExact, incrementExact, decrementExact, negateExact and toIntExact throw catchable ArithmeticException on overflow. Cross-products include both signed extrema and narrowing boundaries; exception messages remain unspecified. Revision `checked-additive-v55`. `BytecodeNumericTest` compares javac-produced bytecode on the JVM and in Node/Wasm, in both JAR orders and two independent instances. Other APIs remain subject to admission diagnostics.
+
+## 6. Checked multiplication and full/high products
+
+Int/long multiplyExact (including mixed long/int), multiplyFull and signed multiplyHigh preserve full-width products. Tests compare signed boundaries and 2,000 deterministic high-product pairs; overflow throws ArithmeticException. Revision `checked-products-v56`. `BytecodeNumericTest` compares javac-produced bytecode on the JVM and in Node/Wasm, in both JAR orders and two independent instances. Other APIs remain subject to admission diagnostics.

@@ -123,6 +123,19 @@ int hash=1;long[] values={0,1,-1,Integer.MIN_VALUE,Integer.MAX_VALUE,2147483648L
             """); compare(List.of("run"));
     }
 
+    @Test void checkedMultiplication() throws Exception {
+        fixture("""
+            public class Metadata { public static int run() {
+int hash=1;long[] values={0,1,-1,2,-2,2147483647L,-2147483648L,4294967295L,3037000499L,3037000500L,Long.MIN_VALUE,Long.MAX_VALUE};
+ for(long a:values)for(long b:values){hash=31*hash+Long.hashCode(Math.multiplyHigh(a,b));hash=31*hash+Long.hashCode(Math.multiplyFull((int)a,(int)b));
+ try{hash=31*hash+Long.hashCode(Math.multiplyExact(a,b));}catch(ArithmeticException e){hash+=7;}
+ try{hash=31*hash+Long.hashCode(Math.multiplyExact(a,(int)b));}catch(ArithmeticException e){hash+=11;}
+ try{hash=31*hash+Math.multiplyExact((int)a,(int)b);}catch(ArithmeticException e){hash+=13;}}
+ long a=17,b=-31;for(int i=0;i<2000;i++){a=a*6364136223846793005L+1;b=b*1442695040888963407L+31;hash=31*hash+Long.hashCode(Math.multiplyHigh(a,b));}return hash;
+            }}
+            """); compare(List.of("run"));
+    }
+
     private void compare(List<String> names) throws Exception {
         StringBuilder assertions=new StringBuilder();
         try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)){
