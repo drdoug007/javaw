@@ -568,3 +568,6 @@ Revision `array-lists-v48` adds the basic Iterable/Collection/List hierarchy, it
 
 
 Revision `core-functions-maps-v49` adds functional/Optional/comparator and map/set bytecode runtime subsets, tested with unchanged pinned Spring ThrowingFunction and ANTLR OrderedHashSet classes. The audit emits `core-jdk-linkage.tsv` and its distinct-signature summary, distinguishing exact declarations from missing owners/members. These whole-JAR signature counts do not establish method-level runtime reachability or executable semantics. [The supported contracts, evidence and remaining gaps](bytecode-core-jdk.md#functional-interfaces-comparators-and-optional) keep the parent core JDK and framework-startup milestones open.
+
+
+Revision `array-utilities-v50` adds selected Arrays/Objects algorithms, integral Math extrema and generic-copy array-allocation discovery. JVM/Wasm fixtures exercise the unchanged pinned H2 IntArray utility alongside primitive, typed/private-component, method-reference, floating and nested/cyclic array cases. [The array contract](bytecode-core-jdk.md#array-utilities-and-integral-extrema) records semantic/performance boundaries and the 70 new exact declarations (601 total); broader core JDK and H2 engine milestones remain open.

@@ -1876,3 +1876,10 @@ Core JDK bytecode progress (`core-functions-maps-v49`): bundled functional inter
 The audit now emits exact core-signature inventories, separating bundled declarations from missing owners/members. There are 531 declared signatures and 806 missing signatures across the selected whole-JAR inventory; declaration coverage does not establish runtime reachability or correct execution. **The core JDK milestone remains incomplete**: streams/collectors, Math/big numbers, broader collections/Arrays and remaining text/wrapper APIs still require implementation and tests.
 
 Validation: all 252 bytecode tests pass; the final nine focused functional/map/audit tests pass after the last behavioral fixes. The reviewed 63-JAR audit baseline passes with unchanged inventory counts and revision `core-functions-maps-v49`.
+
+
+Core JDK bytecode progress (`array-utilities-v50`): primitive/reference Arrays copying, fill, equality/hash/text, nested/cyclic formatting, sequential sorting and binary search now execute with audited Objects helpers and integral Math extrema. JVM/Wasm tests cover typed copies, private passive component classes, method-reference allocation discovery, NaNs/signed zero, bounds/type failures and unchanged pinned H2 IntArray growth/mutation/error paths. Both JAR orders and independent instances are tested. See [the array contract](docs/bytecode-core-jdk.md#array-utilities-and-integral-extrema).
+
+The selected whole-JAR signature inventory adds 70 declarations (601 declared; 736 still missing). Arrays.stream is the only remaining inventoried Arrays/Objects signature. Declaration counts do not establish complete runtime semantics or reachability. Streams, big numbers/broader Math, remaining collection families and text/wrapper APIs remain open; this H2 utility execution does not establish engine/JDBC support.
+
+Validation: all 255 bytecode tests pass; the reviewed 63-JAR audit baseline passes with unchanged inventory counts and revision `array-utilities-v50`.

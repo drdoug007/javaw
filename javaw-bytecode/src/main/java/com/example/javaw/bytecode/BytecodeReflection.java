@@ -10,13 +10,18 @@ final class BytecodeReflection implements Opcodes {
     private static boolean discovery(String owner,String name) {
         return name.equals("toArray") || owner.equals("java/lang/reflect/Array") || (owner.equals("java/lang/Class") || owner.startsWith("java/lang/reflect/")) && (name.equals("getDeclaredMethods") || name.equals("getDeclaredMethod") || name.equals("getMethods") || name.equals("getMethod") || name.equals("getDeclaredConstructors") || name.equals("getDeclaredConstructor") || name.equals("getConstructors") || name.equals("getConstructor") || name.equals("getDeclaredFields") || name.equals("getDeclaredField") || name.equals("getFields") || name.equals("getField") || name.contains("Annotation") || name.equals("getEnumConstants") || name.equals("newInstance") || name.equals("getDefaultValue") || name.equals("getParameters") || name.startsWith("getAnnotated") || name.startsWith("getGeneric") || name.equals("getTypeParameters") || name.equals("getDeclaringClass") || name.equals("getEnclosingClass") || name.equals("getEnclosingMethod") || name.equals("getEnclosingConstructor") || name.equals("getDeclaredClasses") || name.equals("getClasses") || name.equals("isMemberClass") || name.equals("isLocalClass") || name.equals("isAnonymousClass"));
     }
+    // Generic copies allocate the source/requested array type through the bundled reflection adapter.
+    private static boolean arrayCopy(String owner,String name,String descriptor) {
+        return owner.equals("java/util/Arrays") && (name.equals("copyOf") || name.equals("copyOfRange"))
+            && descriptor.endsWith(")[Ljava/lang/Object;");
+    }
     private static boolean discoveryConstant(Object value) {
-        if(value instanceof Handle handle)return discovery(handle.getOwner(),handle.getName());
+        if(value instanceof Handle handle)return discovery(handle.getOwner(),handle.getName()) || arrayCopy(handle.getOwner(),handle.getName(),handle.getDesc());
         if(value instanceof ConstantDynamic dynamic)for(int i=0;i<dynamic.getBootstrapMethodArgumentCount();i++)if(discoveryConstant(dynamic.getBootstrapMethodArgument(i)))return true;
         return false;
     }
     private static boolean discoveryUse(AbstractInsnNode instruction) {
-        if(instruction instanceof MethodInsnNode call)return discovery(call.owner,call.name);
+        if(instruction instanceof MethodInsnNode call)return discovery(call.owner,call.name) || arrayCopy(call.owner,call.name,call.desc);
         if(instruction instanceof LdcInsnNode ldc)return discoveryConstant(ldc.cst);
         if(instruction instanceof InvokeDynamicInsnNode indy)for(Object argument:indy.bsmArgs)if(discoveryConstant(argument))return true;
         return false;
@@ -53,6 +58,7 @@ final class BytecodeReflection implements Opcodes {
         MethodNode enclosing=support.methods.stream().filter(m->m.name.equals("enclosing")).findFirst().orElseThrow();enclosing.instructions.clear();
         MethodNode declaring=support.methods.stream().filter(m->m.name.equals("declaringClass")).findFirst().orElseThrow();declaring.instructions.clear();
         List<ClassNode> generated=new ArrayList<>();
+        for(int rank=0;rank<=1;rank++)arrayRoute(arrays,"java/lang/Object",rank);
         for(ClassNode component:classes)if((component.access&ACC_PUBLIC)!=0 && component.name.startsWith("java/"))for(int rank=0;rank<=1;rank++)arrayRoute(arrays,component.name,rank);
         for(String primitive:List.of("Z","B","C","S","I","J","F","D"))for(int rank=1;rank<=2;rank++)arrayRoute(arrays,primitive,rank);
         ClassNode object=type("javaw/runtime/ObjectReflection");generated.add(object);objectMetadata(object);objectConstructor(object);
