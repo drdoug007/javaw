@@ -1,0 +1,19 @@
+# Bytecode core JDK coverage
+
+The core JDK milestone is incremental. Revision `core-text-v46` supplies the first text subset required by the pinned dependency closure. These are binary-compatible bundled bytecode runtime classes, separate from source compiler facades and the compiler host's JDK.
+
+## Strings and builders
+
+String now implements CharSequence, Comparable<String> and Serializable. In addition to the existing equality, hash, concatenation, interning and primitive formatting operations, it supports copy and character-slice constructors, isEmpty, defensive toCharArray, getChars, substring/subSequence, UTF-16 lexicographic compareTo, startsWith/endsWith, contains, string/code-point indexOf with starting offsets, character replacement and legacy trim (characters at or below U+0020). Invalid character and substring indices produce StringIndexOutOfBoundsException. Code-point search recognizes surrogate pairs; indexing and lengths remain UTF-16 code units.
+
+StringBuilder supplies default/capacity/String/CharSequence constructors, length/capacity/isEmpty, ensureCapacity/trimToSize, setLength, charAt/setCharAt, append for String/Object/CharSequence/character slices/all primitives, delete/deleteCharAt, String insertion, reverse, substring/subSequence, getChars, indexOf and immutable toString snapshots. Null String/Object/CharSequence append values become `null`; null character arrays fail. Self-append preserves the source range across capacity growth. Growth checks count overflow before mutation; extending length zero-fills the new range. Reverse preserves valid surrogate pairs. Storage is mutable and single-threaded; builder equality remains identity-based.
+
+This is a selected text API, not the complete JDK. StringBuilder implements CharSequence and Serializable; Appendable, Comparable<StringBuilder>, AbstractStringBuilder, StringBuffer, builder code-point/stream APIs and unlisted overloads are not supplied. String regex, charset encoding, locale/case conversion, formatting, streams and additional Unicode APIs remain open. Serializable is a marker here; no stream serialization is implied. Collections/iterators/streams/Optional, comparators, functional interfaces and broad numeric/big-number APIs remain pending in the parent milestone. Missing APIs retain the compiler's ordinary source-site linkage diagnostics rather than host-JDK fallback.
+
+## Real dependency evidence
+
+The pinned audit identifies StringBuilder construction/appending in Logback JSON encoders and escaping utilities, Jackson annotations, Hibernate and other linked libraries. The regression executes the **unchanged entire** Logback Core 1.4.14 `ch.qos.logback.core.encoder.JsonEscapeUtil` class, including its static escape-table initializer, constructors and method declarations. The artifact SHA-256 is `f8c2f05f42530b1852739507c1792f0080167850ed8f396444c6913d6617a293`.
+
+BytecodeCoreTextTest compares JVM/Wasm escaping of all ASCII characters, non-ASCII BMP characters, supplementary characters, empty strings and null failure. It also checks mutable builder operations, immutable snapshots, self-append, growth, trimming/zero-fill, surrogate reversal, primitive formatting, defensive string arrays/slices, search, comparison and typed bounds/null failures. Both tests run with normal/reversed JAR order and two independent Wasm instances. They compare against the pinned library's actual behavior, including its escape choices; they do not substitute a new JSON implementation or establish whole-Logback/framework startup.
+
+Validation: all 242 bytecode tests pass; the reviewed 63-JAR audit baseline passes with unchanged inventory counts and revision `core-text-v46`.

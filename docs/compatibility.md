@@ -553,3 +553,7 @@ The bundled runtime supports fixed direct handle constants, exact/adapting invoc
 ## Bytecode reflection and annotation metadata
 
 The bundled runtime supplies original linked-class member discovery, public/inherited lookup, constructor/method invocation, field access, caller-sensitive access checks, generic and annotated signatures, parameter metadata and runtime annotations/defaults. Revision `reflection-metadata-v45` completes the selected closed-world reflection milestone. See [the reflection contract, real-library evidence and explicit boundaries](bytecode-reflection.md). Full framework startup and general platform/JDK reflection are not implied.
+
+## Bytecode core JDK text subset
+
+Revision `core-text-v46` adds bundled CharSequence, String copying/slices/search/comparison and StringBuilder construction, growth, append/mutation and immutable snapshots. [The core JDK contract](bytecode-core-jdk.md) lists supported APIs, exclusions and JVM/Wasm evidence from the unchanged pinned Logback JsonEscapeUtil class. The broader core JDK and framework milestones remain open.

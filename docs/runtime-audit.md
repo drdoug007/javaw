@@ -51,3 +51,7 @@ Revision `declared-methods-v44` begins reflection with original linked-class dec
 Revision `reflection-metadata-v45` completes the selected linked-class reflection contract, including invocation, inherited lookup, generic/annotated signatures, parameters and runtime annotations. Tests execute selected pinned Spring ReflectionUtils invocation bodies (other declarations/initialization pruned) and unchanged Jakarta Persistence annotations. These results do not establish full-class Spring execution or framework startup. See [the detailed reflection contract](bytecode-reflection.md).
 
 Validation: all 240 bytecode tests pass; the reviewed 63-JAR audit baseline passes with inventory counts unchanged and compiler revision `reflection-metadata-v45`.
+
+Revision `core-text-v46` implements the first audited core text subset. Logback's unchanged pinned JsonEscapeUtil class now executes with the bundled StringBuilder, String.toCharArray and existing string character operations, including its static escape-table initializer. JVM/Wasm comparisons retain the actual library's behavior. See [the core JDK text contract](bytecode-core-jdk.md); this does not establish whole-Logback startup or complete core JDK coverage.
+
+Validation: all 242 bytecode tests pass; the reviewed 63-JAR audit baseline passes with unchanged inventory counts and revision `core-text-v46`.

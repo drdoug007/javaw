@@ -139,7 +139,10 @@ class BytecodeClassMetadataTest implements Opcodes {
                             .append(")),").append(js((String)jvm.getMethod("iface",int.class,int.class).invoke(null,n,i))).append(");\n");
                 }
                 // Bundled String intentionally supplies a smaller interface surface than the host JDK.
-                if(n==26)checks.append("assert.equal(e['Metadata.count'](26),0);\n");
+                if(n==26)checks.append("assert.equal(e['Metadata.count'](26),3);\n"
+                        +"assert.equal(text(e['Metadata.iface'](26,0)), 'java.lang.CharSequence');\n"
+                        +"assert.equal(text(e['Metadata.iface'](26,1)), 'java.lang.Comparable');\n"
+                        +"assert.equal(text(e['Metadata.iface'](26,2)), 'java.io.Serializable');\n");
             }
             for(int from=0;from<=25;from++)for(int to=0;to<=25;to++)
                 checks.append("assert.equal(e['Metadata.assignable'](").append(from).append(',').append(to).append("),")
