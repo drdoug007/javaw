@@ -1,0 +1,13 @@
+# Bytecode identity collections
+
+The bundled IdentityHashMap uses reference identity for keys and values, including nulls, and retains its public AbstractMap superclass. Private storage reuses the sequential map node implementation with identity key comparison/hashing. Iteration order and JDK capacity/performance characteristics are not promised. Views are live; entries returned by iterators update the map, while entries exported in arrays are detached SimpleEntry snapshots. Iterator removal invalidates the removed live entry. Structural changes invalidate iterators. Clone preserves the concrete subclass and shallow key/value aliases while isolating map storage.
+
+Key and entry views implement removeAll by testing each current member against the supplied collection, as the JDK does. They do not inherit AbstractSet's size-dependent optimization. Hash codes use identity hashes, not user hashCode overrides. Conditional remove(key,value) and replace(key,old,new) use the JDK 20+ value-identity contract; older JDKs used inherited value equality for these two overloads. This version choice is explicit, and the executable oracle for those overloads requires JDK 20 or later. Ordinary Java 17 library descriptors remain binary compatible.
+
+`BytecodeIdentityCollectionsTest` compares identity distinctions, nulls, clone isolation/subclass preservation, backed views, identity hashes, entry snapshots, fail-fast traversal, typed-array failure and conditional mutation with JVM execution, both JAR orders and independent Wasm instances. Numeric identity hashes are compared inside each host, never assumed equal across JVM and Wasm.
+
+The library fixture executes the entire unchanged Hibernate Core 6.4.4.Final `org.hibernate.internal.util.collections.IdentitySet` class. Its backing IdentityHashMap, constructors, add/remove/bulk/iterator/array behavior and original unsupported retainAll branch are exercised. The artifact SHA-256 is `a1324b7c80c800826c9a5d74b61b0de768141f967c2b082650cb7bf4675570a7`. This proves that collection class's behavior; it does not prove Hibernate configuration, ORM startup or persistence execution.
+
+Sorted/navigable collections, synchronized wrappers, broader collection implementations, primitive streams and the core dependency reachability gate remain open. No concurrent-use, memory-reclamation or JDK complexity guarantee is added.
+
+Validation: all four focused identity tests and the independent Map::copyOf test pass. The final direct/method-reference allocation regressions also pass after initializer traversal refinement. The reviewed 63-JAR audit passes with unchanged dependency inventory. Full-suite validation is running on the combined changes; no broader milestone completion is inferred from these focused results.
