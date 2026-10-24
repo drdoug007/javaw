@@ -11,6 +11,7 @@
         <module name="examples" />
         <module name="javaw-maven-plugin" />
         <module name="springboot-h2-demo" />
+        <module name="javaw-runtime-target" />
       </profile>
     </annotationProcessing>
   </component>
