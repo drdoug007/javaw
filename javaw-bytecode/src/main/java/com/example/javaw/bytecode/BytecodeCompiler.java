@@ -65,6 +65,7 @@ public class BytecodeCompiler {
                             "use the isolated bundled runtime or explicitly linked definitions, not both");
             classes.addAll(runtime.values());
         }
+        if (exceptionRuntime) BytecodeDynamic.normalize(classes);
         StringBuilder combinedWat = new StringBuilder();
         combinedWat.append("(module\n");
         combinedWat.append("    (import \"env\" \"memory\" (memory 2 20))\n");

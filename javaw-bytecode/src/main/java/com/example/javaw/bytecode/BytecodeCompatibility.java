@@ -1,6 +1,7 @@
 package com.example.javaw.bytecode;
 
 import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.ConstantDynamic;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import java.util.*;
@@ -84,6 +85,12 @@ final class BytecodeCompatibility {
             for (AbstractInsnNode instruction : method.instructions) {
                 int opcode = instruction.getOpcode();
                 if (opcode < 0) continue;
+                if (instruction instanceof InvokeDynamicInsnNode dynamic)
+                    throw failure(owner,method,instruction,"INVOKEDYNAMIC bootstrap "+dynamic.bsm,
+                            "select the bundled runtime for supported JDK bootstrap adapters; other bootstraps require an explicit implementation");
+                if (instruction instanceof LdcInsnNode dynamicConstant && dynamicConstant.cst instanceof ConstantDynamic dynamic)
+                    throw failure(owner,method,instruction,"constant-dynamic bootstrap "+dynamic.getBootstrapMethod(),
+                            "select the bundled runtime for supported JDK constant adapters; other bootstraps require an explicit implementation");
                 if (!OPCODES.contains(opcode)) throw failure(owner, method, instruction, opcodeName(opcode),
                         "use source compilation or replace this construct with the documented numeric/reference subset");
                 if (opcode == Opcodes.ATHROW) {

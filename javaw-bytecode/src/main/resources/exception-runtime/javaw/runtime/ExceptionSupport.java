@@ -2,6 +2,8 @@ package javaw.runtime;
 
 /** Initialization failure adapters plus module-local stack/metadata intrinsics. */
 public final class ExceptionSupport {
+    public static String concatValue(String value) { return value==null ? "null" : value; }
+
     public static Throwable initializationException(Throwable cause) {
         if (cause instanceof Error) return cause;
         return new ExceptionInInitializerError(cause);

@@ -41,4 +41,16 @@ public final class String {
         char[] result=new char[11-end];System.arraycopy(chars,end,result,0,result.length);
         return new String(result,true);
     }
+    public static String valueOf(Object value) { return value==null ? "null" : value.toString(); }
+    public static String valueOf(boolean value) { return value ? "true" : "false"; }
+    public static String valueOf(char value) { return new String(new char[]{value},true); }
+    public static String valueOf(long number) {
+        char[] chars=new char[20];int end=20;boolean negative=number<0;
+        if(!negative)number=-number;
+        do {chars[--end]=(char)('0'-(number%10));number/=10;}while(number!=0);
+        if(negative)chars[--end]='-';
+        char[] result=new char[20-end];System.arraycopy(chars,end,result,0,result.length);
+        return new String(result,true);
+    }
+
 }
