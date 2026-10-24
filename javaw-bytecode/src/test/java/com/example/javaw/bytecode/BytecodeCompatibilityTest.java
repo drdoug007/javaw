@@ -1013,6 +1013,106 @@ class BytecodeCompatibilityTest {
         writer.visitEnd(); execute(BytecodeCompiler.compileClass(writer.toByteArray()),assertions.toString());
     }
 
+    @Test void matchesJvmFloatingRemaindersAcrossRawBitVectors() throws Exception {
+        byte[] bytes=fixture("""
+            public class Fixture {
+                public static double rem(double a,double b) { return a%b; }
+                public static float remF(float a,float b) { return a%b; }
+                public static double joined(double a,double b,boolean flag) { return 100+(flag?a%b:b%a); }
+                public static double chained(double a,double b,double c) { return (a%b)%c; }
+            }
+            """);
+        Path oracle=directory.resolve("RemainderOracle.java");
+        Files.writeString(oracle,"""
+            public class RemainderOracle {
+                static void check(double a,double b) {
+                    System.out.println("D "+Long.toUnsignedString(Double.doubleToRawLongBits(a))+" "
+                        +Long.toUnsignedString(Double.doubleToRawLongBits(b))+" "
+                        +Long.toUnsignedString(Double.doubleToLongBits(Fixture.rem(a,b))));
+                }
+                static void check(float a,float b) {
+                    System.out.println("F "+Integer.toUnsignedString(Float.floatToRawIntBits(a))+" "
+                        +Integer.toUnsignedString(Float.floatToRawIntBits(b))+" "
+                        +Integer.toUnsignedString(Float.floatToIntBits(Fixture.remF(a,b))));
+                }
+                public static void main(String[] args) {
+                    double[] doubles={0,-0.0,1,-1,3,-3,5.5,-5.5,Double.MIN_VALUE,-Double.MIN_VALUE,
+                        Double.MIN_NORMAL,Math.nextDown(Double.MIN_NORMAL),Double.MAX_VALUE,-Double.MAX_VALUE,
+                        Double.POSITIVE_INFINITY,Double.NEGATIVE_INFINITY,Double.NaN,2.25,-2.25,0.1};
+                    float[] floats={0,-0.0f,1,-1,3,-3,5.5f,-5.5f,Float.MIN_VALUE,-Float.MIN_VALUE,
+                        Float.MIN_NORMAL,Math.nextDown(Float.MIN_NORMAL),Float.MAX_VALUE,-Float.MAX_VALUE,
+                        Float.POSITIVE_INFINITY,Float.NEGATIVE_INFINITY,Float.NaN,2.25f,-2.25f,0.1f};
+                    for(double a:doubles) for(double b:doubles) check(a,b);
+                    for(float a:floats) for(float b:floats) check(a,b);
+                    java.util.Random random=new java.util.Random(230947L);
+                    for(int i=0;i<1024;i++) {
+                        check(Double.longBitsToDouble(random.nextLong()),Double.longBitsToDouble(random.nextLong()));
+                        check(Float.intBitsToFloat(random.nextInt()),Float.intBitsToFloat(random.nextInt()));
+                    }
+                }
+            }
+            """);
+        assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,"-cp",directory.toString(),
+                "-d",directory.toString(),oracle.toString()));
+        run("java","-cp",directory.toString(),"RemainderOracle");
+        Files.copy(directory.resolve("command.log"),directory.resolve("vectors.txt"));
+        String wat=BytecodeCompiler.compileClass(bytes);
+        execute(wat, """
+            const view=new DataView(new ArrayBuffer(8));
+            let count=0;
+            for(const line of fs.readFileSync(__dirname+'/vectors.txt','utf8').trim().split('\\n')) {
+                const [type,x,y,expected]=line.split(' ');
+                const wide=type==='D';
+                const decode=bits=>{
+                    if(wide) {view.setBigUint64(0,BigInt(bits));return view.getFloat64(0);}
+                    view.setUint32(0,Number(bits));return view.getFloat32(0);
+                };
+                const a=decode(x), b=decode(y);
+                const actual=e[wide?'Fixture.rem':'Fixture.remF'](a,b);
+                const wanted=decode(expected);
+                if(Number.isNaN(wanted)) assert.ok(Number.isNaN(actual),line);
+                else {
+                    if(wide) {view.setFloat64(0,actual);assert.equal(view.getBigUint64(0),BigInt(expected),line);}
+                    else {view.setFloat32(0,actual);assert.equal(view.getUint32(0),Number(expected),line);}
+                }
+                if(wide) {
+                    assert.equal(e['Fixture.joined'](a,b,1),100+a%b);
+                    assert.equal(e['Fixture.joined'](a,b,0),100+b%a);
+                    assert.equal(e['Fixture.chained'](a,b,2.25),(a%b)%2.25);
+                }
+                count++;
+            }
+            assert.equal(count,2848);
+            """);
+        assertTrue(wat.contains("(func $__java_f64_rem "));
+    }
+
+    @Test void emitsOneFloatingRemainderRuntimePerLinkedModule() throws Exception {
+        String ordinary=BytecodeCompiler.compileClass(fixture("public class Fixture {public static double add(double a,double b){return a+b;}}"));
+        assertFalse(ordinary.contains("(func $__java_f64_rem "));
+        fixture("""
+            public class Fixture {
+                public static double rem(double a,double b) { return Helper.rem(a,b)+a%b; }
+                public static float remF(float a,float b) { return Helper.remF(a,b)+a%b; }
+            }
+            class Helper {
+                static double rem(double a,double b) { return a%b; }
+                static float remF(float a,float b) { return a%b; }
+            }
+            """);
+        String wat=linkJar("Helper", "Fixture");
+        for(String name:new String[]{"f32","f64"}) {
+            String marker="(func $__java_"+name+"_rem ";
+            assertTrue(wat.indexOf(marker)>=0);
+            assertEquals(wat.indexOf(marker),wat.lastIndexOf(marker));
+        }
+        execute(wat,"""
+            assert.equal(e['Fixture.rem'](5.5,2),3);
+            assert.equal(e['Fixture.remF'](-5.5,2),-3);
+            assert.ok(Number.isNaN(e['Fixture.rem'](1,0)));
+            """);
+    }
+
     private String linkJar(String... names) throws Exception {
         var bytes=new java.io.ByteArrayOutputStream();
         try(var jar=new java.util.jar.JarOutputStream(bytes)) {
@@ -1054,8 +1154,6 @@ class BytecodeCompatibilityTest {
                 "public static int f() { try { return 1; } catch(RuntimeException e) { return 0; } }",
                 "public static native int f();",
                 "public static synchronized int f() { return 1; }",
-                "public static double f(double a,double b) { return a%b; }",
-                "public static float f(float a,float b) { return a%b; }",
                 "public static int f() { return Math.abs(-4); }",
                 "public static Class<?> f() { return Fixture.class; }",
                 "public static int[] f() { return new int[2]; }",

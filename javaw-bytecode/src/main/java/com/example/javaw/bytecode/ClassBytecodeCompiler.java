@@ -1,5 +1,6 @@
 package com.example.javaw.bytecode;
 
+import com.example.javaw.FloatingPointSupport;
 import com.example.javaw.bytecode.cfg.BasicBlock;
 import com.example.javaw.bytecode.cfg.ControlFlowGraph;
 import com.example.javaw.bytecode.lowering.BytecodeInstructionVisitor;
@@ -34,6 +35,17 @@ public class ClassBytecodeCompiler {
     }
 
     String compileToWat(Map<String, ClassNode> linked) {
+        return compileToWat(linked, true);
+    }
+
+    static boolean usesFloatingRemainder(ClassNode type) {
+        for (MethodNode method : type.methods)
+            for (AbstractInsnNode instruction : method.instructions)
+                if (instruction.getOpcode() == Opcodes.FREM || instruction.getOpcode() == Opcodes.DREM) return true;
+        return false;
+    }
+
+    String compileToWat(Map<String, ClassNode> linked, boolean includeNumericRuntime) {
         BytecodeCompatibility.validate(classNode, linked);
         dispatch = new BytecodeDispatch(linked, classNode.name);
         BytecodeObjectLayouts layouts = new BytecodeObjectLayouts(linked);
@@ -43,6 +55,9 @@ public class ClassBytecodeCompiler {
         wat.append("(module\n");
         wat.append("    (import \"env\" \"memory\" (memory 2 20))\n");
         wat.append("    (import \"env\" \"__heap_alloc\" (func $__heap_alloc (param i32) (result i32)))\n");
+
+        if (includeNumericRuntime && usesFloatingRemainder(classNode))
+            wat.append(FloatingPointSupport.remainderFunctionsWat());
 
         // Collect fields
         for (FieldNode fn : classNode.fields) {

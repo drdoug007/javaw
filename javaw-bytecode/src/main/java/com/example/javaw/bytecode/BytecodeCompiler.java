@@ -1,5 +1,6 @@
 package com.example.javaw.bytecode;
 
+import com.example.javaw.FloatingPointSupport;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.tree.ClassNode;
 
@@ -50,11 +51,14 @@ public class BytecodeCompiler {
         combinedWat.append("    (import \"env\" \"memory\" (memory 2 20))\n");
         combinedWat.append("    (import \"env\" \"__heap_alloc\" (func $__heap_alloc (param i32) (result i32)))\n");
 
+        if (classes.stream().anyMatch(ClassBytecodeCompiler::usesFloatingRemainder))
+            combinedWat.append(FloatingPointSupport.remainderFunctionsWat());
+
         Map<String, ClassNode> linked = new LinkedHashMap<>();
         for (ClassNode cn : classes) linked.put(cn.name, cn);
         for (ClassNode cn : classes) {
             ClassBytecodeCompiler compiler = new ClassBytecodeCompiler(cn);
-            String classWat = compiler.compileToWat(linked);
+            String classWat = compiler.compileToWat(linked, false);
             // Strip outer (module ... )
             int start = classWat.indexOf("(import \"env\" \"__heap_alloc\" (func $__heap_alloc (param i32) (result i32)))");
             if (start != -1) {

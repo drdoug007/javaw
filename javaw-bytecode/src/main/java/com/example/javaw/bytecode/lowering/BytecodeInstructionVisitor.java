@@ -337,6 +337,9 @@ public class BytecodeInstructionVisitor {
             case Opcodes.FDIV:
                 visitBinaryOp("f32", "f32.div");
                 break;
+            case Opcodes.FREM:
+                visitBinaryOp("f32", "call $__java_f32_rem");
+                break;
             case Opcodes.FNEG:
                 emit("local.get " + stack.peek());
                 emit("f32.neg");
@@ -354,6 +357,9 @@ public class BytecodeInstructionVisitor {
                 break;
             case Opcodes.DDIV:
                 visitBinaryOp("f64", "f64.div");
+                break;
+            case Opcodes.DREM:
+                visitBinaryOp("f64", "call $__java_f64_rem");
                 break;
             case Opcodes.DNEG:
                 emit("local.get " + stack.peek());
