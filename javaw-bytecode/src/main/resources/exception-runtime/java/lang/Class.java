@@ -4,6 +4,12 @@ package java.lang;
 public final class Class<T> implements java.io.Serializable {
     private final int token;
     private Class(int token) { this.token=token; }
+    public ClassLoader getClassLoader() {
+        if(isArray())return getComponentType().getClassLoader();if(isPrimitive())return null;
+        String name=getName();
+        if(name.length()>=5 && name.charAt(0)=='j' && name.charAt(1)=='a' && name.charAt(2)=='v' && name.charAt(3)=='a' && name.charAt(4)=='.')return null;
+        return ClassLoader.javawApplication();
+    }
     public String getName() { return javaw.runtime.ExceptionSupport.typeName(token); }
     public String getSimpleName() { return javaw.runtime.ExceptionSupport.simpleName(token); }
     public String getCanonicalName() { return javaw.runtime.ExceptionSupport.canonicalName(token); }

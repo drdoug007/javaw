@@ -127,16 +127,16 @@ final class BytecodeDynamic implements Opcodes {
         }
     }
 
-    private static ClassNode type(String name) {
+    static ClassNode type(String name) {
         ClassNode type=new ClassNode();type.version=V17;type.access=ACC_PUBLIC|ACC_FINAL|ACC_SUPER|ACC_SYNTHETIC;
         type.name=name;type.superName="java/lang/Object";return type;
     }
-    private static MethodNode method(ClassNode owner,int flags,String name,String descriptor) {
+    static MethodNode method(ClassNode owner,int flags,String name,String descriptor) {
         MethodNode method=new MethodNode(flags,name,descriptor,null,null);owner.methods.add(method);return method;
     }
-    private static void finish(MethodNode method,int locals) {method.maxStack=512;method.maxLocals=locals;}
+    static void finish(MethodNode method,int locals) {method.maxStack=512;method.maxLocals=locals;}
     private static boolean reference(Type type) {return type.getSort()==Type.OBJECT || type.getSort()==Type.ARRAY;}
-    private static void call(MethodVisitor code,int opcode,String owner,String name,String descriptor) {
+    static void call(MethodVisitor code,int opcode,String owner,String name,String descriptor) {
         code.visitMethodInsn(opcode,owner,name,descriptor,opcode==INVOKEINTERFACE);
     }
     private static void convertString(MethodVisitor code,Type type) {
@@ -380,7 +380,7 @@ final class BytecodeDynamic implements Opcodes {
         code.visitInsn(Type.getType(value).getOpcode(IRETURN));finish(code,0);
     }
 
-    private static void nest(ClassNode owner,ClassNode caller,Map<String,ClassNode> linked) {
+    static void nest(ClassNode owner,ClassNode caller,Map<String,ClassNode> linked) {
         ClassNode host=caller.nestHostClass==null?caller:linked.get(caller.nestHostClass);
         if(host==null)throw new IllegalArgumentException("link bootstrap caller nest host "+caller.nestHostClass);
         if((host.version&0xffff)<V11) {
@@ -432,7 +432,7 @@ final class BytecodeDynamic implements Opcodes {
         if(reference(to))return !strict || subtype(from,to,dispatch);
         Type primitive=unboxed(from);return primitive!=null?widens(primitive,to):!strict;
     }
-    private static void adapt(MethodVisitor code,Type from,Type to) {
+    static void adapt(MethodVisitor code,Type from,Type to) {
         if(from.equals(to))return;
         if(reference(from)&&reference(to)) {if(!to.equals(Type.getType(Object.class)))code.visitTypeInsn(CHECKCAST,to.getInternalName());return;}
         if(!reference(from) && reference(to)) {

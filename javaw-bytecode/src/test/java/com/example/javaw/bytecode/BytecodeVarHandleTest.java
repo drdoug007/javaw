@@ -139,8 +139,8 @@ class BytecodeVarHandleTest implements Opcodes {
     @Test void diagnosesOrderedAtomicsAndRuntimeGenerationAtOriginalSites() throws Exception {
         for(String expression:List.of(
                 "return (int)java.lang.invoke.MethodHandles.byteArrayViewVarHandle(int[].class,java.nio.ByteOrder.BIG_ENDIAN).getVolatile(new byte[8],0);",
-                "return java.lang.invoke.MethodHandles.lookup()==null?0:1;",
-                "return java.lang.reflect.Proxy.isProxyClass(Metadata.class)?1:0;")) {
+                "return java.lang.invoke.MethodHandles.publicLookup()==null?0:1;",
+                "return java.lang.invoke.MethodHandles.arrayElementVarHandle(int[].class)==null?0:1;")) {
             byte[] jar=fixture("public class Metadata {public static int run(){"+expression+"}}");
             String error=assertThrows(IllegalArgumentException.class,()->BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar))).getMessage();
             assertTrue(error.contains("Metadata.java:1"),error);assertTrue(error.contains("Metadata.run()I"),error);

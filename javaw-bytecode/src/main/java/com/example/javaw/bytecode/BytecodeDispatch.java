@@ -607,6 +607,11 @@ public final class BytecodeDispatch {
         return TypeHelper.getMethodFunctionName(target.owner, call.name, call.desc);
     }
 
+    String handleReceiver(MethodInsnNode call) {
+        Declaration method=declaration(call.owner,call.name,call.desc,new HashSet<>());
+        return method!=null && crossPackageProtected(method)?caller:call.owner;
+    }
+
     private boolean crossPackageProtected(Declaration method) {
         return (method.method.access & Opcodes.ACC_PROTECTED) != 0 && caller != null
                 && !packageName(method.owner).equals(packageName(caller));

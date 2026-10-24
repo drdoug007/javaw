@@ -9,7 +9,7 @@ import java.util.*;
 /** Explicit, isolated exception runtime. Requires a JDK to compile its bundled Java sources once. */
 public final class BytecodeExceptionRuntime {
     private static Map<String,byte[]> compiled;
-    private static final String[] NAMES = ("AutoCloseable Cloneable CloneNotSupportedException Class Record Comparable Number Boolean Byte Character Short Integer Long Float Double Void Throwable String StackTraceElement Exception RuntimeException Error LinkageError "
+    private static final String[] NAMES = ("ReflectiveOperationException NoSuchMethodException IllegalAccessException ClassLoader AutoCloseable Cloneable CloneNotSupportedException Class Record Comparable Number Boolean Byte Character Short Integer Long Float Double Void Throwable String StackTraceElement Exception RuntimeException Error LinkageError "
             + "VirtualMachineError InternalError OutOfMemoryError StackOverflowError NullPointerException ClassCastException ArithmeticException "
             + "IndexOutOfBoundsException ArrayIndexOutOfBoundsException ArrayStoreException NegativeArraySizeException "
             + "IllegalArgumentException IllegalStateException UnsupportedOperationException IncompatibleClassChangeError AbstractMethodError IllegalAccessError "
@@ -44,7 +44,13 @@ public final class BytecodeExceptionRuntime {
             paths.add("java/lang/invoke/WrongMethodTypeException.java");
             paths.add("java/lang/invoke/SerializedLambda.java");
             paths.add("java/lang/invoke/MethodHandles.java");
+            paths.add("java/lang/reflect/InvocationHandler.java");
+            paths.add("java/lang/reflect/Method.java");
+            paths.add("java/lang/reflect/Proxy.java");
+            paths.add("java/lang/reflect/UndeclaredThrowableException.java");
+            paths.add("java/lang/reflect/InvocationTargetException.java");
             paths.add("java/lang/invoke/MethodType.java");
+            paths.add("java/lang/invoke/MethodHandle.java");
             paths.add("java/lang/invoke/VarHandle.java");
             paths.add("java/nio/ByteOrder.java");
             paths.add("javaw/runtime/ExceptionSupport.java");
@@ -63,9 +69,11 @@ public final class BytecodeExceptionRuntime {
             if(compiler.run(null,errors,errors,arguments.toArray(String[]::new))!=0)
                 throw new IOException("Cannot build bytecode exception runtime: "+errors);
             Map<String,byte[]> bytes=new LinkedHashMap<>();
-            for(String path:paths) {
-                String name=path.substring(0,path.length()-5);
-                bytes.put(name,Files.readAllBytes(output.resolve(name+".class")));
+            try(var files=Files.walk(output)) {
+                for(Path file:files.filter(f->f.toString().endsWith(".class")).sorted().toList()) {
+                    String name=output.relativize(file).toString().replace(File.separatorChar,'/');
+                    bytes.put(name.substring(0,name.length()-6),Files.readAllBytes(file));
+                }
             }
             compiled=Collections.unmodifiableMap(bytes);return compiled;
         } finally {

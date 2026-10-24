@@ -26,16 +26,25 @@ public class BytecodeCompiler {
     }
 
     public static String compileJarWithExceptionRuntime(InputStream input) throws IOException {
-        return compileJar(input, true);
+        return compileJar(input, true,List.of());
+    }
+
+    public static String compileJarWithExceptionRuntime(InputStream input,List<List<String>> proxyShapes) throws IOException {
+        return compileJar(input,true,proxyShapes);
     }
 
     public static String compileClassWithExceptionRuntime(byte[] bytes) throws IOException {
         return compileClasses(new ArrayList<>(List.of(BytecodeInput.read(bytes))), true);
     }
 
+    public static String compileClassWithExceptionRuntime(byte[] bytes,List<List<String>> proxyShapes) throws IOException {
+        return compileClasses(new ArrayList<>(List.of(BytecodeInput.read(bytes))),true,proxyShapes);
+    }
+
     public static String compileJar(InputStream jarInputStream) throws IOException { return compileJar(jarInputStream, false); }
 
-    private static String compileJar(InputStream jarInputStream, boolean exceptionRuntime) throws IOException {
+    private static String compileJar(InputStream jarInputStream, boolean exceptionRuntime) throws IOException {return compileJar(jarInputStream,exceptionRuntime,List.of());}
+    private static String compileJar(InputStream jarInputStream, boolean exceptionRuntime,List<List<String>> proxyShapes) throws IOException {
         JarInputStream jis = new JarInputStream(jarInputStream);
         JarEntry entry;
         List<ClassNode> classes = new ArrayList<>();
@@ -53,10 +62,11 @@ public class BytecodeCompiler {
             }
         }
 
-        return compileClasses(classes, exceptionRuntime);
+        return compileClasses(classes, exceptionRuntime,proxyShapes);
     }
 
-    private static String compileClasses(List<ClassNode> classes, boolean exceptionRuntime) throws IOException {
+    private static String compileClasses(List<ClassNode> classes, boolean exceptionRuntime) throws IOException {return compileClasses(classes,exceptionRuntime,List.of());}
+    private static String compileClasses(List<ClassNode> classes, boolean exceptionRuntime,List<List<String>> proxyShapes) throws IOException {
         if (exceptionRuntime) {
             Map<String, ClassNode> runtime = BytecodeExceptionRuntime.definitions();
             for (ClassNode type : classes)
@@ -66,6 +76,9 @@ public class BytecodeCompiler {
             classes.addAll(runtime.values());
         }
         if (exceptionRuntime) {
+            BytecodeProxies.normalize(classes,proxyShapes);
+            BytecodeLookups.normalize(classes);
+            BytecodeHandles.normalize(classes);
             BytecodeDynamic.normalize(classes);
             BytecodeInvokes.normalize(classes);
         }
@@ -129,13 +142,20 @@ public class BytecodeCompiler {
     }
 
     public static void main(String[] args) {
-        boolean exceptionRuntime = args.length > 0 && args[0].equals("--exception-runtime");
-        if (exceptionRuntime) args = Arrays.copyOfRange(args, 1, args.length);
+        boolean exceptionRuntime=false;List<List<String>> proxyShapes=new ArrayList<>();int option=0;
+        while(option<args.length) {
+            if(args[option].equals("--exception-runtime"))exceptionRuntime=true;
+            else if(args[option].startsWith("--aot-proxy="))proxyShapes.add(List.of(args[option].substring("--aot-proxy=".length()).split(",",-1)));
+            else break;
+            option++;
+        }
+        args=Arrays.copyOfRange(args,option,args.length);
         if (args.length == 0 || "--help".equals(args[0]) || "-h".equals(args[0])) {
-            System.out.println("Usage: java com.example.javaw.bytecode.BytecodeCompiler [--exception-runtime] <jar-or-class-file> [output-wat-file]");
+            System.out.println("Usage: java com.example.javaw.bytecode.BytecodeCompiler [--exception-runtime] [--aot-proxy=Interface,Other] <jar-or-class-file> [output-wat-file]");
             return;
         }
         try {
+            if(!exceptionRuntime && !proxyShapes.isEmpty())throw new IllegalArgumentException("AOT proxies require --exception-runtime");
             String path = args[0];
             if (path.startsWith("~" + File.separator) || path.equals("~")) {
                 path = System.getProperty("user.home") + path.substring(1);
@@ -148,11 +168,11 @@ public class BytecodeCompiler {
             String wat;
             if (file.getName().endsWith(".jar")) {
                 try (FileInputStream fis = new FileInputStream(file)) {
-                    wat = compileJar(fis, exceptionRuntime);
+                    wat = compileJar(fis, exceptionRuntime,proxyShapes);
                 }
             } else if (file.getName().endsWith(".class")) {
                 try (FileInputStream fis = new FileInputStream(file)) {
-                    wat = exceptionRuntime ? compileClassWithExceptionRuntime(fis.readAllBytes()) : compileClass(fis);
+                    wat = exceptionRuntime ? compileClassWithExceptionRuntime(fis.readAllBytes(),proxyShapes) : compileClass(fis);
                 }
             } else {
                 System.err.println("Unsupported file type: " + file.getName());
