@@ -4,6 +4,7 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.AbstractInsnNode;
+import org.objectweb.asm.tree.MethodInsnNode;
 
 import java.util.List;
 
@@ -45,9 +46,20 @@ public final class BytecodeArrays implements Opcodes {
         });
     }
 
+    public static boolean isClone(MethodInsnNode call) {
+        return call.getOpcode() == INVOKEVIRTUAL && !call.itf && call.owner.startsWith("[")
+                && call.name.equals("clone") && call.desc.equals("()Ljava/lang/Object;");
+    }
+
+    public static boolean isArraycopy(MethodInsnNode call) {
+        return call.getOpcode() == INVOKESTATIC && !call.itf && call.owner.equals("java/lang/System")
+                && call.name.equals("arraycopy") && call.desc.equals("(Ljava/lang/Object;ILjava/lang/Object;II)V");
+    }
+
     static boolean usesRuntime(ClassNode type) {
         for (MethodNode method : type.methods)
             for (AbstractInsnNode instruction : method.instructions) {
+                if (instruction instanceof MethodInsnNode call && (isClone(call) || isArraycopy(call))) return true;
                 int opcode = instruction.getOpcode();
                 if (opcode == MULTIANEWARRAY || opcode == NEWARRAY || opcode == ANEWARRAY || opcode == ARRAYLENGTH
                         || opcode >= IALOAD && opcode <= SALOAD
@@ -131,6 +143,56 @@ public final class BytecodeArrays implements Opcodes {
                 local.get $width
                 i32.mul
                 i32.add)
+            """ + transferRuntimeWat();
+    }
+
+    private static String transferRuntimeWat() {
+        StringBuilder width = new StringBuilder("(func $__array_width (param $tag i32) (result i32)\n");
+        width.append("local.get $tag i32.const -100 i32.le_s if i32.const 4 return end\n");
+        for (Primitive primitive : PRIMITIVES)
+            width.append("local.get $tag i32.const ").append(primitive.classId()).append(" i32.eq if i32.const ")
+                    .append(primitive.width()).append(" return end\n");
+        width.append("unreachable)\n");
+        return width + """
+            (func $__array_clone (param $source i32) (result i32)
+                (local $length i32) (local $tag i32) (local $width i32) (local $copy i32)
+                local.get $source call $__array_length local.set $length
+                local.get $source i32.load local.tee $tag call $__array_width local.set $width
+                local.get $length local.get $tag local.get $width call $__new_primitive_array local.set $copy
+                local.get $copy i32.const 8 i32.add
+                local.get $source i32.const 8 i32.add
+                local.get $length local.get $width i32.mul memory.copy
+                local.get $copy)
+            (func $__arraycopy (param $source i32) (param $srcPos i32)
+                    (param $dest i32) (param $dstPos i32) (param $count i32)
+                (local $srcLength i32) (local $dstLength i32) (local $srcTag i32) (local $dstTag i32)
+                (local $width i32) (local $index i32)
+                local.get $source call $__array_length local.set $srcLength
+                local.get $dest call $__array_length local.set $dstLength
+                local.get $source i32.load local.tee $srcTag call $__array_width local.set $width
+                local.get $dest i32.load local.tee $dstTag call $__array_width drop
+                local.get $srcTag i32.const -100 i32.gt_s
+                local.get $dstTag i32.const -100 i32.gt_s i32.or
+                if local.get $srcTag local.get $dstTag i32.ne if unreachable end end
+                local.get $srcPos local.get $srcLength i32.gt_u if unreachable end
+                local.get $dstPos local.get $dstLength i32.gt_u if unreachable end
+                local.get $count local.get $srcLength local.get $srcPos i32.sub i32.gt_u if unreachable end
+                local.get $count local.get $dstLength local.get $dstPos i32.sub i32.gt_u if unreachable end
+                local.get $srcTag local.get $dstTag i32.eq
+                if
+                    local.get $dest i32.const 8 i32.add local.get $dstPos local.get $width i32.mul i32.add
+                    local.get $source i32.const 8 i32.add local.get $srcPos local.get $width i32.mul i32.add
+                    local.get $count local.get $width i32.mul memory.copy
+                    return
+                end
+                block $done loop $next
+                    local.get $index local.get $count i32.ge_u br_if $done
+                    local.get $dest local.get $dstPos local.get $index i32.add
+                    local.get $source i32.const 8 i32.add
+                    local.get $srcPos local.get $index i32.add i32.const 4 i32.mul i32.add i32.load
+                    call $__reference_array_store
+                    local.get $index i32.const 1 i32.add local.set $index br $next
+                end end)
             """;
     }
 }

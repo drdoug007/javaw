@@ -778,6 +778,17 @@ public class BytecodeInstructionVisitor {
 
         if (!isStatic) emitNullGuard(thisVar);
 
+        if (BytecodeArrays.isClone(minsn)) {
+            emit("local.get " + thisVar); emit("call $__array_clone");
+            emit("local.set " + stack.push("i32"));
+            return;
+        }
+        if (dispatch != null && dispatch.isArraycopyIntrinsic(minsn)) {
+            for (String argument : argVars) emit("local.get " + argument);
+            emit("call $__arraycopy");
+            return;
+        }
+
         // java.lang.Object's empty constructor has no runtime action in this layout.
         if (BytecodeDispatch.isObjectConstructor(minsn)) return;
 

@@ -219,6 +219,119 @@ class BytecodeCompatibilityTest {
         }
     }
 
+    @Test void executesEveryPrimitiveArrayCloneAndOverlappingCopyWithJvmComparison() throws Exception {
+        StringBuilder source=new StringBuilder("public class Fixture {");
+        String[] types={"boolean","byte","char","short","int","long","float","double"};
+        String[] values={"true","(byte)128","(char)65535","(short)-32768","123456789","9007199254740993L","Float.NaN","Double.NEGATIVE_INFINITY"};
+        for(int kind=0;kind<types.length;kind++) {
+            String type=types[kind], value=values[kind];
+            source.append("public static int kind").append(kind).append("(){")
+                .append(type).append("[] a=new ").append(type).append("[5];a[0]=").append(value).append(';')
+                .append(type).append("[] b=a.clone();")
+                .append("System.arraycopy(a,0,b,1,4);System.arraycopy(b,0,b,1,4);System.arraycopy(b,1,b,0,4);")
+                .append("int n=(a!=b?1:0)+b.length;");
+            if(type.equals("float")) source.append("if(b[0]!=b[0]&&b[1]!=b[1])n+=10;");
+            else source.append("if(b[0]==").append(value).append("&&b[1]==").append(value).append(")n+=10;");
+            source.append("return n;}");
+        }
+        source.append("public static int empty(){int[] a=new int[0];int[] b=a.clone();System.arraycopy(a,0,b,0,0);return b.length+(a!=b?1:0);}}");
+        byte[] bytes=fixture(source.toString());
+        try(var loader=new java.net.URLClassLoader(new java.net.URL[]{directory.toUri().toURL()})) {
+            Class<?> jvm=loader.loadClass("Fixture");StringBuilder checks=new StringBuilder();
+            for(int kind=0;kind<types.length;kind++) checks.append("assert.equal(e['Fixture.kind").append(kind)
+                    .append("'](),").append(jvm.getMethod("kind"+kind).invoke(null)).append(");");
+            checks.append("assert.equal(e['Fixture.empty'](),").append(jvm.getMethod("empty").invoke(null)).append(");");
+            execute(BytecodeCompiler.compileClass(bytes),checks.toString());
+        }
+    }
+
+    @Test void executesShallowReferenceClonesAndCheckedCopiesInEitherJarOrder() throws Exception {
+        fixture("""
+            public class Fixture {
+                static Base[] saved;
+                public static int run() {
+                    Child child=new Child(7); Child[] a={child,null,new Child(3)}; Child[] b=a.clone();
+                    int[][] nested={{1,2},{3}}; int[][] copied=nested.clone(); copied[0][0]=9;
+                    Object[] objects=new Object[3]; System.arraycopy(a,0,objects,0,3);
+                    Base[] base=new Base[3]; System.arraycopy(objects,0,base,0,3);
+                    Child[] children=new Child[3]; System.arraycopy(base,0,children,0,3);
+                    System.arraycopy(children,0,children,1,2); System.arraycopy(children,1,children,0,2);
+                    return (a!=b?1:0)+(a[0]==b[0]?2:0)+(nested!=copied?4:0)
+                        +(nested[0]==copied[0]?8:0)+nested[0][0]+children[0].n+(children[1]==null?16:0)
+                        +(objects instanceof Object[]?32:0)+(b instanceof Child[]?64:0);
+                }
+                public static void failCopy() {
+                    Object[] source={new Child(1),null,new Other(),new Child(4)};
+                    saved=new Child[]{new Child(9),new Child(9),new Child(9),new Child(9)};
+                    System.arraycopy(source,0,saved,0,4);
+                }
+                public static int snapshot() {
+                    return ((Child)saved[0]).n+(saved[1]==null?100:0)+((Child)saved[2]).n*1000+((Child)saved[3]).n*10000;
+                }
+            }
+            class Base {}
+            class Child extends Base {int n;Child(int n){this.n=n;}}
+            class Other extends Base {}
+            """);
+        try(var loader=new java.net.URLClassLoader(new java.net.URL[]{directory.toUri().toURL()})) {
+            Class<?> jvm=loader.loadClass("Fixture");Object expected=jvm.getMethod("run").invoke(null);
+            var error=assertThrows(java.lang.reflect.InvocationTargetException.class,()->jvm.getMethod("failCopy").invoke(null));
+            assertInstanceOf(ArrayStoreException.class,error.getCause());Object snapshot=jvm.getMethod("snapshot").invoke(null);
+            for(String[] order:new String[][]{{"Fixture","Base","Child","Other"},{"Other","Child","Base","Fixture"}}) {
+                String wat=linkJar(order);
+                assertEquals(1,wat.split(java.util.regex.Pattern.quote("(func $__arraycopy"),-1).length-1);
+                execute(wat,"assert.equal(e['Fixture.run'](),"+expected+");assert.throws(()=>e['Fixture.failCopy'](),WebAssembly.RuntimeError);"
+                        +"assert.equal(e['Fixture.snapshot'](),"+snapshot+");");
+            }
+        }
+    }
+
+    @Test void trapsArrayTransferFailuresAndMatchesJvmZeroLengthRules() throws Exception {
+        byte[] bytes=fixture("""
+            public class Fixture {
+                public static void copy(int kind,int from,int to,int count) {
+                    Object a=kind==0?null:kind==1?new Fixture():kind==2?new byte[2]:kind==8?new Object[2]:new int[]{1,2};
+                    Object b=kind==3?null:kind==4?new Fixture():kind==5?new long[2]:kind==7?new Object[2]:new int[2];
+                    System.arraycopy(a,from,b,to,count);
+                }
+                public static void nullClone(){ int[] a=null; int[] b=a.clone(); }
+                public static void refEmpty(){ System.arraycopy(new Fixture[0],0,new int[0][],0,0); }
+            }
+            """);
+        try(var loader=new java.net.URLClassLoader(new java.net.URL[]{directory.toUri().toURL()})) {
+            Class<?> jvm=loader.loadClass("Fixture");StringBuilder checks=new StringBuilder();
+            for(int kind:new int[]{0,1,2,3,4,5,7,8}) for(int count:new int[]{0,1}) {
+                int scenario=kind;
+                var error=assertThrows(java.lang.reflect.InvocationTargetException.class,()->jvm.getMethod("copy",int.class,int.class,int.class,int.class)
+                        .invoke(null,scenario,0,0,count));
+                assertTrue(error.getCause() instanceof NullPointerException || error.getCause() instanceof ArrayStoreException);
+                checks.append("assert.throws(()=>e['Fixture.copy'](").append(kind).append(",0,0,").append(count).append("),WebAssembly.RuntimeError);");
+            }
+            for(int[] args:new int[][]{{-1,0,0},{0,-1,0},{0,0,-1},{3,0,0},{0,3,0},{1,0,2},{0,1,2},{Integer.MAX_VALUE,0,1},{1,1,Integer.MAX_VALUE}}) {
+                var error=assertThrows(java.lang.reflect.InvocationTargetException.class,()->jvm.getMethod("copy",int.class,int.class,int.class,int.class)
+                        .invoke(null,6,args[0],args[1],args[2]));
+                assertInstanceOf(IndexOutOfBoundsException.class,error.getCause());
+                checks.append("assert.throws(()=>e['Fixture.copy'](6,").append(args[0]).append(',').append(args[1]).append(',')
+                        .append(args[2]).append("),WebAssembly.RuntimeError);");
+            }
+            assertThrows(java.lang.reflect.InvocationTargetException.class,()->jvm.getMethod("nullClone").invoke(null));
+            checks.append("assert.throws(()=>e['Fixture.nullClone'](),WebAssembly.RuntimeError);");
+            jvm.getMethod("copy",int.class,int.class,int.class,int.class).invoke(null,6,2,2,0);
+            jvm.getMethod("refEmpty").invoke(null);
+            checks.append("e['Fixture.copy'](6,2,2,0);e['Fixture.refEmpty']();");
+            execute(BytecodeCompiler.compileClass(bytes),checks.toString());
+        }
+    }
+
+    @Test void preservesExplicitlyLinkedSystemDefinitionsInsteadOfReplacingTheirMethods() throws Exception {
+        fixture("public class Fixture {public static void run(){System.arraycopy(null,0,null,0,0);}}");
+        ClassNode system=new ClassNode();system.version=Opcodes.V17;system.access=Opcodes.ACC_PUBLIC;
+        system.name="java/lang/System";system.superName="java/lang/Object";
+        MethodNode copy=new MethodNode(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"arraycopy","(Ljava/lang/Object;ILjava/lang/Object;II)V",null,null);
+        copy.maxLocals=5;copy.instructions.add(new InsnNode(Opcodes.RETURN));system.methods.add(copy);
+        execute(linkNodes(java.util.Map.of("Fixture",readFixture("Fixture"),system.name,system)),"e['Fixture.run']();");
+    }
+
     @Test void executesPrimitiveNarrowArraysDefaultsLoopsAndAliasingWithJvmComparison() throws Exception {
         byte[] bytes = fixture("""
             public class Fixture {
@@ -2672,7 +2785,7 @@ class BytecodeCompatibilityTest {
                 "public static synchronized int f() { return 1; }",
                 "public static int f() { return Math.abs(-4); }",
                 "public static Class<?> f() { return Fixture.class; }",
-                "public static Object f() { return new int[2].clone(); }",
+                "public static Object f() { return java.util.Arrays.copyOf(new int[2],3); }",
                 "public static Object f() { return new Object(); }",
                 "public static class Child extends Fixture {} public static Object f(){ return new Child(); }",
                 "static int x=compute(); static int compute(){ return 1; }",

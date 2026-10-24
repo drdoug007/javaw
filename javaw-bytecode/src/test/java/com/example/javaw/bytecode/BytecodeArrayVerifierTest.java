@@ -162,6 +162,41 @@ class BytecodeArrayVerifierTest implements Opcodes {
         assertDoesNotThrow(() -> jvm(owner)); assertDoesNotThrow(() -> BytecodeCompiler.compileClass(bytes(owner)));
     }
 
+    @Test void verifiesArrayCloneReceiversAndArraycopyArgumentsLikeJvm() {
+        for(String descriptor : new String[]{"(Ljava/lang/Object;)V","([J)V","()V"}) {
+            ClassNode owner=owner(descriptor); var code=owner.methods.get(0).instructions;
+            if(descriptor.equals("()V")) code.add(new TypeInsnNode(NEW,owner.name));
+            else code.add(new VarInsnNode(ALOAD,0));
+            code.add(new MethodInsnNode(INVOKEVIRTUAL,"[I","clone","()Ljava/lang/Object;",false));
+            code.add(new InsnNode(POP)); code.add(new InsnNode(RETURN)); reject(owner);
+        }
+        for(boolean uninitialized : new boolean[]{false,true}) {
+            ClassNode owner=owner("()V");owner.methods.get(0).maxStack=5;
+            var code=owner.methods.get(0).instructions;
+            if(uninitialized) code.add(new TypeInsnNode(NEW,owner.name)); else code.add(new InsnNode(ACONST_NULL));
+            code.add(new InsnNode(uninitialized?ICONST_0:FCONST_0));
+            code.add(new InsnNode(ACONST_NULL));code.add(new InsnNode(ICONST_0));code.add(new InsnNode(ICONST_0));
+            code.add(new MethodInsnNode(INVOKESTATIC,"java/lang/System","arraycopy","(Ljava/lang/Object;ILjava/lang/Object;II)V",false));
+            code.add(new InsnNode(RETURN));reject(owner);
+        }
+    }
+
+    @Test void rejectsArrayIntrinsicInvocationKindAndDescriptorImpostors() {
+        for(MethodInsnNode call : new MethodInsnNode[]{
+                new MethodInsnNode(INVOKESTATIC,"[I","clone","()Ljava/lang/Object;",false),
+                new MethodInsnNode(INVOKESPECIAL,"[I","clone","()Ljava/lang/Object;",false),
+                new MethodInsnNode(INVOKEVIRTUAL,"[I","clone","()[I",false),
+                new MethodInsnNode(INVOKEINTERFACE,"[I","clone","()Ljava/lang/Object;",true),
+                new MethodInsnNode(INVOKESTATIC,"java/lang/System","arraycopy","(Ljava/lang/Object;ILjava/lang/Object;II)V",true),
+                new MethodInsnNode(INVOKEVIRTUAL,"java/lang/System","arraycopy","(Ljava/lang/Object;ILjava/lang/Object;II)V",false),
+                new MethodInsnNode(INVOKESTATIC,"java/lang/System","arraycopy","(Ljava/lang/Object;ILjava/lang/Object;II)I",false)}) {
+            ClassNode owner=owner("()V");var code=owner.methods.get(0).instructions;
+            code.add(call);code.add(new InsnNode(RETURN));
+            String message=assertThrows(IllegalArgumentException.class,()->BytecodeCompiler.compileClass(bytes(owner))).getMessage();
+            assertTrue(message.contains("ArrayTypes.java:7:"),message);
+        }
+    }
+
     @Test void rejectsInvalidPrimitiveAllocationTagsAndRetainsNullArrayTyping() {
         for (int type : new int[]{-1, 0, 3, 12, 255}) {
             ClassNode owner = owner("()V"); var code = owner.methods.get(0).instructions;

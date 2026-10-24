@@ -130,6 +130,14 @@ final class BytecodeCompatibility {
                     }
                 }
                 if (instruction instanceof MethodInsnNode call) {
+                    if (BytecodeArrays.isClone(call)) {
+                        try { dispatch.typeTestIds(call.owner); }
+                        catch (IllegalArgumentException error) {
+                            throw failure(owner, method, instruction, "array clone", error.getMessage());
+                        }
+                        continue;
+                    }
+                    if (dispatch.isArraycopyIntrinsic(call)) continue;
                     if (opcode == Opcodes.INVOKESTATIC) {
                         try { dispatch.staticTarget(call); }
                         catch (IllegalArgumentException error) {

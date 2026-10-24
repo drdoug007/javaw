@@ -42,7 +42,10 @@ public final class BytecodeDispatch {
                         if (t.getOpcode() == Opcodes.ANEWARRAY) collectArrays(arrays, arrayDescriptor(t.desc));
                     }
                     if (instruction instanceof MultiANewArrayInsnNode m) collectArrays(arrays, m.desc);
-                    if (instruction instanceof MethodInsnNode m) collectArrays(arrays, m.desc);
+                    if (instruction instanceof MethodInsnNode m) {
+                        collectArrays(arrays, m.desc);
+                        if (m.owner.startsWith("[")) collectArrays(arrays, m.owner);
+                    }
                     if (instruction instanceof FieldInsnNode f) collectArrays(arrays, f.desc);
                     if (instruction instanceof FrameNode frame) {
                         if(frame.local != null) for(Object value : frame.local) if(value instanceof String text) collectArrays(arrays,text);
@@ -124,6 +127,10 @@ public final class BytecodeDispatch {
         }
         throw new IllegalArgumentException("private member access requires the declaring class or a validated linked nest; "
                 + "link the nest host and reciprocal same-package NestHost/NestMembers metadata");
+    }
+
+    public boolean isArraycopyIntrinsic(MethodInsnNode call) {
+        return BytecodeArrays.isArraycopy(call) && !linked.containsKey(call.owner);
     }
 
     public int classId(String name) {

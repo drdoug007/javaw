@@ -43,7 +43,8 @@ final class BytecodeLinkage {
                     || !BytecodeDeclarations.validDescriptor(field.desc, false))
                 reason = "use a valid field owner, name and value descriptor";
         } else if (instruction instanceof MethodInsnNode call) {
-            if (!BytecodeDeclarations.validClassName(call.owner)
+            if (!(BytecodeDeclarations.validClassName(call.owner)
+                    || BytecodeArrays.isClone(call) && BytecodeDeclarations.validDescriptor(call.owner, false))
                     || !BytecodeDeclarations.validMemberName(call.name, true)
                     || !BytecodeDeclarations.validDescriptor(call.desc, true))
                 reason = "use a valid method owner, name and method descriptor";
