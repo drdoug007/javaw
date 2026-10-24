@@ -1883,3 +1883,5 @@ Core JDK bytecode progress (`array-utilities-v50`): primitive/reference Arrays c
 The selected whole-JAR signature inventory adds 70 declarations (601 declared; 736 still missing). Arrays.stream is the only remaining inventoried Arrays/Objects signature. Declaration counts do not establish complete runtime semantics or reachability. Streams, big numbers/broader Math, remaining collection families and text/wrapper APIs remain open; this H2 utility execution does not establish engine/JDBC support.
 
 Validation: all 255 bytecode tests pass; the reviewed 63-JAR audit baseline passes with unchanged inventory counts and revision `array-utilities-v50`.
+
+- Bytecode core JDK subset: Integer bit operations and reductions; validated by `BytecodeNumericTest` against JVM execution. See [the numeric and utility contract](docs/bytecode-numeric-utilities.md).

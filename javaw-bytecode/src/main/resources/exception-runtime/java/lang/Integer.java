@@ -47,4 +47,18 @@ public final class Integer extends Number implements Comparable<Integer>,java.io
     public int hashCode(){return (int)value;}
     public static int hashCode(int value){return (int)value;}
     public int compareTo(Integer other){return compare(value,other.value);}
+
+    public static int bitCount(int value){value-=((value>>>1)&0x55555555);value=(value&0x33333333)+((value>>>2)&0x33333333);value=(value+(value>>>4))&0x0f0f0f0f;value+=value>>>8;value+=value>>>16;return value&63;}
+    public static int numberOfLeadingZeros(int value){if(value==0)return 32;int count=0;while(value>=0){count++;value<<=1;}return count;}
+    public static int numberOfTrailingZeros(int value){if(value==0)return 32;int count=0;while((value&1)==0){count++;value>>>=1;}return count;}
+    public static int highestOneBit(int value){return value==0?0:MIN_VALUE>>>numberOfLeadingZeros(value);}
+    public static int lowestOneBit(int value){return value&-value;}
+    public static int rotateLeft(int value,int distance){return (value<<distance)|(value>>>-distance);}
+    public static int rotateRight(int value,int distance){return (value>>>distance)|(value<<-distance);}
+    public static int reverse(int value){int result=0;for(int i=0;i<32;i++){result=(result<<1)|(value&1);value>>>=1;}return result;}
+    public static int reverseBytes(int value){return (value>>>24)|((value>>>8)&0xff00)|((value<<8)&0xff0000)|(value<<24);}
+    public static int sum(int a,int b){return a+b;}
+    public static int min(int a,int b){return Math.min(a,b);}
+    public static int max(int a,int b){return Math.max(a,b);}
+
 }
