@@ -1486,6 +1486,116 @@ class BytecodeCompatibilityTest {
         }
     }
 
+    @Test void matchesJvmInterfaceSpecialDefaultsAndPrivateHelpers() throws Exception {
+        fixture("""
+            public class Fixture {
+                public static double run(int n){return new Device().decorated(n);}
+            }
+            interface Root {
+                int seed(); void set(int n);
+                default double base(double a,long b,float c){return seed()+a+b+c;}
+                default void touch(int n){set(n);}
+                default Root self(){return this;}
+            }
+            interface Left extends Root {}
+            interface Fancy extends Left {
+                private int helper(int n){return n*2;}
+                default double decorated(int n){
+                    Left.super.touch(n);
+                    return Left.super.base(n,10L,0.5f)+helper(n)+Left.super.self().seed();
+                }
+            }
+            class Device implements Fancy {
+                int state;
+                public int seed(){return state;}
+                public void set(int n){state=n;}
+                public double base(double a,long b,float c){return 999;}
+                public void touch(int n){state=999;}
+                public int helper(int n){return 999;}
+            }
+            """);
+        // Exercise the same-interface private INVOKESPECIAL form, still accepted by the JVM.
+        Path file=directory.resolve("Fancy.class");
+        ClassNode type=new ClassNode();new ClassReader(Files.readAllBytes(file)).accept(type,0);
+        for(MethodNode method:type.methods)for(AbstractInsnNode insn:method.instructions)
+            if(insn instanceof MethodInsnNode call && call.name.equals("helper"))call.setOpcode(Opcodes.INVOKESPECIAL);
+        ClassWriter writer=new ClassWriter(0);type.accept(writer);Files.write(file,writer.toByteArray());
+        Path oracle=directory.resolve("Oracle.java");
+        Files.writeString(oracle,"""
+            public class Oracle {public static void main(String[] args){
+                for(int n=-3;n<=3;n++)System.out.println(Fixture.run(n));
+            }}
+            """);
+        assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,"-cp",directory.toString(),
+                "-d",directory.toString(),oracle.toString()));
+        run("java","-cp",directory.toString(),"Oracle");
+        var expected=Files.readAllLines(directory.resolve("command.log"));assertEquals(7,expected.size());
+        execute(linkJar("Device","Fancy","Left","Root","Fixture"),
+                "const expected=["+String.join(",",expected)+"];\n"+"""
+            for(let n=-3;n<=3;n++)assert.equal(e['Fixture.run'](n),expected[n+3]);
+            """);
+    }
+
+    @Test void matchesJvmDirectSuperinterfacePrivateNestCall() throws Exception {
+        fixture("""
+            public class Fixture {
+                interface Secret {private int value(){return 42;}}
+                static class Reader implements Secret {int read(){return ((Secret)this).value();}}
+                public static int run(){return new Reader().read();}
+            }
+            """);
+        Path file=directory.resolve("Fixture$Reader.class");
+        ClassNode type=new ClassNode();new ClassReader(Files.readAllBytes(file)).accept(type,0);
+        for(MethodNode method:type.methods)for(AbstractInsnNode insn:method.instructions)
+            if(insn instanceof MethodInsnNode call && call.name.equals("value"))call.setOpcode(Opcodes.INVOKESPECIAL);
+        ClassWriter writer=new ClassWriter(0);type.accept(writer);Files.write(file,writer.toByteArray());
+        Path oracle=directory.resolve("Oracle.java");
+        Files.writeString(oracle,"public class Oracle {public static void main(String[] args){System.out.println(Fixture.run());}}");
+        assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,"-cp",directory.toString(),
+                "-d",directory.toString(),oracle.toString()));
+        run("java","-cp",directory.toString(),"Oracle");
+        assertEquals("42",Files.readString(directory.resolve("command.log")).trim());
+        execute(linkJar("Fixture$Reader","Fixture$Secret","Fixture"),"assert.equal(e['Fixture.run'](),42);");
+    }
+
+    @Test void diagnosesInvalidInterfaceSpecialCallersAndTargets() {
+        for(String scenario:new String[]{"unrelated","indirect","inaccessible","static","abstract","native",
+                "classOwner","wrongReference","missing","cycle","initializer","noMethod","private"}) {
+            ClassNode iface=new ClassNode();iface.name="p/Root";iface.superName="java/lang/Object";
+            iface.access=Opcodes.ACC_PUBLIC|Opcodes.ACC_INTERFACE|Opcodes.ACC_ABSTRACT;
+            int flags=Opcodes.ACC_PUBLIC;
+            if(scenario.equals("static"))flags|=Opcodes.ACC_STATIC;
+            if(scenario.equals("abstract"))flags|=Opcodes.ACC_ABSTRACT;
+            if(scenario.equals("native"))flags|=Opcodes.ACC_NATIVE;
+            if(scenario.equals("private"))flags=Opcodes.ACC_PRIVATE;
+            iface.methods.add(new MethodNode(flags,"value","()I",null,null));
+            ClassNode caller=new ClassNode();caller.name="q/Caller";caller.superName="java/lang/Object";caller.access=Opcodes.ACC_PUBLIC;
+            caller.interfaces.add(iface.name);
+            MethodNode method=new MethodNode(Opcodes.ACC_PUBLIC,"call","()I",null,null);
+            MethodInsnNode call=new MethodInsnNode(Opcodes.INVOKESPECIAL,iface.name,"value","()I",true);
+            method.instructions.add(new VarInsnNode(Opcodes.ALOAD,0));method.instructions.add(call);
+            method.instructions.add(new InsnNode(Opcodes.IRETURN));method.maxLocals=1;method.maxStack=1;caller.methods.add(method);
+            var linked=new java.util.LinkedHashMap<String,ClassNode>();linked.put(iface.name,iface);linked.put(caller.name,caller);
+            if(scenario.equals("unrelated"))caller.interfaces.clear();
+            if(scenario.equals("indirect")) {
+                ClassNode child=new ClassNode();child.name="p/Child";child.superName="java/lang/Object";
+                child.access=iface.access;child.interfaces.add(iface.name);linked.put(child.name,child);
+                caller.interfaces.clear();caller.interfaces.add(child.name);
+            }
+            if(scenario.equals("inaccessible"))iface.access&=~Opcodes.ACC_PUBLIC;
+            if(scenario.equals("classOwner"))iface.access&=~Opcodes.ACC_INTERFACE;
+            if(scenario.equals("wrongReference"))call.itf=false;
+            if(scenario.equals("missing"))iface.interfaces.add("missing/Parent");
+            if(scenario.equals("cycle"))iface.interfaces.add(iface.name);
+            if(scenario.equals("initializer"))call.name="<init>";
+            if(scenario.equals("noMethod"))iface.methods.clear();
+            String error=assertThrows(IllegalArgumentException.class,
+                    ()->new ClassBytecodeCompiler(caller).compileToWat(linked),scenario).getMessage();
+            assertTrue(error.contains(scenario.equals("wrongReference")?"special call ":"interface super call "),scenario+": "+error);
+            assertTrue(error.contains("Caller.call()I"),error);
+        }
+    }
+
     private String linkJar(String... names) throws Exception {
         var bytes=new java.io.ByteArrayOutputStream();
         try(var jar=new java.util.jar.JarOutputStream(bytes)) {

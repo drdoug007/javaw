@@ -79,7 +79,7 @@ public final class BytecodeDispatch {
         if ("java/lang/Object".equals(name) || complete.contains(name)) return;
         ClassNode type = linked.get(name);
         if (type == null || !visiting.add(name))
-            throw new IllegalArgumentException("link a complete acyclic type-test hierarchy: " + name);
+            throw new IllegalArgumentException("link a complete acyclic type hierarchy: " + name);
         if (type.superName != null) validateTypeHierarchy(type.superName, visiting, complete);
         for (String iface : type.interfaces) validateTypeHierarchy(iface, visiting, complete);
         visiting.remove(name);
@@ -275,12 +275,21 @@ public final class BytecodeDispatch {
     }
 
     public String interfaceSuperTarget(MethodInsnNode call) {
-        ClassNode owner = linked.get(call.owner);
-        if (owner == null || (owner.access & Opcodes.ACC_INTERFACE) == 0)
-            throw new IllegalArgumentException("link the interface-super owner and its complete hierarchy");
-        Declaration target = declaration(call.owner, call.name, call.desc, new HashSet<>());
+        ClassNode owner = linked.get(call.owner), from = linked.get(caller);
+        if (!call.itf || owner == null || (owner.access & Opcodes.ACC_INTERFACE) == 0 || from == null)
+            throw new IllegalArgumentException("link the interface-special owner and caller with an interface reference");
+        if ((owner.access & Opcodes.ACC_PUBLIC) == 0 && !packageName(call.owner).equals(packageName(caller)))
+            throw new IllegalArgumentException("inaccessible interface-special owner " + call.owner);
+        if (call.name.startsWith("<"))
+            throw new IllegalArgumentException("interface special calls cannot name initializers");
+        if (!caller.equals(call.owner) && !from.interfaces.contains(call.owner))
+            throw new IllegalArgumentException("interface-special owner must be the caller interface or a direct superinterface");
+        validateTypeHierarchy(call.owner, new HashSet<>(), new HashSet<>());
+        Declaration target = ownMethod(call.owner, call.name, call.desc);
         if (target == null) target = interfaceMethod(call.owner, call.name, call.desc);
-        if (target != null && (target.method.access & Opcodes.ACC_PRIVATE) != 0) checkPrivateAccess(target.owner);
+        if (target != null && (target.method.access & Opcodes.ACC_PRIVATE) != 0) {
+            checkPrivateAccess(target.owner);
+        }
         if (target == null || (target.method.access & (Opcodes.ACC_PUBLIC | Opcodes.ACC_PRIVATE)) == 0
                 || (target.method.access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_STATIC | Opcodes.ACC_NATIVE)) != 0)
             throw new IllegalArgumentException("interface-special calls require an accessible concrete default/private implementation");
