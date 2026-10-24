@@ -1712,6 +1712,59 @@ class BytecodeCompatibilityTest {
                 "assert.equal(e['Fixture.run'](),43);");
     }
 
+    @Test void matchesJvmFinalMethodsAcrossDistinctPackageAndPrivateSlots() throws Exception {
+        var sources=java.util.Map.of(
+            "p/Base.java","""
+                package p;
+                public class Base {
+                    final int hidden(){return 10;}
+                    private final int privateValue(){return 11;}
+                    public final int fixed(){return 20;}
+                    protected int open(){return 30;}
+                    public int baseSlot(){return hidden()+privateValue();}
+                }
+                """,
+            "p/Peer.java","package p; public class Peer {public static int read(Base value){return value.hidden();}}",
+            "q/Middle.java","""
+                package q;
+                public class Middle extends p.Base {
+                    public int hidden(){return 100;}
+                    public int privateValue(){return 200;}
+                    public int open(){return 300;}
+                }
+                """,
+            "q/Leaf.java","""
+                package q;
+                public final class Leaf extends Middle {
+                    public final int hidden(){return 1000;}
+                    public final int privateValue(){return 201;}
+                    public final int open(){return 400;}
+                }
+                """,
+            "Fixture.java","""
+                public class Fixture {public static int run(){
+                    q.Middle value=new q.Leaf();
+                    return value.hidden()+value.privateValue()+value.open()+value.baseSlot()+value.fixed()+p.Peer.read(value);
+                }}
+                """);
+        var args=new java.util.ArrayList<String>(java.util.List.of("-g","-d",directory.toString()));
+        for(var source:sources.entrySet()) {
+            Path file=directory.resolve(source.getKey());Files.createDirectories(file.getParent());
+            Files.writeString(file,source.getValue());args.add(file.toString());
+        }
+        assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,args.toArray(String[]::new)));
+        Path oracle=directory.resolve("Oracle.java");
+        Files.writeString(oracle,"public class Oracle {public static void main(String[] args){System.out.println(Fixture.run());}}");
+        assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,"-cp",directory.toString(),
+                "-d",directory.toString(),oracle.toString()));
+        run("java","-cp",directory.toString(),"Oracle");
+        String expected=Files.readString(directory.resolve("command.log")).trim();assertEquals("1652",expected);
+        execute(linkJar("q/Leaf","q/Middle","p/Peer","p/Base","Fixture"),
+                "assert.equal(e['Fixture.run'](),"+expected+");");
+        execute(linkJar("Fixture","p/Base","p/Peer","q/Middle","q/Leaf"),
+                "assert.equal(e['Fixture.run'](),"+expected+");");
+    }
+
     private String linkJar(String... names) throws Exception {
         var bytes=new java.io.ByteArrayOutputStream();
         try(var jar=new java.util.jar.JarOutputStream(bytes)) {

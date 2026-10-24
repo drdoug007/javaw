@@ -37,6 +37,7 @@ final class BytecodeCompatibility {
         BytecodeHierarchy.validate(owner, linked);
         BytecodeObjectLayouts layouts = new BytecodeObjectLayouts(linked);
         BytecodeDispatch dispatch = new BytecodeDispatch(linked, owner.name);
+        dispatch.validateOverrides();
         Map<String, Integer> offsets = layouts.offsets();
         for (FieldNode field : owner.fields) {
             if (field.value != null && !numericConstant(field.value))

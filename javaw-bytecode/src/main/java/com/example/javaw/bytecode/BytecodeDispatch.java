@@ -323,6 +323,28 @@ public final class BytecodeDispatch {
         return null;
     }
 
+    /** Check declared non-private instance overrides even when no virtual call reaches them. */
+    void validateOverrides() {
+        ClassNode type = linked.get(caller);
+        if (type == null || (type.access & Opcodes.ACC_INTERFACE) != 0) return;
+        for (MethodNode method : type.methods) {
+            if (method.name.startsWith("<") || (method.access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) != 0) continue;
+            String parent = type.superName;
+            while (parent != null && !parent.equals("java/lang/Object")) {
+                ClassNode ancestor = linked.get(parent); // Hierarchy declarations have already been validated.
+                Declaration inherited = ownMethod(parent, method.name, method.desc);
+                if (inherited != null && (inherited.method.access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) == 0) {
+                    try { virtualImplementation(type.name, inherited); }
+                    catch (IllegalArgumentException error) {
+                        throw BytecodeCompatibility.failure(type, method, null,
+                                "method override " + method.name + method.desc, error.getMessage());
+                    }
+                }
+                parent = ancestor.superName;
+            }
+        }
+    }
+
     private Declaration virtualImplementation(String receiver, Declaration resolved) {
         if ((linked.get(resolved.owner).access & Opcodes.ACC_INTERFACE) != 0) {
             Declaration implementation = declaration(receiver, resolved.method.name, resolved.method.desc, new HashSet<>());
@@ -347,6 +369,9 @@ public final class BytecodeDispatch {
             // Once a same-package override widens access, subsequent overrides are transitive.
             if ((selected.method.access & (Opcodes.ACC_PUBLIC | Opcodes.ACC_PROTECTED)) != 0
                     || packageName(selected.owner).equals(packageName(candidate.owner))) {
+                if ((selected.method.access & Opcodes.ACC_FINAL) != 0)
+                    throw new IllegalArgumentException("cannot override final instance method " + selected.owner
+                            + "." + selected.method.name + selected.method.desc);
                 int access = candidate.method.access;
                 if ((selected.method.access & Opcodes.ACC_PUBLIC) != 0 && (access & Opcodes.ACC_PUBLIC) == 0
                         || (selected.method.access & Opcodes.ACC_PROTECTED) != 0
