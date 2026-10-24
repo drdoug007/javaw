@@ -9,7 +9,7 @@ import java.util.*;
 /** Explicit, isolated exception runtime. Requires a JDK to compile its bundled Java sources once. */
 public final class BytecodeExceptionRuntime {
     private static Map<String,byte[]> compiled;
-    private static final String[] NAMES = ("ReflectiveOperationException NoSuchMethodException IllegalAccessException ClassLoader AutoCloseable Cloneable CloneNotSupportedException Class Record Comparable Number Boolean Byte Character Short Integer Long Float Double Void Throwable String StackTraceElement Exception RuntimeException Error LinkageError "
+    private static final String[] NAMES = ("ReflectiveOperationException InstantiationException NoSuchFieldException NoSuchMethodException IllegalAccessException Deprecated FunctionalInterface SafeVarargs ClassFormatError TypeNotPresentException EnumConstantNotPresentException Enum ClassLoader AutoCloseable Cloneable CloneNotSupportedException Class Record Comparable Number Boolean Byte Character Short Integer Long Float Double Void Throwable String StackTraceElement Exception RuntimeException Error LinkageError "
             + "VirtualMachineError InternalError OutOfMemoryError StackOverflowError NullPointerException ClassCastException ArithmeticException "
             + "IndexOutOfBoundsException ArrayIndexOutOfBoundsException ArrayStoreException NegativeArraySizeException "
             + "IllegalArgumentException IllegalStateException UnsupportedOperationException IncompatibleClassChangeError AbstractMethodError IllegalAccessError "
@@ -46,6 +46,20 @@ public final class BytecodeExceptionRuntime {
             paths.add("java/lang/invoke/MethodHandles.java");
             paths.add("java/lang/reflect/InvocationHandler.java");
             paths.add("java/lang/reflect/Method.java");
+            paths.add("java/lang/reflect/AccessibleObject.java");
+            paths.add("java/lang/reflect/Member.java");
+            paths.add("java/lang/reflect/Modifier.java");
+            paths.add("java/lang/reflect/Constructor.java");
+            paths.add("java/lang/reflect/Field.java");
+            paths.add("java/lang/reflect/Array.java");
+            paths.add("java/lang/reflect/Executable.java");
+            paths.add("java/lang/reflect/Parameter.java");
+            for(String name:List.of("Type","GenericDeclaration","ParameterizedType","TypeVariable","GenericArrayType","WildcardType","GenericSignatureFormatError","AnnotatedType","AnnotatedArrayType","AnnotatedParameterizedType","AnnotatedWildcardType","AnnotatedTypeVariable"))paths.add("java/lang/reflect/"+name+".java");
+            paths.add("javaw/runtime/GenericSignatures.java");
+            paths.add("javaw/runtime/AnnotatedTypes.java");
+            paths.add("java/lang/reflect/AnnotatedElement.java");
+            for(String name:List.of("Annotation","RetentionPolicy","ElementType","Retention","Target","Inherited","Documented","Repeatable","IncompleteAnnotationException","AnnotationTypeMismatchException","AnnotationFormatError"))paths.add("java/lang/annotation/"+name+".java");
+            paths.add("javaw/runtime/AnnotationValue.java");
             paths.add("java/lang/reflect/Proxy.java");
             paths.add("java/lang/reflect/UndeclaredThrowableException.java");
             paths.add("java/lang/reflect/InvocationTargetException.java");

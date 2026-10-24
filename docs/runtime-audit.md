@@ -47,3 +47,7 @@ The `aot-handles-proxies-v43` milestone supplies fixed handle constants/invocati
 
 
 Revision `declared-methods-v44` begins reflection with original linked-class declared-method metadata. The member-reference inventory includes these APIs in Jackson, Classmate, H2 and framework utilities. JVM/Wasm tests cover declaration/flag/signature/exception discovery and unchanged pinned Spring Boot RabbitConnectionDetails$Address metadata; no full caller or framework startup is claimed. [The reflection contract](bytecode-reflection.md) records remaining inherited discovery, access-sensitive invocation, generic and annotation requirements. The reviewed pinned inventory changes only compiler revision; 231 bytecode tests pass.
+
+Revision `reflection-metadata-v45` completes the selected linked-class reflection contract, including invocation, inherited lookup, generic/annotated signatures, parameters and runtime annotations. Tests execute selected pinned Spring ReflectionUtils invocation bodies (other declarations/initialization pruned) and unchanged Jakarta Persistence annotations. These results do not establish full-class Spring execution or framework startup. See [the detailed reflection contract](bytecode-reflection.md).
+
+Validation: all 240 bytecode tests pass; the reviewed 63-JAR audit baseline passes with inventory counts unchanged and compiler revision `reflection-metadata-v45`.

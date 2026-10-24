@@ -128,7 +128,7 @@ class BytecodeClassMetadataTest implements Opcodes {
                     checks.append("assert.equal(text(e['Metadata.").append(method).append("'](").append(n).append(")),")
                             .append(js((String)jvm.getMethod(method,int.class).invoke(null,n))).append(");\n");
                 for(String method:List.of("modifiers","flags","count")) {
-                    // The isolated Class runtime exposes its supplied Serializable interface only.
+                    // The isolated Class runtime exposes its supplied reflection interfaces.
                     if((n==7 || n==26) && method.equals("count"))continue;
                     checks.append("assert.equal(e['Metadata.").append(method).append("'](").append(n).append("),")
                             .append(jvm.getMethod(method,int.class).invoke(null,n)).append(");\n");
@@ -145,8 +145,8 @@ class BytecodeClassMetadataTest implements Opcodes {
                 checks.append("assert.equal(e['Metadata.assignable'](").append(from).append(',').append(to).append("),")
                         .append(jvm.getMethod("assignable",int.class,int.class).invoke(null,from,to)).append(");\n");
         }
-        // Class implements Serializable in this isolated API; host JDK's other reflection interfaces are separate work.
-        checks.append("assert.equal(e['Metadata.count'](7),1);\n");
+        // Direct isolated Class interfaces: Serializable, GenericDeclaration and Type.
+        checks.append("assert.equal(e['Metadata.count'](7),3);\n");
         execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar)),checks.toString());
         execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(true))),checks.toString());
     }
@@ -261,7 +261,7 @@ class BytecodeClassMetadataTest implements Opcodes {
 
     @Test void reportsSyntheticAnnotationAndEnumFlagsFromClosedWorldDeclarations() throws Exception {
         Map<String,byte[]> definitions=new LinkedHashMap<>();
-        for(String name:List.of("SyntheticType","EnumFlagOnly","AnnotationType","java/lang/annotation/Annotation")) {
+        for(String name:List.of("SyntheticType","EnumFlagOnly","AnnotationType")) {
             boolean annotation=name.equals("AnnotationType"),iface=annotation || name.startsWith("java/");
             int flags=ACC_PUBLIC|(iface?ACC_ABSTRACT|ACC_INTERFACE:ACC_SUPER)
                     |(annotation?ACC_ANNOTATION:0)|(name.equals("SyntheticType")?ACC_SYNTHETIC:0)
