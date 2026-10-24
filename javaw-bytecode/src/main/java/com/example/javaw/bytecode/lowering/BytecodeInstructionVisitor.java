@@ -2,6 +2,7 @@ package com.example.javaw.bytecode.lowering;
 
 import com.example.javaw.bytecode.TypeHelper;
 import com.example.javaw.bytecode.BytecodeDispatch;
+import com.example.javaw.bytecode.BytecodeArrays;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
@@ -439,47 +440,29 @@ public class BytecodeInstructionVisitor {
                 break;
 
             case Opcodes.ARRAYLENGTH:
-                String arrRef = stack.peek();
-                emit("local.get " + arrRef);
-                emit("i32.load offset=0");
-                emit("local.set " + arrRef);
+                emit("local.get " + stack.pop());
+                emit("call $__array_length");
+                emit("local.set " + stack.push("i32"));
                 break;
 
             case Opcodes.IALOAD:
+            case Opcodes.LALOAD:
+            case Opcodes.FALOAD:
+            case Opcodes.DALOAD:
             case Opcodes.BALOAD:
             case Opcodes.CALOAD:
             case Opcodes.SALOAD:
-            case Opcodes.AALOAD:
-                String idx = stack.pop();
-                String arr = stack.peek();
-                emit("local.get " + arr);
-                emit("i32.const 4");
-                emit("i32.add");
-                emit("local.get " + idx);
-                emit("i32.const 4");
-                emit("i32.mul");
-                emit("i32.add");
-                emit("i32.load offset=0");
-                emit("local.set " + arr);
+                primitiveArrayLoad(opcode);
                 break;
 
             case Opcodes.IASTORE:
+            case Opcodes.LASTORE:
+            case Opcodes.FASTORE:
+            case Opcodes.DASTORE:
             case Opcodes.BASTORE:
             case Opcodes.CASTORE:
             case Opcodes.SASTORE:
-            case Opcodes.AASTORE:
-                String arrStoreVal = stack.pop();
-                String arrStoreIdx = stack.pop();
-                String arrStoreArr = stack.pop();
-                emit("local.get " + arrStoreArr);
-                emit("i32.const 4");
-                emit("i32.add");
-                emit("local.get " + arrStoreIdx);
-                emit("i32.const 4");
-                emit("i32.mul");
-                emit("i32.add");
-                emit("local.get " + arrStoreVal);
-                emit("i32.store offset=0");
+                primitiveArrayStore(opcode);
                 break;
 
             case Opcodes.INSTANCEOF:
@@ -531,17 +514,12 @@ public class BytecodeInstructionVisitor {
                 break;
 
             case Opcodes.NEWARRAY:
-            case Opcodes.ANEWARRAY:
-                String count = stack.peek();
-                emit("local.get " + count);
-                emit("i32.const 4");
-                emit("i32.mul");
-                emit("i32.const 4");
-                emit("i32.add");
-                emit("call $__heap_alloc");
-                emit("local.tee " + count);
-                emit("local.get " + count);
-                emit("i32.load offset=0"); // store length
+                BytecodeArrays.Primitive primitive = BytecodeArrays.primitive(((IntInsnNode) insn).operand);
+                emit("local.get " + stack.pop());
+                emit("i32.const " + primitive.classId());
+                emit("i32.const " + primitive.width());
+                emit("call $__new_primitive_array");
+                emit("local.set " + stack.push("i32"));
                 break;
 
             case Opcodes.GETFIELD:
@@ -645,6 +623,35 @@ public class BytecodeInstructionVisitor {
         } else {
             throw new IllegalArgumentException("Unsupported LDC constant " + cst.getClass().getName());
         }
+    }
+
+    private void primitiveArrayAddress(String array, String index, BytecodeArrays.Primitive primitive) {
+        emit("local.get " + array);
+        emit("local.get " + index);
+        emit("i32.const " + primitive.classId());
+        emit("i32.const " + primitive.width());
+        emit("call $__primitive_array_address");
+    }
+
+    private void primitiveArrayLoad(int opcode) {
+        BytecodeArrays.Primitive primitive = BytecodeArrays.element(opcode);
+        String index = stack.pop(), array = stack.pop();
+        primitiveArrayAddress(array, index, primitive);
+        emit(primitive.load());
+        emit("local.set " + stack.push(primitive.wasmType()));
+    }
+
+    private void primitiveArrayStore(int opcode) {
+        BytecodeArrays.Primitive primitive = BytecodeArrays.element(opcode);
+        String value = stack.pop(), index = stack.pop(), array = stack.pop();
+        primitiveArrayAddress(array, index, primitive);
+        if (opcode == Opcodes.BASTORE) {
+            emit("local.get " + array); emit("i32.load"); emit("i32.const -4"); emit("i32.eq");
+            emit("if (result i32)");
+            emit("local.get " + value); emit("i32.const 1"); emit("i32.and");
+            emit("else"); emit("local.get " + value); emit("end");
+        } else emit("local.get " + value);
+        emit(primitive.store());
     }
 
     private void convert(String resultType, String instruction) {

@@ -51,6 +51,9 @@ public class BytecodeCompiler {
         if (classes.stream().anyMatch(ClassBytecodeCompiler::usesFloatingRemainder))
             combinedWat.append(FloatingPointSupport.remainderFunctionsWat());
 
+        if (classes.stream().anyMatch(BytecodeArrays::usesRuntime))
+            combinedWat.append(BytecodeArrays.runtimeWat());
+
         Map<String, ClassNode> linked = new LinkedHashMap<>();
         for (ClassNode cn : classes) {
             if (linked.putIfAbsent(cn.name, cn) != null)

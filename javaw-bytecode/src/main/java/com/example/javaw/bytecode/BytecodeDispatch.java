@@ -67,6 +67,11 @@ public final class BytecodeDispatch {
 
     /** Concrete runtime IDs assignable to a linked class/interface type-test target. */
     public Set<Integer> typeTestIds(String target) {
+        if (target.startsWith("[")) {
+            BytecodeArrays.Primitive primitive = BytecodeArrays.primitive(target);
+            if (primitive == null) throw new IllegalArgumentException("reference/multidimensional array type tests are unsupported");
+            return Set.of(primitive.classId());
+        }
         if (!target.equals("java/lang/Object")) {
             ClassNode type = linked.get(target);
             if (type == null || target.startsWith("["))
@@ -81,6 +86,10 @@ public final class BytecodeDispatch {
                     && layouts.contains(type.name) && subtype(type.name, target, new HashSet<>()))
                 result.add(entry.getValue());
         }
+        ClassNode marker = linked.get(target);
+        if (target.equals("java/lang/Object") || marker != null && (marker.access & Opcodes.ACC_INTERFACE) != 0
+                && (target.equals("java/lang/Cloneable") || target.equals("java/io/Serializable")))
+            for (BytecodeArrays.Primitive primitive : BytecodeArrays.PRIMITIVES) result.add(primitive.classId());
         return result;
     }
 

@@ -31,6 +31,9 @@ final class BytecodeCompatibility {
             Opcodes.FCMPL, Opcodes.FCMPG, Opcodes.DCMPL, Opcodes.DCMPG,
             Opcodes.I2F, Opcodes.I2D, Opcodes.L2F, Opcodes.L2D, Opcodes.F2I, Opcodes.F2L,
             Opcodes.F2D, Opcodes.D2I, Opcodes.D2L, Opcodes.D2F, Opcodes.FRETURN, Opcodes.DRETURN,
+            Opcodes.NEWARRAY, Opcodes.ARRAYLENGTH,
+            Opcodes.IALOAD, Opcodes.LALOAD, Opcodes.FALOAD, Opcodes.DALOAD, Opcodes.BALOAD, Opcodes.CALOAD, Opcodes.SALOAD,
+            Opcodes.IASTORE, Opcodes.LASTORE, Opcodes.FASTORE, Opcodes.DASTORE, Opcodes.BASTORE, Opcodes.CASTORE, Opcodes.SASTORE,
             Opcodes.IRETURN, Opcodes.ARETURN, Opcodes.RETURN);
 
     static boolean admittedOpcode(int opcode) { return OPCODES.contains(opcode); }
@@ -95,6 +98,12 @@ final class BytecodeCompatibility {
                             || !layouts.contains(allocation.desc))
                         throw failure(owner, method, instruction, "object allocation " + allocation.desc,
                                 "link a concrete class and its complete superclass chain through Object; cyclic or missing hierarchies are unsupported");
+                }
+                if (opcode == Opcodes.NEWARRAY) {
+                    try { BytecodeArrays.primitive(((IntInsnNode) instruction).operand); }
+                    catch (IllegalArgumentException error) {
+                        throw failure(owner, method, instruction, "primitive array allocation", error.getMessage());
+                    }
                 }
                 BytecodeLinkage.validateReference(owner, method, instruction);
                 if (instruction instanceof FieldInsnNode field) {

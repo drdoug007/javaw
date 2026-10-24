@@ -58,6 +58,9 @@ public class ClassBytecodeCompiler {
         if (includeNumericRuntime && usesFloatingRemainder(classNode))
             wat.append(FloatingPointSupport.remainderFunctionsWat());
 
+        if (includeNumericRuntime && BytecodeArrays.usesRuntime(classNode))
+            wat.append(BytecodeArrays.runtimeWat());
+
         // Collect fields
         for (FieldNode fn : classNode.fields) {
             boolean isStatic = (fn.access & Opcodes.ACC_STATIC) != 0;

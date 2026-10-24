@@ -46,6 +46,222 @@ class BytecodeCompatibilityTest {
         assertEquals(0,process.exitValue(),Files.readString(log));
     }
 
+    @Test void executesPrimitiveNarrowArraysDefaultsLoopsAndAliasingWithJvmComparison() throws Exception {
+        byte[] bytes = fixture("""
+            public class Fixture {
+                static int[] saved;
+                private static int sum(int[] values) {
+                    int sum = 0; for (int v : values) sum += v; return sum;
+                }
+                public static int ints(int n) {
+                    int[] values = new int[n]; saved = values;
+                    int defaults = sum(values);
+                    for (int i = 0; i < n; i++) values[i] = i * 1000003 - 7;
+                    return defaults + sum(saved);
+                }
+                public static int narrow(int n) {
+                    boolean[] z = new boolean[n]; byte[] b = new byte[n];
+                    short[] s = new short[n]; char[] c = new char[n];
+                    if (n == 0) return z.length + b.length + s.length + c.length;
+                    int defaults = (z[n-1] ? 1 : 0) + b[n-1] + s[n-1] + c[n-1];
+                    z[0] = true; b[0] = (byte) 128; s[0] = (short) 32768; c[0] = (char) -1;
+                    return defaults + (z[0] ? 1 : 0) + b[0] + s[0] + c[0];
+                }
+            }
+            """);
+        try (var loader = new java.net.URLClassLoader(new java.net.URL[]{directory.toUri().toURL()})) {
+            Class<?> jvm = loader.loadClass("Fixture"); StringBuilder assertions = new StringBuilder();
+            for (String method : new String[]{"ints", "narrow"}) for (int n : new int[]{0, 1, 7, 40})
+                assertions.append("assert.equal(e['Fixture.").append(method).append("'](").append(n).append("),")
+                        .append(jvm.getMethod(method, int.class).invoke(null, n)).append(");");
+            execute(BytecodeCompiler.compileClass(bytes), assertions.toString());
+        }
+    }
+
+    @Test void executesWideAndFloatingPrimitiveArraysWithJvmComparison() throws Exception {
+        byte[] bytes = fixture("""
+            public class Fixture {
+                private static long select(long[] values, int i) { return values[i]; }
+                public static long longs(int i) {
+                    long[] values = new long[4];
+                    values[0] = Long.MIN_VALUE; values[1] = 9007199254740993L; values[2] = Long.MAX_VALUE;
+                    return select(values, i);
+                }
+                public static float floats(int i) {
+                    float[] values = {0.0f, -0.0f, 1.25f, Float.MIN_VALUE, Float.MAX_VALUE, Float.POSITIVE_INFINITY, Float.NaN};
+                    return values[i];
+                }
+                public static double doubles(int i) {
+                    double[] values = {0.0d, -0.0d, 1.25d, Double.MIN_VALUE, Double.MAX_VALUE, Double.NEGATIVE_INFINITY, Double.NaN};
+                    return values[i];
+                }
+            }
+            """);
+        try (var loader = new java.net.URLClassLoader(new java.net.URL[]{directory.toUri().toURL()})) {
+            Class<?> jvm = loader.loadClass("Fixture"); StringBuilder assertions = new StringBuilder();
+            for (String method : new String[]{"longs", "floats", "doubles"}) {
+                for (int i = 0; i < (method.equals("longs") ? 4 : 7); i++) {
+                    Object value = jvm.getMethod(method, int.class).invoke(null, i);
+                    String expected = value instanceof Long ? value + "n" : Double.toString(((Number) value).doubleValue());
+                    assertions.append("assert.equal(e['Fixture.").append(method).append("'](").append(i).append("),")
+                            .append(expected).append(");");
+                }
+            }
+            execute(BytecodeCompiler.compileClass(bytes), assertions.toString());
+        }
+    }
+
+    @Test void executesPrimitiveArrayTypeTestsCastsAndObjectJoinsWithJvmComparison() throws Exception {
+        byte[] bytes = fixture("""
+            public class Fixture {
+                public static Object make(int kind) {
+                    return switch (kind) {
+                        case 0 -> null; case 1 -> new boolean[0]; case 2 -> new byte[0];
+                        case 3 -> new char[0]; case 4 -> new short[0]; case 5 -> new int[3];
+                        case 6 -> new long[0]; case 7 -> new float[0]; case 8 -> new double[0];
+                        default -> new Fixture();
+                    };
+                }
+                public static int classify(Object value) {
+                    return (value instanceof Object ? 1 : 0) + (value instanceof boolean[] ? 2 : 0)
+                        + (value instanceof byte[] ? 4 : 0) + (value instanceof char[] ? 8 : 0)
+                        + (value instanceof short[] ? 16 : 0) + (value instanceof int[] ? 32 : 0)
+                        + (value instanceof long[] ? 64 : 0) + (value instanceof float[] ? 128 : 0)
+                        + (value instanceof double[] ? 256 : 0);
+                }
+                public static int[] cast(Object value) { return (int[]) value; }
+                public static int length(int[] value) { return value.length; }
+            }
+            """);
+        try (var loader = new java.net.URLClassLoader(new java.net.URL[]{directory.toUri().toURL()})) {
+            Class<?> jvm = loader.loadClass("Fixture"); StringBuilder assertions = new StringBuilder();
+            for (int i = 0; i <= 9; i++) {
+                Object value = jvm.getMethod("make", int.class).invoke(null, i);
+                assertions.append("assert.equal(e['Fixture.classify'](e['Fixture.make'](").append(i).append(")),")
+                        .append(jvm.getMethod("classify", Object.class).invoke(null, value)).append(");");
+            }
+            assertions.append("const array=e['Fixture.make'](5); assert.equal(e['Fixture.cast'](array),array);")
+                    .append("assert.equal(e['Fixture.length'](array),3); assert.equal(e['Fixture.cast'](0),0);")
+                    .append("assert.throws(()=>e['Fixture.cast'](e['Fixture.make'](2)),WebAssembly.RuntimeError);")
+                    .append("assert.throws(()=>e['Fixture.cast'](e['Fixture.make'](9)),WebAssembly.RuntimeError);");
+            execute(BytecodeCompiler.compileClass(bytes), assertions.toString());
+        }
+    }
+
+    @Test void trapsPrimitiveArrayNullBoundsNegativeAndOverflowFailures() throws Exception {
+        byte[] bytes = fixture("""
+            public class Fixture {
+                public static int[] make(int n) { return new int[n]; }
+                public static long[] wide(int n) { return new long[n]; }
+                public static int length(int[] value) { return value.length; }
+                public static int get(int[] value, int index) { return value[index]; }
+                public static void put(int[] value, int index, int v) { value[index] = v; }
+            }
+            """);
+        try (var loader = new java.net.URLClassLoader(new java.net.URL[]{directory.toUri().toURL()})) {
+            Class<?> jvm = loader.loadClass("Fixture");
+            assertInstanceOf(NegativeArraySizeException.class, assertThrows(java.lang.reflect.InvocationTargetException.class,
+                    () -> jvm.getMethod("make", int.class).invoke(null, -1)).getCause());
+            assertInstanceOf(NullPointerException.class, assertThrows(java.lang.reflect.InvocationTargetException.class,
+                    () -> jvm.getMethod("length", int[].class).invoke(null, (Object) null)).getCause());
+            for (int index : new int[]{-1, 3, Integer.MAX_VALUE})
+                assertInstanceOf(ArrayIndexOutOfBoundsException.class, assertThrows(java.lang.reflect.InvocationTargetException.class,
+                        () -> jvm.getMethod("get", int[].class, int.class).invoke(null, new int[3], index)).getCause());
+        }
+        execute(BytecodeCompiler.compileClass(bytes), """
+            const array=e['Fixture.make'](3), empty=e['Fixture.make'](0);
+            assert.equal(e['Fixture.length'](empty),0);
+            assert.equal(e['Fixture.get'](array,0),0);
+            e['Fixture.put'](array,2,-123); assert.equal(e['Fixture.get'](array,2),-123);
+            for(const index of [-1,3,2147483647]) {
+                assert.throws(()=>e['Fixture.get'](array,index),WebAssembly.RuntimeError);
+                assert.throws(()=>e['Fixture.put'](array,index,7),WebAssembly.RuntimeError);
+            }
+            assert.throws(()=>e['Fixture.get'](empty,0),WebAssembly.RuntimeError);
+            assert.throws(()=>e['Fixture.length'](0),WebAssembly.RuntimeError);
+            assert.throws(()=>e['Fixture.get'](0,0),WebAssembly.RuntimeError);
+            assert.throws(()=>e['Fixture.put'](0,0,3),WebAssembly.RuntimeError);
+            assert.throws(()=>e['Fixture.make'](-1),WebAssembly.RuntimeError);
+            assert.throws(()=>e['Fixture.make'](2147483647),WebAssembly.RuntimeError);
+            assert.throws(()=>e['Fixture.wide'](268435455),WebAssembly.RuntimeError);
+            for(const alloc of [()=>0,()=>memory.buffer.byteLength-4]) {
+                const bad=new WebAssembly.Instance(new WebAssembly.Module(fs.readFileSync(process.argv[2])),
+                    {env:{memory,__heap_alloc:alloc}}).exports;
+                assert.throws(()=>bad['Fixture.make'](0),WebAssembly.RuntimeError);
+            }
+            """);
+    }
+
+    @Test void matchesJvmNarrowArrayStoreConversionsIncludingBooleanLowBit() throws Exception {
+        ClassWriter writer = new ClassWriter(0);
+        writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "Stores", null, "java/lang/Object", null);
+        int[] types = {Opcodes.T_BOOLEAN, Opcodes.T_BYTE, Opcodes.T_CHAR, Opcodes.T_SHORT};
+        int[] stores = {Opcodes.BASTORE, Opcodes.BASTORE, Opcodes.CASTORE, Opcodes.SASTORE};
+        int[] loads = {Opcodes.BALOAD, Opcodes.BALOAD, Opcodes.CALOAD, Opcodes.SALOAD};
+        for (int i = 0; i < types.length; i++) {
+            MethodVisitor method = writer.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "kind"+i, "(I)I", null, null);
+            method.visitCode(); method.visitInsn(Opcodes.ICONST_1); method.visitIntInsn(Opcodes.NEWARRAY, types[i]);
+            method.visitVarInsn(Opcodes.ASTORE, 1); method.visitVarInsn(Opcodes.ALOAD, 1); method.visitInsn(Opcodes.ICONST_0);
+            method.visitVarInsn(Opcodes.ILOAD, 0); method.visitInsn(stores[i]);
+            method.visitVarInsn(Opcodes.ALOAD, 1); method.visitInsn(Opcodes.ICONST_0); method.visitInsn(loads[i]);
+            method.visitInsn(Opcodes.IRETURN); method.visitMaxs(3, 2); method.visitEnd();
+        }
+        writer.visitEnd(); byte[] bytes = writer.toByteArray();
+        Class<?> jvm = new ClassLoader() { Class<?> load() { return defineClass(null, bytes, 0, bytes.length); } }.load();
+        StringBuilder assertions = new StringBuilder();
+        for (int i = 0; i < types.length; i++) for (int value : new int[]{-65537,-32769,-3,-2,0,2,3,127,128,255,256,65535,65536})
+            assertions.append("assert.equal(e['Stores.kind").append(i).append("'](").append(value).append("),")
+                    .append(jvm.getMethod("kind"+i, int.class).invoke(null, value)).append(");");
+        execute(BytecodeCompiler.compileClass(bytes), assertions.toString());
+    }
+
+    @Test void linksPrimitiveArrayHelpersOnceRegardlessOfJarOrder() throws Exception {
+        fixture("""
+            public class Fixture {
+                public static int run(int n) {
+                    int[] values = Numbers.make(n);
+                    for (int i = 0; i < n; i++) values[i] += 10;
+                    return Numbers.sum(values);
+                }
+            }
+            class Numbers {
+                static int[] make(int n) { int[] a = new int[n]; for(int i=0;i<n;i++) a[i]=i; return a; }
+                static int sum(int[] a) { int sum=0; for(int value:a) sum+=value; return sum; }
+            }
+            """);
+        try (var loader = new java.net.URLClassLoader(new java.net.URL[]{directory.toUri().toURL()})) {
+            var run = loader.loadClass("Fixture").getMethod("run", int.class);
+            for (String[] order : new String[][]{{"Fixture", "Numbers"}, {"Numbers", "Fixture"}}) {
+                String wat = linkJar(order);
+                assertEquals(1, wat.split(java.util.regex.Pattern.quote("(func $__new_primitive_array"), -1).length - 1);
+                execute(wat, "assert.equal(e['Fixture.run'](7)," + run.invoke(null, 7) + ");"
+                        + "assert.equal(e['Fixture.run'](0)," + run.invoke(null, 0) + ");");
+            }
+        }
+    }
+
+    @Test void testsPrimitiveArraysAgainstLinkedMarkerInterfaceMetadata() throws Exception {
+        fixture("""
+            public class Fixture {
+                public static Object make() { return new int[1]; }
+                public static int check(Object v) {
+                    return (v instanceof Cloneable ? 1 : 0) + (v instanceof java.io.Serializable ? 2 : 0);
+                }
+            }
+            """);
+        var nodes = new java.util.LinkedHashMap<String,ClassNode>(); nodes.put("Fixture", readFixture("Fixture"));
+        for (String name : new String[]{"java/lang/Cloneable", "java/io/Serializable"}) {
+            ClassNode marker = new ClassNode(); marker.version = Opcodes.V17; marker.name = name;
+            marker.superName = "java/lang/Object"; marker.access = Opcodes.ACC_PUBLIC | Opcodes.ACC_INTERFACE | Opcodes.ACC_ABSTRACT;
+            nodes.put(name, marker);
+        }
+        try (var loader = new java.net.URLClassLoader(new java.net.URL[]{directory.toUri().toURL()})) {
+            Class<?> jvm = loader.loadClass("Fixture"); Object array = jvm.getMethod("make").invoke(null);
+            execute(linkNodes(nodes), "assert.equal(e['Fixture.check'](e['Fixture.make']()),"
+                    + jvm.getMethod("check", Object.class).invoke(null, array) + ");assert.equal(e['Fixture.check'](0),0);");
+        }
+    }
+
     @Test void executesStackMappedConstructorChainingAndNestedNewWithJvmComparison() throws Exception {
         byte[] bytes = fixture("""
             public class Fixture {
@@ -1534,7 +1750,7 @@ class BytecodeCompatibilityTest {
                 public static boolean test(Object value) { return value instanceof Fixture; }
             }
             """);
-        for(String target:new String[]{"missing/Type","[I","[Ljava/lang/Object;"}) {
+        for(String target:new String[]{"missing/Type","[[I","[Ljava/lang/Object;"}) {
             ClassNode type=new ClassNode(); new ClassReader(bytes).accept(type,0);
             for(MethodNode method:type.methods) for(AbstractInsnNode insn:method.instructions)
                 if(insn instanceof TypeInsnNode test) test.desc=target;
@@ -2276,7 +2492,7 @@ class BytecodeCompatibilityTest {
                 "public static synchronized int f() { return 1; }",
                 "public static int f() { return Math.abs(-4); }",
                 "public static Class<?> f() { return Fixture.class; }",
-                "public static int[] f() { return new int[2]; }",
+                "public static Object[] f() { return new Object[2]; }",
                 "public static Object f() { return new Object(); }",
                 "public static class Child extends Fixture {} public static Object f(){ return new Child(); }",
                 "static int x=compute(); static int compute(){ return 1; }",

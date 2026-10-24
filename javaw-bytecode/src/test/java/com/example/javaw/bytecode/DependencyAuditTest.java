@@ -38,6 +38,7 @@ class DependencyAuditTest {
         method.visitTryCatchBlock(start, end, handler, "external/CaughtException");
         method.visitLabel(start);
         method.visitInsn(Opcodes.ICONST_1); method.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_INT); method.visitInsn(Opcodes.POP);
+        method.visitInsn(Opcodes.ICONST_1); method.visitTypeInsn(Opcodes.ANEWARRAY, "java/lang/Object"); method.visitInsn(Opcodes.POP);
         method.visitLdcInsn("example"); method.visitInsn(Opcodes.POP);
         method.visitLdcInsn(Type.getObjectType("Leaf")); method.visitInsn(Opcodes.POP);
         Handle bootstrap = new Handle(Opcodes.H_INVOKESTATIC, "external/Bootstrap", "link", "()Ljava/lang/invoke/CallSite;", false);
@@ -96,7 +97,8 @@ class DependencyAuditTest {
         for (String category : List.of("native", "volatile", "synchronized", "class-initializer", "exception-handler",
                 "invokedynamic-bootstrap", "constant-dynamic-bootstrap", "reflection", "string-constant"))
             assertTrue(features.contains("\t" + category + "\t"), category);
-        assertTrue(Files.readString(first.resolve("unsupported-opcodes.tsv")).contains("\t188\tNEWARRAY\t1\t"));
+        assertFalse(Files.readString(first.resolve("unsupported-opcodes.tsv")).contains("\t188\tNEWARRAY\t"));
+        assertTrue(Files.readString(first.resolve("unsupported-opcodes.tsv")).contains("\t189\tANEWARRAY\t1\t"));
         assertTrue(Files.readString(first.resolve("services.tsv")).contains("META-INF/services/example.Service\tLeaf"));
         assertTrue(Files.readString(first.resolve("resources.tsv")).contains("META-INF/spring/example.imports\tspring"));
         assertFalse(features.contains(directory.toString()));
