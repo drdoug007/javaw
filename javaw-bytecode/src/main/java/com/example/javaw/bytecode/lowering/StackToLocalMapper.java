@@ -23,7 +23,14 @@ public class StackToLocalMapper {
 
     public String getStackVar(int depth) {
         String type = depth < stackTypes.size() ? stackTypes.get(depth) : "i32";
-        return "$stk_" + depth + (type.equals("i32") ? "" : "_" + type);
+        // Use JVM word positions so erasing a long/double into two TOP words at a join
+        // never moves the live values above it to different physical locals.
+        int word = 0;
+        for (int i = 0; i < depth; i++) {
+            String below = i < stackTypes.size() ? stackTypes.get(i) : "i32";
+            word += below.equals("i64") || below.equals("f64") ? 2 : 1;
+        }
+        return "$stk_" + word + (type.equals("i32") ? "" : "_" + type);
     }
 
     public String getCurrentStackVar() {

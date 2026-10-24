@@ -85,6 +85,7 @@ final class BytecodeFrames implements Opcodes {
                     for (int i = 0; i < after.getLocals(); i++)
                         if (after.getLocal(i) == identity) after.setLocal(i, BasicValue.UNINITIALIZED_VALUE);
                 }
+                checkStackManipulation(after, instruction);
                 if (instruction.getOpcode() >= 0) after.execute(instruction, verifier);
                 if (receiver != null) {
                     BasicValue initialized = verifier.newValue(receiver.getType());
@@ -141,14 +142,19 @@ final class BytecodeFrames implements Opcodes {
             Frame<BasicValue> expected = declared.frame;
             if (((VerificationFrame) incoming).thisUninitialized && !((VerificationFrame) expected).thisUninitialized)
                 fail(declared.node, "incoming constructor initialization flag disagrees with declaration");
-            if (incoming.getStackSize() != expected.getStackSize()) fail(declared.node, "incoming stack height disagrees with declaration");
+
             for (int i = 0; i < expected.getLocals(); i++)
                 if (!verifier.frameAssignable(incoming.getLocal(i), expected.getLocal(i)))
                     fail(declared.node, "incoming local " + i + " is incompatible with its declared type");
-            for (int i = 0; i < expected.getStackSize(); i++)
-                if (incoming.getStack(i).getSize() != expected.getStack(i).getSize()
-                        || !verifier.frameAssignable(incoming.getStack(i), expected.getStack(i)))
-                    fail(declared.node, "incoming stack value " + i + " is incompatible with its declared type");
+            List<BasicValue> actualWords = stackWords(incoming), expectedWords = stackWords(expected);
+            if (actualWords.size() != expectedWords.size()) fail(declared.node, "incoming stack height disagrees with declaration");
+            for (int i = 0; i < expectedWords.size(); i++) {
+                BasicValue actual = actualWords.get(i), target = expectedWords.get(i);
+                // TOP erases one JVM word, including either half of a category-two value.
+                if (target == BasicValue.UNINITIALIZED_VALUE) continue;
+                if (target == null ? actual != null : actual == null || !verifier.frameAssignable(actual, target))
+                    fail(declared.node, "incoming stack word " + i + " is incompatible with its declared type");
+            }
             value = expected; // Subsequent verification must use the declared (possibly wider) types.
         }
         boolean changed;
@@ -157,7 +163,7 @@ final class BytecodeFrames implements Opcodes {
             try {
                 VerificationFrame current = (VerificationFrame) frames[index];
                 boolean pendingInitialization = ((VerificationFrame) value).thisUninitialized;
-                changed = current.merge(value, verifier);
+                changed = mergeInferred(current, value, source);
                 if (pendingInitialization && !current.thisUninitialized) {
                     current.thisUninitialized = true;
                     changed = true;
@@ -166,6 +172,46 @@ final class BytecodeFrames implements Opcodes {
             catch (AnalyzerException error) { throw new AnalyzerException(source, error.getMessage(), error); }
         }
         if (changed && !queued[index]) { pending.addLast(index); queued[index] = true; }
+    }
+
+    /** Expand category-two values to JVM words; null denotes their otherwise unusable high word. */
+    private List<BasicValue> stackWords(Frame<BasicValue> frame) {
+        List<BasicValue> words = new ArrayList<>();
+        for (int i = 0; i < frame.getStackSize(); i++) {
+            BasicValue value = frame.getStack(i);
+            words.add(value);
+            if (value.getSize() == 2) words.add(null);
+        }
+        return words;
+    }
+
+    private boolean mergeInferred(VerificationFrame current, Frame<BasicValue> incoming, AbstractInsnNode source)
+            throws AnalyzerException {
+        if (current.getStackSize() != incoming.getStackSize())
+            throw new AnalyzerException(source, "incompatible operand stack shapes");
+        for (int i = 0; i < current.getStackSize(); i++) {
+            BasicValue left = current.getStack(i), right = incoming.getStack(i);
+            if (left.getSize() != right.getSize()
+                    || verifier.merge(left, right) == BasicValue.UNINITIALIZED_VALUE && !left.equals(right))
+                throw new AnalyzerException(source, "incompatible operand stack types at join");
+        }
+        return current.merge(incoming, verifier);
+    }
+
+    private void checkStackManipulation(Frame<BasicValue> frame, AbstractInsnNode instruction) throws AnalyzerException {
+        int words = switch (instruction.getOpcode()) {
+            case POP, DUP -> 1;
+            case POP2, DUP_X1, DUP2, SWAP -> 2;
+            case DUP_X2, DUP2_X1 -> 3;
+            case DUP2_X2 -> 4;
+            default -> 0;
+        };
+        for (int i = frame.getStackSize() - 1; i >= 0 && words > 0; i--) {
+            BasicValue value = frame.getStack(i);
+            if (value == BasicValue.UNINITIALIZED_VALUE)
+                throw new AnalyzerException(instruction, "cannot pop or shuffle an unusable TOP stack word");
+            words -= value.getSize();
+        }
     }
 
     private List<Object> initialLocals() {
@@ -216,7 +262,6 @@ final class BytecodeFrames implements Opcodes {
             for (Object token : stack) {
                 BasicValue value = value(node, token); words += value.getSize();
                 // StackMapTable derives flagThisUninit from locals only, not stack aliases.
-                if (value.equals(BasicValue.UNINITIALIZED_VALUE)) fail(node, "TOP operand-stack entries are unsupported; recompile typed bytecode");
                 if (words > method.maxStack) fail(node, "declared stack exceeds max_stack");
                 declared.push(value);
             }

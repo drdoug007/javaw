@@ -162,7 +162,8 @@ public class ClassBytecodeCompiler {
             if (frame == null) continue; // Unreachable JVM instructions.
             List<String> entryTypes = new ArrayList<>();
             for (int i = 0; i < frame.getStackSize(); i++)
-                entryTypes.add(TypeHelper.getWasmType(frame.getStack(i).getType()));
+                // TOP words are unusable placeholders below live values; verification forbids reading them.
+                entryTypes.add(frame.getStack(i).getType() == null ? "i32" : TypeHelper.getWasmType(frame.getStack(i).getType()));
             mapper.setStackTypes(entryTypes);
             wat.append("        local.get $__state\n        i32.const ").append(block.getId()).append("\n        i32.eq\n        if\n");
             BytecodeInstructionVisitor visitor = new BytecodeInstructionVisitor(mapper, stringPool, fieldOffsets, objectSizes, dispatch);
