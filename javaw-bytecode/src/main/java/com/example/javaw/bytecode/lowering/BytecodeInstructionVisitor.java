@@ -127,14 +127,14 @@ public class BytecodeInstructionVisitor {
             case Opcodes.FLOAD:
                 int fvarIdx = ((VarInsnNode) insn).var;
                 stack.push("f32");
-                emit("local.get " + stack.getLocalVar(fvarIdx));
+                emit("local.get " + stack.getLocalVar(fvarIdx, "f32"));
                 emit("local.set " + stack.peek());
                 break;
 
             case Opcodes.DLOAD:
                 int dvarIdx = ((VarInsnNode) insn).var;
                 stack.push("f64");
-                emit("local.get " + stack.getLocalVar(dvarIdx));
+                emit("local.get " + stack.getLocalVar(dvarIdx, "f64"));
                 emit("local.set " + stack.peek());
                 break;
 
@@ -157,14 +157,14 @@ public class BytecodeInstructionVisitor {
                 int fstoreIdx = ((VarInsnNode) insn).var;
                 String topF = stack.pop();
                 emit("local.get " + topF);
-                emit("local.set " + stack.getLocalVar(fstoreIdx));
+                emit("local.set " + stack.getLocalVar(fstoreIdx, "f32"));
                 break;
 
             case Opcodes.DSTORE:
                 int dstoreIdx = ((VarInsnNode) insn).var;
                 String topD = stack.pop();
                 emit("local.get " + topD);
-                emit("local.set " + stack.getLocalVar(dstoreIdx));
+                emit("local.set " + stack.getLocalVar(dstoreIdx, "f64"));
                 break;
 
             case Opcodes.IINC:
@@ -318,6 +318,13 @@ public class BytecodeInstructionVisitor {
                 emit("local.set " + stack.push("i32"));
                 break;
 
+            case Opcodes.FCMPL:
+            case Opcodes.FCMPG:
+            case Opcodes.DCMPL:
+            case Opcodes.DCMPG:
+                floatingCompare(opcode);
+                break;
+
             case Opcodes.FADD:
                 visitBinaryOp("f32", "f32.add");
                 break;
@@ -355,34 +362,40 @@ public class BytecodeInstructionVisitor {
                 break;
 
             case Opcodes.I2L:
-                emit("local.get " + stack.pop());
-                emit("i64.extend_i32_s");
-                emit("local.set " + stack.push("i64"));
+                convert("i64", "i64.extend_i32_s");
                 break;
             case Opcodes.I2F:
-                emit("local.get " + stack.peek());
-                emit("f32.convert_i32_s");
-                emit("local.set " + stack.peek());
+                convert("f32", "f32.convert_i32_s");
                 break;
             case Opcodes.I2D:
-                emit("local.get " + stack.peek());
-                emit("f64.convert_i32_s");
-                emit("local.set " + stack.peek());
+                convert("f64", "f64.convert_i32_s");
                 break;
             case Opcodes.L2I:
-                emit("local.get " + stack.pop());
-                emit("i32.wrap_i64");
-                emit("local.set " + stack.push("i32"));
+                convert("i32", "i32.wrap_i64");
+                break;
+            case Opcodes.L2F:
+                convert("f32", "f32.convert_i64_s");
+                break;
+            case Opcodes.L2D:
+                convert("f64", "f64.convert_i64_s");
                 break;
             case Opcodes.F2I:
-                emit("local.get " + stack.peek());
-                emit("i32.trunc_f32_s");
-                emit("local.set " + stack.peek());
+                convert("i32", "i32.trunc_sat_f32_s");
+                break;
+            case Opcodes.F2L:
+                convert("i64", "i64.trunc_sat_f32_s");
+                break;
+            case Opcodes.F2D:
+                convert("f64", "f64.promote_f32");
                 break;
             case Opcodes.D2I:
-                emit("local.get " + stack.peek());
-                emit("i32.trunc_f64_s");
-                emit("local.set " + stack.peek());
+                convert("i32", "i32.trunc_sat_f64_s");
+                break;
+            case Opcodes.D2L:
+                convert("i64", "i64.trunc_sat_f64_s");
+                break;
+            case Opcodes.D2F:
+                convert("f32", "f32.demote_f64");
                 break;
             case Opcodes.I2B:
                 emit("local.get " + stack.peek());
@@ -564,11 +577,11 @@ public class BytecodeInstructionVisitor {
             emit("local.set " + slot);
         } else if (cst instanceof Float) {
             String slot = stack.push("f32");
-            emit("f32.const " + cst);
+            emit("f32.const " + TypeHelper.watNumber(cst));
             emit("local.set " + slot);
         } else if (cst instanceof Double) {
             String slot = stack.push("f64");
-            emit("f64.const " + cst);
+            emit("f64.const " + TypeHelper.watNumber(cst));
             emit("local.set " + slot);
         } else if (cst instanceof String) {
             String s = (String) cst;
@@ -581,13 +594,34 @@ public class BytecodeInstructionVisitor {
         }
     }
 
+    private void convert(String resultType, String instruction) {
+        emit("local.get " + stack.pop());
+        emit(instruction);
+        emit("local.set " + stack.push(resultType));
+    }
+
+    private void floatingCompare(int opcode) {
+        String type = opcode == Opcodes.FCMPL || opcode == Opcodes.FCMPG ? "f32" : "f64";
+        String right = stack.pop(), left = stack.pop();
+        emit("local.get " + left); emit("local.get " + left); emit(type + ".ne");
+        emit("local.get " + right); emit("local.get " + right); emit(type + ".ne");
+        emit("i32.or");
+        emit("if (result i32)");
+        emit("i32.const " + (opcode == Opcodes.FCMPL || opcode == Opcodes.DCMPL ? -1 : 1));
+        emit("else");
+        emit("local.get " + left); emit("local.get " + right); emit(type + ".gt");
+        emit("local.get " + left); emit("local.get " + right); emit(type + ".lt");
+        emit("i32.sub"); emit("end");
+        emit("local.set " + stack.push("i32"));
+    }
+
     private record Saved(String type, String temporary) {}
 
     private List<Saved> takeWords(int words, List<Saved> temporaries) {
         List<Saved> values = new ArrayList<>();
         while (words > 0) {
             String type = stack.peekType();
-            words -= type.equals("i64") ? 2 : 1;
+            words -= type.equals("i64") || type.equals("f64") ? 2 : 1;
             if (words < 0) throw new IllegalArgumentException("Invalid category-two stack manipulation");
             String temporary = "$__shuffle_" + type + "_" + temporaries.size();
             emit("local.get " + stack.pop());

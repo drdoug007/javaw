@@ -835,6 +835,184 @@ class BytecodeCompatibilityTest {
         execute(BytecodeCompiler.compileClass(writer.toByteArray()),assertions.toString());
     }
 
+    @Test void executesFloatingArithmeticComparisonsCastsAndJoins() throws Exception {
+        execute(BytecodeCompiler.compileClass(fixture("""
+            public class Fixture {
+                double blankD; float blankF;
+                public static double defaults() { Fixture f=new Fixture(); return f.blankD+f.blankF; }
+                public static double arithmetic(double a,double b) { return (a+b)*(a-b)/(a*b); }
+                public static float arithmeticF(float a,float b) { return (a+b)*(a-b)/(a*b); }
+                public static double negate(double a) { return -a; }
+                public static float negateF(float a) { return -a; }
+                public static int relations(double a,double b) {
+                    int r=0; if(a<b) r+=1; if(a>b) r+=2; if(a==b) r+=4;
+                    if(a<=b) r+=8; if(a>=b) r+=16; if(a!=b) r+=32; return r;
+                }
+                public static int relationsF(float a,float b) {
+                    int r=0; if(a<b) r+=1; if(a>b) r+=2; if(a==b) r+=4;
+                    if(a<=b) r+=8; if(a>=b) r+=16; if(a!=b) r+=32; return r;
+                }
+                public static int toInt(double n) { return (int)n; }
+                public static long toLong(double n) { return (long)n; }
+                public static int floatInt(float n) { return (int)n; }
+                public static long floatLong(float n) { return (long)n; }
+                public static float intFloat(int n) { return n; }
+                public static double intDouble(int n) { return n; }
+                public static float narrow(double n) { return (float)n; }
+                public static double widen(float n) { return n; }
+                public static double joined(boolean b,double n) { return 100.0+(b?n:0.5); }
+                public static double loop(int n) { double r=0; for(int i=0;i<n;i++) r+=0.125; return r; }
+                public static float reuse(double n) {
+                    float result; {double v=n+0.5; result=(float)v;} {float v=0.25f;result+=v;} return result;
+                }
+            }
+            """)), """
+            const values=[NaN,Infinity,-Infinity,-0,0,Number.MIN_VALUE,-Number.MIN_VALUE,1e-40,-1.5,0.1,2147483647,2147483648,-2147483649,9223372036854774784,-9223372036854774784,2**63,-(2**63),3.4028234663852886e38,Number.MAX_VALUE];
+            const f=Math.fround;
+            const relations=(a,b)=>(a<b?1:0)+(a>b?2:0)+(a===b?4:0)+(a<=b?8:0)+(a>=b?16:0)+(a!==b?32:0);
+            const int=n=>Number.isNaN(n)?0:Math.max(-2147483648,Math.min(2147483647,Math.trunc(n)))||0;
+            const long=n=>Number.isNaN(n)?0n:n>=2**63?9223372036854775807n:n<=-(2**63)?-9223372036854775808n:BigInt(Math.trunc(n));
+            for(const a of values) {
+                for(const b of values) {
+                    assert.equal(e['Fixture.arithmetic'](a,b),(a+b)*(a-b)/(a*b));
+                    assert.equal(e['Fixture.arithmeticF'](a,b),f(f(f(f(a)+f(b))*f(f(a)-f(b)))/f(f(a)*f(b))));
+                    assert.equal(e['Fixture.relations'](a,b),relations(a,b));
+                    assert.equal(e['Fixture.relationsF'](a,b),relations(f(a),f(b)));
+                }
+                assert.equal(e['Fixture.negate'](a),-a);
+                assert.equal(e['Fixture.negateF'](a),f(-f(a)));
+                assert.equal(e['Fixture.toInt'](a),int(a));
+                assert.equal(e['Fixture.toLong'](a),long(a));
+                assert.equal(e['Fixture.floatInt'](a),int(f(a)));
+                assert.equal(e['Fixture.floatLong'](a),long(f(a)));
+                assert.equal(e['Fixture.narrow'](a),f(a));
+                assert.equal(e['Fixture.widen'](a),f(a));
+                assert.equal(e['Fixture.joined'](1,a),100+a);
+                assert.equal(e['Fixture.joined'](0,a),100.5);
+                assert.equal(e['Fixture.reuse'](a),f(f(a+0.5)+0.25));
+            }
+            for(const a of [-2147483648,-16777217,-1,0,16777217,2147483647]) {
+                assert.equal(e['Fixture.intFloat'](a),f(a));
+                assert.equal(e['Fixture.intDouble'](a),a);
+            }
+            for(let i=0;i<30;i++) assert.equal(e['Fixture.loop'](i),i*0.125);
+            assert.equal(e['Fixture.defaults'](),0);
+            """);
+    }
+
+    @Test void matchesJvmFloatingFieldsMixedCallsAndLongConversions() throws Exception {
+        fixture("""
+            public class Fixture {
+                static double savedD;
+                static float savedF;
+                public static double run(double n,float f,int i,long l) {
+                    Child c=new Child(n,f);
+                    savedD=c.amount++;
+                    savedF=c.small++;
+                    return c.twice(i,f,n,l)+savedD+savedF+c.before+c.after;
+                }
+                public static float longFloat(long n) { return n; }
+                public static double longDouble(long n) { return n; }
+                public static double savedDouble() { return savedD; }
+                public static float savedFloat() { return savedF; }
+            }
+            interface Operation {
+                double apply(int i,float f,double d,long l);
+                default double twice(int i,float f,double d,long l) { return apply(i,f,d,l)+apply(i,f,d,l); }
+            }
+            class Parent implements Operation {
+                int before; double amount; float small; int after;
+                Parent(int i,double n,float f,int j) { before=i;amount=n;small=f;after=j; }
+                public double apply(int i,float f,double d,long l) { return amount+small+i+f+d+l; }
+            }
+            class Child extends Parent {
+                double amount; float small;
+                Child(double n,float f) { super(7,n,f,9); amount=n*2;small=f*2; }
+                public double apply(int i,float f,double d,long l) { return super.apply(i,f,d,l)+amount+small; }
+            }
+            """);
+        Path oracle=directory.resolve("FloatOracle.java");
+        Files.writeString(oracle,"""
+            public class FloatOracle {
+                public static void main(String[] args) {
+                    double[] numbers={-0.0,0.1,1e20,-3.5,Double.MAX_VALUE,Double.POSITIVE_INFINITY,Double.NaN};
+                    float[] floats={0.0f,0.1f,-3.5f,Float.MIN_VALUE,Float.MAX_VALUE,Float.NEGATIVE_INFINITY,Float.NaN};
+                    for(int i=0;i<numbers.length;i++) System.out.println(Fixture.run(numbers[i],floats[i],2,9007199254740993L));
+                    for(long n:new long[]{Long.MIN_VALUE,-9007199254740993L,16777217L,Long.MAX_VALUE,4611686293305294849L}) {
+                        System.out.println((double)Fixture.longFloat(n));
+                        System.out.println(Fixture.longDouble(n));
+                    }
+                }
+            }
+            """);
+        assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,"-cp",directory.toString(),
+                "-d",directory.toString(),oracle.toString()));
+        run("java","-cp",directory.toString(),"FloatOracle");
+        var expected=Files.readAllLines(directory.resolve("command.log"));
+        assertEquals(17,expected.size());
+        // Java's numeric spellings (including NaN/Infinity) are valid JS numeric expressions.
+        execute(linkJar("Child", "Parent", "Operation", "Fixture"),
+                "const jvm=["+String.join(",",expected)+"];\n"+"""
+            const numbers=[-0,0.1,1e20,-3.5,Number.MAX_VALUE,Infinity,NaN];
+            const floats=[0,0.1,-3.5,2**-149,3.4028234663852886e38,-Infinity,NaN];
+            for(let i=0;i<numbers.length;i++) {
+                assert.equal(e['Fixture.run'](numbers[i],floats[i],2,9007199254740993n),jvm[i]);
+                assert.equal(e['Fixture.savedDouble'](),numbers[i]*2);
+                assert.equal(e['Fixture.savedFloat'](),Math.fround(Math.fround(floats[i])*2));
+            }
+            const longs=[-9223372036854775808n,-9007199254740993n,16777217n,9223372036854775807n,4611686293305294849n];
+            for(let i=0;i<longs.length;i++) {
+                assert.equal(e['Fixture.longFloat'](longs[i]),jvm[7+i*2]);
+                assert.equal(e['Fixture.longDouble'](longs[i]),jvm[8+i*2]);
+            }
+            """);
+    }
+
+    @Test void executesFloatingConstantsAndStackShuffles() throws Exception {
+        ClassWriter writer=new ClassWriter(ClassWriter.COMPUTE_FRAMES|ClassWriter.COMPUTE_MAXS);
+        writer.visit(Opcodes.V17,Opcodes.ACC_PUBLIC,"Floating",null,"java/lang/Object",null);
+        Object[] values={Float.NaN,Float.POSITIVE_INFINITY,Float.NEGATIVE_INFINITY,-0.0f,Float.MIN_VALUE,Float.MAX_VALUE,
+                Double.NaN,Double.POSITIVE_INFINITY,Double.NEGATIVE_INFINITY,-0.0,Double.MIN_VALUE,Double.MAX_VALUE};
+        StringBuilder assertions=new StringBuilder();
+        for(int i=0;i<values.length;i++) {
+            Object value=values[i]; boolean wide=value instanceof Double;
+            String descriptor=wide?"D":"F";
+            writer.visitField(Opcodes.ACC_STATIC|Opcodes.ACC_FINAL,"field"+i,descriptor,null,value).visitEnd();
+            for(boolean field:new boolean[]{false,true}) {
+                String name=(field?"field":"literal")+i;
+                MethodVisitor method=writer.visitMethod(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,name,"()"+descriptor,null,null);
+                method.visitCode();
+                if(field) method.visitFieldInsn(Opcodes.GETSTATIC,"Floating","field"+i,descriptor);
+                else method.visitLdcInsn(value);
+                method.visitInsn(wide?Opcodes.DRETURN:Opcodes.FRETURN); method.visitMaxs(0,0); method.visitEnd();
+                String expected=Double.toString(((Number)value).doubleValue());
+                assertions.append("assert.equal(e['Floating.").append(name).append("'](),").append(expected).append(");\n");
+            }
+        }
+        String[] categories={"D","FF","FD","DF","DD","FFD"};
+        int[] opcodes={Opcodes.DUP2,Opcodes.DUP2,Opcodes.DUP2_X1,Opcodes.DUP_X2,Opcodes.DUP2_X2,Opcodes.DUP2_X2};
+        int[][] outputs={{0,0},{0,1,0,1},{1,0,1},{1,0,1},{1,0,1},{2,0,1,2}};
+        for(int i=0;i<categories.length;i++) {
+            String types=categories[i]; int[] output=outputs[i];
+            MethodVisitor method=writer.visitMethod(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"shuffle"+i,"()D",null,null);
+            method.visitCode();
+            for(int j=0;j<types.length();j++) method.visitLdcInsn(types.charAt(j)=='D'?(Object)Double.valueOf(j+1):Float.valueOf(j+1));
+            method.visitInsn(opcodes[i]);
+            for(int j=output.length-1;j>=0;j--) method.visitVarInsn(types.charAt(output[j])=='D'?Opcodes.DSTORE:Opcodes.FSTORE,j*2);
+            method.visitInsn(Opcodes.DCONST_0); int expected=0;
+            for(int j=0;j<output.length;j++) {
+                method.visitLdcInsn(10.0); method.visitInsn(Opcodes.DMUL);
+                boolean wide=types.charAt(output[j])=='D';
+                method.visitVarInsn(wide?Opcodes.DLOAD:Opcodes.FLOAD,j*2);
+                if(!wide) method.visitInsn(Opcodes.F2D);
+                method.visitInsn(Opcodes.DADD); expected=expected*10+output[j]+1;
+            }
+            method.visitInsn(Opcodes.DRETURN); method.visitMaxs(0,0); method.visitEnd();
+            assertions.append("assert.equal(e['Floating.shuffle").append(i).append("'](),").append(expected).append(");\n");
+        }
+        writer.visitEnd(); execute(BytecodeCompiler.compileClass(writer.toByteArray()),assertions.toString());
+    }
+
     private String linkJar(String... names) throws Exception {
         var bytes=new java.io.ByteArrayOutputStream();
         try(var jar=new java.util.jar.JarOutputStream(bytes)) {
@@ -876,7 +1054,8 @@ class BytecodeCompatibilityTest {
                 "public static int f() { try { return 1; } catch(RuntimeException e) { return 0; } }",
                 "public static native int f();",
                 "public static synchronized int f() { return 1; }",
-                "public static double f() { return 4.0; }",
+                "public static double f(double a,double b) { return a%b; }",
+                "public static float f(float a,float b) { return a%b; }",
                 "public static int f() { return Math.abs(-4); }",
                 "public static Class<?> f() { return Fixture.class; }",
                 "public static int[] f() { return new int[2]; }",

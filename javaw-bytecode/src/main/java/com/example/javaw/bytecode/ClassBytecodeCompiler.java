@@ -52,7 +52,7 @@ public class ClassBytecodeCompiler {
                 String wasmType = TypeHelper.getWasmType(fn.desc);
                 globalVariables.add(gName);
                 wat.append("    (global ").append(gName).append(" (mut ").append(wasmType != null ? wasmType : "i32")
-                   .append(") (").append(wasmType != null ? wasmType : "i32").append(".const ").append(fn.value instanceof Number ? fn.value : 0).append("))\n");
+                   .append(") (").append(wasmType != null ? wasmType : "i32").append(".const ").append(TypeHelper.watNumber(fn.value)).append("))\n");
             }
         }
 
@@ -109,15 +109,18 @@ public class ClassBytecodeCompiler {
         // Declare locals
         for (int i = 0; i < mapper.getMaxLocals(); i++) {
             wat.append("        (local $l_").append(i).append(" i32)\n");
-            wat.append("        (local $l_").append(i).append("_i64 i64)\n");
+            for (String type : List.of("i64", "f32", "f64"))
+                wat.append("        (local $l_").append(i).append("_").append(type).append(" ").append(type).append(")\n");
         }
         for (int i = 0; i < mapper.getMaxStack(); i++) {
             wat.append("        (local $stk_").append(i).append(" i32)\n");
-            wat.append("        (local $stk_").append(i).append("_i64 i64)\n");
+            for (String type : List.of("i64", "f32", "f64"))
+                wat.append("        (local $stk_").append(i).append("_").append(type).append(" ").append(type).append(")\n");
         }
         for (int i = 0; i < 4; i++) {
             wat.append("        (local $__shuffle_i32_").append(i).append(" i32)\n");
-            wat.append("        (local $__shuffle_i64_").append(i).append(" i64)\n");
+            for (String type : List.of("i64", "f32", "f64"))
+                wat.append("        (local $__shuffle_").append(type).append("_").append(i).append(" ").append(type).append(")\n");
         }
         wat.append("        (local $__state i32)\n");
 
@@ -179,7 +182,8 @@ public class ClassBytecodeCompiler {
                 wat.append("        br $loop_dispatch\n");
             } else if (terminal == null || terminal.getOpcode() != Opcodes.RETURN
                     && terminal.getOpcode() != Opcodes.IRETURN && terminal.getOpcode() != Opcodes.ARETURN
-                    && terminal.getOpcode() != Opcodes.LRETURN) {
+                    && terminal.getOpcode() != Opcodes.LRETURN && terminal.getOpcode() != Opcodes.FRETURN
+                    && terminal.getOpcode() != Opcodes.DRETURN) {
                 if (block.getFallthrough() != null) {
                     setState(wat, block.getFallthrough());
                     wat.append("        br $loop_dispatch\n");

@@ -31,7 +31,7 @@ final class BytecodeObjectLayouts {
             String signature = field.name + ":" + field.desc;
             if ((field.access & Opcodes.ACC_STATIC) == 0) {
                 fields.put(signature, size);
-                size += field.desc.equals("J") ? 8 : 4;
+                size += (field.desc.equals("J") || field.desc.equals("D")) ? 8 : 4;
             } else {
                 // A declared static field must not resolve to a hidden parent instance field.
                 fields.remove(signature);

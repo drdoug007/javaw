@@ -7,6 +7,17 @@ import java.util.List;
 
 public class TypeHelper {
 
+    public static String watNumber(Object value) {
+        if (value == null) return "0";
+        String text = value.toString();
+        return switch (text) {
+            case "NaN" -> "nan";
+            case "Infinity" -> "inf";
+            case "-Infinity" -> "-inf";
+            default -> text;
+        };
+    }
+
     public static String getWasmType(Type type) {
         switch (type.getSort()) {
             case Type.VOID:
