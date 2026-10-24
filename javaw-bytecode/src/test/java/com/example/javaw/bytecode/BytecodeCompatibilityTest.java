@@ -46,6 +46,28 @@ class BytecodeCompatibilityTest {
         assertEquals(0,process.exitValue(),Files.readString(log));
     }
 
+    @Test void executesSealedClassesAndInterfacesInEitherJarOrder() throws Exception {
+        fixture("""
+            public class Fixture {
+                public static int run(int n) { View v = new Leaf(n); return v.value(); }
+            }
+            sealed interface View permits Base { int value(); }
+            abstract sealed class Base implements View permits Branch {}
+            non-sealed class Branch extends Base { public int value() { return 3; } }
+            final class Leaf extends Branch {
+                int n;
+                Leaf(int n) { this.n = n; }
+                public int value() { return n + 7; }
+            }
+            """);
+        try (var loader = new java.net.URLClassLoader(new java.net.URL[]{directory.toUri().toURL()})) {
+            var run = loader.loadClass("Fixture").getMethod("run", int.class);
+            String assertions = "assert.equal(e['Fixture.run'](35)," + run.invoke(null, 35) + ");";
+            execute(linkJar("Fixture", "View", "Base", "Branch", "Leaf"), assertions);
+            execute(linkJar("Leaf", "Branch", "Base", "View", "Fixture"), assertions);
+        }
+    }
+
     @Test void matchesJvmDescriptorDistinctStaticFields() throws Exception {
         ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_MAXS);
         writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "FieldIdentity", null, "java/lang/Object", null);

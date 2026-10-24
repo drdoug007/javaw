@@ -48,6 +48,8 @@ final class BytecodeHierarchy {
             throw failure(child, "wrong superclass/superinterface kind for " + name);
         if ((parent.access & Opcodes.ACC_PUBLIC) == 0 && !packageName(child.name).equals(packageName(name)))
             throw failure(child, "inaccessible superclass/superinterface " + name);
+        if (parent.permittedSubclasses != null && !parent.permittedSubclasses.contains(child.name))
+            throw failure(child, "sealed parent " + name + " does not permit " + child.name);
         return parent;
     }
 

@@ -20,6 +20,14 @@ final class BytecodeDeclarations implements Opcodes {
             fail(owner, "interfaces must be abstract and non-final");
         if ((owner.access & ACC_ANNOTATION) != 0 && !iface)
             fail(owner, "annotation types must be interfaces");
+        if (owner.permittedSubclasses != null) {
+            int version = owner.version & 0xffff;
+            boolean preview = (owner.version & 0xffff0000) == V_PREVIEW;
+            if (version != 0 && version < V17 && !(preview && (version == V15 || version == V16)))
+                fail(owner, "PermittedSubclasses requires Java 17 or Java 15/16 preview");
+            if ((owner.access & ACC_FINAL) != 0)
+                fail(owner, "a final class cannot declare PermittedSubclasses");
+        }
         Set<String> fields = new HashSet<>();
         for (FieldNode field : owner.fields) {
             String label = "field " + field.name + field.desc;

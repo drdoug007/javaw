@@ -48,6 +48,45 @@ class BytecodeHierarchyTest {
         }
     }
 
+    @Test void enforcesSealedParentsForClassesAndInterfaces() {
+        for (boolean iface : new boolean[]{false, true}) {
+            ClassNode parent = type("Parent", iface), child = type("Child", false);
+            parent.version = Opcodes.V17;
+            parent.permittedSubclasses = new java.util.ArrayList<>(java.util.List.of(child.name, "Absent"));
+            if (iface) child.interfaces.add(parent.name); else child.superName = parent.name;
+            var linked = java.util.Map.of(parent.name, parent, child.name, child);
+            // Permits entries are not linkage edges: absent permitted types need not be loaded.
+            assertDoesNotThrow(() -> new ClassBytecodeCompiler(child).compileToWat(linked));
+            parent.permittedSubclasses.remove(child.name);
+            String message = assertThrows(IllegalArgumentException.class,
+                    () -> new ClassBytecodeCompiler(child).compileToWat(linked)).getMessage();
+            assertTrue(message.contains("sealed parent Parent does not permit Child"), message);
+            parent.permittedSubclasses.clear();
+            assertThrows(IllegalArgumentException.class,
+                    () -> new ClassBytecodeCompiler(child).compileToWat(linked));
+        }
+    }
+
+    @Test void checksSealedAttributeDeclarationsEvenWithoutUses() {
+        ClassNode entry = type("Entry", false), unused = type("Unused", false);
+        unused.permittedSubclasses = new java.util.ArrayList<>();
+        var linked = java.util.Map.of(entry.name, entry, unused.name, unused);
+        unused.version = Opcodes.V17; unused.access |= Opcodes.ACC_FINAL;
+        String message = assertThrows(IllegalArgumentException.class,
+                () -> new ClassBytecodeCompiler(entry).compileToWat(linked)).getMessage();
+        assertTrue(message.contains("final class cannot declare PermittedSubclasses"), message);
+        unused.access &= ~Opcodes.ACC_FINAL;
+        for (int version : new int[]{Opcodes.V14, Opcodes.V15, Opcodes.V16}) {
+            unused.version = version;
+            assertThrows(IllegalArgumentException.class,
+                    () -> new ClassBytecodeCompiler(entry).compileToWat(linked));
+        }
+        for (int version : new int[]{Opcodes.V15 | Opcodes.V_PREVIEW, Opcodes.V16 | Opcodes.V_PREVIEW, Opcodes.V17}) {
+            unused.version = version;
+            assertDoesNotThrow(() -> new ClassBytecodeCompiler(entry).compileToWat(linked));
+        }
+    }
+
     @Test void checksAccessFromEachDeclaringChildRatherThanTheEntryClass() {
         ClassNode owner = type("q/Owner", false), parent = type("p/Parent", false), hidden = type("p/Hidden", false);
         ClassNode view = type("p/View", true), hiddenView = type("p/HiddenView", true);
