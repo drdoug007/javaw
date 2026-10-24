@@ -34,17 +34,9 @@ public class ClassBytecodeCompiler {
 
     String compileToWat(Map<String, ClassNode> linked) {
         BytecodeCompatibility.validate(classNode, linked);
-        // Layouts must agree in every separately emitted class in a linked JAR.
-        for (ClassNode type : linked.values()) {
-            int size = 4; // Reserved object header; references are linear-memory pointers.
-            for (FieldNode field : type.fields) {
-                if ((field.access & Opcodes.ACC_STATIC) == 0) {
-                    fieldOffsets.put(type.name + "." + field.name + ":" + field.desc, size);
-                    size += 4;
-                }
-            }
-            objectSizes.put(type.name, size);
-        }
+        BytecodeObjectLayouts layouts = new BytecodeObjectLayouts(linked);
+        fieldOffsets.putAll(layouts.offsets());
+        objectSizes.putAll(layouts.sizes());
         StringBuilder wat = new StringBuilder();
         wat.append("(module\n");
         wat.append("    (import \"env\" \"memory\" (memory 2 20))\n");

@@ -22,6 +22,8 @@ final class BytecodeCompatibility {
             Opcodes.IRETURN, Opcodes.ARETURN, Opcodes.RETURN);
 
     static void validate(ClassNode owner, Map<String, ClassNode> linked) {
+        BytecodeObjectLayouts layouts = new BytecodeObjectLayouts(linked);
+        Map<String, Integer> offsets = layouts.offsets();
         for (FieldNode field : owner.fields) {
             if (field.value != null && !(field.value instanceof Integer))
                 throw failure(owner, null, null, "ConstantValue field " + field.name + field.desc,
@@ -54,16 +56,18 @@ final class BytecodeCompatibility {
                 if (instruction instanceof TypeInsnNode allocation && opcode == Opcodes.NEW) {
                     ClassNode target = linked.get(allocation.desc);
                     if (target == null || (target.access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_INTERFACE)) != 0
-                            || !"java/lang/Object".equals(target.superName))
+                            || !layouts.contains(allocation.desc))
                         throw failure(owner, method, instruction, "object allocation " + allocation.desc,
-                                "link a concrete class extending Object directly; inherited object layouts are unavailable");
+                                "link a concrete class and its complete superclass chain through Object; cyclic or missing hierarchies are unsupported");
                 }
                 if (instruction instanceof FieldInsnNode field) {
                     ClassNode target = linked.get(field.owner);
                     boolean isStatic = opcode == Opcodes.GETSTATIC || opcode == Opcodes.PUTSTATIC;
-                    if (target == null || (!isStatic && !"java/lang/Object".equals(target.superName))
-                            || target.fields.stream().noneMatch(f -> f.name.equals(field.name) && f.desc.equals(field.desc)
-                            && ((f.access & Opcodes.ACC_STATIC) != 0) == isStatic))
+                    boolean resolved = isStatic
+                            ? target != null && target.fields.stream().anyMatch(f -> f.name.equals(field.name)
+                                && f.desc.equals(field.desc) && (f.access & Opcodes.ACC_STATIC) != 0)
+                            : offsets.containsKey(field.owner + "." + field.name + ":" + field.desc);
+                    if (!resolved)
                         throw failure(owner, method, instruction, "unlinked or unsupported field " + field.owner + "." + field.name,
                                 "link a supported declaring class in the same JAR/module");
                 }

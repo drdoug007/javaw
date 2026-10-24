@@ -159,6 +159,63 @@ class BytecodeCompatibilityTest {
             """);
     }
 
+    @Test void executesInheritedLayoutsHiddenFieldsAndSuperclassConstructors() throws Exception {
+        fixture("""
+            public class Fixture {
+                public static int calculate(int n) {
+                    Leaf leaf=new Leaf(n);
+                    Root root=leaf;
+                    Middle middle=leaf;
+                    leaf.inherited+=2;
+                    leaf.same+=3;
+                    root.same+=4;
+                    middle.link=leaf;
+                    root.tag=9; leaf.tag=leaf;
+                    return root.inherited*1000+root.same*100+leaf.same*10+leaf.tail
+                        +(middle.link==leaf ? 10000 : 0)+(root.empty==null ? 1 : 0)
+                        +(root.tag==9 && leaf.tag==leaf ? 20 : 0);
+                }
+                public static int separate() {
+                    Root root=new Root(2);
+                    Leaf leaf=new Leaf(5);
+                    root.inherited=8;
+                    return leaf.inherited*100+root.inherited*10+leaf.tail;
+                }
+            }
+            class Root {
+                int inherited, same, tag;
+                static int excluded;
+                Root empty;
+                Root(int n) { inherited=n; same=1; }
+            }
+            abstract class Middle extends Root {
+                Root link;
+                Middle(int n) { super(n); }
+            }
+            class Leaf extends Middle {
+                int same, tail;
+                Root tag;
+                Leaf(int n) { super(n); same=2; tail=7; }
+            }
+            """);
+        // Reverse hierarchy order exercises layout construction independently of JAR ordering.
+        execute(linkJar("Leaf", "Middle", "Fixture", "Root"), """
+            for(let n=-3;n<20;n++) assert.equal(e['Fixture.calculate'](n),1000*n+12578);
+            assert.equal(e['Fixture.separate'](),587);
+            """);
+    }
+
+    private String linkJar(String... names) throws Exception {
+        var bytes=new java.io.ByteArrayOutputStream();
+        try(var jar=new java.util.jar.JarOutputStream(bytes)) {
+            for(String name:names) {
+                jar.putNextEntry(new java.util.jar.JarEntry(name+".class"));
+                jar.write(Files.readAllBytes(directory.resolve(name+".class"))); jar.closeEntry();
+            }
+        }
+        return BytecodeCompiler.compileJar(new java.io.ByteArrayInputStream(bytes.toByteArray()));
+    }
+
     @Test void linksSupportedClassesWithinOneJar() throws Exception {
         fixture("""
             public class Fixture {
@@ -204,6 +261,25 @@ class BytecodeCompatibilityTest {
             if (body.contains("try {")) assertTrue(error.getMessage().contains("Fixture.java:2:"),error.getMessage());
             assertTrue(error.getMessage().contains("unsupported"),error.getMessage());
             assertTrue(error.getMessage().contains("; "),error.getMessage());
+        }
+    }
+
+    @Test void rejectsMissingAndCyclicAllocationHierarchies() {
+        for (boolean cycle : new boolean[]{false, true}) {
+            ClassNode owner = new ClassNode();
+            owner.version=Opcodes.V17; owner.access=Opcodes.ACC_PUBLIC;
+            owner.name="Broken"; owner.superName=cycle ? "Broken" : "Missing";
+            owner.sourceFile="Broken.java";
+            MethodNode method = new MethodNode(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,
+                    "create", "()LBroken;", null, null);
+            method.instructions.add(new TypeInsnNode(Opcodes.NEW, "Broken"));
+            method.instructions.add(new InsnNode(Opcodes.ARETURN));
+            method.maxStack=1;
+            owner.methods.add(method);
+            var error=assertThrows(IllegalArgumentException.class,
+                    () -> new ClassBytecodeCompiler(owner).compileToWat());
+            assertTrue(error.getMessage().contains("Broken.create()LBroken;"),error.getMessage());
+            assertTrue(error.getMessage().contains("complete superclass chain"),error.getMessage());
         }
     }
 

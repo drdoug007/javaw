@@ -302,7 +302,8 @@ This roadmap organizes planned features by their utility and return on investmen
 - [ ] Support the actual H2 SQL engine and full Spring/Hibernate runtime. Current support is an ahead-of-time API subset with an in-memory repository, not those JVM engines.
   - [x] Prerequisite: execute bytecode TABLESWITCH/LOOKUPSWITCH with default/shared targets, fallthrough, stack-preserving joins, and loop back edges. BytecodeCompatibilityTest compiles javac fixtures and executes the assembled Wasm in Node.
   - [x] Prerequisite: linked bytecode NEW/GETFIELD/PUTFIELD for concrete classes extending Object directly, with descriptor-qualified i32 field layouts, size-based zero-initialized allocation, constructor calls, and null traps. Executable regressions cover large objects, defaults from dirty memory, aliases/cycles, and cross-class JAR layouts.
-  - [ ] Remaining runtime foundations include inherited object layouts, virtual/interface dispatch, typed numeric bytecode, exception handling, class initialization, JDK linkage, and framework/SQL integration. Switch support alone does not enable H2 execution.
+  - [x] Prerequisite: inherited bytecode object layouts across linked superclass chains, including superclass constructors, abstract intermediate classes, hidden fields, inherited symbolic field owners, and JAR-order independence. Reject missing/cyclic superclass chains before WAT generation; executable Wasm tests verify parent-prefix storage and aliasing.
+  - [ ] Remaining runtime foundations include virtual/interface dispatch, typed numeric bytecode, exception handling, class initialization, JDK linkage, and framework/SQL integration. Switch support alone does not enable H2 execution.
 
 
 ## 13. Java Compatibility Roadmap
