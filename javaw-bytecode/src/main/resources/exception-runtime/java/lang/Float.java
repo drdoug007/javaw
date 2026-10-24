@@ -5,6 +5,16 @@ public final class Float extends Number implements Comparable<Float>,java.io.Ser
     public static final Class<Float> TYPE=(Class<Float>)javaw.runtime.ExceptionSupport.classMirror(-26);
     private final float value;
     public Float(float value){this.value=value;}
+    public Float(String text){this(parseFloat(text));}
+    public static Float valueOf(String text){return new Float(parseFloat(text));}
+    public static float parseFloat(String text){return javaw.runtime.FloatingNumbers.parseFloat(text);}
+    public static boolean isInfinite(float value){return value==1.0f/0.0f || value==-1.0f/0.0f;}
+    public boolean isInfinite(){return isInfinite(value);}
+    public static boolean isFinite(float value){return !isNaN(value) && !isInfinite(value);}
+    public static float sum(float a,float b){return a+b;}
+    public static float min(float a,float b){return Math.min(a,b);}
+    public static float max(float a,float b){return Math.max(a,b);}
+
     public float floatValue(){return value;}
     public int intValue(){return (int)value;}
     public long longValue(){return (long)value;}

@@ -5,6 +5,16 @@ public final class Double extends Number implements Comparable<Double>,java.io.S
     public static final Class<Double> TYPE=(Class<Double>)javaw.runtime.ExceptionSupport.classMirror(-27);
     private final double value;
     public Double(double value){this.value=value;}
+    public Double(String text){this(parseDouble(text));}
+    public static Double valueOf(String text){return new Double(parseDouble(text));}
+    public static double parseDouble(String text){return javaw.runtime.FloatingNumbers.parseDouble(text);}
+    public static boolean isInfinite(double value){return value==1.0/0.0 || value==-1.0/0.0;}
+    public boolean isInfinite(){return isInfinite(value);}
+    public static boolean isFinite(double value){return !isNaN(value) && !isInfinite(value);}
+    public static double sum(double a,double b){return a+b;}
+    public static double min(double a,double b){return Math.min(a,b);}
+    public static double max(double a,double b){return Math.max(a,b);}
+
     public double doubleValue(){return value;}
     public int intValue(){return (int)value;}
     public long longValue(){return (long)value;}
