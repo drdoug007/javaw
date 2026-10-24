@@ -46,4 +46,19 @@ public final class Long extends Number implements Comparable<Long>,java.io.Seria
     public int hashCode(){return (int)(value^(value>>>32));}
     public static int hashCode(long value){return (int)(value^(value>>>32));}
     public int compareTo(Long other){return compare(value,other.value);}
+
+    public static int bitCount(long value){return Integer.bitCount((int)value)+Integer.bitCount((int)(value>>>32));}
+    public static int numberOfLeadingZeros(long value){int high=(int)(value>>>32);return high==0?32+Integer.numberOfLeadingZeros((int)value):Integer.numberOfLeadingZeros(high);}
+    public static int numberOfTrailingZeros(long value){int low=(int)value;return low==0?32+Integer.numberOfTrailingZeros((int)(value>>>32)):Integer.numberOfTrailingZeros(low);}
+    public static long highestOneBit(long value){return value==0?0:MIN_VALUE>>>numberOfLeadingZeros(value);}
+    public static long lowestOneBit(long value){return value&-value;}
+    public static long rotateLeft(long value,int distance){return (value<<distance)|(value>>>-distance);}
+    public static long rotateRight(long value,int distance){return (value>>>distance)|(value<<-distance);}
+    public static long reverse(long value){return ((long)Integer.reverse((int)value)<<32)|(Integer.reverse((int)(value>>>32))&0xffffffffL);}
+    public static long reverseBytes(long value){return ((long)Integer.reverseBytes((int)value)<<32)|(Integer.reverseBytes((int)(value>>>32))&0xffffffffL);}
+    public static int signum(long value){return value==0?0:value<0?-1:1;}
+    public static long sum(long a,long b){return a+b;}
+    public static long min(long a,long b){return Math.min(a,b);}
+    public static long max(long a,long b){return Math.max(a,b);}
+
 }

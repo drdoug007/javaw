@@ -54,6 +54,19 @@ int hash=1,value=123456789;
             """); compare(List.of("run"));
     }
 
+    @Test void longBits() throws Exception {
+        fixture("""
+            public class Metadata { public static int run() {
+int hash=1;long value=123456789;
+ for(int i=0;i<600;i++){value=value*6364136223846793005L+1442695040888963407L;if(i<66)value=i==0?0:1L<<(i-1);
+ hash=31*hash+Long.bitCount(value)+Long.numberOfLeadingZeros(value)+Long.numberOfTrailingZeros(value)+Long.signum(value);
+ hash=31*hash+Long.hashCode(Long.highestOneBit(value)^Long.lowestOneBit(value)^Long.reverse(value)^Long.reverseBytes(value));
+ for(int d=-129;d<=129;d++)hash=31*hash+Long.hashCode(Long.rotateLeft(value,d)^Long.rotateRight(value,d));
+ hash+=Long.hashCode(Long.sum(value,17)^Long.min(value,-3)^Long.max(value,7));}return hash;
+            }}
+            """); compare(List.of("run"));
+    }
+
     private void compare(List<String> names) throws Exception {
         StringBuilder assertions=new StringBuilder();
         try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)){

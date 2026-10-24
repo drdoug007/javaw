@@ -1885,3 +1885,5 @@ The selected whole-JAR signature inventory adds 70 declarations (601 declared; 7
 Validation: all 255 bytecode tests pass; the reviewed 63-JAR audit baseline passes with unchanged inventory counts and revision `array-utilities-v50`.
 
 - Bytecode core JDK subset: Integer bit operations and reductions; validated by `BytecodeNumericTest` against JVM execution. See [the numeric and utility contract](docs/bytecode-numeric-utilities.md).
+
+- Bytecode core JDK subset: Long bit operations and reductions; validated by `BytecodeNumericTest` against JVM execution. See [the numeric and utility contract](docs/bytecode-numeric-utilities.md).
