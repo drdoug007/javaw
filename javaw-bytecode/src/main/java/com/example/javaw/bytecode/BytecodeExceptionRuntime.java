@@ -61,6 +61,8 @@ public final class BytecodeExceptionRuntime {
             for(String name:List.of("Optional","OptionalInt","OptionalLong","OptionalDouble","Map","AbstractMap","HashMap","LinkedHashMap","Set","AbstractSet","HashSet","LinkedHashSet"))paths.add("java/util/"+name+".java");
             paths.add("javaw/runtime/IntegralNumbers.java");
             paths.add("java/math/BigInteger.java");
+            paths.add("java/math/BigDecimal.java");
+            paths.add("java/math/RoundingMode.java");
             paths.add("javaw/runtime/GenericSignatures.java");
             paths.add("javaw/runtime/AnnotatedTypes.java");
             paths.add("java/lang/reflect/AnnotatedElement.java");

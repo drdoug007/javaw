@@ -103,4 +103,8 @@ The ten subsequent subsets (`integer-bits-v51` through `collection-algorithms-v6
 
 ## BigInteger foundation
 
-Revision `big-integer-v61` links the [selected BigInteger APIs](bytecode-big-integer.md) as ordinary bytecode runtime implementations. JVM/Wasm regressions and selected original Jackson initializer evidence do not establish full BigInteger, Jackson parser or framework coverage. BigDecimal/MathContext and the other remaining core APIs are still open.
+Revision `big-integer-v61` links the [selected BigInteger APIs](bytecode-big-integer.md) as ordinary bytecode runtime implementations. JVM/Wasm regressions and selected original Jackson initializer evidence do not establish full BigInteger, Jackson parser or framework coverage. MathContext and the other remaining core APIs are still open.
+
+## BigDecimal and rounding foundation
+
+Revision `big-decimal-v62` links [selected BigDecimal and RoundingMode APIs](bytecode-big-decimal.md) as ordinary bytecode runtime classes. JVM/Wasm comparisons cover exact decimal arithmetic, preferred scales, rounding and numeric conversions, and selected original pinned Hibernate decimal coercion methods with their lambda/exception path. MathContext, engineering formatting, streams and full framework execution remain open.

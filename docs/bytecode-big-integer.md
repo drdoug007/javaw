@@ -22,8 +22,10 @@ A separate test executes the **selected original static initializer and fields**
 
 ## Remaining limits
 
-BigDecimal/MathContext/RoundingMode, general bitwise/modular/primality APIs, random/probable-prime constructors, serialization and other BigInteger overloads remain separate work. Missing method descriptors continue to receive compiler diagnostics. The decimal-magnitude algorithms do not promise JDK performance, and arbitrary precision remains limited by the module's available memory. Managed reclamation, concurrent use and cross-backend marshalling remain separate milestones. This subset does not complete the core JDK milestone or establish H2/Spring/Hibernate startup.
+MathContext, general bitwise/modular/primality APIs, random/probable-prime constructors, serialization and other BigInteger overloads remain separate work. Missing method descriptors continue to receive compiler diagnostics. The decimal-magnitude algorithms do not promise JDK performance, and arbitrary precision remains limited by the module's available memory. Managed reclamation, concurrent use and cross-backend marshalling remain separate milestones. This subset does not complete the core JDK milestone or establish H2/Spring/Hibernate startup.
 
 The selected whole-JAR signature inventory now has 681 declared signatures, 205 missing members and 451 missing owners. All 35 inventoried BigInteger signatures have declarations. These figures measure declarations, not proven reachability or compatibility percentages. The 63-JAR opcode/requirement inventory is unchanged; only the compiler revision changes in the audit baseline.
 
 Validation: 267 compiler/runtime regressions passed in the full bytecode run; all five audit regressions pass after updating the missing-owner expectations. The reviewed 63-JAR audit baseline passes with unchanged inventory counts and revision `big-integer-v61`.
+
+The subsequent [BigDecimal/RoundingMode subset](bytecode-big-decimal.md) builds on this foundation.
