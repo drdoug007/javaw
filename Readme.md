@@ -1890,3 +1890,7 @@ Core JDK bytecode progress (`collection-algorithms-v60`): ten further subsets ad
 The selected whole-JAR inventory now declares 646 signatures, with 205 missing members and 486 missing owners (691 missing signatures). This is declaration inventory, not a runtime compatibility percentage. Streams/collectors, big numbers/transcendental Math, broader collection factories/wrappers, remaining text/wrapper APIs and full H2/Spring/Hibernate execution remain open.
 
 Validation: all 266 bytecode tests pass; the reviewed 63-JAR audit baseline passes with unchanged inventory counts and compiler revision `collection-algorithms-v60`.
+
+Core JDK bytecode progress (`big-integer-v61`): bundled BigInteger construction, arithmetic, radix/binary conversion, shifts, exact conversions, IEEE rounding and JDK value hashes now execute in Wasm. `BytecodeBigIntegerTest` compares JVM results and selected original pinned Jackson FastIntegerMath initializer bytecode in both JAR orders and independent instances. [The BigInteger contract](docs/bytecode-big-integer.md) describes supported methods and explicit limits; BigDecimal, streams and complete framework execution remain open.
+
+Validation: 267 compiler/runtime regressions passed in the full bytecode run; all five audit regressions pass after updating the missing-owner expectations. The reviewed 63-JAR audit baseline passes with unchanged inventory counts and revision `big-integer-v61`.

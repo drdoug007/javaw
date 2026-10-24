@@ -100,3 +100,7 @@ Validation: all 255 bytecode tests pass; the reviewed 63-JAR audit baseline pass
 ## Numeric helpers and collection algorithms
 
 The ten subsequent subsets (`integer-bits-v51` through `collection-algorithms-v60`) are specified in [the numeric and utility contract](bytecode-numeric-utilities.md). They add integral bit/unsigned APIs, checked arithmetic/products, division/sign/rounding helpers and collection algorithms. The selected signature inventory now has 646 declarations, 205 missing members and 486 missing owners across the same 1,337 signatures. These counts describe declarations only. Streams/collectors, big numbers, transcendental Math, broader collection wrappers/factories and remaining text/wrapper APIs remain open.
+
+## BigInteger foundation
+
+Revision `big-integer-v61` links the [selected BigInteger APIs](bytecode-big-integer.md) as ordinary bytecode runtime implementations. JVM/Wasm regressions and selected original Jackson initializer evidence do not establish full BigInteger, Jackson parser or framework coverage. BigDecimal/MathContext and the other remaining core APIs are still open.
