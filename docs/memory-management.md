@@ -48,3 +48,6 @@ The Spring handler awaits request bodies before allocating arguments. Once argum
 `examples/springboot-h2/test.js` exercises exact decimal HTTP round-trips and then runs the actual request handler through 160 warm-up and 300 measured CRUD/error cycles. Warming past the small Integer cache avoids mistaking intentional cache population for a leak. The measured live bytes, high-water bytes, and pages remain unchanged; seeded rows remain readable.
 
 These are executable bounds for those workloads, not a proof that every application has bounded memory. Conservative false roots, unbalanced host retains, static caches, growing live graphs, fragmentation, and a single oversized call can still increase memory use. Precise stack maps, automatic safepoints, compaction, and concurrency require further runtime work.
+
+
+A separate [experimental WasmGC prototype](wasmgc.md) now emits native structs for a restricted source subset. It does not replace the default allocator or change the ownership contract above.

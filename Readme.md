@@ -1703,3 +1703,10 @@ Host-independent `java.io` byte streams now include InputStream/OutputStream bul
 The [bytecode compatibility matrix](docs/compatibility.md) lists admitted opcodes, required imports, source/bytecode backend differences, tested dependency artifacts, and open Phase 4/5 work. Unsupported bytecode receives file/line (when available), class/method descriptor, construct, and remediation before WAT is returned. The backend rejects unlinked calls, invokedynamic, unsupported constants, native/monitor/exception-handler code, and wide typed locals rather than emitting partial functions. Unsupported source statements also fail explicitly; `do-while` currently requires rewriting to supported loop control flow.
 
 Static member classes with unique simple names retain the existing flattened module representation; nested names with the same simple name receive an explicit diagnostic. `SourceRuntimeSupportTest` executes static nested construction and dispatch. Enclosing-instance capture remains unsupported.
+
+
+### Experimental WasmGC backend
+
+`JavacToWasm.generateGcWat(source)` selects the standalone `WasmGcVisitor` prototype. It emits native GC structs and typed references, including constructor allocation, mutable reference/primitive fields, cyclic graphs, and exported methods. `WasmGcVisitorTest` assembles with Binaryen and executes in Node, including passing an opaque GC object through JavaScript back to Wasm. The default compiler continues to use linear memory.
+
+This is a restricted backend: inheritance, virtual calls, arrays, libraries, exceptions, and control flow are pending. Unsupported syntax receives a location and guidance to use the default backend. See [supported syntax, assembly instructions, and host ownership](docs/wasmgc.md). Validation: `mvn -pl javaw-core -Dtest=WasmGcVisitorTest,ManagedHeapTest test`.

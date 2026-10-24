@@ -651,6 +651,11 @@ public class JavacToWasm {
         return watOutput.toString();
     }
 
+    /** Generate an experimental native-GC module; assemble with a WasmGC-capable toolchain. */
+    public static String generateGcWat(String javaSource) {
+        return WasmGcVisitor.generateWat(javaSource);
+    }
+
     public static CompilationResult compile(String javaSource) {
         return compile("Source.java", javaSource, true);
     }

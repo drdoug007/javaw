@@ -75,9 +75,10 @@ This roadmap organizes planned features by their utility and return on investmen
   - `super(...)` constructor chaining, `super.method(...)` calls, and runtime `instanceof` (`InstanceOfExpr`) type checking.
 - [x] **Object Arrays & References**
   - Linear memory reference arrays (`MyClass[]`) with indexing and iteration support.
-- [ ] **WasmGC Target Proposal**
+- [x] **WasmGC Target Proposal**
   - Emit native WebAssembly Garbage Collection types (`(type $Class (struct ...))`, `struct.new`, `struct.get`).
   - *Note*: Evaluated as an alternative standalone backend (`WasmGcVisitor`) rather than in-line linear memory branching to avoid visitor fragmentation, preserve universal linear memory compatibility, and isolate GC struct type hierarchies.
+  - Implemented the experimental standalone `WasmGcVisitor`, exposed as `JavacToWasm.generateGcWat(source)`. Native structs, typed reference fields, cyclic graphs, constructor allocation, field access/mutation, and exported methods execute in Node via Binaryen assembly (`WasmGcVisitorTest`). This completes the proposal/prototype, not a general Java GC target; inheritance, virtual dispatch, libraries, arrays, and control flow remain follow-ups. See [the GC backend contract](docs/wasmgc.md).
 
 ---
 
