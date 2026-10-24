@@ -33,7 +33,9 @@ final class SpringWebSupport {
                 }
             }
         }
-        if (support.controllers.isEmpty() || support.repositories.isEmpty()) return support;
+        boolean bootRequested = cu.findAll(MethodCallExpr.class).stream().anyMatch(call ->
+                call.getScope().map(Object::toString).orElse("").equals("SpringApplication") && call.getNameAsString().equals("run"));
+        if (!bootRequested && support.controllers.isEmpty()) return support;
         for (var entry : support.repositories.entrySet()) support.lowerRepository(cu, entry.getKey(), entry.getValue());
         support.lowerOptional(cu);
         for (MethodCallExpr call : cu.findAll(MethodCallExpr.class)) {
@@ -217,33 +219,30 @@ final class SpringWebSupport {
     }
 
 
-    private String repositoryArguments(ClassOrInterfaceDeclaration bean) {
-        if (bean.getConstructors().isEmpty()) return "";
-        if (bean.getConstructors().size() != 1) throw unsupported("One constructor required on " + bean.getNameAsString());
-        StringJoiner args = new StringJoiner(",");
-        for (Parameter parameter : bean.getConstructors().get(0).getParameters()) {
-            if (!repositories.containsKey(parameter.getTypeAsString())) throw unsupported("Constructor dependency " + parameter);
-            args.add("__repo_" + parameter.getTypeAsString());
-        }
-        return args.toString();
-    }
-
     private void addBootstrap(CompilationUnit cu) {
-        StringBuilder source = new StringBuilder("class __JavawSpringContext { private int marker; ");
-        for (var repo : repositories.keySet()) source.append("static ").append(repo).append(" __repo_").append(repo).append(";");
-        for (var controller : controllers) source.append("static ").append(controller.getNameAsString()).append(" __controller_")
-                .append(controller.getNameAsString()).append(";");
-        for (var application : runners.keySet()) source.append("static ").append(application.getNameAsString()).append(" __application_")
-                .append(application.getNameAsString()).append(";");
-        source.append("static void __javaw_boot() {");
-        for (var repo : repositories.keySet()) source.append("if (__repo_").append(repo).append(" == null) __repo_").append(repo)
-                .append(" = new ").append(repo).append("();");
+        SpringBeanGraph graph = new SpringBeanGraph(cu);
+        for (String repo : repositories.keySet()) {
+            var type = cu.findAll(ClassOrInterfaceDeclaration.class).stream()
+                    .filter(c -> c.getNameAsString().equals(repo)).findFirst().orElseThrow();
+            graph.add(type, "__repo_" + repo);
+        }
+        for (var controller : controllers) graph.add(controller, "__controller_" + controller.getNameAsString());
+        for (var application : runners.keySet()) graph.add(application, "__application_" + application.getNameAsString());
+        for (var type : cu.findAll(ClassOrInterfaceDeclaration.class)) {
+            if (type.isAnnotationPresent("SpringBootApplication"))
+                graph.add(type, "__application_" + type.getNameAsString());
+            if (type.isAnnotationPresent("Service") || type.isAnnotationPresent("Component"))
+                graph.add(type, "__bean_" + type.getNameAsString());
+        }
+        StringBuilder source = new StringBuilder("class __JavawSpringContext { private int marker; static int __boot_state;");
+        source.append(graph.declarations());
+        source.append("static void __javaw_boot() {")
+                .append("if (__boot_state == 2) return;")
+                .append("if (__boot_state != 0) throw new IllegalStateException(\"Spring context is initializing or failed\");")
+                .append("__boot_state = 1; try {")
+                .append(graph.initialization());
         for (var controller : controllers) {
             String name = controller.getNameAsString();
-            if (controller.getConstructors().size() != 1) throw unsupported("One constructor required on " + name);
-            source.append("if (__controller_").append(name).append(" == null) __controller_").append(name)
-                    .append(" = new ").append(name).append("(");
-            source.append(repositoryArguments(controller)).append(");");
             String base = controller.getAnnotationByName("RequestMapping").map(SpringWebSupport::annotationValue).orElse("");
             for (MethodDeclaration method : controller.getMethods()) {
                 for (String verb : List.of("Get", "Post", "Put", "Delete")) {
@@ -254,14 +253,10 @@ final class SpringWebSupport {
         }
         for (var entry : runners.entrySet()) {
             String name = entry.getKey().getNameAsString();
-            source.append("if (__application_").append(name).append(" == null) {")
-                    .append("__application_").append(name).append(" = new ").append(name).append("(")
-                    .append(repositoryArguments(entry.getKey())).append(");");
             for (MethodDeclaration callback : entry.getValue()) source.append("__application_").append(name).append(".")
                     .append(callback.getNameAsString()).append("(null);");
-            source.append("}");
         }
-        source.append("}");
+        source.append("__boot_state = 2; } catch (Throwable failure) { __boot_state = 3; throw failure; } }");
         for (var controller : controllers) {
             String name = controller.getNameAsString();
             source.append("static ").append(name).append(" __javaw_controller_").append(name).append("() { return __controller_").append(name).append("; }");

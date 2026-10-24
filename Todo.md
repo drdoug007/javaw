@@ -293,6 +293,9 @@ This roadmap organizes planned features by their utility and return on investmen
 - [x] Emit route/entity metadata for a Node HTTP bridge that marshals parameters and serializes entities without storing rows in JavaScript.
 - [x] Verify compilation, optimized Wasm execution, decimal price round-trips, Unicode/JSON escaping, 404s, deletion, and isolation between Wasm instances without editing `SpringBootApp.java`.
 - [ ] Add general Optional/lambda support, broader dependency injection, repository queries, and transaction semantics.
+  - [x] General Optional/lambda support is implemented by the reusable Phase 2 runtime.
+  - [x] Extend constructor injection to linked concrete `@Service`/`@Component` singletons, transitive class/interface dependencies, implicit default constructors, and startup application beans. Validate missing/ambiguous/cyclic graphs and unsupported injection options before WAT generation; guard repeated, reentrant, and failed bootstrap. `SpringInjectionTest` and `SpringWebSupportTest` execute singleton sharing, runner startup, repository/service/controller integration, and failure behavior. See [the injection contract](docs/spring-injection.md).
+  - [ ] Add repository queries and transaction semantics; general factory beans, scopes, and lifecycle callbacks remain separate work.
 - [x] Add source-backed BigDecimal arithmetic and exact decimal JSON serialization beyond JavaScript number precision; see Phase 3 coverage and remaining JDK overloads.
 - [x] Reclaim unreachable repository rows and request temporaries at explicit host safepoints; verify stable heap size under repeated CRUD workloads.
 - [ ] Support the actual H2 SQL engine and full Spring/Hibernate runtime. Current support is an ahead-of-time API subset with an in-memory repository, not those JVM engines.
@@ -374,6 +377,7 @@ Checked items elsewhere describe supported subsets, not complete Java/JDK/JVM co
 - [ ] Publish a bytecode/opcode compatibility matrix, including invokedynamic and library runtime requirements; test representative Maven libraries rather than assuming JAR compatibility.
   - [x] Publish [the admission matrix and executable evidence](docs/compatibility.md). Test javac-produced integer code in Node and verify explicit rejection of actual ASM 9.7 and JUnit API 5.10.0 JARs. Additional positively supported third-party libraries remain pending.
 - [ ] Expand Spring dependency injection, general bean lifecycle, annotation processing, proxies, and repository query support.
+  - [x] Compile and validate linked constructor-injected service/component graphs with singleton startup and explicit unsupported-feature diagnostics; see `SpringInjectionTest`. General lifecycle, factories, scanning, processing, proxies, and queries remain pending.
 - [ ] Integrate JDBC, transactions, Hibernate requirements, and the actual H2 engine; retain the current in-memory subset as a separately documented target.
 - [ ] Reject unsupported Java/bytecode constructs early with file, line, construct, and remediation; prevent successful compilation when code was silently omitted.
   - [x] Add conservative bytecode admission, source/method/opcode/remediation diagnostics, linked-call checks, native/handler/monitor/wide-type rejection, and compiler-revision cache invalidation. Replace broken branch rendering with an executable state dispatcher and descriptor-qualified internal symbols; remove fabricated class constants and silent instruction/statement fallbacks. A full source/expression/linker audit remains pending.

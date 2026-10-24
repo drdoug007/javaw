@@ -85,6 +85,47 @@ class SpringWebSupportTest {
         assertNotNull(JavacToWasm.assembleWasm(wat, false));
     }
 
+    @Test void serviceAndControllerShareTheStartupRepository() throws Exception {
+        String source = """
+            import org.springframework.boot.SpringApplication;
+            import org.springframework.boot.ApplicationRunner;
+            import org.springframework.boot.autoconfigure.SpringBootApplication;
+            import org.springframework.context.annotation.Bean;
+            import org.springframework.stereotype.Service;
+            import org.springframework.web.bind.annotation.*;
+            import org.springframework.web.server.ResponseStatusException;
+            import org.springframework.http.HttpStatus;
+            @Service class BookService {
+                final Books books;
+                BookService(Books books) { this.books=books; }
+                Book get(int key) {
+                    return books.findById(key).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,"Missing"));
+                }
+            }
+            @RestController class Shelf {
+                final BookService service;
+                static Shelf current;
+                Shelf(BookService service) { this.service=service; current=this; }
+                @GetMapping("/first") public Book first() { return service.get(1); }
+            }
+            @SpringBootApplication class App {
+                final Books books;
+                App(Books books) { this.books=books; }
+                @Bean ApplicationRunner seed() { return args -> { books.save(new Book(null,"Seed")); }; }
+                public static void start() { SpringApplication.run(App.class,null); }
+                public static int check() {
+                    if(!Shelf.current.first().title.equals("Seed")) return -1;
+                    if(Shelf.current.service.books.findAll().length!=1) return -2;
+                    return 42;
+                }
+            }
+            """;
+        String wat = JavacToWasm.generateWat(List.of(StaticJavaParser.parse(MODEL), StaticJavaParser.parse(REPOSITORY), StaticJavaParser.parse(source)));
+        assertTrue(wat.contains("javaw_spring_web"));
+        OverloadResolutionTest.execute(JavacToWasm.assembleWasm(wat,false),
+                "e.start(); assert.equal(e.check(),42); e.start(); assert.equal(e.check(),42);");
+    }
+
     @Test void keepsEveryTypeReachableInBatchCompilation() {
         String wat = JavacToWasm.generateWat(List.of(
                 StaticJavaParser.parse("class First { public static int first() { return 1; } }"),

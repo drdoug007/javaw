@@ -1579,7 +1579,7 @@ python3 -m http.server 8000
 
 ### 4. Spring API CRUD subset on WebAssembly (`examples/springboot-h2`)
 
-The compiler lowers the unchanged `SpringBootApp.java`, `ProductRepository.java`, and `Product.java` into a unified Wasm module. `SpringApplication.run` creates singleton repositories and constructor-injected controllers. Controller method bodies execute in Wasm, including repository operations, generated IDs, and lazy `orElseThrow` exception suppliers.
+The compiler lowers the unchanged `SpringBootApp.java`, `ProductRepository.java`, and `Product.java` into a unified Wasm module. `SpringApplication.run` creates singleton repositories, constructor-injected controllers, and linked `@Service`/`@Component` objects. Dependencies may be concrete classes or uniquely implemented source interfaces, resolved transitively before their consumers. Controller method bodies execute in Wasm, including repository operations, generated IDs, and lazy `orElseThrow` exception suppliers.
 
 This is ahead-of-time support for a subset of Spring APIs. It does **not** run Spring Boot, Hibernate, or the H2 SQL engine. The Maven dependencies provide the Java API types; `linkDependencies=false` keeps their JVM implementations out of the Wasm module. Repository rows use a linked list in Wasm linear memory, with linear scans for lookup. There is no SQL, transaction manager, disk persistence, query derivation, or general Spring container.
 
@@ -1587,7 +1587,7 @@ The compiler embeds `javaw_spring_web` metadata describing routes, parameters, a
 
 Supported patterns in this example:
 
-- One constructor per controller or application startup bean, with dependencies on `CrudRepository<Entity, Integer>` interfaces.
+- One constructor per managed controller, startup application, service, or component (or an implicit default constructor), with dependencies on other linked managed beans or `CrudRepository<Entity, Integer>` interfaces.
 - An entity with one generated `int`/`Integer` ID, and `String`, `BigDecimal`, `int`, or `Integer` fields.
 - `findAll`, `findById`, `save`, and `deleteById`; custom repository queries are rejected.
 - `findById(...).orElseThrow(() -> new ResponseStatusException(...))` with an expression supplier using method parameters.
@@ -1595,6 +1595,8 @@ Supported patterns in this example:
 - `HttpStatus.NOT_FOUND`, `BAD_REQUEST`, `CONFLICT`, and `INTERNAL_SERVER_ERROR`.
 
 `BigDecimal` values are arbitrary-precision Wasm objects with scale and rounding semantics. The HTTP bridge preserves decimal JSON lexemes and emits exact JSON numbers; JavaScript clients must preserve that text or use strings to avoid client-side rounding. Storage lasts for one Wasm instance. The bridge collects unreachable rows and request temporaries after responses are copied into JavaScript; retained repository rows remain roots.
+
+Missing, ambiguous, and cyclic constructor dependencies fail compilation with source diagnostics. Bootstrap creates each bean once per Wasm instance; repeated starts preserve the graph and do not repeat runners. Reentrant starts and retries after a constructor/runner failure throw `IllegalStateException`. Field/setter injection, qualifiers, scopes, general factory beans, lifecycle callbacks, and concurrent startup are outside this subset. See [the injection contract and executable tests](docs/spring-injection.md).
 
 The application runs its `@Bean ApplicationRunner` lambda once at startup, inserting three products. The application class receives the same repository singleton as the controller. PUT invokes the entity setters and saves the changed product. These behaviors follow the Java source; inferred `var` locals retain their entity type for method dispatch. POST returns 201, successful DELETE returns 204 with no body, and missing products return 404 with the Java exception's reason.
 
