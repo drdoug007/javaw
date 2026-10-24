@@ -36,6 +36,8 @@ final class BytecodeDeclarations implements Opcodes {
             visibility(owner, field.access, label);
             if (!fields.add(field.name + ":" + field.desc)) fail(owner, "duplicate " + label);
             if (!validDescriptor(field.desc, false)) fail(owner, "invalid descriptor for " + label);
+            if (field.value != null && !validConstantValue(field.desc, field.value))
+                fail(owner, "ConstantValue type does not match " + label);
             if ((field.access & (ACC_FINAL | ACC_VOLATILE)) == (ACC_FINAL | ACC_VOLATILE))
                 fail(owner, "final volatile " + label);
             if (iface && ((field.access & (ACC_PUBLIC | ACC_STATIC | ACC_FINAL)) != (ACC_PUBLIC | ACC_STATIC | ACC_FINAL)
@@ -75,6 +77,17 @@ final class BytecodeDeclarations implements Opcodes {
                     fail(owner, "private interface methods require Java 9: " + label);
             }
         }
+    }
+
+    private static boolean validConstantValue(String descriptor, Object value) {
+        return switch (descriptor) {
+            case "Z", "B", "C", "S", "I" -> value instanceof Integer;
+            case "J" -> value instanceof Long;
+            case "F" -> value instanceof Float;
+            case "D" -> value instanceof Double;
+            case "Ljava/lang/String;" -> value instanceof String;
+            default -> false;
+        };
     }
 
     private static boolean validMemberName(String name, boolean method) {

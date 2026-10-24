@@ -97,6 +97,64 @@ class BytecodeCompatibilityTest {
         }
     }
 
+    @Test void matchesJvmNumericConstantValuesAndIgnoredInstanceConstants() throws Exception {
+        String[] descriptors = {"Z", "B", "C", "S", "I", "J", "F", "F", "D", "D"};
+        Object[] values = {1, -128, 65535, -32768, Integer.MIN_VALUE, Long.MAX_VALUE,
+                -0.0f, Float.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY};
+        ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_MAXS);
+        writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "Constants", null, "java/lang/Object", null);
+        for (int i = 0; i < descriptors.length; i++) {
+            writer.visitField(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC | Opcodes.ACC_FINAL,
+                    "constant" + i, descriptors[i], null, values[i]).visitEnd();
+            MethodVisitor method = writer.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC,
+                    "get" + i, "()" + descriptors[i], null, null);
+            method.visitCode(); method.visitFieldInsn(Opcodes.GETSTATIC, "Constants", "constant" + i, descriptors[i]);
+            method.visitInsn(Type.getType(descriptors[i]).getOpcode(Opcodes.IRETURN));
+            method.visitMaxs(0, 0); method.visitEnd();
+        }
+        writer.visitField(Opcodes.ACC_PUBLIC, "ignored", "I", null, 99).visitEnd();
+        MethodVisitor init = writer.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
+        init.visitCode(); init.visitVarInsn(Opcodes.ALOAD, 0);
+        init.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+        init.visitInsn(Opcodes.RETURN); init.visitMaxs(0, 0); init.visitEnd();
+        MethodVisitor read = writer.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "instanceValue", "()I", null, null);
+        read.visitCode(); read.visitTypeInsn(Opcodes.NEW, "Constants"); read.visitInsn(Opcodes.DUP);
+        read.visitMethodInsn(Opcodes.INVOKESPECIAL, "Constants", "<init>", "()V", false);
+        read.visitFieldInsn(Opcodes.GETFIELD, "Constants", "ignored", "I");
+        read.visitInsn(Opcodes.IRETURN); read.visitMaxs(0, 0); read.visitEnd(); writer.visitEnd();
+        byte[] bytes = writer.toByteArray();
+        Class<?> jvm = new ClassLoader() {
+            Class<?> load() { return defineClass("Constants", bytes, 0, bytes.length); }
+        }.load();
+        StringBuilder assertions = new StringBuilder();
+        for (int i = 0; i < descriptors.length; i++) {
+            Object expected = jvm.getMethod("get" + i).invoke(null);
+            String literal = expected instanceof Boolean b ? (b ? "1" : "0")
+                    : expected instanceof Character c ? Integer.toString(c) : expected.toString();
+            if (expected instanceof Long) literal += "n";
+            assertions.append("assert.equal(e['Constants.get").append(i).append("'](),").append(literal).append(");");
+        }
+        assertEquals(0, jvm.getMethod("instanceValue").invoke(null));
+        assertions.append("assert.equal(e['Constants.instanceValue'](),0);");
+        execute(BytecodeCompiler.compileClass(bytes), assertions.toString());
+    }
+
+    @Test void rejectsConstantValueTypeMismatchesLikeJvm() {
+        for (String descriptor : new String[]{"I", "J", "F", "D", "Ljava/lang/String;", "[I"}) {
+            ClassWriter writer = new ClassWriter(0);
+            writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "BadConstant", null, "java/lang/Object", null);
+            writer.visitField(Opcodes.ACC_STATIC | Opcodes.ACC_FINAL, "bad", descriptor, null,
+                    descriptor.equals("I") ? (Object) Long.valueOf(1) : Integer.valueOf(1)).visitEnd();
+            writer.visitEnd(); byte[] bytes = writer.toByteArray();
+            assertThrows(ClassFormatError.class, () -> new ClassLoader() {
+                Class<?> load() { return defineClass("BadConstant", bytes, 0, bytes.length); }
+            }.load(), descriptor);
+            String error = assertThrows(IllegalArgumentException.class,
+                    () -> BytecodeCompiler.compileClass(bytes)).getMessage();
+            assertTrue(error.contains("ConstantValue type does not match"), error);
+        }
+    }
+
     @Test void matchesJvmDescriptorDistinctStaticFields() throws Exception {
         ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_MAXS);
         writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "FieldIdentity", null, "java/lang/Object", null);

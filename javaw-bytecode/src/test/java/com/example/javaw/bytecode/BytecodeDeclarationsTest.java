@@ -98,6 +98,41 @@ class BytecodeDeclarationsTest implements Opcodes {
                 "exceeds 255 slots");
     }
 
+    @Test void validatesConstantValueTypesEvenOnUnusedAndInstanceFields() {
+        String[] descriptors = {"Z", "B", "C", "S", "I", "J", "F", "D", "Ljava/lang/String;", "[I", "Ljava/lang/Object;"};
+        Object[] values = {1, 1L, 1f, 1d, "text", org.objectweb.asm.Type.getType("Ljava/lang/Object;")};
+        for (String descriptor : descriptors) {
+            for (Object value : values) {
+                boolean valid = switch (descriptor) {
+                    case "Z", "B", "C", "S", "I" -> value instanceof Integer;
+                    case "J" -> value instanceof Long;
+                    case "F" -> value instanceof Float;
+                    case "D" -> value instanceof Double;
+                    case "Ljava/lang/String;" -> value instanceof String;
+                    default -> false;
+                };
+                for (int access : new int[]{0, ACC_STATIC, ACC_STATIC | ACC_FINAL}) {
+                    ClassNode node = type();
+                    node.fields.add(new FieldNode(access, "constant", descriptor, null, value));
+                    if (valid) assertDoesNotThrow(() -> BytecodeDeclarations.validate(node));
+                    else {
+                        rejects(n -> n.fields.add(new FieldNode(access, "constant", descriptor, null, value)),
+                                "ConstantValue type does not match");
+                    }
+                }
+            }
+        }
+        ClassNode entry = type(), unused = type(); unused.name = "Unused";
+        unused.fields.add(new FieldNode(ACC_STATIC, "constant", "J", null, 1));
+        String message = assertThrows(IllegalArgumentException.class, () -> new ClassBytecodeCompiler(entry)
+                .compileToWat(java.util.Map.of(entry.name, entry, unused.name, unused))).getMessage();
+        assertTrue(message.contains("Unused"), message);
+        assertTrue(message.contains("ConstantValue type does not match"), message);
+        // A correctly typed String constant is structurally valid, but execution still needs a string runtime.
+        rejects(n -> n.fields.add(new FieldNode(ACC_STATIC | ACC_FINAL, "text", "Ljava/lang/String;", null, "text")),
+                "only numeric constant fields are supported");
+    }
+
     @Test void acceptsDescriptorDistinctFieldsAndRejectsUnusedLinkedDuplicates() {
         ClassNode node = type();
         node.fields.add(new FieldNode(ACC_STATIC, "value", "I", null, null));
