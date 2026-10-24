@@ -1666,7 +1666,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         } else if (expr.isFieldAccessExpr()) {
             FieldAccessExpr fae = expr.asFieldAccessExpr();
             String fName = fae.getNameAsString();
-            if (fName.equals("length")) {
+            if (fName.equals("length") && getExpressionJavaType(fae.getScope(), localJavaTypes) != null
+                    && getExpressionJavaType(fae.getScope(), localJavaTypes).endsWith("[]")) {
                 translateExpression(fae.getScope(), collector, localTypes, localElementTypes, localJavaTypes, "i32");
                 collector.append("    i32.load\n");
             } else if (fae.getScope().isNameExpr() && classRegistry != null && classRegistry.hasClass(fae.getScope().asNameExpr().getNameAsString()) && classRegistry.getClass(fae.getScope().asNameExpr().getNameAsString()).isEnum() && classRegistry.getClass(fae.getScope().asNameExpr().getNameAsString()).getEnumConstants().contains(fName)) {
@@ -2362,16 +2363,17 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 } else if (mName.equals("append")) {
                     translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
                     Expression arg = call.getArgument(0);
+                    String argType = getExpressionJavaType(arg, localJavaTypes);
                     if (isStringType(arg, localJavaTypes)) {
                         translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "String");
                         collector.append("    call $__sb_append_str\n");
-                    } else if (arg.isCharLiteralExpr() || (arg.isNameExpr() && "char".equals(localJavaTypes.get(arg.asNameExpr().getNameAsString())))) {
+                    } else if (arg.isCharLiteralExpr() || "char".equals(argType)) {
                         translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
                         collector.append("    call $__sb_append_char\n");
-                    } else if (arg.isBooleanLiteralExpr() || (arg.isNameExpr() && "boolean".equals(localJavaTypes.get(arg.asNameExpr().getNameAsString())))) {
+                    } else if (arg.isBooleanLiteralExpr() || "boolean".equals(argType)) {
                         translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
                         collector.append("    call $__sb_append_bool\n");
-                    } else if (arg.isDoubleLiteralExpr() || (arg.isNameExpr() && ("double".equals(localJavaTypes.get(arg.asNameExpr().getNameAsString())) || "float".equals(localJavaTypes.get(arg.asNameExpr().getNameAsString()))))) {
+                    } else if (arg.isDoubleLiteralExpr() || "double".equals(argType) || "float".equals(argType)) {
                         translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "f64");
                         collector.append("    call $__sb_append_f64\n");
                     } else {
@@ -3097,6 +3099,13 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             ArrayCreationExpr array = expr.asArrayCreationExpr();
             return array.getElementType().asString() + "[]".repeat(array.getLevels().size());
         }
+        if (expr.isArrayAccessExpr()) {
+            ArrayAccessExpr aae = expr.asArrayAccessExpr();
+            String target = getExpressionJavaType(aae.getName(), localJavaTypes);
+            if (target != null && target.endsWith("[]")) {
+                return target.substring(0, target.length() - 2);
+            }
+        }
         if (expr.isNameExpr()) {
             String name = expr.asNameExpr().getNameAsString();
             if (localJavaTypes != null && localJavaTypes.containsKey(name)) {
@@ -3646,14 +3655,16 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
 
     private boolean isStringBuilderType(Expression expr, Map<String, String> localJavaTypes) {
         if (expr == null) return false;
+        String type = getExpressionJavaType(expr, localJavaTypes);
+        if ("StringBuilder".equals(type) || (type != null && type.endsWith(".StringBuilder"))) return true;
         if (expr.isObjectCreationExpr()) {
             String t = expr.asObjectCreationExpr().getTypeAsString();
             return t.equals("StringBuilder") || t.endsWith(".StringBuilder");
         }
         if (expr.isNameExpr()) {
             String var = expr.asNameExpr().getNameAsString();
-            String type = localJavaTypes != null ? localJavaTypes.get(var) : null;
-            return "StringBuilder".equals(type) || (type != null && type.endsWith(".StringBuilder"));
+            String t = localJavaTypes != null ? localJavaTypes.get(var) : null;
+            if ("StringBuilder".equals(t) || (t != null && t.endsWith(".StringBuilder"))) return true;
         }
         if (expr.isMethodCallExpr()) {
             MethodCallExpr call = expr.asMethodCallExpr();
@@ -3664,8 +3675,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 if (scope != null && isStringBuilderType(scope, localJavaTypes)) return true;
             }
         }
-        String type = getExpressionJavaType(expr, localJavaTypes);
-        return "StringBuilder".equals(type) || (type != null && type.endsWith(".StringBuilder"));
+        return false;
     }
 
     private void translateStringToStack(Expression expr, StringBuilder collector, Map<String, String> localTypes, Map<String, String> localElementTypes, Map<String, String> localJavaTypes) {
@@ -5860,7 +5870,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         }
         if (expr.isFieldAccessExpr()) {
             FieldAccessExpr fae = expr.asFieldAccessExpr();
-            if (fae.getNameAsString().equals("length")) return "i32";
+            if (fae.getNameAsString().equals("length") && getExpressionJavaType(fae.getScope(), localJavaTypes) != null
+                    && getExpressionJavaType(fae.getScope(), localJavaTypes).endsWith("[]")) return "i32";
             if (fae.getScope().isNameExpr() && isStandardConstantScope(fae.getScope().asNameExpr().getNameAsString())) {
                 String scopeName = fae.getScope().asNameExpr().getNameAsString();
                 String shortScope = scopeName.contains(".") ? scopeName.substring(scopeName.lastIndexOf('.') + 1) : scopeName;

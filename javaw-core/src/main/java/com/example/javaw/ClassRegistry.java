@@ -316,6 +316,16 @@ public class ClassRegistry {
             ClassModel cm = new ClassModel("CharSequence", null, true, classIdCounter++);
             classes.put("CharSequence", cm);
         }
+        if (!classes.containsKey("String")) {
+            ClassModel cm = new ClassModel("String", null, false, classIdCounter++);
+            cm.addImplementedInterface("CharSequence");
+            cm.addImplementedInterface("Comparable");
+            classes.put("String", cm);
+        } else {
+            ClassModel cm = classes.get("String");
+            cm.addImplementedInterface("CharSequence");
+            cm.addImplementedInterface("Comparable");
+        }
         if (!classes.containsKey("StringBuilder")) {
             ClassModel cm = new ClassModel("StringBuilder", null, false, classIdCounter++);
             classes.put("StringBuilder", cm);
@@ -749,6 +759,7 @@ public class ClassRegistry {
         while (!pending.isEmpty()) {
             String name = pending.removeFirst();
             if (!result.add(name)) continue;
+            if ("String".equals(name)) { pending.add("CharSequence"); pending.add("Comparable"); }
             TypeDeclaration<?> declaration = sourceTypes.get(GenericTypes.raw(name));
             if (declaration instanceof ClassOrInterfaceDeclaration type) {
                 Map<String, String> bindings = classBindings(name);
@@ -783,6 +794,7 @@ public class ClassRegistry {
     String asSuperType(String actual, String expected) {
         if (actual == null) return null;
         if (Objects.equals(GenericTypes.raw(actual), expected)) return actual;
+        if ("String".equals(actual) && ("CharSequence".equals(expected) || "Comparable".equals(expected) || "Comparable<String>".equals(expected))) return expected;
         TypeDeclaration<?> source = sourceTypes.get(GenericTypes.raw(actual));
         Map<String, String> bindings = classBindings(actual);
         List<com.github.javaparser.ast.type.ClassOrInterfaceType> parents = new ArrayList<>();
@@ -1024,6 +1036,7 @@ public class ClassRegistry {
             String name = pending.removeFirst();
             if (!visited.add(name)) continue;
             if (name.equals(to)) return true;
+            if ("String".equals(name) && ("CharSequence".equals(to) || "Comparable".equals(to) || "Object".equals(to))) return true;
             ClassModel model = classes.get(name);
             if (model == null) continue;
             if (model.getSuperClassName() != null) pending.add(model.getSuperClassName());

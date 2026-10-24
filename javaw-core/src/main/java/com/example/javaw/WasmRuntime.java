@@ -1470,6 +1470,7 @@ public class WasmRuntime {
             local.get $cap i32.const 16 i32.lt_s if i32.const 16 local.set $cap end
             i32.const 16 call $__heap_alloc local.set $sb
             local.get $sb local.get $cap i32.store
+            local.get $sb i32.const 0 i32.store offset=4
             local.get $sb local.get $cap call $__str_alloc i32.store offset=8
             local.get $sb)
           (func $__sb_ensure (param $sb i32) (param $need i32)
