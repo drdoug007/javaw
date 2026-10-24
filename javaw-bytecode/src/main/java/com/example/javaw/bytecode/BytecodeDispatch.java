@@ -12,6 +12,7 @@ public final class BytecodeDispatch {
     private final String caller;
     private final BytecodeObjectLayouts layouts;
     private final Map<String, Integer> classIds = new LinkedHashMap<>();
+    private final Map<String, Integer> referenceArrayIds = new LinkedHashMap<>();
     private record Declaration(String owner, MethodNode method) {}
 
     public BytecodeDispatch(Map<String, ClassNode> linked) {
@@ -24,6 +25,10 @@ public final class BytecodeDispatch {
         this.layouts = new BytecodeObjectLayouts(linked);
         int id = 1;
         for (String name : new TreeSet<>(linked.keySet())) classIds.put(name, id++);
+        TreeSet<String> components = new TreeSet<>(linked.keySet());
+        components.add("java/lang/Object");
+        int arrayId = -100;
+        for (String component : components) referenceArrayIds.put(component, arrayId--);
     }
 
     private String packageName(String name) {
@@ -69,8 +74,15 @@ public final class BytecodeDispatch {
     public Set<Integer> typeTestIds(String target) {
         if (target.startsWith("[")) {
             BytecodeArrays.Primitive primitive = BytecodeArrays.primitive(target);
-            if (primitive == null) throw new IllegalArgumentException("reference/multidimensional array type tests are unsupported");
-            return Set.of(primitive.classId());
+            if (primitive != null) return Set.of(primitive.classId());
+            if (!target.startsWith("[L") || !target.endsWith(";"))
+                throw new IllegalArgumentException("multidimensional array type tests are unsupported");
+            String component = target.substring(2, target.length() - 1);
+            referenceArrayId(component);
+            Set<Integer> ids = new LinkedHashSet<>();
+            for (var entry : referenceArrayIds.entrySet())
+                if (subtype(entry.getKey(), component, new HashSet<>())) ids.add(entry.getValue());
+            return ids;
         }
         if (!target.equals("java/lang/Object")) {
             ClassNode type = linked.get(target);
@@ -89,8 +101,43 @@ public final class BytecodeDispatch {
         ClassNode marker = linked.get(target);
         if (target.equals("java/lang/Object") || marker != null && (marker.access & Opcodes.ACC_INTERFACE) != 0
                 && (target.equals("java/lang/Cloneable") || target.equals("java/io/Serializable")))
+        {
             for (BytecodeArrays.Primitive primitive : BytecodeArrays.PRIMITIVES) result.add(primitive.classId());
+            result.addAll(referenceArrayIds.values());
+        }
         return result;
+    }
+
+    public int referenceArrayId(String component) {
+        if (component.startsWith("[")) throw new IllegalArgumentException("multidimensional array allocation is unsupported");
+        if (!component.equals("java/lang/Object")) checkClassAccess(component);
+        Integer id = referenceArrayIds.get(component);
+        if (id == null) throw new IllegalArgumentException("link the reference-array component " + component);
+        return id;
+    }
+
+    /** Store checks use the actual array component, independent of its static covariant type. */
+    String referenceArrayRuntimeWat() {
+        StringBuilder wat = new StringBuilder("(func $__reference_array_address (param $a i32) (param $i i32) (result i32)\n");
+        wat.append("local.get $a i32.eqz if unreachable end\nlocal.get $a i32.load\n");
+        // All reference-array tags are below the reserved primitive-tag range.
+        wat.append("i32.const -100 i32.gt_s if unreachable end\n");
+        wat.append("local.get $i local.get $a i32.load offset=4 i32.ge_u if unreachable end\n");
+        wat.append("local.get $a i32.const 8 i32.add local.get $i i32.const 4 i32.mul i32.add)\n");
+        wat.append("(func $__reference_array_store (param $a i32) (param $i i32) (param $v i32) (local $p i32)\n");
+        wat.append("local.get $a local.get $i call $__reference_array_address local.set $p\n");
+        wat.append("local.get $v if\n");
+        // Runtime metadata is module-wide; component accessibility is checked at each instruction.
+        BytecodeDispatch metadata = new BytecodeDispatch(linked);
+        for (var entry : referenceArrayIds.entrySet()) {
+            wat.append("local.get $a i32.load i32.const ").append(entry.getValue()).append(" i32.eq if\n");
+            wat.append("i32.const 0\n");
+            for (int id : metadata.typeTestIds(entry.getKey()))
+                wat.append("local.get $v i32.load i32.const ").append(id).append(" i32.eq i32.or\n");
+            wat.append("i32.eqz if unreachable end\nend\n");
+        }
+        wat.append("end local.get $p local.get $v i32.store)\n");
+        return wat.toString();
     }
 
     private void validateTypeHierarchy(String name, Set<String> visiting, Set<String> complete) {

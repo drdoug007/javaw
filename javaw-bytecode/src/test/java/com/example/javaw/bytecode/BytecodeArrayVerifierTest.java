@@ -86,6 +86,56 @@ class BytecodeArrayVerifierTest implements Opcodes {
         }
     }
 
+    @Test void verifiesReferenceArrayOperandsAndPreservesDynamicStoreChecks() {
+        for (String scenario : new String[]{"primitiveLoad","primitiveStore","index","value","uninitialized","result"}) {
+            ClassNode owner = owner(scenario.equals("result") ? "()[LArrayTypes;" : "()V");
+            var code = owner.methods.get(0).instructions;
+            code.add(new InsnNode(ICONST_1));
+            if(scenario.startsWith("primitive")) code.add(new IntInsnNode(NEWARRAY,T_INT));
+            else code.add(new TypeInsnNode(ANEWARRAY,"java/lang/Object"));
+            if(scenario.equals("result")) code.add(new InsnNode(ARETURN));
+            else {
+                code.add(new InsnNode(scenario.equals("index") ? FCONST_0 : ICONST_0));
+                if(scenario.equals("primitiveLoad") || scenario.equals("index")) {
+                    code.add(new InsnNode(AALOAD)); code.add(new InsnNode(POP));
+                } else {
+                    if(scenario.equals("uninitialized")) code.add(new TypeInsnNode(NEW,owner.name));
+                    else code.add(new InsnNode(scenario.equals("value") ? ICONST_1 : ACONST_NULL));
+                    code.add(new InsnNode(AASTORE));
+                }
+                code.add(new InsnNode(RETURN));
+            }
+            reject(owner);
+        }
+        // The verifier allows any initialized reference as a store value; runtime checks the component.
+        ClassNode owner = owner("(Ljava/lang/Object;)V"); var code = owner.methods.get(0).instructions;
+        code.add(new InsnNode(ICONST_1)); code.add(new TypeInsnNode(ANEWARRAY,owner.name));
+        code.add(new InsnNode(ICONST_0)); code.add(new VarInsnNode(ALOAD,0));
+        code.add(new InsnNode(AASTORE)); code.add(new InsnNode(RETURN));
+        assertDoesNotThrow(() -> jvm(owner)); assertDoesNotThrow(() -> BytecodeCompiler.compileClass(bytes(owner)));
+    }
+
+    @Test void diagnosesUnlinkedInaccessibleAndNestedArrayComponents() {
+        for(String component : new String[]{"missing/Type", "[I", "[Ljava/lang/Object;", "other/Hidden"}) {
+            ClassNode owner = owner("()V"); var code = owner.methods.get(0).instructions;
+            code.add(new InsnNode(ICONST_0)); code.add(new TypeInsnNode(ANEWARRAY,component));
+            code.add(new InsnNode(POP)); code.add(new InsnNode(RETURN));
+            ClassNode hidden = new ClassNode(); hidden.name="other/Hidden"; hidden.superName="java/lang/Object";
+            String message = assertThrows(IllegalArgumentException.class, () -> new ClassBytecodeCompiler(owner)
+                    .compileToWat(java.util.Map.of(owner.name,owner,hidden.name,hidden))).getMessage();
+            assertTrue(message.contains("ArrayTypes.java:7:"),message);
+            assertTrue(message.contains("reference array allocation"),message);
+        }
+        for(int opcode : new int[]{AALOAD,AASTORE}) {
+            ClassNode owner=owner("()V"); var code=owner.methods.get(0).instructions;
+            code.add(new InsnNode(ACONST_NULL)); code.add(new InsnNode(ICONST_0));
+            if(opcode==AASTORE) code.add(new InsnNode(ACONST_NULL));
+            code.add(new InsnNode(opcode)); if(opcode==AALOAD) code.add(new InsnNode(POP));
+            code.add(new InsnNode(RETURN));
+            assertDoesNotThrow(() -> jvm(owner)); assertDoesNotThrow(() -> BytecodeCompiler.compileClass(bytes(owner)));
+        }
+    }
+
     @Test void rejectsInvalidPrimitiveAllocationTagsAndRetainsNullArrayTyping() {
         for (int type : new int[]{-1, 0, 3, 12, 255}) {
             ClassNode owner = owner("()V"); var code = owner.methods.get(0).instructions;

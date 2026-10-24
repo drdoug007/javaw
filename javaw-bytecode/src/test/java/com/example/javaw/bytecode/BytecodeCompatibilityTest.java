@@ -46,6 +46,84 @@ class BytecodeCompatibilityTest {
         assertEquals(0,process.exitValue(),Files.readString(log));
     }
 
+    @Test void executesReferenceArraysCovarianceAndStoreChecksInEitherJarOrder() throws Exception {
+        fixture("""
+            public class Fixture {
+                static Base[] saved;
+                public static int run(int n) {
+                    Child[] children = new Child[n]; saved = children;
+                    int sum = 0;
+                    for (int i=0;i<n;i++) { if(saved[i] == null) sum++; saved[i] = new Child(i); }
+                    for (Base item : saved) sum += item.value();
+                    Object ref = saved;
+                    if(ref instanceof Base[]) sum += 10;
+                    if(ref instanceof Child[]) sum += 20;
+                    if(ref instanceof Other[]) sum += 1000;
+                    if(((Base[])ref) != saved) sum += 1000;
+                    Object[] objects = new Object[3];
+                    objects[0] = new int[]{7}; objects[1] = children; objects[2] = null;
+                    if(objects[0] instanceof int[]) sum += 40;
+                    if(objects[1] instanceof Object[]) sum += 80;
+                    return sum + objects.length;
+                }
+                public static void badStore() { Base[] a = new Child[1]; a[0] = new Other(); }
+                public static void badCast() { Object a = new Base[1]; Child[] b = (Child[])a; }
+                public static void nullLoad() { Base[] a = null; Base b = a[0]; }
+                public static void nullStore() { Base[] a = null; a[0] = null; }
+                public static void bounds(int i) { Base[] a = new Base[1]; a[i] = null; }
+                public static int size(int n) { return new Base[n].length; }
+            }
+            class Base { int value() { return -1; } }
+            class Child extends Base { int n; Child(int n) {this.n=n;} int value(){return n;} }
+            class Other extends Base {}
+            """);
+        try (var loader = new java.net.URLClassLoader(new java.net.URL[]{directory.toUri().toURL()})) {
+            Class<?> jvm = loader.loadClass("Fixture");
+            for (String[] order : new String[][]{{"Fixture","Base","Child","Other"},{"Other","Child","Base","Fixture"}}) {
+                StringBuilder checks = new StringBuilder();
+                for (int n : new int[]{0,1,7}) checks.append("assert.equal(e['Fixture.run'](").append(n).append("),")
+                        .append(jvm.getMethod("run",int.class).invoke(null,n)).append(");");
+                for (String name : new String[]{"badStore","badCast","nullLoad","nullStore"}) {
+                    assertThrows(java.lang.reflect.InvocationTargetException.class, () -> jvm.getMethod(name).invoke(null));
+                    checks.append("assert.throws(()=>e['Fixture.").append(name).append("'](),WebAssembly.RuntimeError);");
+                }
+                for(int index : new int[]{-1,1,Integer.MAX_VALUE}) {
+                    assertThrows(java.lang.reflect.InvocationTargetException.class, () -> jvm.getMethod("bounds",int.class).invoke(null,index));
+                    checks.append("assert.throws(()=>e['Fixture.bounds'](").append(index).append("),WebAssembly.RuntimeError);");
+                }
+                checks.append("assert.throws(()=>e['Fixture.size'](-1),WebAssembly.RuntimeError);");
+                String wat = linkJar(order);
+                assertEquals(1,wat.split(java.util.regex.Pattern.quote("(func $__reference_array_store"),-1).length-1);
+                execute(wat,checks.toString());
+            }
+        }
+    }
+
+    @Test void executesInterfaceArraysAndRejectsUnrelatedRuntimeStores() throws Exception {
+        fixture("""
+            public class Fixture {
+                public static int run() {
+                    Item[] a = new Item[3]; Object[] alias = a;
+                    alias[0] = new Impl(); alias[1] = null;
+                    Item[] b = new Impl[1]; b[0] = new Impl();
+                    Object object = b;
+                    return a[0].value() + b[0].value() + (a[1] == null ? 1 : 0)
+                        + (object instanceof Item[] ? 10 : 0) + (object instanceof Impl[] ? 20 : 0);
+                }
+                public static void fail() { Object[] a = new Item[1]; a[0] = new Fixture(); }
+            }
+            interface Item { int value(); }
+            class Impl implements Item { public int value() { return 7; } }
+            """);
+        try(var loader = new java.net.URLClassLoader(new java.net.URL[]{directory.toUri().toURL()})) {
+            var jvm = loader.loadClass("Fixture");
+            var failure = assertThrows(java.lang.reflect.InvocationTargetException.class, () -> jvm.getMethod("fail").invoke(null));
+            assertInstanceOf(ArrayStoreException.class, failure.getCause());
+            execute(linkJar("Item","Fixture","Impl"),"assert.equal(e['Fixture.run'](),"+jvm.getMethod("run").invoke(null)
+                    +");assert.throws(()=>e['Fixture.fail'](),WebAssembly.RuntimeError);");
+        }
+    }
+
     @Test void executesPrimitiveNarrowArraysDefaultsLoopsAndAliasingWithJvmComparison() throws Exception {
         byte[] bytes = fixture("""
             public class Fixture {
@@ -1750,7 +1828,7 @@ class BytecodeCompatibilityTest {
                 public static boolean test(Object value) { return value instanceof Fixture; }
             }
             """);
-        for(String target:new String[]{"missing/Type","[[I","[Ljava/lang/Object;"}) {
+        for(String target:new String[]{"missing/Type","[[I","[Lmissing/Type;"}) {
             ClassNode type=new ClassNode(); new ClassReader(bytes).accept(type,0);
             for(MethodNode method:type.methods) for(AbstractInsnNode insn:method.instructions)
                 if(insn instanceof TypeInsnNode test) test.desc=target;
@@ -2492,7 +2570,7 @@ class BytecodeCompatibilityTest {
                 "public static synchronized int f() { return 1; }",
                 "public static int f() { return Math.abs(-4); }",
                 "public static Class<?> f() { return Fixture.class; }",
-                "public static Object[] f() { return new Object[2]; }",
+                "public static Object[][] f() { return new Object[2][3]; }",
                 "public static Object f() { return new Object(); }",
                 "public static class Child extends Fixture {} public static Object f(){ return new Child(); }",
                 "static int x=compute(); static int compute(){ return 1; }",

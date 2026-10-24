@@ -76,6 +76,8 @@ public class BytecodeCompiler {
             }
         }
 
+        if (classes.stream().anyMatch(BytecodeArrays::usesRuntime))
+            combinedWat.append(new BytecodeDispatch(linked).referenceArrayRuntimeWat());
         combinedWat.append(")\n");
         return combinedWat.toString();
     }

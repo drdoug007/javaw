@@ -98,7 +98,7 @@ class DependencyAuditTest {
                 "invokedynamic-bootstrap", "constant-dynamic-bootstrap", "reflection", "string-constant"))
             assertTrue(features.contains("\t" + category + "\t"), category);
         assertFalse(Files.readString(first.resolve("unsupported-opcodes.tsv")).contains("\t188\tNEWARRAY\t"));
-        assertTrue(Files.readString(first.resolve("unsupported-opcodes.tsv")).contains("\t189\tANEWARRAY\t1\t"));
+        assertFalse(Files.readString(first.resolve("unsupported-opcodes.tsv")).contains("\t189\tANEWARRAY\t"));
         assertTrue(Files.readString(first.resolve("services.tsv")).contains("META-INF/services/example.Service\tLeaf"));
         assertTrue(Files.readString(first.resolve("resources.tsv")).contains("META-INF/spring/example.imports\tspring"));
         assertFalse(features.contains(directory.toString()));

@@ -439,6 +439,27 @@ public class BytecodeInstructionVisitor {
                 emit("local.set " + stack.peek());
                 break;
 
+            case Opcodes.ANEWARRAY:
+                emit("local.get " + stack.pop());
+                emit("i32.const " + dispatch.referenceArrayId(((TypeInsnNode) insn).desc));
+                emit("i32.const 4");
+                emit("call $__new_primitive_array");
+                emit("local.set " + stack.push("i32"));
+                break;
+            case Opcodes.AALOAD: {
+                String index = stack.pop(), array = stack.pop();
+                emit("local.get " + array); emit("local.get " + index);
+                emit("call $__reference_array_address"); emit("i32.load");
+                emit("local.set " + stack.push("i32"));
+                break;
+            }
+            case Opcodes.AASTORE: {
+                String value = stack.pop(), index = stack.pop(), array = stack.pop();
+                emit("local.get " + array); emit("local.get " + index); emit("local.get " + value);
+                emit("call $__reference_array_store");
+                break;
+            }
+
             case Opcodes.ARRAYLENGTH:
                 emit("local.get " + stack.pop());
                 emit("call $__array_length");

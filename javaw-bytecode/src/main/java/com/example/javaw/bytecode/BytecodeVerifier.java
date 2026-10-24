@@ -77,6 +77,12 @@ final class BytecodeVerifier extends SimpleVerifier {
     @Override public BasicValue ternaryOperation(AbstractInsnNode instruction, BasicValue first,
             BasicValue second, BasicValue third) throws AnalyzerException {
         initialized(instruction, first); initialized(instruction, second); initialized(instruction, third);
+        if (instruction.getOpcode() == Opcodes.AASTORE && first.getType() != null
+                && first.getType().getSort() == Type.ARRAY) {
+            String descriptor = first.getType().getDescriptor();
+            if (descriptor.charAt(1) != 'L' && descriptor.charAt(1) != '[')
+                throw new AnalyzerException(instruction, "AASTORE requires a reference array");
+        }
         return super.ternaryOperation(instruction, first, second, third);
     }
 
