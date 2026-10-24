@@ -46,6 +46,27 @@ class BytecodeCompatibilityTest {
         assertEquals(0,process.exitValue(),Files.readString(log));
     }
 
+    @Test void matchesJvmDescriptorDistinctStaticFields() throws Exception {
+        ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_MAXS);
+        writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "FieldIdentity", null, "java/lang/Object", null);
+        writer.visitField(Opcodes.ACC_STATIC, "value", "I", null, null).visitEnd();
+        writer.visitField(Opcodes.ACC_STATIC, "value", "J", null, null).visitEnd();
+        MethodVisitor method = writer.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "run", "()J", null, null);
+        method.visitCode();
+        method.visitLdcInsn(37); method.visitFieldInsn(Opcodes.PUTSTATIC, "FieldIdentity", "value", "I");
+        method.visitLdcInsn(4294967299L); method.visitFieldInsn(Opcodes.PUTSTATIC, "FieldIdentity", "value", "J");
+        method.visitFieldInsn(Opcodes.GETSTATIC, "FieldIdentity", "value", "I"); method.visitInsn(Opcodes.I2L);
+        method.visitFieldInsn(Opcodes.GETSTATIC, "FieldIdentity", "value", "J"); method.visitInsn(Opcodes.LADD);
+        method.visitInsn(Opcodes.LRETURN); method.visitMaxs(0, 0); method.visitEnd(); writer.visitEnd();
+        byte[] bytes = writer.toByteArray();
+        Class<?> jvm = new ClassLoader() {
+            Class<?> load() { return defineClass("FieldIdentity", bytes, 0, bytes.length); }
+        }.load();
+        long expected = (Long) jvm.getMethod("run").invoke(null);
+        execute(BytecodeCompiler.compileClass(bytes),
+                "assert.equal(e['FieldIdentity.run'](), " + expected + "n);");
+    }
+
     @Test void executesJavacBranchesLoopsJoinsAndStaticCalls() throws Exception {
         String wat=BytecodeCompiler.compileClass(fixture("""
             public class Fixture {
@@ -1398,8 +1419,11 @@ class BytecodeCompatibilityTest {
             }
             String error=assertThrows(IllegalArgumentException.class,
                     ()->new ClassBytecodeCompiler(caller).compileToWat(linked),scenario).getMessage();
-            assertTrue(error.contains("static call "),scenario+": "+error);
-            assertTrue(error.contains("q.Caller.call()I"),error);
+            if (scenario.equals("abstract")) assertTrue(error.contains("incompatible abstract flags"), error);
+            else {
+                assertTrue(error.contains("static call "),scenario+": "+error);
+                assertTrue(error.contains("q.Caller.call()I"),error);
+            }
         }
     }
 
@@ -1597,6 +1621,7 @@ class BytecodeCompatibilityTest {
                     ()->new ClassBytecodeCompiler(caller).compileToWat(linked),scenario).getMessage();
             if(java.util.Set.of("inaccessible","classOwner","missing","cycle").contains(scenario))
                 assertTrue(error.contains("hierarchy declaration"),scenario+": "+error);
+            else if (scenario.equals("native")) assertTrue(error.contains("invalid interface method flags"), error);
             else {
                 assertTrue(error.contains(scenario.equals("wrongReference")?"special call ":"interface super call "),scenario+": "+error);
                 assertTrue(error.contains("Caller.call()I"),error);

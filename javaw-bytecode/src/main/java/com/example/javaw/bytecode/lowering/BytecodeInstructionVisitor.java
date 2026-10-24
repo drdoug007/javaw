@@ -570,7 +570,7 @@ public class BytecodeInstructionVisitor {
 
             case Opcodes.GETSTATIC:
                 FieldInsnNode getStatic = (FieldInsnNode) insn;
-                String gName = TypeHelper.getGlobalFieldName(dispatch.fieldOwner(getStatic), getStatic.name);
+                String gName = TypeHelper.getGlobalFieldName(dispatch.fieldOwner(getStatic), getStatic.name, getStatic.desc);
                 String pushedStatic = stack.push(TypeHelper.getWasmType(getStatic.desc));
                 emit("global.get " + gName);
                 emit("local.set " + pushedStatic);
@@ -578,7 +578,7 @@ public class BytecodeInstructionVisitor {
 
             case Opcodes.PUTSTATIC:
                 FieldInsnNode putStatic = (FieldInsnNode) insn;
-                String psName = TypeHelper.getGlobalFieldName(dispatch.fieldOwner(putStatic), putStatic.name);
+                String psName = TypeHelper.getGlobalFieldName(dispatch.fieldOwner(putStatic), putStatic.name, putStatic.desc);
                 String poppedStatic = stack.pop();
                 emit("local.get " + poppedStatic);
                 emit("global.set " + psName);

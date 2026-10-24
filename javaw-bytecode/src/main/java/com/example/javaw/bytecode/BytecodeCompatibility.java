@@ -37,6 +37,7 @@ final class BytecodeCompatibility {
 
     static void validate(ClassNode owner, Map<String, ClassNode> linked) {
         BytecodeHierarchy.validate(owner, linked);
+        for (ClassNode declaration : linked.values()) BytecodeDeclarations.validate(declaration);
         BytecodeObjectLayouts layouts = new BytecodeObjectLayouts(linked);
         BytecodeDispatch dispatch = new BytecodeDispatch(linked, owner.name);
         dispatch.validateOverrides();

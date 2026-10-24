@@ -62,7 +62,7 @@ public class ClassBytecodeCompiler {
         for (FieldNode fn : classNode.fields) {
             boolean isStatic = (fn.access & Opcodes.ACC_STATIC) != 0;
             if (isStatic) {
-                String gName = TypeHelper.getGlobalFieldName(classNode.name, fn.name);
+                String gName = TypeHelper.getGlobalFieldName(classNode.name, fn.name, fn.desc);
                 String wasmType = TypeHelper.getWasmType(fn.desc);
                 globalVariables.add(gName);
                 wat.append("    (global ").append(gName).append(" (mut ").append(wasmType != null ? wasmType : "i32")

@@ -77,7 +77,9 @@ public class TypeHelper {
         return "$" + owner + "_" + name + "_" + java.util.HexFormat.of().formatHex(methodDescriptor.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
-    public static String getGlobalFieldName(String ownerInternalName, String fieldName) {
-        return "$global_" + sanitizeName(ownerInternalName) + "_" + sanitizeName(fieldName);
+    public static String getGlobalFieldName(String ownerInternalName, String fieldName, String descriptor) {
+        // Encode the complete symbolic identity: sanitizing names alone is not injective.
+        return "$global_" + java.util.HexFormat.of().formatHex(
+                (ownerInternalName + "." + fieldName + ":" + descriptor).getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 }
