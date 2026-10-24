@@ -21,13 +21,13 @@ public class Throwable {
     public String getLocalizedMessage() { return getMessage(); }
     public Throwable getCause() { return cause == this ? null : cause; }
     public Throwable initCause(Throwable value) {
-        if (cause != this) throw new IllegalStateException();
-        if (value == this) throw new IllegalArgumentException();
+        if (cause != this) throw new IllegalStateException(null, this);
+        if (value == this) throw new IllegalArgumentException("Self-causation not permitted", this);
         cause = value; return this;
     }
     public final void addSuppressed(Throwable value) {
-        if (value == this) throw new IllegalArgumentException();
-        if (value == null) throw new NullPointerException();
+        if (value == this) throw new IllegalArgumentException("Self-suppression not permitted", value);
+        if (value == null) throw new NullPointerException("Cannot suppress a null exception.");
         if (!suppressionEnabled) return;
         int length = suppressed == null ? 0 : suppressed.length;
         Throwable[] copy = new Throwable[length + 1];

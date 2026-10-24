@@ -18,7 +18,10 @@ public final class BytecodeExceptions {
         ARRAY_STORE("ArrayStoreException", "array_store"),
         NEGATIVE_SIZE("NegativeArraySizeException", "negative_size"),
         OUT_OF_MEMORY("OutOfMemoryError", "out_of_memory"),
-        STACK_OVERFLOW("StackOverflowError", "stack_overflow");
+        STACK_OVERFLOW("StackOverflowError", "stack_overflow"),
+        LINKAGE("IncompatibleClassChangeError", "linkage"),
+        ABSTRACT_METHOD("AbstractMethodError", "abstract_method"),
+        ILLEGAL_ACCESS("IllegalAccessError", "illegal_access");
 
         public final String className;
         public final String helper;
@@ -36,6 +39,7 @@ public final class BytecodeExceptions {
                         || opcode == Opcodes.INVOKEINTERFACE || opcode == Opcodes.INVOKESPECIAL;
                 case CLASS_CAST -> opcode == Opcodes.CHECKCAST;
                 case OUT_OF_MEMORY -> opcode == Opcodes.NEW;
+                case LINKAGE, ABSTRACT_METHOD, ILLEGAL_ACCESS -> opcode == Opcodes.INVOKEVIRTUAL || opcode == Opcodes.INVOKEINTERFACE;
                 default -> false;
             };
         }

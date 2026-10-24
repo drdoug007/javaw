@@ -817,6 +817,12 @@ public class BytecodeInstructionVisitor {
         }
 
         if (!isStatic) emitNullGuard(thisVar);
+        Implicit resolutionFailure = dispatch == null ? null : dispatch.defaultSelectionFailure(minsn);
+        if (resolutionFailure != null) {
+            emitImplicitFailure(resolutionFailure);
+            if (retType.getSort() != Type.VOID) stack.push(TypeHelper.getWasmType(retType));
+            return;
+        }
 
         if (BytecodeArrays.isClone(minsn)) {
             emit("local.get " + thisVar); emit("call $__array_clone");
@@ -850,13 +856,18 @@ public class BytecodeInstructionVisitor {
                 emit("i32.const " + target.getKey());
                 emit("i32.eq");
                 emit("if");
-                emit("local.get " + thisVar);
-                for (String argument : argVars) emit("local.get " + argument);
-                emit("call " + target.getValue());
-                emit("br $__dispatch");
+                if (dispatch.isDispatchFailure(target.getValue())) {
+                    emit("call " + target.getValue());
+                    emit("unreachable");
+                } else {
+                    emit("local.get " + thisVar);
+                    for (String argument : argVars) emit("local.get " + argument);
+                    emit("call " + target.getValue());
+                    emit("br $__dispatch");
+                }
                 emit("end");
             }
-            emit("unreachable");
+            emitImplicitFailure(Implicit.LINKAGE);
             emit("end");
             if (resultType != null) emit("local.set " + stack.push(resultType));
             return;

@@ -118,8 +118,10 @@ public class BytecodeCompiler {
     }
 
     public static void main(String[] args) {
+        boolean exceptionRuntime = args.length > 0 && args[0].equals("--exception-runtime");
+        if (exceptionRuntime) args = Arrays.copyOfRange(args, 1, args.length);
         if (args.length == 0 || "--help".equals(args[0]) || "-h".equals(args[0])) {
-            System.out.println("Usage: java com.example.javaw.bytecode.BytecodeCompiler <jar-or-class-file> [output-wat-file]");
+            System.out.println("Usage: java com.example.javaw.bytecode.BytecodeCompiler [--exception-runtime] <jar-or-class-file> [output-wat-file]");
             return;
         }
         try {
@@ -134,10 +136,12 @@ public class BytecodeCompiler {
             }
             String wat;
             if (file.getName().endsWith(".jar")) {
-                wat = compileJar(file);
+                try (FileInputStream fis = new FileInputStream(file)) {
+                    wat = compileJar(fis, exceptionRuntime);
+                }
             } else if (file.getName().endsWith(".class")) {
                 try (FileInputStream fis = new FileInputStream(file)) {
-                    wat = compileClass(fis);
+                    wat = exceptionRuntime ? compileClassWithExceptionRuntime(fis.readAllBytes()) : compileClass(fis);
                 }
             } else {
                 System.err.println("Unsupported file type: " + file.getName());

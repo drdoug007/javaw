@@ -117,23 +117,31 @@ class BytecodeExceptionRuntimeTest implements Opcodes {
             """);
         assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,"-g","-d",directory.toString(),source.toString()));
         Files.write(directory.resolve("LegacyHandled.class"),legacyHandler());
-        Files.write(directory.resolve("ConstructorHandled.class"),constructorHandler());
+        Files.write(directory.resolve("ConstructorHandled.class"),constructorHandler(false));
+        Files.write(directory.resolve("ConstructorChained.class"),constructorHandler(true));
     }
 
-    private byte[] constructorHandler() {
-        ClassWriter writer=new ClassWriter(0);writer.visit(V1_5,ACC_PUBLIC,"ConstructorHandled",null,"Broken",null);
+    private byte[] constructorHandler(boolean chain) {
+        String owner=chain?"ConstructorChained":"ConstructorHandled";
+        ClassWriter writer=new ClassWriter(0);writer.visit(V1_5,ACC_PUBLIC,owner,null,"Broken",null);
         MethodVisitor init=writer.visitMethod(ACC_PUBLIC,"<init>","()V",null,null);
         init.visitCode();Label start=new Label(),end=new Label(),handler=new Label();
         init.visitTryCatchBlock(start,end,handler,null);
         init.visitVarInsn(ALOAD,0);init.visitInsn(DUP);init.visitVarInsn(ASTORE,1);
-        init.visitLabel(start);init.visitMethodInsn(INVOKESPECIAL,"Broken","<init>","()V",false);
+        init.visitLabel(start);if(chain)init.visitInsn(ICONST_1);
+        init.visitMethodInsn(INVOKESPECIAL,chain?owner:"Broken","<init>",chain?"(I)V":"()V",false);
         init.visitLabel(end);init.visitInsn(RETURN);init.visitLabel(handler);init.visitInsn(ATHROW);
         init.visitMaxs(2,2);init.visitEnd();
+        if(chain) {
+            MethodVisitor target=writer.visitMethod(ACC_PRIVATE,"<init>","(I)V",null,null);
+            target.visitCode();target.visitVarInsn(ALOAD,0);target.visitMethodInsn(INVOKESPECIAL,"Broken","<init>","()V",false);
+            target.visitInsn(RETURN);target.visitMaxs(1,2);target.visitEnd();
+        }
         MethodVisitor run=writer.visitMethod(ACC_PUBLIC|ACC_STATIC,"run","()I",null,null);
         run.visitCode();start=new Label();end=new Label();handler=new Label();
         run.visitTryCatchBlock(start,end,handler,"Fault");run.visitLabel(start);
-        run.visitTypeInsn(NEW,"ConstructorHandled");run.visitInsn(DUP);
-        run.visitMethodInsn(INVOKESPECIAL,"ConstructorHandled","<init>","()V",false);
+        run.visitTypeInsn(NEW,owner);run.visitInsn(DUP);
+        run.visitMethodInsn(INVOKESPECIAL,owner,"<init>","()V",false);
         run.visitInsn(POP);run.visitLabel(end);run.visitInsn(ICONST_0);run.visitInsn(IRETURN);
         run.visitLabel(handler);run.visitFieldInsn(GETFIELD,"Fault","code","J");run.visitInsn(L2I);run.visitInsn(IRETURN);
         run.visitMaxs(2,0);run.visitEnd();writer.visitEnd();return writer.toByteArray();
@@ -160,7 +168,7 @@ class BytecodeExceptionRuntimeTest implements Opcodes {
     private String jar(boolean reverse) throws Exception {return jar(reverse,false);}
 
     private String jar(boolean reverse,boolean arithmetic) throws Exception {
-        List<String> names=new ArrayList<>(List.of("Fixture","Fault","Child","Other","Step","Worker","Broken","LegacyHandled","ConstructorHandled","java/lang/Throwable"));
+        List<String> names=new ArrayList<>(List.of("Fixture","Fault","Child","Other","Step","Worker","Broken","LegacyHandled","ConstructorHandled","ConstructorChained","java/lang/Throwable"));
         if(arithmetic) names.add("java/lang/ArithmeticException");
         if(reverse) Collections.reverse(names);
         ByteArrayOutputStream bytes=new ByteArrayOutputStream();
@@ -510,13 +518,13 @@ class BytecodeExceptionRuntimeTest implements Opcodes {
                     if(root.getLocalizedMessage().equals("root") && root.toString().equals("java.lang.Throwable: root"))result+=2;
                     Throwable uninitialized=new Throwable();
                     if(uninitialized.initCause(null)==uninitialized && uninitialized.getCause()==null)result+=4;
-                    try{uninitialized.initCause(root);}catch(IllegalStateException e){result+=8;}
+                    try{uninitialized.initCause(root);}catch(IllegalStateException e){if(e.getCause()==uninitialized)result+=8;}
                     try{new Throwable().initCause(root).initCause(null);}catch(IllegalStateException e){result+=16;}
-                    Throwable self=new Throwable();try{self.initCause(self);}catch(IllegalArgumentException e){result+=32;}
+                    Throwable self=new Throwable();try{self.initCause(self);}catch(IllegalArgumentException e){if(e.getCause()==self)result+=32;}
                     root.addSuppressed(wrapper);root.addSuppressed(wrapper);
                     Throwable[] copy=root.getSuppressed();copy[0]=null;
                     if(root.getSuppressed().length==2 && root.getSuppressed()[0]==wrapper)result+=64;
-                    try{root.addSuppressed(root);}catch(IllegalArgumentException e){result+=128;}
+                    try{root.addSuppressed(root);}catch(IllegalArgumentException e){if(e.getCause()==root)result+=128;}
                     try{root.addSuppressed(null);}catch(NullPointerException e){result+=256;}
                     String unicode="a😀\0";
                     if(unicode.length()==4 && unicode.charAt(3)==0 && unicode=="a😀\0")result+=512;
@@ -562,9 +570,18 @@ class BytecodeExceptionRuntimeTest implements Opcodes {
                         return result;
                     }
                 }
+                public static int selfResource(){
+                    RuntimeException primary=new RuntimeException("same");
+                    try(SameResource resource=new SameResource(primary)){throw primary;}
+                    catch(IllegalArgumentException error){return error.getCause()==primary?1:2;}
+                }
                 private static void recurse(int depth){if(depth>0)recurse(depth-1);}
                 public static int overflow(int depth){try{recurse(depth);return 0;}catch(StackOverflowError error){return 1;}}
                 public static int exhausted(){try{new Throwable();return 0;}catch(OutOfMemoryError error){return error.getCause()==null && error.getMessage()==null?9:8;}}
+            }
+            class SameResource implements AutoCloseable {
+                RuntimeException value;SameResource(RuntimeException value){this.value=value;}
+                public void close(){throw value;}
             }
             class Quiet extends Exception {Quiet(){super("quiet",null,false,false);}}
             class Resource implements AutoCloseable {
@@ -577,7 +594,7 @@ class BytecodeExceptionRuntimeTest implements Opcodes {
         StringBuilder checks=new StringBuilder();
         try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)) {
             Class<?> jvm=loader.loadClass("ThrowableProgram");
-            for(String name:List.of("messages","disabled","traces"))
+            for(String name:List.of("messages","disabled","traces","selfResource"))
                 checks.append("assert.equal(e['ThrowableProgram.").append(name).append("'](),").append(jvm.getMethod(name).invoke(null)).append(");");
             for(int mode=0;mode<5;mode++)checks.append("assert.equal(e['ThrowableProgram.resources'](").append(mode).append("),")
                     .append(jvm.getMethod("resources",int.class).invoke(null,mode)).append(");");
@@ -596,7 +613,7 @@ class BytecodeExceptionRuntimeTest implements Opcodes {
             assert.equal(host['ThrowableProgram.traces'](),15);
             """);
         for(boolean reverse:new boolean[]{false,true}) {
-            List<String> names=new ArrayList<>(List.of("ThrowableProgram","Quiet","Resource"));if(reverse)Collections.reverse(names);
+            List<String> names=new ArrayList<>(List.of("ThrowableProgram","Quiet","Resource","SameResource"));if(reverse)Collections.reverse(names);
             ByteArrayOutputStream bytes=new ByteArrayOutputStream();
             try(JarOutputStream jar=new JarOutputStream(bytes)) {
                 for(String name:names){jar.putNextEntry(new JarEntry(name+".class"));jar.write(Files.readAllBytes(directory.resolve(name+".class")));jar.closeEntry();}
@@ -606,6 +623,105 @@ class BytecodeExceptionRuntimeTest implements Opcodes {
             assertTrue(wat.contains("Throwable.<init>(Ljava/lang/String;)V"));
             execute(wat,checks.toString());
         }
+    }
+
+    private byte[] linkageInterface(String name,String parent,Integer result) {
+        ClassWriter writer=new ClassWriter(0);writer.visit(V1_8,ACC_PUBLIC|ACC_INTERFACE|ACC_ABSTRACT,name,null,"java/lang/Object",
+                parent==null?null:new String[]{parent});
+        MethodVisitor call=writer.visitMethod(ACC_PUBLIC|(result==null?ACC_ABSTRACT:0),"call","()I",null,null);
+        if(result!=null){call.visitCode();call.visitIntInsn(BIPUSH,result);call.visitInsn(IRETURN);call.visitMaxs(1,1);}
+        call.visitEnd();writer.visitEnd();return writer.toByteArray();
+    }
+
+    private byte[] linkageReceiver(String name,String[] interfaces,Integer access) {
+        ClassWriter writer=new ClassWriter(0);writer.visit(V1_5,ACC_PUBLIC,name,null,"java/lang/Object",interfaces);
+        MethodVisitor init=writer.visitMethod(ACC_PUBLIC,"<init>","()V",null,null);
+        init.visitCode();init.visitVarInsn(ALOAD,0);init.visitMethodInsn(INVOKESPECIAL,"java/lang/Object","<init>","()V",false);
+        init.visitInsn(RETURN);init.visitMaxs(1,1);init.visitEnd();
+        if(access!=null){MethodVisitor call=writer.visitMethod(access,"call","()I",null,null);
+            call.visitCode();call.visitIntInsn(BIPUSH,7);call.visitInsn(IRETURN);call.visitMaxs(1,1);call.visitEnd();}
+        writer.visitEnd();return writer.toByteArray();
+    }
+
+    @Test void catchesRuntimeLinkageFailuresFromBinaryEvolvedInterfaceReceivers() throws Exception {
+        Map<String,byte[]> definitions=new LinkedHashMap<>();
+        definitions.put("LinkFace",linkageInterface("LinkFace",null,null));
+        definitions.put("LeftFace",linkageInterface("LeftFace","LinkFace",2));
+        definitions.put("RightFace",linkageInterface("RightFace","LinkFace",3));
+        definitions.put("LinkMissing",linkageReceiver("LinkMissing",new String[]{"LinkFace"},null));
+        definitions.put("LinkHidden",linkageReceiver("LinkHidden",new String[]{"LinkFace"},0));
+        definitions.put("LinkPrivate",linkageReceiver("LinkPrivate",new String[]{"LinkFace"},ACC_PRIVATE));
+        definitions.put("LinkGood",linkageReceiver("LinkGood",new String[]{"LinkFace"},ACC_PUBLIC));
+        definitions.put("LinkConflict",linkageReceiver("LinkConflict",new String[]{"LeftFace","RightFace"},null));
+        definitions.put("LinkUnrelated",linkageReceiver("LinkUnrelated",null,null));
+        ClassWriter writer=new ClassWriter(0);writer.visit(V1_5,ACC_PUBLIC,"LooseCall",null,"java/lang/Object",null);
+        MethodVisitor call=writer.visitMethod(ACC_PUBLIC|ACC_STATIC,"call","(Ljava/lang/Object;)I",null,null);
+        call.visitCode();call.visitVarInsn(ALOAD,0);call.visitMethodInsn(INVOKEINTERFACE,"LinkFace","call","()I",true);
+        call.visitInsn(IRETURN);call.visitMaxs(1,1);call.visitEnd();writer.visitEnd();definitions.put("LooseCall",writer.toByteArray());
+        writer=new ClassWriter(0);writer.visit(V1_5,ACC_PUBLIC,"LooseVirtual",null,"java/lang/Object",null);
+        call=writer.visitMethod(ACC_PUBLIC|ACC_STATIC,"call","(LLinkConflict;)I",null,null);
+        call.visitCode();call.visitVarInsn(ALOAD,0);call.visitMethodInsn(INVOKEVIRTUAL,"LinkConflict","call","()I",false);
+        call.visitInsn(IRETURN);call.visitMaxs(1,1);call.visitEnd();writer.visitEnd();definitions.put("LooseVirtual",writer.toByteArray());
+        for(var entry:definitions.entrySet())Files.write(directory.resolve(entry.getKey()+".class"),entry.getValue());
+        Path source=directory.resolve("LinkProgram.java");Files.writeString(source,"""
+            public class LinkProgram {
+                static int ticks;
+                private static int leaf(int kind){
+                    Object value=kind==0?new LinkMissing():kind==1?new LinkHidden():kind==2?new LinkConflict():kind==3?new LinkUnrelated():kind==4?null:kind==6?new LinkPrivate():new LinkGood();
+                    return LooseCall.call(value);
+                }
+                public static int run(int kind){
+                    ticks=0;
+                    try{try{return leaf(kind);}finally{ticks+=3;}}
+                    catch(AbstractMethodError e){return 100+ticks;}
+                    catch(IllegalAccessError e){return 200+ticks;}
+                    catch(IncompatibleClassChangeError e){return 300+ticks;}
+                    catch(NullPointerException e){return 400+ticks;}
+                }
+                public static int virtual(boolean nullReceiver){
+                    try{return LooseVirtual.call(nullReceiver?null:new LinkConflict());}
+                    catch(AbstractMethodError e){return 100;}catch(IncompatibleClassChangeError e){return 300;}catch(NullPointerException e){return 400;}
+                }
+                public static int trace(){
+                    try{leaf(0);return 0;}catch(AbstractMethodError e){
+                        return e.getStackTrace()[0].getClassName().equals("LooseCall") && e.getStackTrace()[1].getMethodName().equals("leaf")?1:2;
+                    }
+                }
+            }
+            """);
+        assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,"-g","-classpath",directory.toString(),"-d",directory.toString(),source.toString()));
+        definitions.put("LinkProgram",Files.readAllBytes(directory.resolve("LinkProgram.class")));
+        StringBuilder checks=new StringBuilder();
+        try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)) {
+            Class<?> jvm=loader.loadClass("LinkProgram");
+            for(int kind=0;kind<7;kind++)checks.append("assert.equal(e['LinkProgram.run'](").append(kind).append("),")
+                    .append(jvm.getMethod("run",int.class).invoke(null,kind)).append(", 'kind=").append(kind).append("');");
+            checks.append("assert.equal(e['LinkProgram.trace'](),").append(jvm.getMethod("trace").invoke(null)).append(");");
+            for(boolean nullReceiver:new boolean[]{false,true})checks.append("assert.equal(e['LinkProgram.virtual'](").append(nullReceiver?1:0).append("),")
+                    .append(jvm.getMethod("virtual",boolean.class).invoke(null,nullReceiver)).append(");");
+        }
+        for(boolean reverse:new boolean[]{false,true}) {
+            List<String> names=new ArrayList<>(definitions.keySet());if(reverse)Collections.reverse(names);
+            ByteArrayOutputStream bytes=new ByteArrayOutputStream();
+            try(JarOutputStream jar=new JarOutputStream(bytes)) {
+                for(String name:names){jar.putNextEntry(new JarEntry(name+".class"));jar.write(definitions.get(name));jar.closeEntry();}
+            }
+            execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(bytes.toByteArray())),checks.toString());
+        }
+    }
+
+    @Test void compilesAndExecutesSingleClassExceptionRuntimeFromCli() throws Exception {
+        ClassWriter writer=new ClassWriter(0);writer.visit(V1_5,ACC_PUBLIC,"CliThrow",null,"java/lang/Object",null);
+        MethodVisitor method=writer.visitMethod(ACC_PUBLIC|ACC_STATIC,"run","(I)I",null,null);
+        method.visitCode();Label start=new Label(),end=new Label(),handler=new Label();
+        method.visitTryCatchBlock(start,end,handler,"java/lang/ArithmeticException");
+        method.visitLabel(start);method.visitIntInsn(BIPUSH,12);method.visitVarInsn(ILOAD,0);method.visitInsn(IDIV);
+        method.visitLabel(end);method.visitInsn(IRETURN);method.visitLabel(handler);method.visitInsn(POP);
+        method.visitIntInsn(BIPUSH,7);method.visitInsn(IRETURN);method.visitMaxs(2,1);method.visitEnd();writer.visitEnd();
+        Path input=directory.resolve("CliThrow.class"),output=directory.resolve("cli.wat");
+        Files.write(input,writer.toByteArray());
+        BytecodeCompiler.main(new String[]{"--exception-runtime",input.toString(),output.toString()});
+        execute(Files.readString(output),"assert.equal(e['CliThrow.run'](0),7);assert.equal(e['CliThrow.run'](3),4);");
     }
 
     private void run(String... args) throws Exception {
@@ -634,7 +750,8 @@ class BytecodeExceptionRuntimeTest implements Opcodes {
         fixture();
         try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)) {
             Class<?> jvm=loader.loadClass("Fixture");StringBuilder checks=new StringBuilder();
-            checks.append("assert.equal(e['ConstructorHandled.run'](),").append(loader.loadClass("ConstructorHandled").getMethod("run").invoke(null)).append(");");
+            for(String owner:List.of("ConstructorHandled","ConstructorChained"))
+                checks.append("assert.equal(e['").append(owner).append(".run'](),").append(loader.loadClass(owner).getMethod("run").invoke(null)).append(");");
             for(String name:new String[]{"caught","dynamic","multi","unmatched","stacked"}) for(int kind=0;kind<4;kind++) {
                 Object expected=jvm.getMethod(name,int.class).invoke(null,kind);
                 checks.append("assert.equal(e['Fixture.").append(name).append("'](").append(kind).append("),")

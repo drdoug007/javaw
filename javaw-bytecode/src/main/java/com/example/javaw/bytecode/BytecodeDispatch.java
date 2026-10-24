@@ -16,6 +16,15 @@ public final class BytecodeDispatch {
     private final Map<String, Integer> classIds = new LinkedHashMap<>();
     private final Map<String, Integer> referenceArrayIds = new LinkedHashMap<>();
     private record Declaration(String owner, MethodNode method) {}
+    private static final class DefaultConflict extends IllegalArgumentException {
+        DefaultConflict(String message) { super(message); }
+    }
+
+    public boolean isDispatchFailure(String target) {
+        return target.equals(BytecodeExceptions.Implicit.LINKAGE.helper)
+                || target.equals(BytecodeExceptions.Implicit.ABSTRACT_METHOD.helper)
+                || target.equals(BytecodeExceptions.Implicit.ILLEGAL_ACCESS.helper);
+    }
 
     public BytecodeDispatch(Map<String, ClassNode> linked) {
         this(linked, null);
@@ -449,7 +458,7 @@ public final class BytecodeDispatch {
         List<Declaration> defaults = maximal.stream()
                 .filter(candidate -> (candidate.method.access & Opcodes.ACC_ABSTRACT) == 0).toList();
         if (defaults.size() > 1)
-            throw new IllegalArgumentException("conflicting maximally-specific interface defaults for " + receiver
+            throw new DefaultConflict("conflicting maximally-specific interface defaults for " + receiver
                     + "." + method + descriptor + "; provide a public class override");
         if (defaults.size() == 1) return defaults.get(0);
         return maximal.isEmpty() ? null : maximal.get(0);
@@ -608,8 +617,15 @@ public final class BytecodeDispatch {
 
     private Declaration virtualImplementation(String receiver, Declaration resolved) {
         if ((linked.get(resolved.owner).access & Opcodes.ACC_INTERFACE) != 0) {
-            Declaration implementation = declaration(receiver, resolved.method.name, resolved.method.desc, new HashSet<>());
-            return implementation == null ? interfaceMethod(receiver, resolved.method.name, resolved.method.desc) : implementation;
+            // Private class methods do not implement or suppress an interface slot.
+            String current = receiver;
+            while (current != null && !current.equals("java/lang/Object")) {
+                ClassNode type = linked.get(current);
+                Declaration implementation = ownMethod(current, resolved.method.name, resolved.method.desc);
+                if (implementation != null && (implementation.method.access & Opcodes.ACC_PRIVATE) == 0) return implementation;
+                current = type.superName;
+            }
+            return interfaceMethod(receiver, resolved.method.name, resolved.method.desc);
         }
         List<String> path = new ArrayList<>();
         String current = receiver;
@@ -644,6 +660,18 @@ public final class BytecodeDispatch {
         return selected;
     }
 
+    public BytecodeExceptions.Implicit defaultSelectionFailure(MethodInsnNode call) {
+        if (BytecodeArrays.isClone(call) || call.getOpcode() != Opcodes.INVOKEVIRTUAL && call.getOpcode() != Opcodes.INVOKEINTERFACE) return null;
+        try {
+            Declaration declared = declaration(call.owner, call.name, call.desc, new HashSet<>());
+            if (declared == null) interfaceMethod(call.owner, call.name, call.desc);
+            return null;
+        } catch (DefaultConflict conflict) {
+            if (!hasImplicitException(BytecodeExceptions.Implicit.LINKAGE)) throw conflict;
+            return BytecodeExceptions.Implicit.LINKAGE;
+        }
+    }
+
     public Map<Integer, String> targets(MethodInsnNode call) {
         ClassNode owner = linked.get(call.owner);
         boolean interfaceCall = call.getOpcode() == Opcodes.INVOKEINTERFACE;
@@ -653,6 +681,7 @@ public final class BytecodeDispatch {
         if (call.name.startsWith("<"))
             throw new IllegalArgumentException("initializers cannot be invoked with virtual/interface instructions");
         Declaration declared = declaration(call.owner, call.name, call.desc, new HashSet<>());
+        if (defaultSelectionFailure(call) != null) return Map.of();
         if (declared == null) declared = interfaceMethod(call.owner, call.name, call.desc);
         if (declared == null || (declared.method.access & Opcodes.ACC_STATIC) != 0)
             throw new IllegalArgumentException("link a matching instance method in the declaring hierarchy");
@@ -666,7 +695,23 @@ public final class BytecodeDispatch {
             // The JVM protected receiver rule applies outside the declaring package.
             if (crossPackageProtected(declared) && !subtype(type.name, caller, new HashSet<>())) continue;
             // Private methods never participate in overriding, even on a subclass receiver.
-            Declaration implementation = privateCall ? declared : virtualImplementation(type.name, declared);
+            Declaration implementation;
+            try { implementation = privateCall ? declared : virtualImplementation(type.name, declared); }
+            catch (DefaultConflict conflict) {
+                BytecodeExceptions.Implicit error = interfaceCall ? BytecodeExceptions.Implicit.ABSTRACT_METHOD : BytecodeExceptions.Implicit.LINKAGE;
+                if (!hasImplicitException(error)) throw conflict;
+                result.put(entry.getValue(), error.helper);
+                continue;
+            }
+            BytecodeExceptions.Implicit failure = null;
+            if (implementation == null || (implementation.method.access & Opcodes.ACC_ABSTRACT) != 0)
+                failure = BytecodeExceptions.Implicit.ABSTRACT_METHOD;
+            else if (interfaceCall && (implementation.method.access & (Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) == 0)
+                failure = BytecodeExceptions.Implicit.ILLEGAL_ACCESS;
+            if (failure != null && hasImplicitException(failure)) {
+                result.put(entry.getValue(), failure.helper);
+                continue;
+            }
             if (!layouts.contains(type.name) || implementation == null
                     || (!privateCall && (declared.method.access & Opcodes.ACC_PUBLIC) != 0
                         && (implementation.method.access & Opcodes.ACC_PUBLIC) == 0)
