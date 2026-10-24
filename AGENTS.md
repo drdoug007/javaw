@@ -1,5 +1,11 @@
 # Repository guidance
 
+## Project goals
+
+1. Build a Java-to-WebAssembly compiler that executes Java programs correctly in the browser and other supported Wasm hosts. Prioritize observable Java semantics, clear unsupported-feature diagnostics, and reproducible JVM-versus-Wasm tests. Expand compatibility in tested stages rather than implying complete JVM/JDK support.
+2. Use `javaw-bytecode` to convert library dependency class files and JARs into WebAssembly. Link those dependencies with compiled application code using explicit runtime and host contracts. Progress from small real-library execution tests toward the pinned H2/Spring/Hibernate target; track required JDK APIs, initialization, exceptions, reflection, resources, memory management, and concurrency. Establish and test source/bytecode interoperability before claiming mixed applications work.
+3. If the compiler and library runtime milestones succeed, investigate running Java Swing applications in the browser using WebAssembly. Treat this as a feasibility study before committing to implementation. Audit Swing/AWT and Java2D dependencies, native peers, fonts/text layout, image rendering, input/focus, accessibility, clipboard, the event dispatch thread, and browser threading restrictions. Compare a browser-backed AWT/Java2D implementation with a rendered-surface approach, document compatibility and performance tradeoffs, and prove a small window/widget/event-loop demo before expanding scope. Keep this exploratory goal subordinate to compiler correctness and library execution.
+
 ## Scope and progress
 
 - Follow `Todo.md` in order. Large open milestones contain completed subsets; implement a concrete next subset and record its evidence without marking the parent complete prematurely.
