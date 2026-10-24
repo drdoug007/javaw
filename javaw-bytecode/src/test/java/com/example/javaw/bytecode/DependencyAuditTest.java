@@ -95,7 +95,7 @@ class DependencyAuditTest {
         method.visitMethodInsn(Opcodes.INVOKESTATIC,"java/util/Optional","missing","()V",false);
         method.visitMethodInsn(Opcodes.INVOKESTATIC,"java/math/BigInteger","missing","()V",false);
         method.visitMethodInsn(Opcodes.INVOKESTATIC,"java/math/MathContext","missing","()V",false);
-        method.visitMethodInsn(Opcodes.INVOKESTATIC,"java/lang/StringBuffer","missing","()V",false);
+        method.visitMethodInsn(Opcodes.INVOKESTATIC,"java/util/TreeMap","missing","()V",false);
         method.visitInsn(Opcodes.RETURN);method.visitMaxs(1,0);method.visitEnd();writer.visitEnd();
         Path input=jar("core.jar",false,Map.of("Core.class",writer.toByteArray()));
         DependencyAudit audit=new DependencyAudit();audit.scan("core:first",input,17);audit.scan("core:second",input,17);
@@ -105,7 +105,7 @@ class DependencyAuditTest {
         assertTrue(report.contains("java/util/Optional\tmissing\t()V\t1\tCore.run()V\tmissing-member"),report);
         assertTrue(report.contains("java/math/BigInteger\tmissing\t()V\t1\tCore.run()V\tmissing-member"),report);
         assertTrue(report.contains("java/math/MathContext\tmissing\t()V\t1\tCore.run()V\tmissing-member"),report);
-        assertTrue(report.contains("java/lang/StringBuffer\tmissing\t()V\t1\tCore.run()V\tmissing-owner"),report);
+        assertTrue(report.contains("java/util/TreeMap\tmissing\t()V\t1\tCore.run()V\tmissing-owner"),report);
         assertEquals("status\tdistinctSignatures\ndeclared-signature\t1\nmissing-member\t3\nmissing-owner\t1\n",
                 Files.readString(output.resolve("core-jdk-linkage-summary.tsv")));
     }

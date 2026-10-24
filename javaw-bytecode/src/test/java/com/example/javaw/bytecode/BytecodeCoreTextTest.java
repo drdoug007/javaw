@@ -93,6 +93,146 @@ class BytecodeCoreTextTest implements Opcodes {
         Files.write(selected,original);compare(List.of("run","empty","failures"));assertArrayEquals(original,Files.readAllBytes(selected));
     }
 
+    @Test void stringBufferMutationSnapshotsAndBinaryDescriptors() throws Exception {
+        fixture("""
+            public class Metadata {public static String run(){
+                StringBuffer b=new StringBuffer(0);b.ensureCapacity(2);b.append('a').append("bc");
+                b.append(b).append((CharSequence)b,1,4).append((String)null).append((Object)null).append((StringBuffer)null);
+                b.append(new char[]{'x','y','z'},1,2).append(true).append(123).append(-45L).append(1.25f).append(-0.0d);
+                String before=new String(b);b.replace(1,4,"LONGER").insert(0,'!').insert(2,(String)null).delete(3,5).deleteCharAt(0);
+                b.setCharAt(1,'?');b.setLength(b.length()+2);String filled=b.toString();b.setLength(7);b.trimToSize();
+                char[] copy=new char[5];b.getChars(1,4,copy,1);
+                StringBuffer source=new StringBuffer("xy");StringBuffer defensive=new StringBuffer((CharSequence)source);source.setCharAt(0,'z');
+                StringBuilder builder=new StringBuilder("prefix").append(b);String fromBuilder=new String(builder);builder.setCharAt(0,'!');
+                return before+"|"+filled+"|"+b+"|"+b.capacity()+"|"+new String(copy)+"|"+b.substring(1)+"|"+b.subSequence(0,2)+"|"+defensive+"|"+fromBuilder+"|"+new StringBuffer("x😀y").reverse();
+            }
+            public static int compare(){
+                StringBuffer a=new StringBuffer("abc"),b=new StringBuffer("abd");
+                StringBuilder c=new StringBuilder("abc"),d=new StringBuilder("ab");
+                return a.compareTo(b)+((Comparable<StringBuffer>)a).compareTo(b)+c.compareTo(d)+((Comparable<StringBuilder>)c).compareTo(d);
+            }}
+            """);compare(List.of("run","compare"));
+    }
+
+    @Test void utf16CodePointsAndBackwardSearchMatchJdk() throws Exception {
+        fixture("""
+            public class Metadata {public static int run(){int hash=1;
+                for(String text:new String[]{"","abcab","x😀😀y",new String(new char[]{(char)0xd800,'x',(char)0xdc00,(char)0xd800,(char)0xdc00})}){
+                    StringBuilder builder=new StringBuilder(text);StringBuffer buffer=new StringBuffer(text);
+                    for(int i=0;i<text.length();i++)hash=31*hash+text.codePointAt(i)+builder.codePointAt(i)+buffer.codePointAt(i);
+                    for(int i=1;i<=text.length();i++)hash=31*hash+text.codePointBefore(i)+builder.codePointBefore(i)+buffer.codePointBefore(i);
+                    for(int i=0;i<=text.length();i++)for(int j=i;j<=text.length();j++)hash=31*hash+text.codePointCount(i,j)+builder.codePointCount(i,j)+buffer.codePointCount(i,j);
+                    for(int i=0;i<=text.length();i++)for(int offset=-4;offset<=4;offset++)try{
+                        int result=text.offsetByCodePoints(i,offset);if(result!=builder.offsetByCodePoints(i,offset) || result!=buffer.offsetByCodePoints(i,offset))throw new Error();hash=31*hash+result;
+                    }catch(IndexOutOfBoundsException expected){hash+=7;}
+                    for(int from:new int[]{Integer.MIN_VALUE,-1,0,1,2,4,99,Integer.MAX_VALUE}){
+                        for(int code:new int[]{-1,'a','y',0xd800,0xdc00,128512,1114111,1114112})hash=31*hash+text.lastIndexOf(code,from);
+                        for(String needle:new String[]{"","a","ab","😀","😀y","long text"}){
+                            int found=text.lastIndexOf(needle,from);if(found!=builder.lastIndexOf(needle,from) || found!=buffer.lastIndexOf(needle,from))throw new Error();hash=31*hash+found;
+                            hash+=text.lastIndexOf(needle)+builder.lastIndexOf(needle)+buffer.lastIndexOf(needle);
+                        }
+                    }
+                    hash+=text.lastIndexOf(128512);
+                }
+                StringBuilder b=new StringBuilder();StringBuffer c=new StringBuffer();for(int code:new int[]{0,65,0xd800,65535,65536,128512,1114111}){b.appendCodePoint(code);c.appendCodePoint(code);}
+                if(!b.toString().equals(c.toString()))throw new Error();return hash+b.toString().hashCode();
+            }}
+            """);compare(List.of("run"));
+    }
+
+    @Test void literalReplacementsAndMutableTextFailures() throws Exception {
+        fixture("""
+            public class Metadata {public static int run(){int hash=1;
+                for(String text:new String[]{"","aaa","ababa","😀x😀"})for(String from:new String[]{"","a","aba","😀","none"})for(String to:new String[]{"","$1\\\\","😀"}){
+                    hash=31*hash+text.replace((CharSequence)new StringBuffer(from),new StringBuilder(to)).hashCode();
+                }
+                StringBuffer b=new StringBuffer("abc");StringBuilder c=new StringBuilder("abc");
+                b.replace(1,99,"X");c.replace(1,99,"X");if(!b.toString().equals(c.toString()))throw new Error();
+                b.replace(1,1,"");b.replace(1,1,"123");b.replace(0,3,"");hash=31*hash+b.toString().hashCode();
+                if(!"aX".contentEquals(c) || !"aX".contentEquals(new StringBuffer("aX")) || "aX".contentEquals(new StringBuilder("aY")))throw new Error();
+                try{b.replace(0,1,null);throw new Error();}catch(NullPointerException e){hash++;}
+                try{b.replace(-1,1,null);throw new Error();}catch(StringIndexOutOfBoundsException e){hash++;}
+                try{b.setLength(-1);throw new Error();}catch(StringIndexOutOfBoundsException e){hash++;}
+                try{b.charAt(b.length());throw new Error();}catch(StringIndexOutOfBoundsException e){hash++;}
+                try{new StringBuffer(-1);throw new Error();}catch(NegativeArraySizeException e){hash++;}
+                try{new StringBuffer((String)null);throw new Error();}catch(NullPointerException e){hash++;}
+                try{new String((StringBuilder)null);throw new Error();}catch(NullPointerException e){hash++;}
+                try{new String((StringBuffer)null);throw new Error();}catch(NullPointerException e){hash++;}
+                try{b.append((char[])null);throw new Error();}catch(NullPointerException e){hash++;}
+                try{b.append("abc",2,1);throw new Error();}catch(IndexOutOfBoundsException e){hash++;}
+                try{b.appendCodePoint(-1);throw new Error();}catch(IllegalArgumentException e){hash++;}
+                try{c.appendCodePoint(1114112);throw new Error();}catch(IllegalArgumentException e){hash++;}
+                try{"x".codePointAt(1);throw new Error();}catch(IndexOutOfBoundsException e){hash++;}
+                try{b.codePointBefore(0);throw new Error();}catch(IndexOutOfBoundsException e){hash++;}
+                try{c.codePointCount(-1,1);throw new Error();}catch(IndexOutOfBoundsException e){hash++;}
+                try{"".offsetByCodePoints(0,Integer.MIN_VALUE);throw new Error();}catch(IndexOutOfBoundsException e){hash++;}
+                try{"x".lastIndexOf((String)null,-1);throw new Error();}catch(NullPointerException e){hash++;}
+                try{"x".replace((CharSequence)null,"y");throw new Error();}catch(NullPointerException e){hash++;}
+                try{"x".replace("",(CharSequence)null);throw new Error();}catch(NullPointerException e){hash++;}
+                try{"x".contentEquals((StringBuffer)null);throw new Error();}catch(NullPointerException e){hash++;}
+                return 31*hash+b.toString().hashCode();
+            }}
+            """);compare(List.of("run"));
+    }
+
+    @Test void executesUnchangedPinnedJaxbWhitespaceProcessor() throws Exception {
+        Path repository=Path.of(System.getProperty("maven.repo.local",Path.of(System.getProperty("user.home"),".m2","repository").toString()));
+        Path artifact=repository.resolve("org/glassfish/jaxb/jaxb-core/4.0.2/jaxb-core-4.0.2.jar");
+        assertDigest(artifact,"d7ff2954ad78480bbab9391cccff3a22f42a82b6e09aeca1c7d502411c470ccd");fixtureClasspath=artifact.toString();
+        fixture("""
+            import org.glassfish.jaxb.core.WhiteSpaceProcessor;
+            public class Metadata {public static int run(){int hash=1;
+                for(String text:new String[]{"","abc"," "," \\t\\r\\n "," x  y\\tz ","\\u00a0x\\u2003","😀\\n😀",new String(new char[]{0,'x',11,12})}){
+                    hash=31*hash+WhiteSpaceProcessor.replace(text).hashCode();hash=31*hash+WhiteSpaceProcessor.collapse(text).hashCode();
+                    StringBuffer buffer=new StringBuffer(text);
+                    hash=31*hash+WhiteSpaceProcessor.replace((CharSequence)buffer).toString().hashCode();
+                    hash=31*hash+WhiteSpaceProcessor.collapse((CharSequence)buffer).toString().hashCode();
+                    hash=31*hash+WhiteSpaceProcessor.trim(buffer).toString().hashCode();
+                    if(!buffer.toString().equals(text))throw new Error();
+                    hash+=WhiteSpaceProcessor.isWhiteSpace(buffer)?7:11;
+                }
+                for(int ch=0;ch<256;ch++)hash=31*hash+(WhiteSpaceProcessor.isWhiteSpace((char)ch)?1:0);
+                try{WhiteSpaceProcessor.replace((String)null);throw new Error();}catch(NullPointerException e){hash++;}
+                StringBuffer identity=new StringBuffer("abc");if(WhiteSpaceProcessor.replace((CharSequence)identity)!=identity || WhiteSpaceProcessor.trim(identity)!=identity || WhiteSpaceProcessor.collapse((CharSequence)identity)!=identity)throw new Error();
+                return hash;
+            }}
+            """);
+        String name="org/glassfish/jaxb/core/WhiteSpaceProcessor";byte[] original;
+        try(JarFile jar=new JarFile(artifact.toFile())){original=jar.getInputStream(jar.getJarEntry(name+".class")).readAllBytes();}
+        writeClass(name,original);compare(List.of("run"));assertArrayEquals(original,Files.readAllBytes(directory.resolve(name+".class")));
+    }
+
+    @Test void executesSelectedPinnedLogbackStringBufferEscaping() throws Exception {
+        Path repository=Path.of(System.getProperty("maven.repo.local",Path.of(System.getProperty("user.home"),".m2","repository").toString()));
+        Path artifact=repository.resolve("ch/qos/logback/logback-core/1.4.14/logback-core-1.4.14.jar");
+        assertDigest(artifact,"f8c2f05f42530b1852739507c1792f0080167850ed8f396444c6913d6617a293");fixtureClasspath=artifact.toString();
+        fixture("""
+            import ch.qos.logback.core.helpers.Transform;
+            public class Metadata {public static String run(){
+                char[] chars=new char[132];for(int i=0;i<128;i++)chars[i]=(char)i;chars[128]='é';chars[129]='中';chars[130]=(char)0xd83d;chars[131]=(char)0xde00;
+                StringBuffer b=new StringBuffer(new String(chars));String snapshot=new String(b);String result=Transform.escapeTags(b);
+                if(!result.equals(b.toString()) || !snapshot.equals(new String(chars)))throw new Error();
+                return result+"|"+Transform.escapeTags(new StringBuffer(""))+"|"+Transform.escapeTags(new StringBuffer("<>&\\\"'"));
+            }
+            public static int failures(){try{Transform.escapeTags((StringBuffer)null);return 0;}catch(NullPointerException expected){return 1;}}
+            }
+            """);
+        try(JarFile jar=new JarFile(artifact.toFile())){
+            String name="ch/qos/logback/core/helpers/Transform";ClassNode selected=new ClassNode();
+            new ClassReader(jar.getInputStream(jar.getJarEntry(name+".class")).readAllBytes()).accept(selected,0);
+            selected.fields.clear();selected.methods.removeIf(method->!method.name.equals("escapeTags") || !method.desc.equals("(Ljava/lang/StringBuffer;)Ljava/lang/String;"));
+            assertEquals(1,selected.methods.size());ClassWriter writer=new ClassWriter(0);selected.accept(writer);writeClass(name,writer.toByteArray());
+        }
+        compare(List.of("run","failures"));
+    }
+
+    private void writeClass(String name,byte[] bytes) throws Exception {
+        Path file=directory.resolve(name+".class");Files.createDirectories(file.getParent());Files.write(file,bytes);
+    }
+    private void assertDigest(Path artifact,String expected) throws Exception {
+        assertEquals(expected,HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(artifact))));
+    }
+
     private void compare(List<String> names) throws Exception {
         StringBuilder assertions=new StringBuilder();
         try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)){

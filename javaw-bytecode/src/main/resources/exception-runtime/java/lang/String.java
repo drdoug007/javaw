@@ -13,6 +13,8 @@ public final class String implements CharSequence,Comparable<String>,java.io.Ser
     public String(char[] chars) { value = chars.clone(); }
     private String(char[] chars, boolean trusted) { value = chars; }
     public String(String text){value=text.value;}
+    public String(StringBuilder text){this(text.toString());}
+    public String(StringBuffer text){this(text.toString());}
     public String(char[] chars,int offset,int count){
         if(offset<0 || count<0 || offset>chars.length-count)throw new StringIndexOutOfBoundsException();
         value=new char[count];System.arraycopy(chars,offset,value,0,count);
@@ -38,6 +40,47 @@ public final class String implements CharSequence,Comparable<String>,java.io.Ser
     public int indexOf(int code,int from){
         if(from<0)from=0;if(code<0 || code>1114111)return -1;
         for(int i=from;i<length();i++){if(code<65536){if(value[i]==code)return i;}else if(i+1<length() && value[i]==(char)(55296+((code-65536)>>10)) && value[i+1]==(char)(56320+((code-65536)&1023)))return i;}return -1;
+    }
+    public int lastIndexOf(String text){return lastIndexOf(text,length());}
+    public int lastIndexOf(String text,int from){
+        int size=text.length();int start=length()-size;if(from<start)start=from;
+        if(size==0)return start<0?-1:start;
+        for(int i=start;i>=0;i--)if(startsWith(text,i))return i;return -1;
+    }
+    public int lastIndexOf(int code){return lastIndexOf(code,length()-1);}
+    public int lastIndexOf(int code,int from){
+        if(code<0 || code>1114111)return -1;
+        int start=length()-(code<65536?1:2);if(from<start)start=from;
+        for(int i=start;i>=0;i--){if(code<65536){if(value[i]==code)return i;}else if(value[i]==(char)(55296+((code-65536)>>10)) && value[i+1]==(char)(56320+((code-65536)&1023)))return i;}return -1;
+    }
+    public int codePointAt(int index){
+        char first=charAt(index);if(first>=55296 && first<=56319 && index+1<length()){
+            char second=value[index+1];if(second>=56320 && second<=57343)return 65536+((first-55296)<<10)+(second-56320);
+        }return first;
+    }
+    public int codePointBefore(int index){
+        if(index<1 || index>length())throw new StringIndexOutOfBoundsException(index);
+        char last=value[index-1];if(last>=56320 && last<=57343 && index>1){char first=value[index-2];if(first>=55296 && first<=56319)return 65536+((first-55296)<<10)+(last-56320);}return last;
+    }
+    public int codePointCount(int begin,int end){
+        if(begin<0 || end>length() || begin>end)throw new IndexOutOfBoundsException();
+        int count=0;for(int i=begin;i<end;i++,count++)if(value[i]>=55296 && value[i]<=56319 && i+1<end && value[i+1]>=56320 && value[i+1]<=57343)i++;return count;
+    }
+    public int offsetByCodePoints(int index,int offset){
+        if(index<0 || index>length())throw new IndexOutOfBoundsException();
+        int i=index;
+        while(offset>0){if(i==length())throw new IndexOutOfBoundsException();char first=value[i++];if(first>=55296 && first<=56319 && i<length() && value[i]>=56320 && value[i]<=57343)i++;offset--;}
+        while(offset<0){if(i==0)throw new IndexOutOfBoundsException();char last=value[--i];if(last>=56320 && last<=57343 && i>0 && value[i-1]>=55296 && value[i-1]<=56319)i--;offset++;}return i;
+    }
+    public boolean contentEquals(CharSequence text){if(length()!=text.length())return false;for(int i=0;i<length();i++)if(value[i]!=text.charAt(i))return false;return true;}
+    public boolean contentEquals(StringBuffer text){return contentEquals((CharSequence)text);}
+    public String replace(CharSequence target,CharSequence replacement){
+        String from=target.toString(),to=replacement.toString();int size=from.length();
+        StringBuilder out=new StringBuilder();int start=0;
+        if(size==0){out.append(to);for(int i=0;i<length();i++)out.append(value[i]).append(to);return out.toString();}
+        int next=indexOf(from,start);if(next<0)return this;
+        while(next>=0){out.append(this,start,next).append(to);start=next+size;next=indexOf(from,start);}
+        return out.append(this,start,length()).toString();
     }
     public boolean contains(CharSequence text){return indexOf(text.toString())>=0;}
     public String replace(char oldChar,char newChar){int index=indexOf(oldChar);if(index<0 || oldChar==newChar)return this;char[] chars=value.clone();for(int i=index;i<chars.length;i++)if(chars[i]==oldChar)chars[i]=newChar;return new String(chars,true);}
