@@ -124,6 +124,101 @@ class BytecodeCompatibilityTest {
         }
     }
 
+    @Test void executesMultidimensionalPrimitiveAndReferenceArraysInEitherJarOrder() throws Exception {
+        fixture("""
+            public class Fixture {
+                public static int run(int n) {
+                    int[][][] a = new int[n][2][3];
+                    long[][] longs = new long[n][2]; double[][] doubles = new double[n][2];
+                    Item[][] items = new Child[n][2];
+                    int total = a.length + longs.length + doubles.length;
+                    for(int i=0;i<n;i++) {
+                        a[i][1][2]=i+7; longs[i][1]=9007199254740993L+i; doubles[i][1]=i+0.5;
+                        items[i][0]=new Child(i);
+                        total += a[i][1][2]+items[i][0].value();
+                        if(longs[i][1]==9007199254740993L+i) total++;
+                        if(doubles[i][1]==i+0.5) total++;
+                        if(items[i][1]==null && a[i][0][0]==0) total++;
+                        if(i>0 && a[i]!=a[i-1]) total++;
+                    }
+                    Object object = a;
+                    if(object instanceof Object[]) total+=10;
+                    if(object instanceof Object[][]) total+=20;
+                    if(object instanceof int[][][]) total+=40;
+                    if(object instanceof long[][][]) total+=1000;
+                    if(((Object[][])object).length!=n) total+=1000;
+                    Object refs=items;
+                    if(refs instanceof Item[][]) total+=80;
+                    if(refs instanceof Child[][]) total+=160;
+                    return total;
+                }
+                public static int partial() {
+                    int[][][] a = new int[2][3][];
+                    a[0][1]=new int[]{5};
+                    int[][] b = new int[2][]; b[0]=new int[]{7};
+                    return a[0][1][0]+b[0][0]+(a[1][0]==null?10:0)+(b[1]==null?20:0);
+                }
+                public static int ragged() {
+                    Object[][] a=new Object[2][]; a[0]=new Item[3]; a[1]=new Object[1];
+                    a[0][0]=new Child(9);
+                    return ((Item)a[0][0]).value()+a[0].length+a[1].length;
+                }
+                public static int negative(int a,int b,int c) { return new int[a][b][c].length; }
+                public static void badStore() { Object[] a=new int[1][]; a[0]=new long[1]; }
+                public static void badNestedStore() { Object[][] a=new Child[1][1]; a[0]=new Item[1]; }
+                public static void badCast() { Object a=new int[1][1]; long[][] b=(long[][])a; }
+            }
+            interface Item { int value(); }
+            class Child implements Item { int n; Child(int n){this.n=n;} public int value(){return n;} }
+            """);
+        try(var loader=new java.net.URLClassLoader(new java.net.URL[]{directory.toUri().toURL()})) {
+            Class<?> jvm=loader.loadClass("Fixture");
+            for(String[] order:new String[][]{{"Fixture","Item","Child"},{"Child","Item","Fixture"}}) {
+                StringBuilder checks=new StringBuilder();
+                for(int n:new int[]{0,1,4}) checks.append("assert.equal(e['Fixture.run'](").append(n).append("),")
+                        .append(jvm.getMethod("run",int.class).invoke(null,n)).append(");");
+                for(String name:new String[]{"partial","ragged"}) checks.append("assert.equal(e['Fixture.")
+                        .append(name).append("'](),").append(jvm.getMethod(name).invoke(null)).append(");");
+                for(String name:new String[]{"badStore","badNestedStore","badCast"}) {
+                    assertThrows(java.lang.reflect.InvocationTargetException.class,()->jvm.getMethod(name).invoke(null));
+                    checks.append("assert.throws(()=>e['Fixture.").append(name).append("'](),WebAssembly.RuntimeError);");
+                }
+                for(int[] sizes:new int[][]{{-1,2,3},{0,-1,3},{0,0,-1},{1,2,-1}}) {
+                    var error=assertThrows(java.lang.reflect.InvocationTargetException.class,()->jvm.getMethod("negative",int.class,int.class,int.class)
+                            .invoke(null,sizes[0],sizes[1],sizes[2]));
+                    assertInstanceOf(NegativeArraySizeException.class,error.getCause());
+                    checks.append("assert.throws(()=>e['Fixture.negative'](").append(sizes[0]).append(',').append(sizes[1]).append(',')
+                            .append(sizes[2]).append("),WebAssembly.RuntimeError);");
+                }
+                execute(linkJar(order),checks.toString());
+            }
+        }
+    }
+
+    @Test void executesEveryPrimitiveMultidimensionalLeafAndPrechecksAllSizes() throws Exception {
+        byte[] bytes=fixture("""
+            public class Fixture {
+                public static int run() {
+                    boolean[][] z=new boolean[2][2]; byte[][] b=new byte[2][2]; char[][] c=new char[2][2]; short[][] s=new short[2][2];
+                    int[][] i=new int[2][2]; long[][] j=new long[2][2]; float[][] f=new float[2][2]; double[][] d=new double[2][2];
+                    z[1][1]=true; b[1][1]=(byte)128; c[1][1]=(char)-1; s[1][1]=(short)32768;
+                    i[1][1]=19; j[1][1]=9007199254740993L; f[1][1]=1.5f; d[1][1]=-0.5;
+                    return (z[1][1]?1:0)+b[1][1]+c[1][1]+s[1][1]+i[1][1]+(j[1][1]==9007199254740993L?7:0)
+                        +(f[1][1]==1.5f?11:0)+(d[1][1]==-0.5?13:0);
+                }
+                public static int size(int x,int y) { return new int[x][y].length; }
+            }
+            """);
+        try(var loader=new java.net.URLClassLoader(new java.net.URL[]{directory.toUri().toURL()})) {
+            Class<?> jvm=loader.loadClass("Fixture");
+            execute(BytecodeCompiler.compileClass(bytes),"assert.equal(e['Fixture.run'](),"+jvm.getMethod("run").invoke(null)+");"
+                +"const compiledModule = new WebAssembly.Module(fs.readFileSync(process.argv[2]));let allocations=0;"
+                +"const checked=new WebAssembly.Instance(compiledModule,{env:{memory,__heap_alloc:()=>{allocations++;throw Error('allocated');}}}).exports;"
+                +"assert.throws(()=>checked['Fixture.size'](0,-1),WebAssembly.RuntimeError);assert.equal(allocations,0);"
+                +"assert.throws(()=>checked['Fixture.size'](2,-1),WebAssembly.RuntimeError);assert.equal(allocations,0);");
+        }
+    }
+
     @Test void executesPrimitiveNarrowArraysDefaultsLoopsAndAliasingWithJvmComparison() throws Exception {
         byte[] bytes = fixture("""
             public class Fixture {
@@ -321,6 +416,13 @@ class BytecodeCompatibilityTest {
     @Test void testsPrimitiveArraysAgainstLinkedMarkerInterfaceMetadata() throws Exception {
         fixture("""
             public class Fixture {
+                public static int nested() {
+                    Cloneable[] values = new int[1][]; values[0] = new int[2];
+                    java.io.Serializable[] serial = new java.io.Serializable[1]; serial[0] = new int[1][1];
+                    Object deep = new int[1][1][1];
+                    return (values[0] instanceof int[] ? 1 : 0)
+                        + (serial[0] instanceof int[][] ? 2 : 0) + (deep instanceof Cloneable[][] ? 4 : 0);
+                }
                 public static Object make() { return new int[1]; }
                 public static int check(Object v) {
                     return (v instanceof Cloneable ? 1 : 0) + (v instanceof java.io.Serializable ? 2 : 0);
@@ -336,7 +438,7 @@ class BytecodeCompatibilityTest {
         try (var loader = new java.net.URLClassLoader(new java.net.URL[]{directory.toUri().toURL()})) {
             Class<?> jvm = loader.loadClass("Fixture"); Object array = jvm.getMethod("make").invoke(null);
             execute(linkNodes(nodes), "assert.equal(e['Fixture.check'](e['Fixture.make']()),"
-                    + jvm.getMethod("check", Object.class).invoke(null, array) + ");assert.equal(e['Fixture.check'](0),0);");
+                    + jvm.getMethod("check", Object.class).invoke(null, array) + ");assert.equal(e['Fixture.check'](0),0);assert.equal(e['Fixture.nested']()," + jvm.getMethod("nested").invoke(null) + ");");
         }
     }
 
@@ -1828,7 +1930,7 @@ class BytecodeCompatibilityTest {
                 public static boolean test(Object value) { return value instanceof Fixture; }
             }
             """);
-        for(String target:new String[]{"missing/Type","[[I","[Lmissing/Type;"}) {
+        for(String target:new String[]{"missing/Type","[[Lmissing/Type;","[Lmissing/Type;"}) {
             ClassNode type=new ClassNode(); new ClassReader(bytes).accept(type,0);
             for(MethodNode method:type.methods) for(AbstractInsnNode insn:method.instructions)
                 if(insn instanceof TypeInsnNode test) test.desc=target;
@@ -2570,7 +2672,7 @@ class BytecodeCompatibilityTest {
                 "public static synchronized int f() { return 1; }",
                 "public static int f() { return Math.abs(-4); }",
                 "public static Class<?> f() { return Fixture.class; }",
-                "public static Object[][] f() { return new Object[2][3]; }",
+                "public static Object f() { return new int[2].clone(); }",
                 "public static Object f() { return new Object(); }",
                 "public static class Child extends Fixture {} public static Object f(){ return new Child(); }",
                 "static int x=compute(); static int compute(){ return 1; }",

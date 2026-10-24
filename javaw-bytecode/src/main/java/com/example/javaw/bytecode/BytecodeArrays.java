@@ -49,7 +49,7 @@ public final class BytecodeArrays implements Opcodes {
         for (MethodNode method : type.methods)
             for (AbstractInsnNode instruction : method.instructions) {
                 int opcode = instruction.getOpcode();
-                if (opcode == NEWARRAY || opcode == ANEWARRAY || opcode == ARRAYLENGTH
+                if (opcode == MULTIANEWARRAY || opcode == NEWARRAY || opcode == ANEWARRAY || opcode == ARRAYLENGTH
                         || opcode >= IALOAD && opcode <= SALOAD
                         || opcode >= IASTORE && opcode <= SASTORE) return true;
             }

@@ -1,6 +1,7 @@
 package com.example.javaw.bytecode;
 
 import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import java.util.*;
 
@@ -8,6 +9,7 @@ import java.util.*;
 public final class BytecodeDispatch {
     private static final Set<String> FINAL_OBJECT_METHODS = Set.of("getClass()Ljava/lang/Class;", "notify()V", "notifyAll()V",
             "wait()V", "wait(J)V", "wait(JI)V");
+    private static final java.util.regex.Pattern ARRAY_DESCRIPTOR = java.util.regex.Pattern.compile("\\[+(?:[ZBCSIJFD]|L[^;]+;)");
     private final Map<String, ClassNode> linked;
     private final String caller;
     private final BytecodeObjectLayouts layouts;
@@ -29,6 +31,66 @@ public final class BytecodeDispatch {
         components.add("java/lang/Object");
         int arrayId = -100;
         for (String component : components) referenceArrayIds.put(component, arrayId--);
+        TreeSet<String> arrays = new TreeSet<>();
+        for (ClassNode type : linked.values()) {
+            for (FieldNode field : type.fields) collectArrays(arrays, field.desc);
+            for (MethodNode method : type.methods) {
+                collectArrays(arrays, method.desc);
+                for (AbstractInsnNode instruction : method.instructions) {
+                    if (instruction instanceof TypeInsnNode t) {
+                        collectArrays(arrays, t.desc);
+                        if (t.getOpcode() == Opcodes.ANEWARRAY) collectArrays(arrays, arrayDescriptor(t.desc));
+                    }
+                    if (instruction instanceof MultiANewArrayInsnNode m) collectArrays(arrays, m.desc);
+                    if (instruction instanceof MethodInsnNode m) collectArrays(arrays, m.desc);
+                    if (instruction instanceof FieldInsnNode f) collectArrays(arrays, f.desc);
+                    if (instruction instanceof FrameNode frame) {
+                        if(frame.local != null) for(Object value : frame.local) if(value instanceof String text) collectArrays(arrays,text);
+                        if(frame.stack != null) for(Object value : frame.stack) if(value instanceof String text) collectArrays(arrays,text);
+                    }
+                }
+            }
+        }
+        for (String descriptor : arrays) {
+            if (BytecodeArrays.primitive(descriptor) != null) continue;
+            String component = descriptor.substring(1);
+            if(component.startsWith("L")) component = component.substring(1,component.length()-1);
+            if(!referenceArrayIds.containsKey(component)) referenceArrayIds.put(component, arrayId--);
+        }
+    }
+
+    private static void collectArrays(Set<String> arrays, String descriptor) {
+        var matcher = ARRAY_DESCRIPTOR.matcher(descriptor);
+        while(matcher.find()) {
+            String array = matcher.group();
+            if (!BytecodeDeclarations.validDescriptor(array, false)) continue;
+            while(array.startsWith("[")) { arrays.add(array); array = array.substring(1); }
+        }
+    }
+
+    private static int arrayRank(String descriptor) {
+        int max = 0, current = 0;
+        for (char c : descriptor.toCharArray()) { current = c == '[' ? current + 1 : 0; max = Math.max(max, current); }
+        return max;
+    }
+
+    private static String arrayDescriptor(String component) {
+        return component.startsWith("[") ? "[" + component : "[L" + component + ";";
+    }
+
+    private boolean arrayAssignable(String from, String to) {
+        if (from.equals(to)) return true;
+        if (from.startsWith("[")) {
+            if (to.equals("Ljava/lang/Object;")) return true;
+            if (to.equals("Ljava/lang/Cloneable;") || to.equals("Ljava/io/Serializable;")) {
+                ClassNode marker = linked.get(to.substring(1, to.length() - 1));
+                return marker != null && (marker.access & Opcodes.ACC_INTERFACE) != 0;
+            }
+            return to.startsWith("[") && arrayAssignable(from.substring(1), to.substring(1));
+        }
+        if (from.startsWith("L") && to.startsWith("L"))
+            return subtype(from.substring(1, from.length()-1), to.substring(1, to.length()-1), new HashSet<>());
+        return false;
     }
 
     private String packageName(String name) {
@@ -73,15 +135,15 @@ public final class BytecodeDispatch {
     /** Concrete runtime IDs assignable to a linked class/interface type-test target. */
     public Set<Integer> typeTestIds(String target) {
         if (target.startsWith("[")) {
+            if (!BytecodeDeclarations.validDescriptor(target, false))
+                throw new IllegalArgumentException("use a valid array descriptor");
             BytecodeArrays.Primitive primitive = BytecodeArrays.primitive(target);
             if (primitive != null) return Set.of(primitive.classId());
-            if (!target.startsWith("[L") || !target.endsWith(";"))
-                throw new IllegalArgumentException("multidimensional array type tests are unsupported");
-            String component = target.substring(2, target.length() - 1);
-            referenceArrayId(component);
+            referenceArrayId(target.substring(1).startsWith("L")
+                    ? target.substring(2, target.length()-1) : target.substring(1));
             Set<Integer> ids = new LinkedHashSet<>();
             for (var entry : referenceArrayIds.entrySet())
-                if (subtype(entry.getKey(), component, new HashSet<>())) ids.add(entry.getValue());
+                if (arrayAssignable(arrayDescriptor(entry.getKey()), target)) ids.add(entry.getValue());
             return ids;
         }
         if (!target.equals("java/lang/Object")) {
@@ -109,8 +171,14 @@ public final class BytecodeDispatch {
     }
 
     public int referenceArrayId(String component) {
-        if (component.startsWith("[")) throw new IllegalArgumentException("multidimensional array allocation is unsupported");
-        if (!component.equals("java/lang/Object")) checkClassAccess(component);
+        if (component.startsWith("[") && (!BytecodeDeclarations.validDescriptor(component, false) || arrayRank(component) >= 255))
+            throw new IllegalArgumentException("use a valid array component with resulting rank at most 255");
+        String leaf = component;
+        if (component.startsWith("[")) {
+            Type type = Type.getType(component).getElementType();
+            leaf = type.getSort() == Type.OBJECT ? type.getInternalName() : "java/lang/Object";
+        }
+        if (!leaf.equals("java/lang/Object")) checkClassAccess(leaf);
         Integer id = referenceArrayIds.get(component);
         if (id == null) throw new IllegalArgumentException("link the reference-array component " + component);
         return id;
@@ -137,6 +205,58 @@ public final class BytecodeDispatch {
             wat.append("i32.eqz if unreachable end\nend\n");
         }
         wat.append("end local.get $p local.get $v i32.store)\n");
+        return wat.toString();
+    }
+
+    public int arrayId(String descriptor) {
+        BytecodeArrays.Primitive primitive = BytecodeArrays.primitive(descriptor);
+        if (primitive != null) return primitive.classId();
+        String component = descriptor.substring(1);
+        return referenceArrayId(component.startsWith("L") ? component.substring(1,component.length()-1) : component);
+    }
+
+    public void validateMultiArray(MultiANewArrayInsnNode instruction) {
+        if (!BytecodeDeclarations.validDescriptor(instruction.desc, false) || !instruction.desc.startsWith("[") || instruction.dims < 1 || instruction.dims > arrayRank(instruction.desc))
+            throw new IllegalArgumentException("MULTIANEWARRAY requires 1..rank dimensions and an array descriptor");
+        arrayId(instruction.desc);
+    }
+
+    public static String multiArraySymbol(String descriptor, int dimensions) {
+        StringBuilder symbol = new StringBuilder("$__multi_");
+        for(char c : descriptor.toCharArray()) symbol.append(Integer.toHexString(c)).append('_');
+        return symbol.append(dimensions).toString();
+    }
+
+    String multiArrayRuntimeWat() {
+        Map<String, MultiANewArrayInsnNode> sites = new TreeMap<>();
+        for(ClassNode type : linked.values()) for(MethodNode method : type.methods)
+            for(AbstractInsnNode instruction : method.instructions)
+                if(instruction instanceof MultiANewArrayInsnNode multi)
+                    sites.put(multiArraySymbol(multi.desc,multi.dims),multi);
+        StringBuilder wat = new StringBuilder();
+        for(var entry : sites.entrySet()) {
+            var multi = entry.getValue();
+            for(int level=0;level<multi.dims;level++) {
+                wat.append("(func ").append(entry.getKey()).append(level==0 ? "" : "_"+level);
+                for(int i=0;i<multi.dims;i++) wat.append(" (param $d").append(i).append(" i32)");
+                wat.append(" (result i32) (local $a i32) (local $i i32)\n");
+                if(level==0) for(int i=0;i<multi.dims;i++)
+                    wat.append("local.get $d").append(i).append(" i32.const 0 i32.lt_s if unreachable end\n");
+                String descriptor = multi.desc.substring(level);
+                BytecodeArrays.Primitive primitive = BytecodeArrays.primitive(descriptor);
+                wat.append("local.get $d").append(level).append(" i32.const ").append(arrayId(descriptor))
+                        .append(" i32.const ").append(primitive==null ? 4 : primitive.width())
+                        .append(" call $__new_primitive_array local.set $a\n");
+                if(level+1<multi.dims) {
+                    wat.append("block $done loop $next local.get $i local.get $d").append(level)
+                            .append(" i32.ge_u br_if $done\nlocal.get $a i32.const 8 i32.add local.get $i i32.const 4 i32.mul i32.add\n");
+                    for(int i=0;i<multi.dims;i++) wat.append("local.get $d").append(i).append(' ');
+                    wat.append("call ").append(entry.getKey()).append('_').append(level+1)
+                            .append(" i32.store\nlocal.get $i i32.const 1 i32.add local.set $i br $next end end\n");
+                }
+                wat.append("local.get $a)\n");
+            }
+        }
         return wat.toString();
     }
 

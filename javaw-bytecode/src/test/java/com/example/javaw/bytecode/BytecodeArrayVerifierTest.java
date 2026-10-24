@@ -115,8 +115,8 @@ class BytecodeArrayVerifierTest implements Opcodes {
         assertDoesNotThrow(() -> jvm(owner)); assertDoesNotThrow(() -> BytecodeCompiler.compileClass(bytes(owner)));
     }
 
-    @Test void diagnosesUnlinkedInaccessibleAndNestedArrayComponents() {
-        for(String component : new String[]{"missing/Type", "[I", "[Ljava/lang/Object;", "other/Hidden"}) {
+    @Test void diagnosesUnlinkedInaccessibleAndMalformedArrayComponents() {
+        for(String component : new String[]{"missing/Type", "[Lmissing/Type;", "[V", "other/Hidden"}) {
             ClassNode owner = owner("()V"); var code = owner.methods.get(0).instructions;
             code.add(new InsnNode(ICONST_0)); code.add(new TypeInsnNode(ANEWARRAY,component));
             code.add(new InsnNode(POP)); code.add(new InsnNode(RETURN));
@@ -134,6 +134,32 @@ class BytecodeArrayVerifierTest implements Opcodes {
             code.add(new InsnNode(RETURN));
             assertDoesNotThrow(() -> jvm(owner)); assertDoesNotThrow(() -> BytecodeCompiler.compileClass(bytes(owner)));
         }
+    }
+
+    @Test void rejectsMalformedMultidimensionalAllocationsLikeJvm() {
+        for(String descriptor : new String[]{"I","[I","[[I","[V","[".repeat(256)+"I","[[Lmissing/Type;"}) {
+            int dimensions = descriptor.equals("[I") ? 2 : descriptor.equals("[[I") ? 0 : 1;
+            ClassNode owner=owner("()V"); var code=owner.methods.get(0).instructions;
+            for(int i=0;i<dimensions;i++) code.add(new InsnNode(ICONST_1));
+            code.add(new MultiANewArrayInsnNode(descriptor,dimensions));
+            code.add(new InsnNode(POP)); code.add(new InsnNode(RETURN));
+            if(descriptor.contains("missing")) {
+                String message=assertThrows(IllegalArgumentException.class,()->BytecodeCompiler.compileClass(bytes(owner))).getMessage();
+                assertTrue(message.contains("ArrayTypes.java:7:"),message);
+                assertTrue(message.contains("multidimensional array allocation"),message);
+            } else reject(owner);
+        }
+        ClassNode owner=owner("()V"); var code=owner.methods.get(0).instructions;
+        code.add(new InsnNode(ICONST_1)); code.add(new InsnNode(FCONST_0));
+        code.add(new MultiANewArrayInsnNode("[[I",2)); code.add(new InsnNode(POP)); code.add(new InsnNode(RETURN));
+        reject(owner);
+    }
+
+    @Test void admitsMaximumRankPartialAllocation() {
+        ClassNode owner=owner("()V"); var code=owner.methods.get(0).instructions;
+        code.add(new InsnNode(ICONST_0)); code.add(new MultiANewArrayInsnNode("[".repeat(255)+"I",1));
+        code.add(new InsnNode(ARRAYLENGTH)); code.add(new InsnNode(POP)); code.add(new InsnNode(RETURN));
+        assertDoesNotThrow(() -> jvm(owner)); assertDoesNotThrow(() -> BytecodeCompiler.compileClass(bytes(owner)));
     }
 
     @Test void rejectsInvalidPrimitiveAllocationTagsAndRetainsNullArrayTyping() {

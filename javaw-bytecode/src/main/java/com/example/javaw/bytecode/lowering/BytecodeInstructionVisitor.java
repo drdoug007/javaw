@@ -439,6 +439,15 @@ public class BytecodeInstructionVisitor {
                 emit("local.set " + stack.peek());
                 break;
 
+            case Opcodes.MULTIANEWARRAY: {
+                MultiANewArrayInsnNode multi = (MultiANewArrayInsnNode) insn;
+                String[] sizes = new String[multi.dims];
+                for(int i=multi.dims-1;i>=0;i--) sizes[i]=stack.pop();
+                for(String size : sizes) emit("local.get " + size);
+                emit("call " + BytecodeDispatch.multiArraySymbol(multi.desc,multi.dims));
+                emit("local.set " + stack.push("i32"));
+                break;
+            }
             case Opcodes.ANEWARRAY:
                 emit("local.get " + stack.pop());
                 emit("i32.const " + dispatch.referenceArrayId(((TypeInsnNode) insn).desc));
