@@ -289,6 +289,7 @@ public final class DependencyAudit {
         findings(directory, "normalized-opcodes.tsv", "artifact\topcode\tname", normalizedOpcodes);
         findings(directory, "unsupported-opcodes.tsv", "artifact\topcode\tname", opcodes);
         findings(directory, "member-references.tsv", "artifact\topcodeOrNegativeHandleTag\towner\tmember\tdescriptor", members);
+        CoreJdkCoverage.write(directory);
         files(directory,"bootstrap-sites.tsv","artifact\tsite\tinstructionOrdinal\tkind\tname\tdescriptor\tbootstrap\targuments\targumentTypes\timplementationHandleTag\tlambdaFlags",bootstrapSites);
         findings(directory,"dynamic-runtime.tsv","artifact\tmechanism\topcodeOrNegativeHandleTag\towner\tmember\tdescriptor",dynamicRuntime);
         findings(directory, "requirements.tsv", "artifact\tcategory\tsymbol", features);

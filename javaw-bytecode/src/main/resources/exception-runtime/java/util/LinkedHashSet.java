@@ -1,0 +1,2 @@
+package java.util;import java.util.function.*;
+public class LinkedHashSet<E> extends HashSet<E> implements Set<E>{public LinkedHashSet(){map=new LinkedHashMap<E,Object>();}public LinkedHashSet(int capacity){map=new LinkedHashMap<E,Object>(capacity);}public LinkedHashSet(int capacity,float loadFactor){map=new LinkedHashMap<E,Object>(capacity,loadFactor);}public LinkedHashSet(Collection<? extends E> values){this();addAll(values);}}

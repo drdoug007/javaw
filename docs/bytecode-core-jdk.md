@@ -45,3 +45,38 @@ Arrays.asList returns a fixed-size view over the original reference array; set w
 BytecodeArrayListTest compares JVM/Wasm copying, self-addition, indexed/bulk mutations, nested views, list iterators, exhaustion and invalidation, clone subclass identity/independent storage, typed-array allocation/reuse/type failures and fixed-size backing-array aliasing. It executes the **unchanged entire** pinned Byte Buddy 1.14.11 `net.bytebuddy.utility.CompoundList` class and all four public composition overloads, including empty/singleton branches, null elements, copy independence, equality/hash/text and mutation/null failures. The artifact SHA-256 is `62ae28187ed2b062813da6a9d567bfee733c341582699b62dd980230729a0313`. Both fixtures run in normal/reversed JAR order and two independent Wasm instances. This proves this list-composition utility, not Byte Buddy runtime generation or full framework startup.
 
 Validation: all 246 bytecode tests pass; the reviewed 63-JAR audit baseline passes with unchanged inventory counts and revision `array-lists-v48`.
+
+
+## Functional interfaces, comparators and Optional
+
+Revision `core-functions-maps-v49` bundles the standard `java.util.function` interface families, including generic and primitive consumers, predicates, suppliers, functions, conversions and operators, plus Runnable. Composition preserves callback order, short-circuiting, exceptions and eager null checks on composition arguments. Function/operator identity and predicate/min/max factories are available. These are ordinary bytecode declarations and implementations; the compiler's existing lambda linkage supplies application lambda objects.
+
+Comparator supports natural/reverse ordering, nullable keys, generic and primitive key extraction, and chained/reversed comparison. Factory comparators carry the Serializable marker; object serialization remains a separate unsupported runtime capability. Iterable/Iterator traversal, Collection.removeIf, List.replaceAll/sort and stable comparator-based Arrays object sorting use these contracts. Sorting currently uses insertion sort, without JDK performance guarantees.
+
+Optional, OptionalInt, OptionalLong and OptionalDouble support value construction, presence/access, conditional callbacks, eager/lazy fallbacks, supplied exceptions, equality/hash/text, and generic filter/map/flatMap/or. Null callback behavior depends on whether the operation actually invokes the callback, as on the JVM. OptionalDouble equality distinguishes signed zeros and equates NaNs. **Optional.stream and the stream families remain missing.** Numeric rendering retains the existing floating-point runtime's limits.
+
+BytecodeFunctionalTest compares JVM/Wasm generic and primitive composition, callback short-circuiting/failure identity, comparator sorting, collection traversal/mutation, Optional null/fallback/checked-exception behavior and floating equality. It executes the unchanged pinned Spring Core 6.1.5 `ThrowingFunction` and its entire anonymous helper class, including checked-exception wrapping and replacement. Artifact SHA-256: `476dac28509b3f47d0b5e895a639fa75ac2218f074ce214e44832a836c469f7e`. Tests use both JAR orders and two independent Wasm instances. This utility does not establish Spring startup.
+
+## Maps and sets
+
+The same revision supplies Map/Entry, AbstractMap, HashMap, LinkedHashMap, Set, AbstractSet, HashSet and LinkedHashSet. Maps support null keys/values, stored key hash/equality lookup (including view operations after key mutation), live key/value/entry views, iterator removal, mutable entries, map/entry equality/hash/text, conditional updates, compute/merge, callback traversal and clone isolation. Entry factories provide key/value comparators; SimpleEntry and SimpleImmutableEntry retain their separate JDK type hierarchies. Sets support equality/hash and bulk removal, with insertion-order iteration for LinkedHashSet.
+
+LinkedHashMap preserves insertion or access ordering, including successful conditional updates and getOrDefault, invalidates iterators on access reordering, and honors removeEldestEntry. Bulk insertion and compute/merge bypass overridden public put methods; insertion hashes a key once. Cloning copies entry storage without calling subclass insertion/eviction hooks and preserves the concrete subtype. HashMap callback methods detect structural mutation and raise ConcurrentModificationException; callback side effects remain visible. Fail-fast iteration is a single-threaded contract, without a concurrency guarantee.
+
+HashMap currently scans stored-hash nodes linearly; it does not provide JDK hash-table complexity. Its iteration order is unspecified to callers. These classes supply a selected API subset, with no serialization engine, concurrent collections, sorted/identity/enum/weak maps, immutable factory maps/sets or general collection wrappers yet.
+
+BytecodeMapTest compares collisions, nulls, live views, mutation/failure behavior, access order, eviction and independent clones with the JVM. It executes the unchanged pinned ANTLR 4.13.0 `OrderedHashSet` class, including subtype cloning, indexed replacement and its unsupported removal contract. Artifact SHA-256: `bd7f7b5d07bc0b047f10915b32ca4bb1de9e57d8049098882e4453c88c076a5d`. Both JAR orders and two independent Wasm instances are tested. This establishes the utility's tested paths, not complete ANTLR or framework execution.
+
+## Signature inventory and remaining work
+
+The pinned audit now writes `core-jdk-linkage.tsv` and `core-jdk-linkage-summary.tsv` under `runtime-target/target/audit/`. Each selected member-reference row retains its artifact, instruction/handle kind, descriptor, occurrence count and first site, with one of these declaration statuses:
+
+- `declared-signature`: the bundled runtime or an inherited declaration supplies the exact member name and descriptor, including intrinsic Object declarations.
+- `missing-owner`: there is no bundled declaration for the referenced owner.
+- `missing-member`: the owner exists, but the exact member descriptor is absent. Constructors are never inherited.
+
+Summary counts deduplicate owner/name/descriptor across artifacts and instruction kinds. The selected scope covers core text/wrapper/numeric types, java.math, the main collection families, functional interfaces and streams. I/O, resources, locale and concurrency remain separate milestones. The report inventories references across whole selected JARs; it does **not** establish method-level runtime reachability, access/invocation-kind validity, successful compiler admission or executable semantics. A declaration is not evidence that all its paths run.
+
+At this revision, 1,337 distinct selected signatures comprise 531 declared signatures, 281 missing members and 525 missing owners. Remaining work includes streams/collectors/spliterators, Math and big-number APIs, collection families/wrappers/factories, broader Arrays operations and remaining text/wrapper signatures. The parent milestone remains open until the required reachable APIs have execution evidence; these counts must not be represented as a compatibility percentage.
+
+Validation: all 252 bytecode tests pass; the final nine focused functional/map/audit tests pass after the last behavioral fixes. The reviewed 63-JAR audit baseline passes with unchanged inventory counts and revision `core-functions-maps-v49`.

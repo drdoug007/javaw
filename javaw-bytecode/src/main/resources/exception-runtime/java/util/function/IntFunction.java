@@ -1,0 +1,2 @@
+package java.util.function;import java.util.Objects;
+@FunctionalInterface public interface IntFunction<R>{R apply(int value);}

@@ -63,3 +63,8 @@ Validation: all 244 bytecode tests pass; the reviewed 63-JAR audit baseline pass
 Revision `array-lists-v48` begins the collection APIs identified in member references: ArrayList construction, add/addAll, access/removal and List/Collection iterator operations. Tests execute the unchanged pinned Byte Buddy CompoundList class with all public composition overloads, including singleton fast paths and mutable copies. [The list contract](bytecode-core-jdk.md#lists-and-iterators) distinguishes this utility execution from broader Byte Buddy/framework startup and records remaining collection blockers.
 
 Validation: all 246 bytecode tests pass; the reviewed 63-JAR audit baseline passes with unchanged inventory counts and revision `array-lists-v48`.
+
+
+Revision `core-functions-maps-v49` adds functional/Optional/comparator and map/set bytecode runtime subsets, tested with unchanged pinned Spring ThrowingFunction and ANTLR OrderedHashSet classes. The audit emits `core-jdk-linkage.tsv` and its distinct-signature summary, distinguishing exact declarations from missing owners/members. These whole-JAR signature counts do not establish method-level runtime reachability or executable semantics. [The supported contracts, evidence and remaining gaps](bytecode-core-jdk.md#functional-interfaces-comparators-and-optional) keep the parent core JDK and framework-startup milestones open.
+
+Validation: all 252 bytecode tests pass; the final nine focused functional/map/audit tests pass after the last behavioral fixes. The reviewed 63-JAR audit baseline passes with unchanged inventory counts and revision `core-functions-maps-v49`.

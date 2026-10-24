@@ -565,3 +565,6 @@ Revision `integral-values-v47` supplies Integer/Long signed radix parsing and fo
 ## Bytecode lists and iterators
 
 Revision `array-lists-v48` adds the basic Iterable/Collection/List hierarchy, iterators and ArrayList with mutation, typed arrays, equality/hash/text, clone and backed views. Small Arrays/Collections list factories support unchanged pinned Byte Buddy CompoundList execution. [The list contract](bytecode-core-jdk.md#lists-and-iterators) records supported behavior, failure and aliasing semantics, real-artifact evidence and exclusions. Maps/sets, functional traversal, streams and general collection algorithms remain open.
+
+
+Revision `core-functions-maps-v49` adds functional/Optional/comparator and map/set bytecode runtime subsets, tested with unchanged pinned Spring ThrowingFunction and ANTLR OrderedHashSet classes. The audit emits `core-jdk-linkage.tsv` and its distinct-signature summary, distinguishing exact declarations from missing owners/members. These whole-JAR signature counts do not establish method-level runtime reachability or executable semantics. [The supported contracts, evidence and remaining gaps](bytecode-core-jdk.md#functional-interfaces-comparators-and-optional) keep the parent core JDK and framework-startup milestones open.

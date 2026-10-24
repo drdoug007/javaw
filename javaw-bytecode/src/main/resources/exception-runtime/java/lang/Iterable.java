@@ -1,2 +1,2 @@
 package java.lang;
-public interface Iterable<T>{java.util.Iterator<T> iterator();}
+public interface Iterable<T>{java.util.Iterator<T> iterator();default void forEach(java.util.function.Consumer<? super T> action){java.util.Objects.requireNonNull(action);for(T value:this)action.accept(value);}}

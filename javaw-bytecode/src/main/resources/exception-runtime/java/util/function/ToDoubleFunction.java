@@ -1,0 +1,2 @@
+package java.util.function;import java.util.Objects;
+@FunctionalInterface public interface ToDoubleFunction<T>{double applyAsDouble(T value);}
