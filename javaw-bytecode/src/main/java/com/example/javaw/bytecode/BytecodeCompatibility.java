@@ -33,6 +33,8 @@ final class BytecodeCompatibility {
             Opcodes.F2D, Opcodes.D2I, Opcodes.D2L, Opcodes.D2F, Opcodes.FRETURN, Opcodes.DRETURN,
             Opcodes.IRETURN, Opcodes.ARETURN, Opcodes.RETURN);
 
+    static boolean admittedOpcode(int opcode) { return OPCODES.contains(opcode); }
+
     static void validate(ClassNode owner, Map<String, ClassNode> linked) {
         BytecodeHierarchy.validate(owner, linked);
         BytecodeObjectLayouts layouts = new BytecodeObjectLayouts(linked);
