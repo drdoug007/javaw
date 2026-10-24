@@ -46,6 +46,7 @@ def main():
         summary = {row['metric']: row['value'] for row in csv.DictReader(stream, delimiter='\t')}
     report = {'schemaVersion': 1, 'summary': summary,
               'unsupportedOpcodeOccurrences': counts('unsupported-opcodes.tsv', 'name'),
+              'normalizedOpcodeOccurrences': counts('normalized-opcodes.tsv', 'name'),
               'requirementOccurrences': counts('requirements.tsv', 'category'),
               'bootstrapOccurrences': counts('requirements.tsv', 'symbol', 'invokedynamic-bootstrap')}
     encoded = json.dumps(report, indent=2, sort_keys=True) + '\n'

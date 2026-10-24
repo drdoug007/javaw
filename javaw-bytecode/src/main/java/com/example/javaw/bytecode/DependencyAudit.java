@@ -22,7 +22,7 @@ public final class DependencyAudit {
         void add(String site) { count++; if (first == null || site.compareTo(first) < 0) first = site; }
     }
     private final SortedMap<String, ClassInfo> classes = new TreeMap<>();
-    private final SortedMap<String, Finding> opcodes = new TreeMap<>(), members = new TreeMap<>(), features = new TreeMap<>();
+    private final SortedMap<String, Finding> normalizedOpcodes = new TreeMap<>(), opcodes = new TreeMap<>(), members = new TreeMap<>(), features = new TreeMap<>();
     private final SortedSet<String> resources = new TreeSet<>(), providers = new TreeSet<>(), artifacts = new TreeSet<>();
     private final SortedSet<String> duplicateClasses = new TreeSet<>();
     private int classCount;
@@ -125,7 +125,9 @@ public final class DependencyAudit {
             for (AbstractInsnNode insn : method.instructions) {
                 annotations(refs, insn.visibleTypeAnnotations); annotations(refs, insn.invisibleTypeAnnotations);
                 int opcode = insn.getOpcode();
-                if (opcode >= 0 && !BytecodeCompatibility.admittedOpcode(opcode))
+                if (BytecodeInput.normalizedOpcode(opcode))
+                    finding(normalizedOpcodes, row(artifact, opcode, BytecodeCompatibility.opcodeName(opcode)), site);
+                else if (opcode >= 0 && !BytecodeCompatibility.admittedOpcode(opcode))
                     finding(opcodes, row(artifact, opcode, BytecodeCompatibility.opcodeName(opcode)), site);
                 if (insn instanceof TypeInsnNode test) addType(refs, test.desc);
                 else if (insn instanceof FieldInsnNode field) member(artifact, refs, opcode, field.owner, field.name, field.desc, site);
@@ -139,6 +141,14 @@ public final class DependencyAudit {
                 }
             }
         }
+        boolean legacy = false;
+        for (MethodNode method : type.methods) {
+            if (Arrays.stream(method.instructions.toArray()).anyMatch(insn -> BytecodeInput.normalizedOpcode(insn.getOpcode()))) {
+                legacy = true;
+                finding(features, row(artifact, "normalized-subroutine-method", method.name + method.desc), type.name);
+            }
+        }
+        if (legacy) BytecodeInput.normalize(type); // Verify the real dependency methods can be normalized.
         refs.remove(type.name);
     }
 
@@ -247,6 +257,7 @@ public final class DependencyAudit {
         files(directory, "resources.tsv", "artifact\tresource\tkind\tbytes", resources);
         files(directory, "services.tsv", "artifact\tserviceResource\tprovider", providers);
         files(directory, "duplicate-classes.tsv", "class\tfirstArtifact\totherArtifact", duplicateClasses);
+        findings(directory, "normalized-opcodes.tsv", "artifact\topcode\tname", normalizedOpcodes);
         findings(directory, "unsupported-opcodes.tsv", "artifact\topcode\tname", opcodes);
         findings(directory, "member-references.tsv", "artifact\topcodeOrNegativeHandleTag\towner\tmember\tdescriptor", members);
         findings(directory, "requirements.tsv", "artifact\tcategory\tsymbol", features);

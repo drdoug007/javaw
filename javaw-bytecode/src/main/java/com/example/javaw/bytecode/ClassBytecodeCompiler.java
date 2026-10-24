@@ -5,7 +5,6 @@ import com.example.javaw.bytecode.cfg.BasicBlock;
 import com.example.javaw.bytecode.cfg.ControlFlowGraph;
 import com.example.javaw.bytecode.lowering.BytecodeInstructionVisitor;
 import com.example.javaw.bytecode.lowering.StackToLocalMapper;
-import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.*;
 
@@ -20,14 +19,12 @@ public class ClassBytecodeCompiler {
     private final List<String> globalVariables = new ArrayList<>();
 
     public ClassBytecodeCompiler(ClassNode classNode) {
+        BytecodeInput.normalize(classNode);
         this.classNode = classNode;
     }
 
     public static ClassBytecodeCompiler fromBytes(byte[] classBytes) {
-        ClassReader cr = new ClassReader(classBytes);
-        ClassNode cn = new ClassNode();
-        cr.accept(cn, 0);
-        return new ClassBytecodeCompiler(cn);
+        return new ClassBytecodeCompiler(BytecodeInput.read(classBytes));
     }
 
     public String compileToWat() {

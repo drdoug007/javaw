@@ -1,7 +1,6 @@
 package com.example.javaw.bytecode;
 
 import com.example.javaw.FloatingPointSupport;
-import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.tree.ClassNode;
 
 import java.io.*;
@@ -39,9 +38,7 @@ public class BytecodeCompiler {
                 while ((r = jis.read(buf)) != -1) {
                     baos.write(buf, 0, r);
                 }
-                ClassReader cr = new ClassReader(baos.toByteArray());
-                ClassNode cn = new ClassNode();
-                cr.accept(cn, 0);
+                ClassNode cn = BytecodeInput.read(baos.toByteArray());
                 classes.add(cn);
             }
         }

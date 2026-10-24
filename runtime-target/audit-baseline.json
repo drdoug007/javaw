@@ -5,6 +5,10 @@
     "java/lang/invoke/StringConcatFactory.makeConcatWithConstants(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;": 8917,
     "java/lang/runtime/ObjectMethods.bootstrap(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/TypeDescriptor;Ljava/lang/Class;Ljava/lang/String;[Ljava/lang/invoke/MethodHandle;)Ljava/lang/Object;": 151
   },
+  "normalizedOpcodeOccurrences": {
+    "JSR": 162,
+    "RET": 77
+  },
   "requirementOccurrences": {
     "class-initializer": 5581,
     "class-resource-service-loading": 518,
@@ -16,6 +20,7 @@
     "method-handles": 17488,
     "native": 90,
     "network": 1963,
+    "normalized-subroutine-method": 61,
     "platform": 2238,
     "reflection": 15693,
     "string-constant": 97230,
@@ -27,7 +32,7 @@
     "analysis": "class-reference estimate; reflection/resources/generated classes are not complete reachability",
     "artifacts": "63",
     "classDefinitions": "26625",
-    "compilerRevision": "1.0-SNAPSHOT-overrides-v13",
+    "compilerRevision": "1.0-SNAPSHOT-subroutines-v14",
     "duplicateClasses": "0",
     "javaFeature": "17",
     "resources": "734",
@@ -53,14 +58,12 @@
     "IALOAD": 2487,
     "IASTORE": 4578,
     "INVOKEDYNAMIC": 17383,
-    "JSR": 162,
     "LALOAD": 125,
     "LASTORE": 2732,
     "MONITORENTER": 919,
     "MONITOREXIT": 2020,
     "MULTIANEWARRAY": 3,
     "NEWARRAY": 2300,
-    "RET": 77,
     "SALOAD": 26,
     "SASTORE": 70
   }

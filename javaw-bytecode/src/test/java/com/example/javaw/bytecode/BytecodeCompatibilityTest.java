@@ -1765,6 +1765,88 @@ class BytecodeCompatibilityTest {
                 "assert.equal(e['Fixture.run'](),"+expected+");");
     }
 
+    @Test void matchesJvmLegacySharedNestedAndWideSubroutines() throws Exception {
+        ClassWriter writer=new ClassWriter(0);
+        writer.visit(Opcodes.V1_5,Opcodes.ACC_PUBLIC,"Legacy",null,"java/lang/Object",null);
+        writer.visitSource("Legacy.java",null);
+        MethodVisitor shared=writer.visitMethod(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"shared","(I)I",null,null);
+        shared.visitCode();Label negative=new Label(),exit=new Label(),sub=new Label();
+        shared.visitInsn(Opcodes.ICONST_0);shared.visitVarInsn(Opcodes.ISTORE,1);
+        shared.visitVarInsn(Opcodes.ILOAD,0);shared.visitJumpInsn(Opcodes.IFLT,negative);
+        shared.visitJumpInsn(Opcodes.JSR,sub);shared.visitJumpInsn(Opcodes.JSR,sub);shared.visitJumpInsn(Opcodes.GOTO,exit);
+        shared.visitLabel(negative);shared.visitJumpInsn(Opcodes.JSR,sub);
+        shared.visitLabel(exit);shared.visitVarInsn(Opcodes.ILOAD,1);shared.visitInsn(Opcodes.IRETURN);
+        shared.visitLabel(sub);shared.visitVarInsn(Opcodes.ASTORE,300);shared.visitIincInsn(1,5);shared.visitVarInsn(Opcodes.RET,300);
+        shared.visitMaxs(1,301);shared.visitEnd();
+        MethodVisitor nested=writer.visitMethod(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"nested","(I)I",null,null);
+        nested.visitCode();Label outer=new Label(),inner=new Label();
+        nested.visitVarInsn(Opcodes.ILOAD,0);nested.visitVarInsn(Opcodes.ISTORE,1);nested.visitJumpInsn(Opcodes.JSR,outer);
+        nested.visitVarInsn(Opcodes.ILOAD,1);nested.visitInsn(Opcodes.IRETURN);
+        nested.visitLabel(outer);nested.visitVarInsn(Opcodes.ASTORE,2);nested.visitIincInsn(1,10);
+        nested.visitJumpInsn(Opcodes.JSR,inner);nested.visitVarInsn(Opcodes.RET,2);
+        nested.visitLabel(inner);nested.visitVarInsn(Opcodes.ASTORE,3);nested.visitIincInsn(1,1);nested.visitVarInsn(Opcodes.RET,3);
+        nested.visitMaxs(1,4);nested.visitEnd();
+        MethodVisitor stack=writer.visitMethod(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"stack","(J)J",null,null);
+        stack.visitCode();Label cleanup=new Label();
+        stack.visitVarInsn(Opcodes.LLOAD,0);stack.visitJumpInsn(Opcodes.JSR,cleanup);
+        stack.visitLdcInsn(2L);stack.visitInsn(Opcodes.LADD);stack.visitInsn(Opcodes.LRETURN);
+        stack.visitLabel(cleanup);stack.visitVarInsn(Opcodes.ASTORE,2);stack.visitVarInsn(Opcodes.RET,2);
+        stack.visitMaxs(4,3);stack.visitEnd();writer.visitEnd();
+        byte[] bytes=writer.toByteArray();Files.write(directory.resolve("Legacy.class"),bytes);
+        Path oracle=directory.resolve("Oracle.java");
+        Files.writeString(oracle,"""
+            public class Oracle {public static void main(String[] args){
+                for(int n=-3;n<=3;n++){
+                    System.out.println(Legacy.shared(n));System.out.println(Legacy.nested(n));
+                    System.out.println(Legacy.stack(n));
+                }
+            }}
+            """);
+        assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,"-cp",directory.toString(),
+                "-d",directory.toString(),oracle.toString()));
+        run("java","-cp",directory.toString(),"Oracle");
+        var expected=Files.readAllLines(directory.resolve("command.log"));assertEquals(21,expected.size());
+        String assertions="const expected=["+String.join(",",expected)+"];\n"+"""
+            for(let n=-3;n<=3;n++){
+                const i=(n+3)*3;
+                assert.equal(e['Legacy.shared'](n),expected[i]);
+                assert.equal(e['Legacy.nested'](n),expected[i+1]);
+                assert.equal(e['Legacy.stack'](BigInt(n)),BigInt(expected[i+2]));
+            }
+            """;
+        execute(BytecodeCompiler.compileClass(bytes),assertions);
+        execute(linkJar("Legacy"),assertions);
+        ClassNode direct=new ClassNode();new ClassReader(bytes).accept(direct,0);
+        execute(new ClassBytecodeCompiler(direct).compileToWat(),assertions);
+    }
+
+    @Test void legacyNormalizationPreservesHandlersAndSourceMetadataAndRejectsRecursion() {
+        for(boolean recursive:new boolean[]{false,true}) {
+            ClassNode type=new ClassNode();type.name="Legacy";type.superName="java/lang/Object";
+            type.sourceFile="Legacy.java";type.version=Opcodes.V1_5;type.access=Opcodes.ACC_PUBLIC;
+            MethodNode method=new MethodNode(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"run","()V",null,null);
+            LabelNode start=new LabelNode(),end=new LabelNode(),sub=new LabelNode(),handler=new LabelNode();
+            method.instructions.add(start);method.instructions.add(new LineNumberNode(7,start));
+            method.instructions.add(new JumpInsnNode(Opcodes.JSR,sub));method.instructions.add(end);
+            method.instructions.add(new InsnNode(Opcodes.RETURN));
+            method.instructions.add(sub);method.instructions.add(new VarInsnNode(Opcodes.ASTORE,0));
+            if(recursive)method.instructions.add(new JumpInsnNode(Opcodes.JSR,sub));
+            method.instructions.add(new VarInsnNode(Opcodes.RET,0));
+            method.instructions.add(handler);method.instructions.add(new InsnNode(Opcodes.ATHROW));
+            if(!recursive)method.tryCatchBlocks.add(new TryCatchBlockNode(start,end,handler,null));
+            method.maxLocals=1;method.maxStack=1;type.methods.add(method);
+            String error=assertThrows(IllegalArgumentException.class,
+                    ()->new ClassBytecodeCompiler(type).compileToWat()).getMessage();
+            assertTrue(error.contains("Legacy.java:7:"),error);
+            assertTrue(error.contains(recursive?"legacy subroutine":"exception handler table"),error);
+            if(!recursive){
+                MethodNode normalized=type.methods.get(0);assertFalse(normalized.tryCatchBlocks.isEmpty());
+                assertTrue(java.util.Arrays.stream(normalized.instructions.toArray())
+                        .noneMatch(insn->insn.getOpcode()==Opcodes.JSR||insn.getOpcode()==Opcodes.RET));
+            }
+        }
+    }
+
     private String linkJar(String... names) throws Exception {
         var bytes=new java.io.ByteArrayOutputStream();
         try(var jar=new java.util.jar.JarOutputStream(bytes)) {

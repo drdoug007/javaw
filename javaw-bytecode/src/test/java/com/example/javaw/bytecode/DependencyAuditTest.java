@@ -102,6 +102,22 @@ class DependencyAuditTest {
         assertFalse(features.contains(directory.toString()));
     }
 
+    @Test void separatesAndVerifiesNormalizedSubroutinesFromUnsupportedInstructions() throws Exception {
+        ClassWriter writer = new ClassWriter(0);
+        writer.visit(Opcodes.V1_5, Opcodes.ACC_PUBLIC, "Legacy", null, "java/lang/Object", null);
+        MethodVisitor method = writer.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "run", "()V", null, null);
+        method.visitCode(); Label sub = new Label(); method.visitJumpInsn(Opcodes.JSR, sub);
+        method.visitInsn(Opcodes.RETURN); method.visitLabel(sub); method.visitVarInsn(Opcodes.ASTORE, 0);
+        method.visitVarInsn(Opcodes.RET, 0); method.visitMaxs(1, 1); method.visitEnd(); writer.visitEnd();
+        DependencyAudit audit = new DependencyAudit();
+        audit.scan("legacy", jar("legacy.jar", false, Map.of("Legacy.class", writer.toByteArray())), 17);
+        Path output = directory.resolve("legacy-report"); audit.write(output, List.of("Legacy"), 17);
+        assertTrue(Files.readString(output.resolve("normalized-opcodes.tsv")).contains("\t168\tJSR\t1\t"));
+        assertTrue(Files.readString(output.resolve("normalized-opcodes.tsv")).contains("\t169\tRET\t1\t"));
+        assertFalse(Files.readString(output.resolve("unsupported-opcodes.tsv")).contains("JSR"));
+        assertTrue(Files.readString(output.resolve("requirements.tsv")).contains("normalized-subroutine-method"));
+    }
+
     @Test void reportsDuplicatesAndRejectsMissingRootsWithoutTreatingNonMultiReleaseEntriesAsClasses() throws Exception {
         Path jar = jar("ordinary.jar", false, Map.of("Root.class", simple("Root", "BaseOnly"),
                 "META-INF/versions/17/Root.class", simple("Root", "ShouldBeIgnored")));

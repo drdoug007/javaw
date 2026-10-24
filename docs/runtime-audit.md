@@ -8,6 +8,7 @@ The initial scan selected Java 17 multi-release entries from 63 JARs and found 2
 | --- | --- |
 | `summary.tsv` / `summary.json` | Compiler revision, target Java level, roots, counts and analysis limits; JSON adds aggregated opcode/feature/bootstrap counts |
 | `artifacts.tsv`, `classes.tsv` | Entire locked closure and static class-reference estimate |
+| `normalized-opcodes.tsv` | Raw legacy subroutine occurrences handled by preprocessing; the audit verifies their classes can be normalized |
 | `unsupported-opcodes.tsv` | All currently unadmitted instruction occurrences, grouped by artifact/opcode with first method evidence |
 | `member-references.tsv` | Field/method/handle references with descriptors, counts and first referencing method; negative opcode values identify bootstrap method-handle tags |
 | `requirements.tsv` | Initialization, handlers, strings, bootstrap sites, native/synchronized/volatile declarations and platform/reflection/I/O/concurrency lookups |
@@ -19,7 +20,7 @@ The roots are `org/h2/Driver`, `org/hibernate/cfg/Configuration`, and `org/sprin
 
 Concrete blocker ordering from this scan:
 
-1. Continue declaration/reference/uninitialized-object verification. Byte Buddy 1.14.11 contains legacy JSR/RET subroutines (162/77 occurrences), including `TypeCache$WithInlineExpunction.find`; normalize these before ordinary frame analysis or prove specific paths excluded by a supported configuration.
+1. Continue declaration/reference/uninitialized-object verification. Byte Buddy 1.14.11 contains legacy JSR/RET subroutines (162/77 occurrences), including `TypeCache$WithInlineExpunction.find`; normalization before ordinary frame analysis is now implemented and verified across all 61 affected methods. Other Byte Buddy requirements remain open.
 2. Arrays, catchable exceptions and automatic initialization are immediate H2 requirements. H2 alone has 3,106 exception-table entries and 305 static initializers, in addition to JDBC/JDK linkage.
 3. Build runtime strings/classes and required JDK members before bootstrap/reflection integration. The scan found StringConcatFactory (8,917 sites), LambdaMetafactory.metafactory (8,269), altMetafactory (46), and record ObjectMethods.bootstrap (151). Constant-dynamic scanning is tested, but the pinned selected closure initially contains no constant-dynamic sites.
 4. Reflection, annotation/service/resource lookup, method handles, Byte Buddy/proxy/enhancement behavior and framework conditionals require actual startup traces and targeted tests. No report treats static analysis as a substitute for those execution gates.
