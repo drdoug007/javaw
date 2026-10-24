@@ -398,6 +398,85 @@ class BytecodeExceptionRuntimeTest implements Opcodes {
         }
     }
 
+    @Test void executesCatchableArrayFailuresAndExhaustedHeapWithoutAllocatingErrorObjects() throws Exception {
+        Path source=directory.resolve("ArrayFailures.java");
+        Files.writeString(source,"""
+            public class ArrayFailures {
+                static int ticks;
+                static int prefix;
+                private static int leaf(int kind,int size) {
+                    int[] ints=new int[2]; Object[] refs=new ArrayBox[2];
+                    switch(kind) {
+                        case 0:return ((int[])null).length;
+                        case 1:return ((long[])null)[0]==0?1:2;
+                        case 2:((Object[])null)[0]=null;return 0;
+                        case 3:return ints[size];
+                        case 4:ints[size]=7;return 0;
+                        case 5:refs[0]=new ArrayOther();return 0;
+                        case 6:return new int[size].length;
+                        case 7:return new int[0][size].length;
+                        case 8:System.arraycopy(null,0,ints,0,0);return 0;
+                        case 9:System.arraycopy(ints,0,new long[2],0,0);return 0;
+                        case 10:System.arraycopy(ints,size,ints,0,1);return 0;
+                        case 11:
+                            Object[] values={new ArrayBox(),new ArrayOther()};
+                            try{System.arraycopy(values,0,refs,0,2);}finally{prefix=refs[0]!=null?1:0;}
+                            return 0;
+                        case 12:return new long[size].length;
+                        default:System.arraycopy(new ArrayOther(),0,ints,0,0);return 0;
+                    }
+                }
+                public static int run(int kind,int size) {
+                    ticks=0;prefix=0;
+                    try {try{return leaf(kind,size);}finally{ticks+=3;}}
+                    catch(NullPointerException e){return 100+ticks;}
+                    catch(ArrayIndexOutOfBoundsException e){return 200+ticks;}
+                    catch(ArrayStoreException e){return 300+ticks+prefix;}
+                    catch(NegativeArraySizeException e){return 400+ticks;}
+                    catch(OutOfMemoryError e){return 500+ticks;}
+                }
+                public static int allocate(){try{new ArrayBox();return 0;}catch(OutOfMemoryError e){return 9;}}
+                public static void escape(){new ArrayBox();}
+            }
+            class ArrayBox {} class ArrayOther {}
+            """);
+        assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,"-g","-d",directory.toString(),source.toString()));
+        Map<String,byte[]> definitions=new LinkedHashMap<>();
+        for(String name:List.of("ArrayFailures","ArrayBox","ArrayOther"))definitions.put(name,Files.readAllBytes(directory.resolve(name+".class")));
+        definitions.put("java/lang/Throwable",throwable());
+        for(String name:List.of("NullPointerException","ArrayIndexOutOfBoundsException","ArrayStoreException","NegativeArraySizeException","OutOfMemoryError"))
+            definitions.put("java/lang/"+name,runtimeException(name,83));
+        StringBuilder checks=new StringBuilder();
+        try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)) {
+            Class<?> jvm=loader.loadClass("ArrayFailures");
+            for(int kind=0;kind<14;kind++)for(int size:new int[]{-1,0,1,2,3}) {
+                int expected=(int)jvm.getMethod("run",int.class,int.class).invoke(null,kind,size);
+                checks.append("assert.equal(e['ArrayFailures.run'](").append(kind).append(',').append(size).append("),").append(expected).append(");");
+            }
+        }
+        checks.append("""
+            assert.equal(e['ArrayFailures.run'](12,2147483647),503);
+            assert.ok(e.__exception_heap_base.value<=1024);
+            const failed=new WebAssembly.Instance(compiled,{env:{memory:new WebAssembly.Memory({initial:2,maximum:20}),__heap_alloc:()=>0}}).exports;
+            assert.equal(failed['ArrayFailures.allocate'](),9);
+            let pointer=0;
+            for(let i=0;i<3;i++)assert.throws(()=>failed['ArrayFailures.escape'](),error=>{
+                assert.ok(error.is(failed.__java_exception));
+                const ref=error.getArg(failed.__java_exception,0);assert.ok(ref>0);
+                if(pointer)assert.equal(ref,pointer);pointer=ref;return true;
+            });
+            assert.equal(failed['ArrayFailures.run'](0,0),503);
+            """);
+        for(boolean reverse:new boolean[]{false,true}) {
+            List<String> names=new ArrayList<>(definitions.keySet());if(reverse)Collections.reverse(names);
+            ByteArrayOutputStream bytes=new ByteArrayOutputStream();
+            try(JarOutputStream jar=new JarOutputStream(bytes)) {
+                for(String name:names){jar.putNextEntry(new JarEntry(name+".class"));jar.write(definitions.get(name));jar.closeEntry();}
+            }
+            execute(BytecodeCompiler.compileJar(new ByteArrayInputStream(bytes.toByteArray())),checks.toString());
+        }
+    }
+
     private void run(String... args) throws Exception {
         Path log=directory.resolve("command.log");
         Process process=new ProcessBuilder(args).redirectErrorStream(true).redirectOutput(log.toFile()).start();

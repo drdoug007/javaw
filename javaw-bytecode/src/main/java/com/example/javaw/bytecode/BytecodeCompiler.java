@@ -51,8 +51,6 @@ public class BytecodeCompiler {
         if (classes.stream().anyMatch(ClassBytecodeCompiler::usesFloatingRemainder))
             combinedWat.append(FloatingPointSupport.remainderFunctionsWat());
 
-        if (classes.stream().anyMatch(BytecodeArrays::usesRuntime))
-            combinedWat.append(BytecodeArrays.runtimeWat());
 
         Map<String, ClassNode> linked = new LinkedHashMap<>();
         for (ClassNode cn : classes) {
@@ -61,6 +59,7 @@ public class BytecodeCompiler {
                         "provide exactly one definition of " + cn.name + " in the linked JAR");
         }
         BytecodeDispatch runtimeDispatch = new BytecodeDispatch(linked);
+        if (classes.stream().anyMatch(BytecodeArrays::usesRuntime)) combinedWat.append(BytecodeArrays.runtimeWat(runtimeDispatch));
         Set<BytecodeExceptions.Implicit> implicit = EnumSet.noneOf(BytecodeExceptions.Implicit.class);
         for (ClassNode type : classes) implicit.addAll(BytecodeExceptions.implicitRuntime(type, runtimeDispatch));
         if (!implicit.isEmpty() || classes.stream().anyMatch(BytecodeExceptions::usesRuntime)) combinedWat.append(BytecodeExceptions.TAG_WAT);

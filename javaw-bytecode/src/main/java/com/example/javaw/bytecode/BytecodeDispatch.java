@@ -138,6 +138,10 @@ public final class BytecodeDispatch {
         return linked.containsKey(kind.className);
     }
 
+    public String implicitFailureWat(BytecodeExceptions.Implicit kind) {
+        return hasImplicitException(kind) ? "call " + kind.helper + " unreachable" : "unreachable";
+    }
+
     String implicitExceptionRuntimeWat(BytecodeExceptions.Implicit kind) {
         String name = kind.className;
         String simpleName = name.substring(name.lastIndexOf('/') + 1);
@@ -154,9 +158,20 @@ public final class BytecodeDispatch {
                 throw new IllegalArgumentException("link a public bytecode " + simpleName + "() constructor");
             Integer size = layouts.sizes().get(name);
             if (size == null) throw new IllegalArgumentException("link a complete " + simpleName + " object layout through Object");
+            if (kind == BytecodeExceptions.Implicit.OUT_OF_MEMORY) {
+                // The host must reserve this exported prefix. Throwing OOME cannot allocate.
+                StringBuilder data = new StringBuilder();
+                for (int i = 0; i < size; i++) {
+                    int value = i < 4 ? (classId(name) >>> (i * 8)) & 255 : 0;
+                    data.append(String.format(java.util.Locale.ROOT, "\\%02x", value));
+                }
+                return "    (global (export \"__exception_heap_base\") i32 (i32.const " + (8 + size) + "))\n"
+                        + "    (data (i32.const 8) \"" + data + "\")\n"
+                        + "    (func " + kind.helper + " i32.const 8 throw $__java_exception)\n";
+            }
             return "    (func " + kind.helper + " (local $exception i32)\n"
                     + "        i32.const " + size + "\n        call $__heap_alloc\n        local.tee $exception\n"
-                    + "        i32.eqz\n        if\n            unreachable\n        end\n"
+                    + "        i32.eqz\n        if\n            " + implicitFailureWat(BytecodeExceptions.Implicit.OUT_OF_MEMORY) + "\n        end\n"
                     + "        local.get $exception\n        i32.const 0\n        i32.const " + size + "\n        memory.fill\n"
                     + "        local.get $exception\n        i32.const " + classId(name) + "\n        i32.store\n"
                     + "        local.get $exception\n        call " + TypeHelper.getMethodFunctionName(name, "<init>", "()V") + "\n"
@@ -227,10 +242,10 @@ public final class BytecodeDispatch {
     /** Store checks use the actual array component, independent of its static covariant type. */
     String referenceArrayRuntimeWat() {
         StringBuilder wat = new StringBuilder("(func $__reference_array_address (param $a i32) (param $i i32) (result i32)\n");
-        wat.append("local.get $a i32.eqz if unreachable end\nlocal.get $a i32.load\n");
+        wat.append("local.get $a i32.eqz if ").append(implicitFailureWat(BytecodeExceptions.Implicit.NULL_POINTER)).append(" end\nlocal.get $a i32.load\n");
         // All reference-array tags are below the reserved primitive-tag range.
         wat.append("i32.const -100 i32.gt_s if unreachable end\n");
-        wat.append("local.get $i local.get $a i32.load offset=4 i32.ge_u if unreachable end\n");
+        wat.append("local.get $i local.get $a i32.load offset=4 i32.ge_u if ").append(implicitFailureWat(BytecodeExceptions.Implicit.BOUNDS)).append(" end\n");
         wat.append("local.get $a i32.const 8 i32.add local.get $i i32.const 4 i32.mul i32.add)\n");
         wat.append("(func $__reference_array_store (param $a i32) (param $i i32) (param $v i32) (local $p i32)\n");
         wat.append("local.get $a local.get $i call $__reference_array_address local.set $p\n");
@@ -242,7 +257,7 @@ public final class BytecodeDispatch {
             wat.append("i32.const 0\n");
             for (int id : metadata.typeTestIds(entry.getKey()))
                 wat.append("local.get $v i32.load i32.const ").append(id).append(" i32.eq i32.or\n");
-            wat.append("i32.eqz if unreachable end\nend\n");
+            wat.append("i32.eqz if ").append(implicitFailureWat(BytecodeExceptions.Implicit.ARRAY_STORE)).append(" end\nend\n");
         }
         wat.append("end local.get $p local.get $v i32.store)\n");
         return wat.toString();
@@ -281,7 +296,7 @@ public final class BytecodeDispatch {
                 for(int i=0;i<multi.dims;i++) wat.append(" (param $d").append(i).append(" i32)");
                 wat.append(" (result i32) (local $a i32) (local $i i32)\n");
                 if(level==0) for(int i=0;i<multi.dims;i++)
-                    wat.append("local.get $d").append(i).append(" i32.const 0 i32.lt_s if unreachable end\n");
+                    wat.append("local.get $d").append(i).append(" i32.const 0 i32.lt_s if ").append(implicitFailureWat(BytecodeExceptions.Implicit.NEGATIVE_SIZE)).append(" end\n");
                 String descriptor = multi.desc.substring(level);
                 BytecodeArrays.Primitive primitive = BytecodeArrays.primitive(descriptor);
                 wat.append("local.get $d").append(level).append(" i32.const ").append(arrayId(descriptor))

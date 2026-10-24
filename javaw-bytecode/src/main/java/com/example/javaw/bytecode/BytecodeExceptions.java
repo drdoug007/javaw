@@ -13,7 +13,11 @@ public final class BytecodeExceptions {
     public enum Implicit {
         ARITHMETIC("ArithmeticException", "arithmetic"),
         NULL_POINTER("NullPointerException", "null_pointer"),
-        CLASS_CAST("ClassCastException", "class_cast");
+        CLASS_CAST("ClassCastException", "class_cast"),
+        BOUNDS("ArrayIndexOutOfBoundsException", "bounds"),
+        ARRAY_STORE("ArrayStoreException", "array_store"),
+        NEGATIVE_SIZE("NegativeArraySizeException", "negative_size"),
+        OUT_OF_MEMORY("OutOfMemoryError", "out_of_memory");
 
         public final String className;
         public final String helper;
@@ -30,6 +34,8 @@ public final class BytecodeExceptions {
                         || opcode == Opcodes.PUTFIELD || opcode == Opcodes.INVOKEVIRTUAL
                         || opcode == Opcodes.INVOKEINTERFACE || opcode == Opcodes.INVOKESPECIAL;
                 case CLASS_CAST -> opcode == Opcodes.CHECKCAST;
+                case OUT_OF_MEMORY -> opcode == Opcodes.NEW;
+                default -> false;
             };
         }
     }
@@ -40,6 +46,12 @@ public final class BytecodeExceptions {
             for (var instruction : method.instructions)
                 for (Implicit kind : Implicit.values())
                     if (kind.uses(instruction.getOpcode()) && dispatch.hasImplicitException(kind)) result.add(kind);
+        if (BytecodeArrays.usesRuntime(type))
+            for (Implicit kind : new Implicit[]{Implicit.NULL_POINTER, Implicit.BOUNDS, Implicit.ARRAY_STORE,
+                    Implicit.NEGATIVE_SIZE, Implicit.OUT_OF_MEMORY})
+                if (dispatch.hasImplicitException(kind)) result.add(kind);
+        // Allocating any exception may itself exhaust the host heap.
+        if (!result.isEmpty() && dispatch.hasImplicitException(Implicit.OUT_OF_MEMORY)) result.add(Implicit.OUT_OF_MEMORY);
         return result;
     }
 

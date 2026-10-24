@@ -542,11 +542,11 @@ public class BytecodeInstructionVisitor {
                 emit("i32.const " + objectSize);
                 emit("call $__heap_alloc");
                 emit("local.set " + newRef);
-                // A null allocation is an allocation failure, not a null dereference.
+                // A null allocation must not be reported as a null dereference.
                 emit("local.get " + newRef);
                 emit("i32.eqz");
                 emit("if");
-                emit("unreachable");
+                emitImplicitFailure(Implicit.OUT_OF_MEMORY);
                 emit("end");
                 // Java defaults apply even if the host allocator returns dirty memory.
                 emit("local.get " + newRef);
@@ -645,7 +645,7 @@ public class BytecodeInstructionVisitor {
     }
 
     private void emitImplicitFailure(Implicit kind) {
-        emit(dispatch != null && dispatch.hasImplicitException(kind) ? "call " + kind.helper : "unreachable");
+        emit(dispatch != null ? dispatch.implicitFailureWat(kind) : "unreachable");
     }
 
     private void emitNullGuard(String reference) {

@@ -64,7 +64,7 @@ public class ClassBytecodeCompiler {
             wat.append(FloatingPointSupport.remainderFunctionsWat());
 
         if (includeNumericRuntime && BytecodeArrays.usesRuntime(classNode))
-            wat.append(BytecodeArrays.runtimeWat()).append(dispatch.referenceArrayRuntimeWat()).append(dispatch.multiArrayRuntimeWat());
+            wat.append(BytecodeArrays.runtimeWat(dispatch)).append(dispatch.referenceArrayRuntimeWat()).append(dispatch.multiArrayRuntimeWat());
 
         // Collect fields
         for (FieldNode fn : classNode.fields) {
