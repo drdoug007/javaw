@@ -34,6 +34,7 @@ final class BytecodeCompatibility {
             Opcodes.IRETURN, Opcodes.ARETURN, Opcodes.RETURN);
 
     static void validate(ClassNode owner, Map<String, ClassNode> linked) {
+        BytecodeHierarchy.validate(owner, linked);
         BytecodeObjectLayouts layouts = new BytecodeObjectLayouts(linked);
         BytecodeDispatch dispatch = new BytecodeDispatch(linked, owner.name);
         Map<String, Integer> offsets = layouts.offsets();

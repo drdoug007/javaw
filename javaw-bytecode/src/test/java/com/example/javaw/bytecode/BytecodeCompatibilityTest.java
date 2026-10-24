@@ -1481,8 +1481,12 @@ class BytecodeCompatibilityTest {
             if(scenario.equals("initializer"))call.name="<clinit>";
             String error=assertThrows(IllegalArgumentException.class,
                     ()->new ClassBytecodeCompiler(caller).compileToWat(linked),scenario).getMessage();
-            assertTrue(error.contains("special call "),scenario+": "+error);
-            assertTrue(error.contains("q.Caller.call()I"),error);
+            if(java.util.Set.of("owner","interface","missing","cycle").contains(scenario))
+                assertTrue(error.contains("hierarchy declaration"),scenario+": "+error);
+            else {
+                assertTrue(error.contains("special call "),scenario+": "+error);
+                assertTrue(error.contains("q.Caller.call()I"),error);
+            }
         }
     }
 
@@ -1591,8 +1595,12 @@ class BytecodeCompatibilityTest {
             if(scenario.equals("noMethod"))iface.methods.clear();
             String error=assertThrows(IllegalArgumentException.class,
                     ()->new ClassBytecodeCompiler(caller).compileToWat(linked),scenario).getMessage();
-            assertTrue(error.contains(scenario.equals("wrongReference")?"special call ":"interface super call "),scenario+": "+error);
-            assertTrue(error.contains("Caller.call()I"),error);
+            if(java.util.Set.of("inaccessible","classOwner","missing","cycle").contains(scenario))
+                assertTrue(error.contains("hierarchy declaration"),scenario+": "+error);
+            else {
+                assertTrue(error.contains(scenario.equals("wrongReference")?"special call ":"interface super call "),scenario+": "+error);
+                assertTrue(error.contains("Caller.call()I"),error);
+            }
         }
     }
 
@@ -1687,6 +1695,23 @@ class BytecodeCompatibilityTest {
         }
     }
 
+    @Test void executesSharedInterfaceDiamondsWithAbstractParentsAndFinalLeaves() throws Exception {
+        fixture("""
+            public class Fixture {public static int run(){return new Leaf().value();}}
+            interface Root {int seed();default int value(){return seed()+1;}}
+            interface Left extends Root {}
+            interface Right extends Root {}
+            interface Diamond extends Left,Right {}
+            interface Other extends Right,Left {}
+            abstract class Base implements Diamond {}
+            final class Leaf extends Base implements Other {public int seed(){return 42;}}
+            """);
+        execute(linkJar("Leaf","Base","Other","Diamond","Right","Left","Root","Fixture"),
+                "assert.equal(e['Fixture.run'](),43);");
+        execute(linkJar("Fixture","Root","Left","Right","Diamond","Other","Base","Leaf"),
+                "assert.equal(e['Fixture.run'](),43);");
+    }
+
     private String linkJar(String... names) throws Exception {
         var bytes=new java.io.ByteArrayOutputStream();
         try(var jar=new java.util.jar.JarOutputStream(bytes)) {
@@ -1759,8 +1784,9 @@ class BytecodeCompatibilityTest {
             owner.methods.add(method);
             var error=assertThrows(IllegalArgumentException.class,
                     () -> new ClassBytecodeCompiler(owner).compileToWat());
-            assertTrue(error.getMessage().contains("Broken.create()LBroken;"),error.getMessage());
-            assertTrue(error.getMessage().contains("complete superclass chain"),error.getMessage());
+            assertTrue(error.getMessage().contains("Broken.java:line unavailable: Broken:"),error.getMessage());
+            assertTrue(error.getMessage().contains("hierarchy declaration"),error.getMessage());
+            assertTrue(error.getMessage().contains(cycle?"cyclic":"missing superclass"),error.getMessage());
         }
     }
 
