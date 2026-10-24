@@ -37,3 +37,9 @@ Int/long abs preserve Java minimum-value overflow; absExact throws. Float/double
 ## 9. Math floor, ceil, rint and round
 
 Floating rounding supports ties-to-even rint, ties-toward-positive-infinity round, saturating integral results, NaN/infinity and signed zero. Bit-based round avoids adding 0.5 before rounding. Boundary tests and 10,000 deterministic floating bit patterns compare against the JVM; transcendental and remaining Math APIs stay open. Revision `floating-rounding-v59`. `BytecodeNumericTest` compares javac-produced bytecode on the JVM and in Node/Wasm, in both JAR orders and two independent instances. Other APIs remain subject to admission diagnostics.
+
+## 10. Collections sorting, search and mutation algorithms
+
+Collections sort/binarySearch, min/max (natural/custom), reverse/swap/fill/copy, addAll/frequency/disjoint/replaceAll and sublist searches execute with nulls, backed views and typed failures. Sorting uses the existing stable insertion-sort backend; random-access search and other algorithms do not promise JDK complexity. Tests also execute unchanged hash-verified Byte Buddy 1.14.11 CompoundList output through these APIs. Wrappers, other factory/algorithm families, streams and broader JDK APIs remain open. Revision `collection-algorithms-v60`. `BytecodeNumericTest` compares javac-produced bytecode on the JVM and in Node/Wasm, in both JAR orders and two independent instances. Other APIs remain subject to admission diagnostics.
+
+Validation: all 266 bytecode tests pass; the reviewed 63-JAR audit baseline passes with unchanged inventory counts and compiler revision `collection-algorithms-v60`.

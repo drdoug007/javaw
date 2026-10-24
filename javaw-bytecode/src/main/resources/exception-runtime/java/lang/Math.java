@@ -1,6 +1,6 @@
 package java.lang;
 
-/** Integral extrema used by linked core utility classes. */
+/** Selected numeric operations for the isolated linked bytecode runtime. */
 public final class Math {
     private Math() {}
     public static int max(int a,int b){return a>=b?a:b;}

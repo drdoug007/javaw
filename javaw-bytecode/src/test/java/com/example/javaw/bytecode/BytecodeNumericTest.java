@@ -179,6 +179,50 @@ int hash=1;double[] values={0.0,-0.0,0.5,-0.5,1.5,-1.5,2.5,-2.5,0.49999999999999
             """); compare(List.of("run"));
     }
 
+    @Test void collectionAlgorithms() throws Exception {
+        fixture("""
+            public class Metadata { public static int run() {
+java.util.List<Integer> list=new java.util.ArrayList<>(java.util.Arrays.asList(3,1,2,1));int hash=1;
+ java.util.Collections.sort(list);hash=31*hash+list.hashCode();
+ for(int key=-1;key<6;key++)hash=31*hash+java.util.Collections.binarySearch(list,key);
+ hash+=java.util.Collections.min(list)+java.util.Collections.max(list);java.util.Collections.reverse(list);hash=31*hash+list.hashCode();
+ java.util.Collections.sort(list,java.util.Comparator.reverseOrder());for(int key=-1;key<6;key++)hash=31*hash+java.util.Collections.binarySearch(list,key,java.util.Comparator.reverseOrder());
+ hash+=java.util.Collections.min(list,java.util.Comparator.reverseOrder())+java.util.Collections.max(list,java.util.Comparator.reverseOrder());
+ java.util.Collections.swap(list,0,3);hash=31*hash+list.hashCode();java.util.Collections.fill(list.subList(1,3),9);hash=31*hash+list.hashCode();
+ java.util.Collections.copy(list,java.util.Arrays.asList(7,8));hash=31*hash+list.hashCode();java.util.Collections.copy(list.subList(1,4),list.subList(0,3));hash=31*hash+list.hashCode();
+ hash+=java.util.Collections.addAll(list,1,2,1,2)?7:0;hash+=java.util.Collections.frequency(list,1);hash+=java.util.Collections.disjoint(list,java.util.Arrays.asList(99))?11:0;
+ hash+=java.util.Collections.indexOfSubList(list,java.util.Arrays.asList(1,2));hash+=java.util.Collections.lastIndexOfSubList(list,java.util.Arrays.asList(1,2));
+ hash+=java.util.Collections.indexOfSubList(list,java.util.Collections.emptyList());hash+=java.util.Collections.lastIndexOfSubList(list,java.util.Collections.emptyList());
+ hash+=java.util.Collections.replaceAll(list,1,null)?13:0;hash+=java.util.Collections.frequency(list,null);hash+=java.util.Collections.replaceAll(list,null,1)?17:0;
+ hash+=java.util.Collections.disjoint(list,java.util.Arrays.asList(1))?19:23;
+ java.util.Collections.reverse(java.util.Collections.singletonList(1));
+ try{java.util.Collections.min(java.util.Collections.<Integer>emptyList());throw new Error();}catch(java.util.NoSuchElementException e){hash++;}
+ try{java.util.Collections.copy(java.util.Collections.emptyList(),list);throw new Error();}catch(IndexOutOfBoundsException e){hash++;}
+ try{java.util.Collections.fill(java.util.Collections.singletonList(1),2);throw new Error();}catch(UnsupportedOperationException e){hash++;}
+ try{java.util.Collections.swap(list,-1,0);throw new Error();}catch(IndexOutOfBoundsException e){hash++;}
+ try{java.util.Collections.binarySearch(java.util.Arrays.asList(1),null);throw new Error();}catch(NullPointerException e){hash++;}
+ return hash+list.hashCode();
+            }}
+            """); compare(List.of("run"));
+    }
+
+    @Test void pinnedLibraryListAlgorithms() throws Exception {
+        Path artifact=Path.of(System.getProperty("maven.repo.local",Path.of(System.getProperty("user.home"),".m2","repository").toString())).resolve("net/bytebuddy/byte-buddy/1.14.11/byte-buddy-1.14.11.jar");
+        assertEquals("62ae28187ed2b062813da6a9d567bfee733c341582699b62dd980230729a0313",java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(artifact))));
+        fixtureClasspath=artifact.toString();
+        fixture("""
+            import java.util.*;import net.bytebuddy.utility.CompoundList;
+            public class Metadata {public static int run(){
+                List<Integer> values=CompoundList.of(Arrays.asList(9,3,7),Arrays.asList(2,3,1));
+                Collections.sort(values);int hash=values.hashCode();hash+=Collections.binarySearch(values,3)+Collections.min(values)+Collections.max(values);
+                Collections.reverse(values);Collections.replaceAll(values,3,11);return 31*hash+values.hashCode();
+            }}
+            """);
+        Path selected=directory.resolve("net/bytebuddy/utility/CompoundList.class");Files.createDirectories(selected.getParent());byte[] original;
+        try(JarFile jar=new JarFile(artifact.toFile())){original=jar.getInputStream(jar.getJarEntry("net/bytebuddy/utility/CompoundList.class")).readAllBytes();}
+        Files.write(selected,original);compare(List.of("run"));assertArrayEquals(original,Files.readAllBytes(selected));
+    }
+
     private void compare(List<String> names) throws Exception {
         StringBuilder assertions=new StringBuilder();
         try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)){

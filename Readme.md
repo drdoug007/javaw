@@ -1884,20 +1884,9 @@ The selected whole-JAR signature inventory adds 70 declarations (601 declared; 7
 
 Validation: all 255 bytecode tests pass; the reviewed 63-JAR audit baseline passes with unchanged inventory counts and revision `array-utilities-v50`.
 
-- Bytecode core JDK subset: Integer bit operations and reductions; validated by `BytecodeNumericTest` against JVM execution. See [the numeric and utility contract](docs/bytecode-numeric-utilities.md).
 
-- Bytecode core JDK subset: Long bit operations and reductions; validated by `BytecodeNumericTest` against JVM execution. See [the numeric and utility contract](docs/bytecode-numeric-utilities.md).
+Core JDK bytecode progress (`collection-algorithms-v60`): ten further subsets add Integer/Long bit operations, unsigned arithmetic and radix conversion, checked additive arithmetic and multiplication, full/high products, floor division/modulus, absolute values/extrema/signs, floating rounding, and Collections sorting/search/mutation algorithms. `BytecodeNumericTest` compares each subset with JVM execution in both JAR orders and independent Wasm instances, including unchanged pinned Byte Buddy CompoundList output. See [the supported APIs and limitations](docs/bytecode-numeric-utilities.md).
 
-- Bytecode core JDK subset: Unsigned Integer arithmetic and text; validated by `BytecodeNumericTest` against JVM execution. See [the numeric and utility contract](docs/bytecode-numeric-utilities.md).
+The selected whole-JAR inventory now declares 646 signatures, with 205 missing members and 486 missing owners (691 missing signatures). This is declaration inventory, not a runtime compatibility percentage. Streams/collectors, big numbers/transcendental Math, broader collection factories/wrappers, remaining text/wrapper APIs and full H2/Spring/Hibernate execution remain open.
 
-- Bytecode core JDK subset: Unsigned Long arithmetic and text; validated by `BytecodeNumericTest` against JVM execution. See [the numeric and utility contract](docs/bytecode-numeric-utilities.md).
-
-- Bytecode core JDK subset: Checked additive Math operations; validated by `BytecodeNumericTest` against JVM execution. See [the numeric and utility contract](docs/bytecode-numeric-utilities.md).
-
-- Bytecode core JDK subset: Checked multiplication and full/high products; validated by `BytecodeNumericTest` against JVM execution. See [the numeric and utility contract](docs/bytecode-numeric-utilities.md).
-
-- Bytecode core JDK subset: Math floor division and modulus; validated by `BytecodeNumericTest` against JVM execution. See [the numeric and utility contract](docs/bytecode-numeric-utilities.md).
-
-- Bytecode core JDK subset: Math absolute values, extrema and signs; validated by `BytecodeNumericTest` against JVM execution. See [the numeric and utility contract](docs/bytecode-numeric-utilities.md).
-
-- Bytecode core JDK subset: Math floor, ceil, rint and round; validated by `BytecodeNumericTest` against JVM execution. See [the numeric and utility contract](docs/bytecode-numeric-utilities.md).
+Validation: all 266 bytecode tests pass; the reviewed 63-JAR audit baseline passes with unchanged inventory counts and compiler revision `collection-algorithms-v60`.

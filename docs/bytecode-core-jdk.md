@@ -95,3 +95,8 @@ BytecodeArraysTest compares JVM/Wasm algorithms across all primitive kinds, natu
 The selected whole-JAR signature inventory now records 601 declared signatures, 250 missing members and 486 missing owners: 70 additional exact declarations. Every inventoried Arrays/Objects signature now has a declaration except Arrays.stream(Object[]). These are declaration counts, not method-level reachability or execution coverage. Streams/collectors/spliterators, big-number/broader Math APIs, remaining collection families/wrappers and text/wrapper gaps keep the parent milestone open. Parallel/stream array operations, additional range equality/mismatch/comparison overloads and full JDK Arrays coverage are not claimed.
 
 Validation: all 255 bytecode tests pass; the reviewed 63-JAR audit baseline passes with unchanged inventory counts and revision `array-utilities-v50`.
+
+
+## Numeric helpers and collection algorithms
+
+The ten subsequent subsets (`integer-bits-v51` through `collection-algorithms-v60`) are specified in [the numeric and utility contract](bytecode-numeric-utilities.md). They add integral bit/unsigned APIs, checked arithmetic/products, division/sign/rounding helpers and collection algorithms. The selected signature inventory now has 646 declarations, 205 missing members and 486 missing owners across the same 1,337 signatures. These counts describe declarations only. Streams/collectors, big numbers, transcendental Math, broader collection wrappers/factories and remaining text/wrapper APIs remain open.
