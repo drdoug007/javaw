@@ -2,6 +2,10 @@ package javaw.runtime;
 
 /** Initialization failure adapters plus module-local stack/metadata intrinsics. */
 public final class ExceptionSupport {
+    public static long doubleBits(double value){return 0;}
+    public static int floatBits(float value){return 0;}
+    public static double doubleValue(long bits){return 0;}
+    public static float floatValue(int bits){return 0;}
     public static String concatValue(String value) { return value==null ? "null" : value; }
 
     public static Throwable initializationException(Throwable cause) {

@@ -17,11 +17,14 @@ import static org.junit.jupiter.api.Assertions.*;
 class BytecodeDynamicTest implements Opcodes {
     @TempDir Path directory;
     private String release="17";
+    private String fixtureClasspath;
 
     private byte[] fixture(String source) throws Exception {
         Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
-        assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,"-g","--release",release,
-                "-d",directory.toString(),file.toString()));
+        List<String> options=new ArrayList<>(List.of("-g","--release",release,"-d",directory.toString()));
+        if(fixtureClasspath!=null)options.addAll(List.of("-classpath",fixtureClasspath));
+        options.add(file.toString());
+        assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,options.toArray(String[]::new)));
         return jar(false);
     }
 
@@ -120,10 +123,36 @@ class BytecodeDynamicTest implements Opcodes {
         byte[] jar=fixture("""
             public class Metadata {
                 interface Fn {int value(int n);}
-                public static int run(int capture){Fn f=n->n+capture;return f.value(7);}
+                private int base=3;
+                private Fn factory(int capture){return n->base+n+capture;}
+                public static int run(int capture){return new Metadata().factory(capture).value(4);}
             }
             """);
         execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar)),"assert.equal(e['Metadata.run'](35),42);");
+    }
+
+    @Test void preservesDirectSpecialHandleCallerContext() throws Exception {
+        fixture("""
+            class Parent {public int value(){return 12;}}
+            public class Metadata extends Parent {
+                interface Fn {int get();}
+                public int value(){return 99;}
+                private int parentValue(){return super.value();}
+                private Fn factory(){return super::value;}
+                public static int run(){return new Metadata().factory().get();}
+            }
+            """);
+        Path file=directory.resolve("Metadata.class");
+        ClassNode type=new ClassNode();new ClassReader(Files.readAllBytes(file)).accept(type,0);
+        for(MethodNode method:type.methods)for(AbstractInsnNode insn:method.instructions)
+            if(insn instanceof InvokeDynamicInsnNode site)
+                site.bsmArgs[1]=new Handle(H_INVOKESPECIAL,"Metadata","parentValue","()I",false);
+        ClassWriter writer=new ClassWriter(ClassWriter.COMPUTE_MAXS);type.accept(writer);Files.write(file,writer.toByteArray());
+        try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)) {
+            assertEquals(12,loader.loadClass("Metadata").getMethod("run").invoke(null));
+        }
+        for(boolean reverse:new boolean[]{false,true})
+            execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),"assert.equal(e['Metadata.run'](),12);");
     }
 
     @Test void executesAlternateMarkerAndBridgeFactories() throws Exception {
@@ -147,20 +176,11 @@ class BytecodeDynamicTest implements Opcodes {
         }
     }
 
-    @Test void rejectsFloatingConcatAndSerializableFactoriesExplicitly() throws Exception {
-        byte[] jar=fixture("""
-            public class Metadata {public static String text(double value){return "value="+value;}}
-            """);
-        String failure=assertThrows(IllegalArgumentException.class,()->BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar))).getMessage();
-        assertTrue(failure.contains("floating-point"),failure);
-        byte[] serialized=fixture("""
-            public class Metadata {
-                interface Fn {int get();}
-                public static Object lambda(){return (Fn & java.io.Serializable)(()->1);}
-            }
-            """);
-        failure=assertThrows(IllegalArgumentException.class,()->BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(serialized))).getMessage();
-        assertTrue(failure.contains("serializable lambda"),failure);
+    @Test void rejectsUnsupportedBootstrapSignaturesExplicitly() throws Exception {
+        Handle wrong=new Handle(H_INVOKESTATIC,"java/lang/invoke/StringConcatFactory","makeConcatWithConstants","()V",false);
+        String failure=assertThrows(IllegalArgumentException.class,()->BytecodeCompiler.compileClassWithExceptionRuntime(dynamic(wrong,"x"))).getMessage();
+        assertTrue(failure.contains("unsupported string concatenation bootstrap"),failure);
+        assertTrue(failure.contains("Metadata.value"),failure);
     }
 
     private void addConstant(String methodName,String name,String descriptor,String bootstrapName,Object... arguments) throws Exception {
@@ -246,11 +266,11 @@ class BytecodeDynamicTest implements Opcodes {
 
     private static final Handle CONCAT=new Handle(H_INVOKESTATIC,"java/lang/invoke/StringConcatFactory","makeConcatWithConstants",
         "(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;",false);
-    private byte[] dynamic(Handle bootstrap,String recipe) {
+    private byte[] dynamic(Handle bootstrap,Object... arguments) {
         ClassWriter writer=new ClassWriter(ClassWriter.COMPUTE_FRAMES);writer.visit(V17,ACC_PUBLIC,"Metadata",null,"java/lang/Object",null);
         for(String name:List.of("value","other")) {
             MethodVisitor code=writer.visitMethod(ACC_PUBLIC|ACC_STATIC,name,"()Ljava/lang/String;",null,null);
-            code.visitCode();code.visitInvokeDynamicInsn("text","()Ljava/lang/String;",bootstrap,recipe);code.visitInsn(ARETURN);
+            code.visitCode();code.visitInvokeDynamicInsn("text","()Ljava/lang/String;",bootstrap,arguments);code.visitInsn(ARETURN);
             code.visitMaxs(0,0);code.visitEnd();
         }
         MethodVisitor code=writer.visitMethod(ACC_PUBLIC|ACC_STATIC,"caught","()I",null,null);
@@ -261,6 +281,26 @@ class BytecodeDynamicTest implements Opcodes {
         code.visitTypeInsn(INSTANCEOF,"java/lang/invoke/StringConcatException");code.visitInsn(IRETURN);
         code.visitMaxs(0,0);code.visitEnd();writer.visitEnd();return writer.toByteArray();
     }
+    @Test void preservesMalformedFixedBootstrapInvocationCauses() throws Exception {
+        for(Object[] arguments:new Object[][]{new Object[0],new Object[]{42}}) {
+            byte[] bytes=dynamic(CONCAT,arguments);
+            String cause=arguments.length==0?"java.lang.invoke.WrongMethodTypeException":"java.lang.ClassCastException";
+            Class<?> jvm=new ClassLoader(null){Class<?> load(){return defineClass("Metadata",bytes,0,bytes.length);}}.load();
+            Throwable failure=assertThrows(java.lang.reflect.InvocationTargetException.class,()->jvm.getMethod("value").invoke(null)).getCause();
+            assertInstanceOf(BootstrapMethodError.class,failure);assertEquals(cause,failure.getCause().getClass().getName());
+            execute(BytecodeCompiler.compileClassWithExceptionRuntime(bytes),"""
+                let first;
+                for(let attempt=0;attempt<2;attempt++) {
+                    try{e['Metadata.value']();assert.fail('invalid bootstrap linked');}
+                    catch(error){const pointer=error.getArg(e.__java_exception,0);
+                        const cause=e['java.lang.Throwable.getCause'](pointer);
+                        assert.equal(text(e['java.lang.Throwable.toString'](cause)),CAUSE);
+                        if(attempt===0)first=pointer;else assert.equal(pointer,first);}
+                }
+                """.replace("CAUSE",js(cause)));
+        }
+    }
+
     @Test void memoizesCatchableBootstrapFailuresAndDoesNotLinkAtModuleInstantiation() throws Exception {
         byte[] bytes=dynamic(CONCAT,"\u0001");
         execute(BytecodeCompiler.compileClassWithExceptionRuntime(bytes),"""
@@ -374,6 +414,178 @@ class BytecodeDynamicTest implements Opcodes {
                 assertEquals(InternalError.class,error.getClass());
                 if(attempt==0)assertEquals(Error.class,error.getCause().getClass());
             }
+        }
+    }
+
+    @Test void formatsFloatingConcatenationWithExactJavaRoundingAndNotation() throws Exception {
+        byte[] jar=fixture("""
+            public class Metadata {
+                public static String doubleText(long bits){return "v="+Double.longBitsToDouble(bits);}
+                public static String floatText(int bits){return "v="+Float.intBitsToFloat(bits);}
+            }
+            """);
+        List<Long> doubles=new ArrayList<>(List.of(0L,Long.MIN_VALUE,1L,2L,0xfffffffffffffL,0x10000000000000L,
+            0x7fefffffffffffffL,0x7ff0000000000000L,0xfff0000000000000L,0x7ff123456789abcdL));
+        for(double value:new double[]{0.1,1e-3,1e-4,1e6,1e7,1e23,Math.nextDown(1e7),Math.nextUp(1e-3),Math.PI})doubles.add(Double.doubleToRawLongBits(value));
+        List<Integer> floats=new ArrayList<>(List.of(0,Integer.MIN_VALUE,1,2,0x7fffff,0x800000,0x7f7fffff,0x7f800000,0xff800000,0x7fa12345));
+        for(float value:new float[]{0.1f,1e-3f,1e-4f,1e6f,1e7f,Math.nextDown(1e7f),Math.nextUp(1e-3f)})floats.add(Float.floatToRawIntBits(value));
+        Random random=new Random(101);for(int i=0;i<80;i++){doubles.add(random.nextLong());floats.add(random.nextInt());}
+        StringBuilder checks=new StringBuilder();
+        try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)) {
+            Class<?> jvm=loader.loadClass("Metadata");
+            for(long bits:doubles)checks.append("assert.equal(text(e['Metadata.doubleText'](").append(bits).append("n)),")
+                .append(js((String)jvm.getMethod("doubleText",long.class).invoke(null,bits))).append(");\n");
+            for(int bits:floats)checks.append("assert.equal(text(e['Metadata.floatText'](").append(bits).append(")),")
+                .append(js((String)jvm.getMethod("floatText",int.class).invoke(null,bits))).append(");\n");
+        }
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar)),checks.toString());
+    }
+
+    @Test void adaptsBoxingUnboxingAndPrimitiveWideningAndPreservesWrapperContracts() throws Exception {
+        byte[] jar=fixture("""
+            public class Metadata {
+                interface Boxed {Integer apply(Integer n);}
+                interface Wide {Number apply(byte n);}
+                interface Primitive {int get();}
+                interface Bool {Boolean apply(Boolean n);}
+                interface Char {Character apply(Character n);}
+                private static int twice(int n){return n*2;}
+                private static long wide(long n){return n+100;}
+                private static Integer number(){return Integer.valueOf(13);}
+                private static boolean negate(boolean n){return !n;}
+                private static char next(char n){return (char)(n+1);}
+                public static int boxing(){Boxed f=Metadata::twice;return f.apply(21);}
+                public static long widening(){Wide f=Metadata::wide;return f.apply((byte)7).longValue();}
+                public static int unboxing(){Primitive f=Metadata::number;return f.get();}
+                public static int nullUnbox(){Boxed f=Metadata::twice;try{f.apply(null);return 0;}catch(NullPointerException e){return 1;}}
+                public static int types(){Bool b=Metadata::negate;Char c=Metadata::next;return (b.apply(false)?100:0)+c.apply('a');}
+                public static int caches(){return (Integer.valueOf(-128)==Integer.valueOf(-128)?1:0)
+                    +(Long.valueOf(127)==Long.valueOf(127)?2:0)+(Short.valueOf((short)3)==Short.valueOf((short)3)?4:0)
+                    +(Byte.valueOf((byte)-128)==Byte.valueOf((byte)-128)?8:0)+(Character.valueOf('a')==Character.valueOf('a')?16:0)
+                    +(Boolean.valueOf(true)==Boolean.TRUE?32:0);}
+                public static int values(){return ((Number)Integer.valueOf(257)).byteValue()+Short.valueOf((short)-4).intValue()
+                    +((Comparable<Integer>)Integer.valueOf(3)).compareTo(Integer.valueOf(4));}
+                public static int floatingEquals(){return (Float.valueOf(Float.intBitsToFloat(0x7fa12345)).equals(Float.valueOf(Float.intBitsToFloat(0x7fc00000)))?1:0)
+                    +(!Double.valueOf(-0.0).equals(Double.valueOf(0.0))?2:0);}
+            }
+            """);
+        StringBuilder checks=new StringBuilder();
+        try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)) {
+            Class<?> jvm=loader.loadClass("Metadata");
+            for(String name:List.of("boxing","unboxing","nullUnbox","types","caches","values","floatingEquals"))checks.append("assert.equal(e['Metadata.")
+                .append(name).append("'](),").append(jvm.getMethod(name).invoke(null)).append(");\n");
+            checks.append("assert.equal(e['Metadata.widening'](),").append(jvm.getMethod("widening").invoke(null)).append("n);\n");
+        }
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar)),checks.toString());
+    }
+
+    @Test void executesRecordBootstrapsIncludingFloatingIdentityAndComponentOrder() throws Exception {
+        byte[] jar=fixture("""
+            public class Metadata {
+                record Value(int n,long wide,float f,double d,String text,Object other) {public int n(){return -1;}}
+                record Other(int n) {}
+                record Empty() {}
+                static int events;
+                static class Item {int n;Item(int n){this.n=n;}public String toString(){events=events*10+n;return "item";}
+                    public int hashCode(){events=events*10+n;return n;}public boolean equals(Object other){events=events*10+n;return other instanceof Item;}}
+                record Order(Item a,Item b) {}
+                public static String text(){return new Value(7,9007199254740993L,0.1f,-0.0,"str",null).toString();}
+                public static int hash(){return new Value(7,9007199254740993L,0.1f,-0.0,"str",null).hashCode();}
+                public static int equal(){Value a=new Value(1,2,Float.intBitsToFloat(0x7fa12345),3,null,"s");
+                    Value b=new Value(1,2,Float.intBitsToFloat(0x7fc00000),3,null,new String(new char[]{'s'}));
+                    return (a.equals(b)?1:0)+(!a.equals(new Other(1))?2:0)+(!a.equals(null)?4:0)
+                        +(!new Value(1,2,0.0f,3,null,null).equals(new Value(1,2,-0.0f,3,null,null))?8:0);}
+                public static int order(){events=0;new Order(new Item(1),new Item(2)).equals(new Order(new Item(3),new Item(4)));return events;}
+                public static int hashOrder(){events=0;new Order(new Item(1),new Item(2)).hashCode();return events;}
+                public static int textOrder(){events=0;new Order(new Item(1),new Item(2)).toString();return events;}
+                public static int empty(){return new Empty().equals(new Empty()) && new Empty().hashCode()==0 && new Empty().toString().equals("Empty[]")?1:0;}
+            }
+            """);
+        StringBuilder checks=new StringBuilder();
+        try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)) {
+            Class<?> jvm=loader.loadClass("Metadata");
+            checks.append("assert.equal(text(e['Metadata.text']()),").append(js((String)jvm.getMethod("text").invoke(null))).append(");\n");
+            for(String name:List.of("hash","equal","order","hashOrder","textOrder","empty"))checks.append("assert.equal(e['Metadata.").append(name)
+                .append("'](),").append(jvm.getMethod(name).invoke(null)).append(");\n");
+        }
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar)),checks.toString());
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(true))),checks.toString());
+    }
+
+    @Test void preservesSerializableFactoryMetadataAndJavacReconstruction() throws Exception {
+        byte[] jar=fixture("""
+            public class Metadata {
+                interface Fn {long apply(long n);}
+                public static Object create(long base,String text){return (Fn & java.io.Serializable)(n->base+n+text.length());}
+                public static long apply(Object fn,long n){return ((Fn)fn).apply(n);}
+                public static String text(){return "xy";}
+                public static String info(java.lang.invoke.SerializedLambda form){return form.getCapturingClass()+":"+form.getFunctionalInterfaceClass()
+                    +":"+form.getFunctionalInterfaceMethodName()+":"+form.getFunctionalInterfaceMethodSignature()+":"+form.getImplMethodKind()
+                    +":"+form.getImplClass()+":"+form.getImplMethodName()+":"+form.getImplMethodSignature()+":"+form.getInstantiatedMethodType();}
+                public static long captures(java.lang.invoke.SerializedLambda form){return ((Long)form.getCapturedArg(0)).longValue()+((String)form.getCapturedArg(1)).length();}
+                public static int serializable(Object fn){return fn instanceof java.io.Serializable?1:0;}
+            }
+            """);
+        String expectedInfo;long expectedCaptures,expectedResult;
+        try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)) {
+            Class<?> jvm=loader.loadClass("Metadata");Object fn=jvm.getMethod("create",long.class,String.class).invoke(null,9007199254740993L,"xy");
+            var writeReplace=fn.getClass().getDeclaredMethod("writeReplace");writeReplace.setAccessible(true);
+            Object form=writeReplace.invoke(fn);expectedInfo=(String)jvm.getMethod("info",java.lang.invoke.SerializedLambda.class).invoke(null,form);
+            expectedCaptures=(long)jvm.getMethod("captures",java.lang.invoke.SerializedLambda.class).invoke(null,form);
+            var deserialize=jvm.getDeclaredMethod("$deserializeLambda$",java.lang.invoke.SerializedLambda.class);deserialize.setAccessible(true);
+            Object copy=deserialize.invoke(null,form);expectedResult=(long)jvm.getMethod("apply",Object.class,long.class).invoke(null,copy,7L);
+        }
+        String wat=BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar));
+        // Export the private serialization hooks only in this test artifact; production visibility stays private.
+        wat=exportHook(wat,"serialize","Metadata$$javaw$dynamic$0$lambda","writeReplace","()Ljava/lang/Object;");
+        wat=exportHook(wat,"deserialize","Metadata","$deserializeLambda$","(Ljava/lang/invoke/SerializedLambda;)Ljava/lang/Object;");
+        execute(wat,"""
+            const fn=e['Metadata.create'](9007199254740993n,e['Metadata.text']());
+            assert.equal(e['Metadata.serializable'](fn),1);
+            const form=e.serialize(fn);
+            """+"assert.equal(text(e['Metadata.info'](form)),"+js(expectedInfo)+");\n"
+            +"assert.equal(e['Metadata.captures'](form),"+expectedCaptures+"n);\n"
+            +"assert.equal(e['Metadata.apply'](e.deserialize(form),7n),"+expectedResult+"n);\n");
+    }
+    private String exportHook(String wat,String export,String owner,String method,String descriptor) {
+        return wat.substring(0,wat.lastIndexOf(')'))+"(export \""+export+"\" (func "+TypeHelper.getMethodFunctionName(owner,method,descriptor)+"))\n)\n";
+    }
+
+    @Test void executesUnchangedPinnedSpringBootLambdaAndRecordClasses() throws Exception {
+        Path repository=Path.of(System.getProperty("maven.repo.local",Path.of(System.getProperty("user.home"),".m2","repository").toString()));
+        Path boot=repository.resolve("org/springframework/boot/spring-boot/3.2.4/spring-boot-3.2.4.jar");
+        Path auto=repository.resolve("org/springframework/boot/spring-boot-autoconfigure/3.2.4/spring-boot-autoconfigure-3.2.4.jar");
+        assertEquals("f9bbba10663bbe4675264aeb07197629f1bbcac611189f8987a46c82f7ffb95a",sha256(boot));
+        assertEquals("14b4694e1a782ea946264a7676da2936d2474abf0f875739b1af5da3bb7ad85b",sha256(auto));
+        fixtureClasspath=boot+File.pathSeparator+auto;
+        fixture("""
+            import org.springframework.boot.context.properties.bind.PlaceholdersResolver;
+            import org.springframework.boot.autoconfigure.amqp.RabbitConnectionDetails.Address;
+            public class Metadata {
+                public static int lambdaIdentity(){Object value=new Object();return PlaceholdersResolver.NONE.resolvePlaceholders(value)==value?1:0;}
+                public static String text(){return new Address("localhost",5672).toString();}
+                public static int hash(){return new Address("localhost",5672).hashCode();}
+                public static int equal(){return new Address("localhost",5672).equals(new Address("localhost",5672))?1:0;}
+            }
+            """);
+        copyClass(boot,"org/springframework/boot/context/properties/bind/PlaceholdersResolver.class");
+        copyClass(auto,"org/springframework/boot/autoconfigure/amqp/RabbitConnectionDetails$Address.class");
+        StringBuilder checks=new StringBuilder();
+        try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL(),boot.toUri().toURL(),auto.toUri().toURL()},null)) {
+            Class<?> jvm=loader.loadClass("Metadata");
+            for(String name:List.of("lambdaIdentity","hash","equal"))checks.append("assert.equal(e['Metadata.").append(name).append("'](),")
+                .append(jvm.getMethod(name).invoke(null)).append(");\n");
+            checks.append("assert.equal(text(e['Metadata.text']()),").append(js((String)jvm.getMethod("text").invoke(null))).append(");\n");
+        }
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(false))),checks.toString());
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(true))),checks.toString());
+    }
+    private String sha256(Path file) throws Exception {
+        return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(file)));
+    }
+    private void copyClass(Path jar,String name) throws Exception {
+        try(JarFile input=new JarFile(jar.toFile());InputStream bytes=input.getInputStream(input.getJarEntry(name))) {
+            Path output=directory.resolve(name);Files.createDirectories(output.getParent());Files.copy(bytes,output);
         }
     }
 

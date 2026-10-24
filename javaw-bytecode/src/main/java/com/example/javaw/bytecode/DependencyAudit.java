@@ -25,6 +25,7 @@ public final class DependencyAudit {
     private final SortedMap<String, Finding> normalizedOpcodes = new TreeMap<>(), opcodes = new TreeMap<>(), members = new TreeMap<>(), features = new TreeMap<>();
     private final SortedSet<String> resources = new TreeSet<>(), providers = new TreeSet<>(), artifacts = new TreeSet<>();
     private final SortedSet<String> duplicateClasses = new TreeSet<>();
+    private final SortedSet<String> bootstrapSites = new TreeSet<>();
     private int classCount;
 
     private void finding(Map<String, Finding> table, String key, String site) {
@@ -122,7 +123,9 @@ public final class DependencyAudit {
             for (TryCatchBlockNode handler : method.tryCatchBlocks) {
                 addType(refs, handler.type); finding(features, row(artifact, "exception-handler", Objects.toString(handler.type, "finally")), site);
             }
+            int instructionIndex=0;
             for (AbstractInsnNode insn : method.instructions) {
+                if(insn.getOpcode()>=0)instructionIndex++;
                 annotations(refs, insn.visibleTypeAnnotations); annotations(refs, insn.invisibleTypeAnnotations);
                 int opcode = insn.getOpcode();
                 if (BytecodeInput.normalizedOpcode(opcode))
@@ -132,9 +135,17 @@ public final class DependencyAudit {
                 if (insn instanceof TypeInsnNode test) addType(refs, test.desc);
                 else if (insn instanceof FieldInsnNode field) member(artifact, refs, opcode, field.owner, field.name, field.desc, site);
                 else if (insn instanceof MethodInsnNode call) member(artifact, refs, opcode, call.owner, call.name, call.desc, site);
-                else if (insn instanceof LdcInsnNode ldc) constant(artifact, refs, ldc.cst, site);
+                else if (insn instanceof LdcInsnNode ldc) {
+                    constant(artifact,refs,ldc.cst,site);
+                    if(ldc.cst instanceof ConstantDynamic dynamic) {
+                        Object[] arguments=new Object[dynamic.getBootstrapMethodArgumentCount()];
+                        for(int i=0;i<arguments.length;i++)arguments[i]=dynamic.getBootstrapMethodArgument(i);
+                        bootstrapSite(artifact,site,instructionIndex,"constant-dynamic",dynamic.getName(),dynamic.getDescriptor(),dynamic.getBootstrapMethod(),arguments);
+                    }
+                }
                 else if (insn instanceof MultiANewArrayInsnNode array) descriptor(refs, array.desc);
                 else if (insn instanceof InvokeDynamicInsnNode dynamic) {
+                    bootstrapSite(artifact,site,instructionIndex,"invokedynamic",dynamic.name,dynamic.desc,dynamic.bsm,dynamic.bsmArgs);
                     descriptor(refs, dynamic.desc); handle(artifact, refs, dynamic.bsm, site);
                     finding(features, row(artifact, "invokedynamic-bootstrap", dynamic.bsm.getOwner() + "." + dynamic.bsm.getName() + dynamic.bsm.getDesc()), site);
                     for (Object arg : dynamic.bsmArgs) constant(artifact, refs, arg, site);
@@ -260,6 +271,7 @@ public final class DependencyAudit {
         findings(directory, "normalized-opcodes.tsv", "artifact\topcode\tname", normalizedOpcodes);
         findings(directory, "unsupported-opcodes.tsv", "artifact\topcode\tname", opcodes);
         findings(directory, "member-references.tsv", "artifact\topcodeOrNegativeHandleTag\towner\tmember\tdescriptor", members);
+        files(directory,"bootstrap-sites.tsv","artifact\tsite\tinstructionOrdinal\tkind\tname\tdescriptor\tbootstrap\targuments\targumentTypes\timplementationHandleTag\tlambdaFlags",bootstrapSites);
         findings(directory, "requirements.tsv", "artifact\tcategory\tsymbol", features);
         files(directory, "summary.tsv", "metric\tvalue", List.of(
                 row("compilerRevision", CacheMetadata.COMPILER_VERSION), row("javaFeature", javaFeature),
@@ -273,6 +285,20 @@ public final class DependencyAudit {
         List<String> rows = new ArrayList<>();
         findings.forEach((key, value) -> rows.add(key + row("", value.count, value.first)));
         files(directory, name, header + "\tcount\tfirstSite", rows);
+    }
+
+    private void bootstrapSite(String artifact,String site,int ordinal,String kind,String name,String descriptor,Handle bootstrap,Object[] arguments) {
+        boolean lambda=bootstrap.getOwner().equals("java/lang/invoke/LambdaMetafactory");
+        bootstrapSites.add(row(artifact,site,ordinal,kind,name,descriptor,bootstrap,bootstrapArguments(arguments),
+                String.join(",",Arrays.stream(arguments).map(value->value.getClass().getSimpleName()).toList()),
+                lambda && arguments.length>1 && arguments[1] instanceof Handle handle?handle.getTag():"",
+                lambda && bootstrap.getName().equals("altMetafactory") && arguments.length>3?arguments[3]:""));
+    }
+    private static String bootstrapArguments(Object[] arguments) {
+        String value=String.join(" | ",Arrays.stream(arguments).map(arg->arg.getClass().getSimpleName()+":"+arg).toList());
+        StringBuilder escaped=new StringBuilder();
+        for(char c:value.toCharArray())if(c<32)escaped.append(String.format("\\u%04x",(int)c));else escaped.append(c);
+        return escaped.toString();
     }
 
     private static String row(Object... values) {

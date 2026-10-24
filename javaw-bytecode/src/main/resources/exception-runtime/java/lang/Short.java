@@ -1,7 +1,32 @@
 package java.lang;
 
-/** Primitive Class identity only; value boxing and other wrapper APIs are separate work. */
-public final class Short {
-    private Short() {}
-    public static final Class<Short> TYPE = (Class<Short>)javaw.runtime.ExceptionSupport.classMirror(-23);
+/** Value and identity operations required by bootstrap adapters. */
+public final class Short extends Number implements Comparable<Short>,java.io.Serializable {
+    public static final Class<Short> TYPE=(Class<Short>)javaw.runtime.ExceptionSupport.classMirror(-23);
+    private final short value;
+    public Short(short value){this.value=value;}
+    public short shortValue(){return value;}
+    public int intValue(){return (int)value;}
+    public long longValue(){return (long)value;}
+    public float floatValue(){return (float)value;}
+    public double doubleValue(){return (double)value;}
+    private static Short[] cache;
+    public static Short valueOf(short value){
+        if(value>=-128 && value<=127){
+            if(cache==null){
+                Short[] values=new Short[256];
+                for(int i=0;i<values.length;i++)values[i]=new Short((short)(i-128));
+                cache=values;
+            }
+            return cache[(int)value+128];
+        }
+        return new Short(value);
+    }
+    public String toString(){return String.valueOf((int)value);}
+    public static String toString(short value){return String.valueOf((int)value);}
+    public static int compare(short left,short right){return left==right?0:left<right?-1:1;}
+    public boolean equals(Object other){return other instanceof Short && value==((Short)other).value;}
+    public int hashCode(){return (int)value;}
+    public static int hashCode(short value){return (int)value;}
+    public int compareTo(Short other){return compare(value,other.value);}
 }

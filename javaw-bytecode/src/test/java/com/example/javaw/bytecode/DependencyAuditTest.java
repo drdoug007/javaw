@@ -95,6 +95,11 @@ class DependencyAuditTest {
             assertTrue(types.contains(name + "\tRoot\ttrue"), name);
         assertFalse(types.contains("FutureOnly")); assertFalse(types.contains("BaseOnly"));
         assertTrue(types.contains("external/UnusedDependency\tUnused\tfalse"));
+        String sites=Files.readString(first.resolve("bootstrap-sites.tsv"));
+        assertTrue(sites.contains("invokedynamic\tcall\t()V"),sites);
+        assertTrue(sites.contains("constant-dynamic\tvalue\tLexternal/Dynamic;"),sites);
+        assertTrue(sites.contains("Type:Lexternal/BootstrapArgument;"),sites);
+        assertTrue(sites.contains("Handle:external/Target.work()V"),sites);
         String features = Files.readString(first.resolve("requirements.tsv"));
         for (String category : List.of("native", "volatile", "synchronized", "class-initializer", "exception-handler",
                 "invokedynamic-bootstrap", "constant-dynamic-bootstrap", "reflection", "string-constant"))

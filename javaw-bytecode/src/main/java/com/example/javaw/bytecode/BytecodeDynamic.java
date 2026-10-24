@@ -32,6 +32,7 @@ final class BytecodeDynamic implements Opcodes {
                         String name=owner.name+"$$javaw$dynamic$"+ordinal++;
                         if (!names.add(name)) throw new IllegalArgumentException("reserved adapter name collision: "+name);
                         ClassNode adapter=type(name);adapter.sourceFile=owner.sourceFile;
+                        int generatedStart=generated.size();
                         String descriptor;
                         if (instruction instanceof InvokeDynamicInsnNode dynamic) {
                             descriptor=dynamic.desc;
@@ -42,6 +43,7 @@ final class BytecodeDynamic implements Opcodes {
                             if(dynamic.bsm.getTag()!=H_INVOKESTATIC || dynamic.bsm.isInterface())
                                 throw new IllegalArgumentException("bootstrap must be a static JDK factory");
                             if(dynamic.bsm.getOwner().equals(CONCAT)) concat(adapter,dynamic);
+                            else if(dynamic.bsm.getOwner().equals("java/lang/runtime/ObjectMethods")) record(adapter,owner,dynamic,linked);
                             else if(dynamic.bsm.getOwner().equals(LAMBDA)) lambda(adapter,owner,dynamic,linked,generated,names);
                             else throw new IllegalArgumentException("unsupported bootstrap "+dynamic.bsm);
                         } else {
@@ -58,6 +60,14 @@ final class BytecodeDynamic implements Opcodes {
                             descriptor="()"+constant.getDescriptor();
                             constant(adapter,owner,constant,linked);
                         }
+                        // Keep the source line of the original bootstrap on adapter failure paths.
+                        int sourceLine=-1;
+                        for(AbstractInsnNode previous=instruction.getPrevious();previous!=null;previous=previous.getPrevious())
+                            if(previous instanceof LineNumberNode line){sourceLine=line.line;break;}
+                        if(sourceLine>=0) {
+                            sourceLine(adapter,sourceLine);
+                            for(int i=generatedStart;i<generated.size();i++)sourceLine(generated.get(i),sourceLine);
+                        }
                         MethodInsnNode call=new MethodInsnNode(INVOKESTATIC,name,"link",descriptor,false);
                         method.instructions.set(instruction,call);
                         if(instruction instanceof LdcInsnNode ldc)constants.put((ConstantDynamic)ldc.cst,call);
@@ -69,6 +79,14 @@ final class BytecodeDynamic implements Opcodes {
             }
         }
         classes.addAll(generated);
+    }
+
+    private static void sourceLine(ClassNode type,int line) {
+        for(MethodNode method:type.methods) {
+            LabelNode start=new LabelNode();
+            method.instructions.insert(new LineNumberNode(line,start));
+            method.instructions.insert(start);
+        }
     }
 
     private static ClassNode type(String name) {
@@ -86,7 +104,7 @@ final class BytecodeDynamic implements Opcodes {
     private static void convertString(MethodVisitor code,Type type) {
         String descriptor=switch(type.getSort()) {
             case Type.BOOLEAN -> "Z";case Type.CHAR -> "C";case Type.BYTE,Type.SHORT,Type.INT -> "I";
-            case Type.LONG -> "J";case Type.OBJECT,Type.ARRAY -> "Ljava/lang/Object;";
+            case Type.LONG -> "J";case Type.FLOAT -> "F";case Type.DOUBLE -> "D";case Type.OBJECT,Type.ARRAY -> "Ljava/lang/Object;";
             default -> throw new IllegalArgumentException("string concatenation conversion unsupported: "+type);
         };
         call(code,INVOKESTATIC,"java/lang/String","valueOf","("+descriptor+")Ljava/lang/String;");
@@ -98,13 +116,15 @@ final class BytecodeDynamic implements Opcodes {
         if ((!constants && !site.bsm.getName().equals("makeConcat")) || !site.bsm.getDesc().equals(expected))
             throw new IllegalArgumentException("unsupported string concatenation bootstrap "+site.bsm);
         Type[] args=Type.getArgumentTypes(site.desc);
-        for(Type arg:args)if(arg.getSort()==Type.FLOAT || arg.getSort()==Type.DOUBLE)
-            throw new IllegalArgumentException("floating-point string conversion requires a Java-compatible decimal runtime");
         String recipe;
         if(constants) {
-            if(site.bsmArgs.length==0 || !(site.bsmArgs[0] instanceof String)) { failed(owner,site.desc,"java/lang/invoke/StringConcatException");return; }
+            if(site.bsmArgs.length==0) { failed(owner,site.desc,"java/lang/invoke/WrongMethodTypeException");return; }
+            if(!(site.bsmArgs[0] instanceof String)) { failed(owner,site.desc,"java/lang/ClassCastException");return; }
             recipe=(String)site.bsmArgs[0];
-        } else recipe="\u0001".repeat(args.length);
+        } else {
+            if(site.bsmArgs.length!=0){failed(owner,site.desc,"java/lang/invoke/WrongMethodTypeException");return;}
+            recipe="\u0001".repeat(args.length);
+        }
         int values=0,literals=0;
         for(char c:recipe.toCharArray()){if(c==1)values++;if(c==2)literals++;}
         if(!Type.getReturnType(site.desc).equals(Type.getType(String.class)) || values!=args.length ||
@@ -114,7 +134,7 @@ final class BytecodeDynamic implements Opcodes {
         // Validate static constants before emitting any adapter. Handles/types/dynamic constants
         // need their own resolution protocol and must never be approximated with host toString.
         for(int i=1;i<site.bsmArgs.length;i++) if(!(site.bsmArgs[i] instanceof String ||
-                site.bsmArgs[i] instanceof Integer || site.bsmArgs[i] instanceof Long))
+                site.bsmArgs[i] instanceof Integer || site.bsmArgs[i] instanceof Long || site.bsmArgs[i] instanceof Float || site.bsmArgs[i] instanceof Double))
             throw new IllegalArgumentException("unsupported concat recipe constant "+site.bsmArgs[i]);
         MethodNode code=method(owner,ACC_PUBLIC|ACC_STATIC,"link",site.desc);
         // Convert references once in argument order, before recipe assembly (including repeated/null values).
@@ -142,6 +162,86 @@ final class BytecodeDynamic implements Opcodes {
         }
         code.visitInsn(ARETURN);finish(code,local);
     }
+    private static void record(ClassNode owner,ClassNode caller,InvokeDynamicInsnNode site,Map<String,ClassNode> linked) {
+        String expected="(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/TypeDescriptor;Ljava/lang/Class;Ljava/lang/String;[Ljava/lang/invoke/MethodHandle;)Ljava/lang/Object;";
+        if(!site.bsm.getName().equals("bootstrap") || !site.bsm.getDesc().equals(expected))
+            throw new IllegalArgumentException("unsupported record bootstrap "+site.bsm);
+        if(site.bsmArgs.length<2 || !(site.bsmArgs[0] instanceof Type type) || !type.equals(Type.getObjectType(caller.name)) ||
+                !(site.bsmArgs[1] instanceof String componentNames))
+            throw new IllegalArgumentException("unsupported record bootstrap argument shape");
+        String[] labels=componentNames.isEmpty()?new String[0]:componentNames.split(";");
+        if(labels.length!=site.bsmArgs.length-2){failed(owner,site.desc,"java/lang/IllegalArgumentException");return;}
+        List<Handle> fields=new ArrayList<>();
+        for(int i=2;i<site.bsmArgs.length;i++) {
+            if(!(site.bsmArgs[i] instanceof Handle field) || field.getTag()!=H_GETFIELD || !field.getOwner().equals(caller.name))
+                throw new IllegalArgumentException("record bootstrap requires linked instance field getters");
+            fields.add(field);
+        }
+        String receiver="L"+caller.name+";";
+        String descriptor=switch(site.name){case "equals"->"("+receiver+"Ljava/lang/Object;)Z";
+            case "hashCode"->"("+receiver+")I";case "toString"->"("+receiver+")Ljava/lang/String;";default->null;};
+        if(!site.desc.equals(descriptor) || (caller.access&ACC_FINAL)==0){failed(owner,site.desc,"java/lang/IllegalArgumentException");return;}
+        MethodNode code=method(owner,ACC_PUBLIC|ACC_STATIC,"link",site.desc);
+        if(site.name.equals("equals")) {
+            Label different=new Label(),typed=new Label(),unequal=new Label();
+            code.visitVarInsn(ALOAD,0);code.visitVarInsn(ALOAD,1);code.visitJumpInsn(IF_ACMPNE,different);
+            code.visitInsn(ICONST_1);code.visitInsn(IRETURN);
+            code.visitLabel(different);code.visitFrame(F_SAME,0,null,0,null);
+            code.visitVarInsn(ALOAD,1);code.visitTypeInsn(INSTANCEOF,caller.name);code.visitJumpInsn(IFNE,typed);
+            code.visitInsn(ICONST_0);code.visitInsn(IRETURN);
+            code.visitLabel(typed);code.visitFrame(F_SAME,0,null,0,null);
+            code.visitVarInsn(ALOAD,1);code.visitTypeInsn(CHECKCAST,caller.name);code.visitVarInsn(ASTORE,2);
+            for(int i=fields.size()-1;i>=0;i--) {
+                Handle field=fields.get(i);Type value=Type.getType(field.getDesc());
+                recordField(code,field,0,caller);recordField(code,field,2,caller);
+                if(reference(value)) {call(code,INVOKESTATIC,"java/util/Objects","equals","(Ljava/lang/Object;Ljava/lang/Object;)Z");code.visitJumpInsn(IFEQ,unequal);}
+                else if(value.getSort()==Type.LONG){code.visitInsn(LCMP);code.visitJumpInsn(IFNE,unequal);}
+                else if(value.getSort()==Type.FLOAT || value.getSort()==Type.DOUBLE) {
+                    call(code,INVOKESTATIC,box(value),"compare","("+field.getDesc()+field.getDesc()+")I");code.visitJumpInsn(IFNE,unequal);
+                } else code.visitJumpInsn(IF_ICMPNE,unequal);
+            }
+            code.visitInsn(ICONST_1);code.visitInsn(IRETURN);
+            if(!fields.isEmpty()) {
+                code.visitLabel(unequal);code.visitFrame(F_APPEND,1,new Object[]{caller.name},0,null);code.visitInsn(ICONST_0);code.visitInsn(IRETURN);
+            }
+            finish(code,3);
+        } else if(site.name.equals("hashCode")) {
+            code.visitInsn(ICONST_0);code.visitVarInsn(ISTORE,1);
+            for(Handle field:fields) {
+                code.visitVarInsn(ILOAD,1);code.visitIntInsn(BIPUSH,31);code.visitInsn(IMUL);recordField(code,field,0,caller);
+                Type value=Type.getType(field.getDesc());
+                if(reference(value))call(code,INVOKESTATIC,"java/util/Objects","hashCode","(Ljava/lang/Object;)I");
+                else if(value.getSort()==Type.BOOLEAN || value.getSort()>=Type.FLOAT)
+                    call(code,INVOKESTATIC,box(value),"hashCode","("+field.getDesc()+")I");
+                code.visitInsn(IADD);code.visitVarInsn(ISTORE,1);
+            }
+            code.visitVarInsn(ILOAD,1);code.visitInsn(IRETURN);finish(code,2);
+        } else {
+            code.visitLdcInsn(Type.getObjectType(caller.name));call(code,INVOKEVIRTUAL,"java/lang/Class","getSimpleName","()Ljava/lang/String;");
+            code.visitLdcInsn("[");append(code);
+            for(int i=0;i<fields.size();i++) {
+                code.visitLdcInsn((i==0?"":", ")+labels[i]+"=");append(code);recordField(code,fields.get(i),0,caller);
+                convertString(code,Type.getType(fields.get(i).getDesc()));
+                call(code,INVOKESTATIC,"javaw/runtime/ExceptionSupport","concatValue","(Ljava/lang/String;)Ljava/lang/String;");append(code);
+            }
+            code.visitLdcInsn("]");append(code);code.visitInsn(ARETURN);finish(code,1);
+        }
+    }
+    private static void recordField(MethodVisitor code,Handle field,int slot,ClassNode caller) {
+        MethodNode bridge=null;
+        for(MethodNode candidate:caller.methods)if(candidate.name.startsWith("$javaw$component$") && candidate.desc.equals("()"+field.getDesc()) &&
+                candidate.instructions.toArray().length==3 && candidate.instructions.get(1) instanceof FieldInsnNode access &&
+                access.owner.equals(field.getOwner()) && access.name.equals(field.getName()) && access.desc.equals(field.getDesc()))bridge=candidate;
+        if(bridge==null) {
+            String name="$javaw$component$"+caller.methods.size();
+            if(caller.methods.stream().anyMatch(m->m.name.equals(name)))throw new IllegalArgumentException("reserved component adapter name collision");
+            bridge=method(caller,ACC_FINAL|ACC_SYNTHETIC,name,"()"+field.getDesc());
+            bridge.visitVarInsn(ALOAD,0);bridge.visitFieldInsn(GETFIELD,field.getOwner(),field.getName(),field.getDesc());
+            bridge.visitInsn(Type.getType(field.getDesc()).getOpcode(IRETURN));finish(bridge,1);
+        }
+        code.visitVarInsn(ALOAD,slot);call(code,INVOKEVIRTUAL,caller.name,bridge.name,bridge.desc);
+    }
+
     private static int argsSlots(Type[] args){int size=0;for(Type arg:args)size+=arg.getSize();return size;}
     private static void append(MethodVisitor code){call(code,INVOKEVIRTUAL,"java/lang/String","concat","(Ljava/lang/String;)Ljava/lang/String;");}
 
@@ -197,7 +297,7 @@ final class BytecodeDynamic implements Opcodes {
             cachedValue(owner,descriptor,code->code.instructions.add(field));return;
         }
         if(value.getBootstrapMethodArgumentCount()!=0)
-            throw new IllegalArgumentException("unsupported constant bootstrap invocation argument shape");
+            {failed(owner,descriptor,"java/lang/invoke/WrongMethodTypeException");return;}
         if(name.equals("nullConstant")?!reference(Type.getType(value.getDescriptor())):
                 !value.getDescriptor().equals("Ljava/lang/Class;") || !BytecodeClasses.primitiveTokens().containsKey(value.getName())) {
             failed(owner,descriptor,"java/lang/IllegalArgumentException");return;
@@ -252,11 +352,66 @@ final class BytecodeDynamic implements Opcodes {
         owner.nestHostClass=host.name;if(host.nestMembers==null)host.nestMembers=new ArrayList<>();host.nestMembers.add(owner.name);
     }
 
+    private static Handle specialBridge(ClassNode caller,Handle target) {
+        if(target.getName().startsWith("<"))throw new IllegalArgumentException("special implementation handles cannot name initializers");
+        String name="$javaw$special$"+caller.methods.size();
+        if(caller.methods.stream().anyMatch(m->m.name.equals(name)))throw new IllegalArgumentException("reserved special adapter name collision");
+        MethodNode bridge=method(caller,ACC_PRIVATE|ACC_SYNTHETIC,name,target.getDesc());
+        bridge.visitVarInsn(ALOAD,0);int slot=1;
+        for(Type argument:Type.getArgumentTypes(target.getDesc())){bridge.visitVarInsn(argument.getOpcode(ILOAD),slot);slot+=argument.getSize();}
+        bridge.visitMethodInsn(INVOKESPECIAL,target.getOwner(),target.getName(),target.getDesc(),target.isInterface());
+        bridge.visitInsn(Type.getReturnType(target.getDesc()).getOpcode(IRETURN));finish(bridge,slot);
+        boolean iface=(caller.access&ACC_INTERFACE)!=0;
+        return new Handle(iface?H_INVOKEINTERFACE:H_INVOKEVIRTUAL,caller.name,name,target.getDesc(),iface);
+    }
+
+    private static final String[] BOXES={"java/lang/Boolean","java/lang/Character","java/lang/Byte","java/lang/Short","java/lang/Integer","java/lang/Float","java/lang/Long","java/lang/Double"};
+    private static String box(Type primitive){return BOXES[primitive.getSort()-Type.BOOLEAN];}
+    private static Type unboxed(Type reference) {
+        if(reference.getSort()!=Type.OBJECT)return null;
+        for(int i=0;i<BOXES.length;i++)if(BOXES[i].equals(reference.getInternalName()))
+            return Type.getType(new String[]{"Z","C","B","S","I","F","J","D"}[i]);
+        return null;
+    }
+    private static boolean widens(Type from,Type to) {
+        if(from.equals(to))return true;
+        return switch(from.getSort()) {
+            case Type.BYTE -> "SIJFD".contains(to.getDescriptor());
+            case Type.SHORT,Type.CHAR -> "IJFD".contains(to.getDescriptor());
+            case Type.INT -> "JFD".contains(to.getDescriptor());
+            case Type.LONG -> "FD".contains(to.getDescriptor());
+            case Type.FLOAT -> to.getSort()==Type.DOUBLE;
+            default -> false;
+        };
+    }
+    private static boolean subtype(Type from,Type to,BytecodeDispatch dispatch) {
+        return from.equals(to) || reference(from)&&reference(to)&&dispatch.descriptorAssignable(from.getDescriptor(),to.getDescriptor());
+    }
+    private static boolean adaptable(Type from,Type to,boolean strict,BytecodeDispatch dispatch) {
+        if(to.equals(Type.VOID_TYPE))return true;
+        if(from.equals(Type.VOID_TYPE))return false;
+        if(!reference(from))return !reference(to)?widens(from,to):subtype(Type.getObjectType(box(from)),to,dispatch);
+        if(reference(to))return !strict || subtype(from,to,dispatch);
+        Type primitive=unboxed(from);return primitive!=null?widens(primitive,to):!strict;
+    }
     private static void adapt(MethodVisitor code,Type from,Type to) {
         if(from.equals(to))return;
         if(reference(from)&&reference(to)) {if(!to.equals(Type.getType(Object.class)))code.visitTypeInsn(CHECKCAST,to.getInternalName());return;}
+        if(!reference(from) && reference(to)) {
+            String wrapper=box(from);call(code,INVOKESTATIC,wrapper,"valueOf","("+from.getDescriptor()+")L"+wrapper+";");
+            if(!to.equals(Type.getType(Object.class)))code.visitTypeInsn(CHECKCAST,to.getInternalName());return;
+        }
+        if(reference(from) && !reference(to)) {
+            Type primitive=unboxed(from);
+            String wrapper;
+            if(primitive!=null)wrapper=box(primitive);
+            else {primitive=to;wrapper=to.getSort()==Type.BOOLEAN || to.getSort()==Type.CHAR?box(to):"java/lang/Number";}
+            code.visitTypeInsn(CHECKCAST,wrapper);
+            call(code,INVOKEVIRTUAL,wrapper,primitive.getClassName()+"Value","()"+primitive.getDescriptor());
+            adapt(code,primitive,to);return;
+        }
         int source=from.getSort(),target=to.getSort();
-        if(source>=Type.CHAR && source<=Type.INT && target>=Type.INT && target<=Type.DOUBLE) {
+        if(widens(from,to) && source>=Type.CHAR && source<=Type.INT) {
             int opcode=switch(target){case Type.LONG->I2L;case Type.FLOAT->I2F;case Type.DOUBLE->I2D;default->-1;};
             if(opcode>=0)code.visitInsn(opcode);return;
         }
@@ -269,17 +424,20 @@ final class BytecodeDynamic implements Opcodes {
         String expected="("+LOOKUP+(alternate?"[Ljava/lang/Object;":"Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodHandle;Ljava/lang/invoke/MethodType;")+")"+CALLSITE;
         if((!alternate && !site.bsm.getName().equals("metafactory")) || !site.bsm.getDesc().equals(expected))
             throw new IllegalArgumentException("unsupported lambda bootstrap "+site.bsm);
-        if((alternate?site.bsmArgs.length<4:site.bsmArgs.length!=3) || !(site.bsmArgs[0] instanceof Type sam) || sam.getSort()!=Type.METHOD ||
+        if(alternate?site.bsmArgs.length<4:site.bsmArgs.length!=3) {
+            failed(owner,site.desc,alternate?"java/lang/IllegalArgumentException":"java/lang/invoke/WrongMethodTypeException");return;
+        }
+        if(!(site.bsmArgs[0] instanceof Type sam) || sam.getSort()!=Type.METHOD ||
                 !(site.bsmArgs[1] instanceof Handle target) || !(site.bsmArgs[2] instanceof Type instantiated) || instantiated.getSort()!=Type.METHOD)
-            throw new IllegalArgumentException("unsupported lambda bootstrap invocation argument shape");
+            {failed(owner,site.desc,alternate?"java/lang/IllegalArgumentException":"java/lang/ClassCastException");return;}
         if(!BytecodeDeclarations.validDescriptor(sam.getDescriptor(),true) || !BytecodeDeclarations.validDescriptor(instantiated.getDescriptor(),true) ||
                 !BytecodeDeclarations.validDescriptor(target.getDesc(),true))
             throw new IllegalArgumentException("invalid lambda method descriptor");
-        List<Type> markers=new ArrayList<>(),bridges=new ArrayList<>();
+        List<Type> markers=new ArrayList<>(),bridges=new ArrayList<>();boolean serializable=false;
         if(alternate) {
             if(!(site.bsmArgs[3] instanceof Integer flags)){failed(owner,site.desc,"java/lang/IllegalArgumentException");return;}
-            if((flags&1)!=0)throw new IllegalArgumentException("serializable lambda altMetafactory requires SerializedLambda/serialization runtime support");
-            if((flags&~6)!=0)throw new IllegalArgumentException("unsupported altMetafactory flags "+flags);
+            serializable=(flags&1)!=0;
+            if((flags&~7)!=0)throw new IllegalArgumentException("unsupported altMetafactory flags "+flags);
             int index=4;
             for(int flag:new int[]{2,4})if((flags&flag)!=0) {
                 if(index>=site.bsmArgs.length || !(site.bsmArgs[index++] instanceof Integer count) || count<0 || count>site.bsmArgs.length-index)
@@ -298,24 +456,41 @@ final class BytecodeDynamic implements Opcodes {
         if(result.getSort()!=Type.OBJECT){failed(owner,site.desc);return;}
         ClassNode iface=linked.get(result.getInternalName());
         if(iface==null || (iface.access&ACC_INTERFACE)==0)throw new IllegalArgumentException("link lambda functional interface "+result);
-        if(target.getTag()!=H_INVOKESTATIC && target.getTag()!=H_INVOKEVIRTUAL && target.getTag()!=H_INVOKEINTERFACE && target.getTag()!=H_NEWINVOKESPECIAL)
+        if(target.getTag()!=H_INVOKESTATIC && target.getTag()!=H_INVOKEVIRTUAL && target.getTag()!=H_INVOKEINTERFACE && target.getTag()!=H_INVOKESPECIAL && target.getTag()!=H_NEWINVOKESPECIAL)
             throw new IllegalArgumentException("unsupported lambda implementation handle "+target);
         Type[] captures=Type.getArgumentTypes(site.desc),parameters=sam.getArgumentTypes(),specialized=instantiated.getArgumentTypes();
         List<Type> inputs=new ArrayList<>();
-        if(target.getTag()==H_INVOKEVIRTUAL || target.getTag()==H_INVOKEINTERFACE)inputs.add(Type.getObjectType(target.getOwner()));
+        if(target.getTag()==H_INVOKEVIRTUAL || target.getTag()==H_INVOKEINTERFACE || target.getTag()==H_INVOKESPECIAL)
+            inputs.add(Type.getObjectType(target.getTag()==H_INVOKESPECIAL?caller.name:target.getOwner()));
         inputs.addAll(List.of(Type.getArgumentTypes(target.getDesc())));
         if(parameters.length!=specialized.length || inputs.size()!=captures.length+parameters.length) {failed(owner,site.desc);return;}
+        BytecodeDispatch adaptation=new BytecodeDispatch(linked,caller.name);
+        Type returnedType=target.getTag()==H_NEWINVOKESPECIAL?Type.getObjectType(target.getOwner()):Type.getReturnType(target.getDesc());
+        boolean valid=subtype(instantiated.getReturnType(),sam.getReturnType(),adaptation) &&
+                adaptable(returnedType,instantiated.getReturnType(),false,adaptation);
+        for(int i=0;i<captures.length;i++)valid&=i==0 && target.getTag()!=H_INVOKESTATIC && target.getTag()!=H_NEWINVOKESPECIAL?
+                subtype(captures[i],inputs.get(i),adaptation):captures[i].equals(inputs.get(i));
+        for(int i=0;i<parameters.length;i++)valid&=subtype(specialized[i],parameters[i],adaptation) &&
+                adaptable(specialized[i],inputs.get(captures.length+i),true,adaptation);
+        for(Type bridge:bridges) {
+            valid&=bridge.getArgumentTypes().length==parameters.length && subtype(instantiated.getReturnType(),bridge.getReturnType(),adaptation);
+            if(bridge.getArgumentTypes().length==parameters.length)for(int i=0;i<parameters.length;i++)
+                valid&=subtype(specialized[i],bridge.getArgumentTypes()[i],adaptation);
+        }
+        if(!valid){failed(owner,site.desc);return;}
         for(Type marker:markers) {
             ClassNode declaration=linked.get(marker.getInternalName());
             if(declaration==null || (declaration.access&ACC_INTERFACE)==0)
                 throw new IllegalArgumentException("link lambda marker interface "+marker);
         }
         for(Type bridge:bridges)if(bridge.getArgumentTypes().length!=parameters.length) {failed(owner,site.desc);return;}
+        Handle invocation=target.getTag()==H_INVOKESPECIAL?specialBridge(caller,target):target;
         ClassNode linkage=owner;
         String implementationName=owner.name+"$lambda";
         if(!names.add(implementationName))throw new IllegalArgumentException("reserved lambda adapter name collision: "+implementationName);
         owner=type(implementationName);owner.sourceFile=caller.sourceFile;
         owner.interfaces.add(result.getInternalName());
+        if(serializable && !owner.interfaces.contains("java/io/Serializable"))owner.interfaces.add("java/io/Serializable");
         for(Type marker:markers)if(!owner.interfaces.contains(marker.getInternalName()))owner.interfaces.add(marker.getInternalName());
         // Generated lambda is a real nestmate; original access checks still run on its target call.
         nest(owner,caller,linked);
@@ -334,8 +509,8 @@ final class BytecodeDynamic implements Opcodes {
         for(Type capture:captures){factory.visitVarInsn(capture.getOpcode(ILOAD),slot);slot+=capture.getSize();}
         call(factory,INVOKESPECIAL,owner.name,"<init>",constructor);factory.visitInsn(ARETURN);finish(factory,slot);
         MethodNode invoke=method(owner,ACC_PUBLIC|ACC_FINAL,site.name,sam.getDescriptor());
-        boolean construct=target.getTag()==H_NEWINVOKESPECIAL;
-        if(construct){invoke.visitTypeInsn(NEW,target.getOwner());invoke.visitInsn(DUP);}
+        boolean construct=invocation.getTag()==H_NEWINVOKESPECIAL;
+        if(construct){invoke.visitTypeInsn(NEW,invocation.getOwner());invoke.visitInsn(DUP);}
         int input=0;
         for(int i=0;i<captures.length;i++){
             invoke.visitVarInsn(ALOAD,0);invoke.visitFieldInsn(GETFIELD,owner.name,"capture"+i,captures[i].getDescriptor());
@@ -346,8 +521,8 @@ final class BytecodeDynamic implements Opcodes {
             invoke.visitVarInsn(parameters[i].getOpcode(ILOAD),slot);slot+=parameters[i].getSize();
             adapt(invoke,parameters[i],specialized[i]);adapt(invoke,specialized[i],inputs.get(input++));
         }
-        int opcode=switch(target.getTag()){case H_INVOKESTATIC->INVOKESTATIC;case H_INVOKEINTERFACE->INVOKEINTERFACE;case H_NEWINVOKESPECIAL->INVOKESPECIAL;default->INVOKEVIRTUAL;};
-        invoke.visitMethodInsn(opcode,target.getOwner(),target.getName(),target.getDesc(),target.isInterface());
+        int opcode=switch(invocation.getTag()){case H_INVOKESTATIC->INVOKESTATIC;case H_INVOKEINTERFACE->INVOKEINTERFACE;case H_NEWINVOKESPECIAL->INVOKESPECIAL;default->INVOKEVIRTUAL;};
+        invoke.visitMethodInsn(opcode,invocation.getOwner(),invocation.getName(),invocation.getDesc(),invocation.isInterface());
         Type returned=construct?Type.getObjectType(target.getOwner()):Type.getReturnType(target.getDesc());
         if(sam.getReturnType().equals(Type.VOID_TYPE)){
             if(!returned.equals(Type.VOID_TYPE))invoke.visitInsn(returned.getSize()==2?POP2:POP);
@@ -367,6 +542,23 @@ final class BytecodeDynamic implements Opcodes {
                 if(!sam.getReturnType().equals(Type.VOID_TYPE))code.visitInsn(sam.getReturnType().getSize()==2?POP2:POP);
             } else {adapt(code,sam.getReturnType(),instantiated.getReturnType());adapt(code,instantiated.getReturnType(),bridge.getReturnType());}
             code.visitInsn(bridge.getReturnType().getOpcode(IRETURN));finish(code,slot);
+        }
+        if(serializable) {
+            MethodNode replace=method(owner,ACC_PRIVATE|ACC_FINAL,"writeReplace","()Ljava/lang/Object;");
+            String serialized="java/lang/invoke/SerializedLambda";
+            replace.visitTypeInsn(NEW,serialized);replace.visitInsn(DUP);replace.visitLdcInsn(Type.getObjectType(caller.name));
+            replace.visitLdcInsn(result.getInternalName());replace.visitLdcInsn(site.name);replace.visitLdcInsn(sam.getDescriptor());
+            replace.visitLdcInsn(target.getTag());replace.visitLdcInsn(target.getOwner());replace.visitLdcInsn(target.getName());
+            replace.visitLdcInsn(target.getDesc());replace.visitLdcInsn(instantiated.getDescriptor());
+            replace.visitLdcInsn(captures.length);replace.visitTypeInsn(ANEWARRAY,"java/lang/Object");
+            for(int i=0;i<captures.length;i++) {
+                replace.visitInsn(DUP);replace.visitLdcInsn(i);replace.visitVarInsn(ALOAD,0);
+                replace.visitFieldInsn(GETFIELD,owner.name,"capture"+i,captures[i].getDescriptor());
+                if(!reference(captures[i]))adapt(replace,captures[i],Type.getType(Object.class));
+                replace.visitInsn(AASTORE);
+            }
+            call(replace,INVOKESPECIAL,serialized,"<init>","(Ljava/lang/Class;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;[Ljava/lang/Object;)V");
+            replace.visitInsn(ARETURN);finish(replace,1);
         }
         MethodNode initialize=method(owner,ACC_PUBLIC|ACC_STATIC,"initialize","()V");
         initialize.visitInsn(RETURN);finish(initialize,0);

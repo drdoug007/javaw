@@ -9,7 +9,7 @@ import java.util.*;
 /** Explicit, isolated exception runtime. Requires a JDK to compile its bundled Java sources once. */
 public final class BytecodeExceptionRuntime {
     private static Map<String,byte[]> compiled;
-    private static final String[] NAMES = ("AutoCloseable Cloneable CloneNotSupportedException Class Boolean Byte Character Short Integer Long Float Double Void Throwable String StackTraceElement Exception RuntimeException Error LinkageError "
+    private static final String[] NAMES = ("AutoCloseable Cloneable CloneNotSupportedException Class Record Comparable Number Boolean Byte Character Short Integer Long Float Double Void Throwable String StackTraceElement Exception RuntimeException Error LinkageError "
             + "VirtualMachineError InternalError OutOfMemoryError StackOverflowError NullPointerException ClassCastException ArithmeticException "
             + "IndexOutOfBoundsException ArrayIndexOutOfBoundsException ArrayStoreException NegativeArraySizeException "
             + "IllegalArgumentException IllegalStateException IncompatibleClassChangeError AbstractMethodError IllegalAccessError "
@@ -39,7 +39,10 @@ public final class BytecodeExceptionRuntime {
             paths.add("java/util/Objects.java");
             paths.add("java/lang/invoke/StringConcatException.java");
             paths.add("java/lang/invoke/LambdaConversionException.java");
+            paths.add("java/lang/invoke/WrongMethodTypeException.java");
+            paths.add("java/lang/invoke/SerializedLambda.java");
             paths.add("javaw/runtime/ExceptionSupport.java");
+            paths.add("javaw/runtime/Decimal.java");
             List<String> arguments=new ArrayList<>(List.of("-g","-source","17","-target","17","-Xlint:-options",
                     "--patch-module","java.base="+source,"-d",output.toString()));
             for(String path:paths) {

@@ -11,6 +11,7 @@ The initial scan selected Java 17 multi-release entries from 63 JARs and found 2
 | `normalized-opcodes.tsv` | Raw legacy subroutine occurrences handled by preprocessing; the audit verifies their classes can be normalized |
 | `unsupported-opcodes.tsv` | All currently unadmitted instruction occurrences, grouped by artifact/opcode with first method evidence |
 | `member-references.tsv` | Field/method/handle references with descriptors, counts and first referencing method; negative opcode values identify bootstrap method-handle tags |
+| `bootstrap-sites.tsv` | Deterministic per-site owner/method, executable instruction ordinal, invoked descriptor, bootstrap/typed arguments, implementation-handle tag and alternate-lambda flags; control characters are escaped |
 | `requirements.tsv` | Initialization, handlers, strings, bootstrap sites, native/synchronized/volatile declarations and platform/reflection/I/O/concurrency lookups |
 | `external-types.tsv` | Referenced types outside the locked JARs; includes JDK classes and optional integrations, not just missing dependencies |
 | `resources.tsv`, `services.tsv` | Selected bundled resources and declared service providers |
@@ -28,3 +29,6 @@ Concrete blocker ordering from this scan:
 6. Optional Tomcat native/APR/OpenSSL paths account for most native declarations in this closure. They must be excluded explicitly for the initial non-web target or implemented for a selected later host mode. JDK-internal references include Spring Objenesis/Unsafe allocation and H2 extended socket options. Presence in a JAR does not make every such path mandatory for embedded JDBC.
 
 The next runtime features must use actual-library JVM and Wasm regressions. `mvn -o -pl runtime-target test` currently passes on the JVM; it is not a Wasm integration gate yet. Synthetic auditor tests verify multi-release selection, unused-class inventory, metadata/bootstrap references, service parsing, duplicates, missing roots and deterministic output. Compiler bytecode tests continue to run independently.
+
+
+The `dynamic-linkage-v40` bootstrap-site audit finds 17,383 sites: 8,269 metafactory, 46 alternate metafactory (34 serializable+bridge flags=5 and 12 serializable flags=1), 8,917 concat and 151 record bootstraps. Lambda handles include 3,680 static, 2,894 virtual, 804 special, 770 interface and 167 constructor references. Concat sites have no static constants beyond the recipe; no constant-dynamic sites occur. These actual protocols drove the bounded adapter implementation. JVM/Wasm regressions additionally execute unchanged Spring Boot 3.2.4 `PlaceholdersResolver` and `RabbitConnectionDetails$Address` bytecode, validating artifact hashes and JAR-order/module-instance independence. This establishes those isolated library paths, not Spring Boot startup or full closure compatibility.

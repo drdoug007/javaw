@@ -44,6 +44,8 @@ public final class String {
     public static String valueOf(Object value) { return value==null ? "null" : value.toString(); }
     public static String valueOf(boolean value) { return value ? "true" : "false"; }
     public static String valueOf(char value) { return new String(new char[]{value},true); }
+    public static String valueOf(float value) { return javaw.runtime.Decimal.floatText(value); }
+    public static String valueOf(double value) { return javaw.runtime.Decimal.doubleText(value); }
     public static String valueOf(long number) {
         char[] chars=new char[20];int end=20;boolean negative=number<0;
         if(!negative)number=-number;

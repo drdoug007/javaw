@@ -87,6 +87,12 @@ public class BytecodeCompiler {
         for (ClassNode type : classes) implicit.addAll(BytecodeExceptions.implicitRuntime(type, runtimeDispatch));
         if (!implicit.isEmpty() || classes.stream().anyMatch(BytecodeExceptions::usesRuntime)) combinedWat.append(BytecodeExceptions.TAG_WAT);
         for (var kind : implicit) combinedWat.append(runtimeDispatch.implicitExceptionRuntimeWat(kind));
+        if(exceptionRuntime)combinedWat.append("""
+            (func $__double_bits (param f64) (result i64) local.get 0 i64.reinterpret_f64)
+            (func $__float_bits (param f32) (result i32) local.get 0 i32.reinterpret_f32)
+            (func $__double_value (param i64) (result f64) local.get 0 f64.reinterpret_i64)
+            (func $__float_value (param i32) (result f32) local.get 0 f32.reinterpret_i32)
+            """);
         if (exceptionRuntime) combinedWat.append(BytecodeObjects.runtimeWat(linked,runtimeDispatch)).append(BytecodeClasses.runtimeWat(linked,runtimeDispatch));
         combinedWat.append(BytecodeStrings.runtimeWat(linked, runtimeDispatch));
         combinedWat.append(BytecodeTraces.runtimeWat(linked, runtimeDispatch));

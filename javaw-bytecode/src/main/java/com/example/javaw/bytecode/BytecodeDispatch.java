@@ -174,6 +174,10 @@ public final class BytecodeDispatch {
     public String exceptionSupportIntrinsic(MethodInsnNode call) {
         if (!exceptionRuntimeEnabled() || !call.owner.equals("javaw/runtime/ExceptionSupport") || call.getOpcode() != Opcodes.INVOKESTATIC) return null;
         String metadata = switch(call.name+call.desc) {
+            case "doubleBits(D)J" -> "$__double_bits";
+            case "floatBits(F)I" -> "$__float_bits";
+            case "doubleValue(J)D" -> "$__double_value";
+            case "floatValue(I)F" -> "$__float_value";
             case "classMirror(I)Ljava/lang/Class;" -> "$__class_mirror";
             case "typeName(I)Ljava/lang/String;" -> "$__type_name";
             case "simpleName(I)Ljava/lang/String;" -> "$__type_simple";
