@@ -54,6 +54,9 @@ final class BytecodeVerifier extends SimpleVerifier {
                 && value instanceof UninitializedValue)
             return super.unaryOperation(instruction, newValue(value.getType()));
         initialized(instruction, value);
+        if (instruction.getOpcode() == Opcodes.ATHROW
+                && (value.getType() == null || !isAssignableFrom(Type.getObjectType("java/lang/Throwable"), value.getType())))
+            throw new AnalyzerException(instruction, "ATHROW requires null or an initialized Throwable reference");
         return super.unaryOperation(instruction, value);
     }
 

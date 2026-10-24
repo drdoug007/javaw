@@ -32,7 +32,7 @@
     "analysis": "class-reference estimate; reflection/resources/generated classes are not complete reachability",
     "artifacts": "63",
     "classDefinitions": "26625",
-    "compilerRevision": "1.0-SNAPSHOT-handler-verification-v28",
+    "compilerRevision": "1.0-SNAPSHOT-explicit-exceptions-v29",
     "duplicateClasses": "0",
     "javaFeature": "17",
     "resources": "734",
@@ -42,7 +42,6 @@
     "uniqueClasses": "26625"
   },
   "unsupportedOpcodeOccurrences": {
-    "ATHROW": 23483,
     "INVOKEDYNAMIC": 17383,
     "MONITORENTER": 919,
     "MONITOREXIT": 2020

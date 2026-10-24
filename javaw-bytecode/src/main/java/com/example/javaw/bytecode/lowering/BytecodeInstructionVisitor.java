@@ -469,6 +469,13 @@ public class BytecodeInstructionVisitor {
                 break;
             }
 
+            case Opcodes.ATHROW:
+                String exception = stack.pop();
+                emitNullGuard(exception);
+                emit("local.get " + exception);
+                emit("throw $__java_exception");
+                break;
+
             case Opcodes.ARRAYLENGTH:
                 emit("local.get " + stack.pop());
                 emit("call $__array_length");

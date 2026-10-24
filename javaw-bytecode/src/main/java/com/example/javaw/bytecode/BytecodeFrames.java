@@ -121,7 +121,7 @@ final class BytecodeFrames implements Opcodes {
                     exceptional.clearStack();
                     if (method.maxStack < 1) throw new AnalyzerException(instruction, "exception handler requires max_stack of at least one");
                     exceptional.push(verifier.newValue(handler.type()));
-                    merge(handler.target(), exceptional, instruction);
+                    merge(target(handler.declaration().handler), exceptional, instruction);
                 }
             }
             if (instruction instanceof JumpInsnNode jump) {

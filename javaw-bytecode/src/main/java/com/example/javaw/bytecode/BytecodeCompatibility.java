@@ -34,7 +34,7 @@ final class BytecodeCompatibility {
             Opcodes.MULTIANEWARRAY, Opcodes.NEWARRAY, Opcodes.ANEWARRAY, Opcodes.AALOAD, Opcodes.AASTORE, Opcodes.ARRAYLENGTH,
             Opcodes.IALOAD, Opcodes.LALOAD, Opcodes.FALOAD, Opcodes.DALOAD, Opcodes.BALOAD, Opcodes.CALOAD, Opcodes.SALOAD,
             Opcodes.IASTORE, Opcodes.LASTORE, Opcodes.FASTORE, Opcodes.DASTORE, Opcodes.BASTORE, Opcodes.CASTORE, Opcodes.SASTORE,
-            Opcodes.IRETURN, Opcodes.ARETURN, Opcodes.RETURN);
+            Opcodes.ATHROW, Opcodes.IRETURN, Opcodes.ARETURN, Opcodes.RETURN);
 
     static boolean admittedOpcode(int opcode) { return OPCODES.contains(opcode); }
 
@@ -76,14 +76,23 @@ final class BytecodeCompatibility {
                 catch (org.objectweb.asm.tree.analysis.AnalyzerException error) {
                     throw failure(owner, method, error.node, "exception handler frame", "recompile valid typed bytecode: " + error.getMessage());
                 }
-                throw failure(owner, method, method.tryCatchBlocks.get(0).start, "exception handler table",
-                        "handler metadata and frames verify, but bytecode exception execution is not implemented; use source compilation for Java exception handling");
             }
             for (AbstractInsnNode instruction : method.instructions) {
                 int opcode = instruction.getOpcode();
                 if (opcode < 0) continue;
                 if (!OPCODES.contains(opcode)) throw failure(owner, method, instruction, opcodeName(opcode),
                         "use source compilation or replace this construct with the documented numeric/reference subset");
+                if (opcode == Opcodes.ATHROW) {
+                    try {
+                        ClassNode throwable = linked.get("java/lang/Throwable");
+                        if (throwable == null || (throwable.access & Opcodes.ACC_INTERFACE) != 0)
+                            throw new IllegalArgumentException("java/lang/Throwable must be a linked class");
+                        dispatch.typeTestIds("java/lang/Throwable");
+                    }
+                    catch (IllegalArgumentException error) {
+                        throw failure(owner, method, instruction, "ATHROW", "link the Throwable class hierarchy: " + error.getMessage());
+                    }
+                }
                 if (instruction instanceof LdcInsnNode constant && !numericConstant(constant.cst))
                     throw failure(owner, method, instruction, "LDC " + constant.cst.getClass().getSimpleName(),
                             "only numeric LDC constants are supported; use source compilation for strings/classes/dynamic constants");

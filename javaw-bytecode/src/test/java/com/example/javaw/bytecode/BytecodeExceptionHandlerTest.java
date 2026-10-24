@@ -188,10 +188,40 @@ class BytecodeExceptionHandlerTest implements Opcodes {
         assertTrue(error.getMessage().contains("handlers covering this/super constructor initialization"),error.getMessage());
     }
 
-    @Test void preservesRuntimeAdmissionBoundaryAfterSuccessfulHandlerVerification() {
+    @Test void rejectsInvalidThrowOperandsLikeJvmAndRequiresLinkedThrowableMetadata() {
+        for(String operand:new String[]{"object","integer","array","uninitialized"}) {
+            ClassNode owner=type("HandlerFixture","java/lang/Object");
+            MethodNode method=new MethodNode(ACC_PUBLIC|ACC_STATIC,"run","(Ljava/lang/Object;)V",null,null);
+            method.maxLocals=1;method.maxStack=1;owner.methods.add(method);var code=method.instructions;
+            switch(operand) {
+                case "object" -> code.add(new VarInsnNode(ALOAD,0));
+                case "integer" -> code.add(new InsnNode(ICONST_1));
+                case "array" -> {code.add(new InsnNode(ICONST_0));code.add(new IntInsnNode(NEWARRAY,T_INT));}
+                case "uninitialized" -> code.add(new TypeInsnNode(NEW,owner.name));
+            }
+            code.add(new InsnNode(ATHROW));
+            assertThrows(LinkageError.class,()->jvm(owner),operand);
+            assertThrows(IllegalArgumentException.class,()->new ClassBytecodeCompiler(owner).compileToWat(linked(owner)),operand);
+        }
+        ClassNode owner=type("HandlerFixture","java/lang/Object");
+        MethodNode method=new MethodNode(ACC_PUBLIC|ACC_STATIC,"run","()V",null,null);method.maxStack=1;owner.methods.add(method);
+        method.instructions.add(new InsnNode(ACONST_NULL));method.instructions.add(new InsnNode(ATHROW));
+        assertDoesNotThrow(()->jvm(owner));
+        for(boolean absent:new boolean[]{false,true}) {
+            Map<String,ClassNode> metadata=new LinkedHashMap<>();metadata.put(owner.name,owner);
+            if(!absent) {
+                ClassNode root=type("java/lang/Throwable","java/lang/Object");root.access|=ACC_INTERFACE|ACC_ABSTRACT;
+                metadata.put(root.name,root);
+            }
+            String message=assertThrows(IllegalArgumentException.class,()->new ClassBytecodeCompiler(owner).compileToWat(metadata)).getMessage();
+            assertTrue(message.contains("ATHROW"),message);
+        }
+    }
+
+    @Test void lowersSuccessfullyVerifiedHandlersWithTheSharedTag() {
         ClassNode owner=allocationHandler(false);
-        String message=assertThrows(IllegalArgumentException.class,()->new ClassBytecodeCompiler(owner).compileToWat(linked(owner))).getMessage();
-        assertTrue(message.contains("handler metadata and frames verify"),message);
-        assertTrue(message.contains("exception execution is not implemented"),message);
+        String wat=new ClassBytecodeCompiler(owner).compileToWat(linked(owner));
+        assertTrue(wat.contains("catch $__java_exception"),wat);
+        assertTrue(wat.contains("(tag $__java_exception"),wat);
     }
 }

@@ -55,6 +55,8 @@ public class ClassBytecodeCompiler {
         wat.append("    (import \"env\" \"memory\" (memory 2 20))\n");
         wat.append("    (import \"env\" \"__heap_alloc\" (func $__heap_alloc (param i32) (result i32)))\n");
 
+        if (includeNumericRuntime && BytecodeExceptions.usesRuntime(classNode)) wat.append(BytecodeExceptions.TAG_WAT);
+
         if (includeNumericRuntime && usesFloatingRemainder(classNode))
             wat.append(FloatingPointSupport.remainderFunctionsWat());
 
@@ -177,7 +179,35 @@ public class ClassBytecodeCompiler {
                         && !(instruction instanceof TableSwitchInsnNode)
                         && !(instruction instanceof LookupSwitchInsnNode)) visitor.visitInsn(instruction);
             }
+            List<TryCatchBlockNode> activeHandlers = new ArrayList<>();
+            for (TryCatchBlockNode handler : mn.tryCatchBlocks) {
+                int start = mn.instructions.indexOf(handler.start), end = mn.instructions.indexOf(handler.end);
+                for (AbstractInsnNode instruction : block.getInstructions()) {
+                    int index = mn.instructions.indexOf(instruction);
+                    if (instruction.getOpcode() >= 0 && index >= start && index < end) {
+                        activeHandlers.add(handler);
+                        break;
+                    }
+                }
+            }
+            if (!activeHandlers.isEmpty()) wat.append("        try\n");
             wat.append(visitor.getOutput());
+            if (!activeHandlers.isEmpty()) {
+                wat.append("        catch $__java_exception\n        local.set $stk_0\n");
+                for (TryCatchBlockNode handler : activeHandlers) {
+                    if (handler.type != null) {
+                        wat.append("        i32.const 0\n");
+                        for (int id : dispatch.typeTestIds(handler.type))
+                            wat.append("        local.get $stk_0\n        i32.load\n        i32.const ").append(id).append("\n        i32.eq\n        i32.or\n");
+                        wat.append("        if\n");
+                    }
+                    setState(wat, cfg.getBlockForLabel(handler.handler));
+                    wat.append("        br $loop_dispatch\n");
+                    if (handler.type == null) break;
+                    wat.append("        end\n");
+                }
+                wat.append("        rethrow 0\n        end\n");
+            }
             if (terminal instanceof JumpInsnNode jump) {
                 if (jump.getOpcode() == Opcodes.GOTO) {
                     setState(wat, block.getBranchTarget());

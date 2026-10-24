@@ -148,6 +148,20 @@ public class ControlFlowGraph {
             }
         }
 
+        // Exceptional successors keep handler-only blocks and their normal successors alive.
+        for (TryCatchBlockNode handler : methodNode.tryCatchBlocks) {
+            int start = insns.indexOf(handler.start), end = insns.indexOf(handler.end);
+            for (BasicBlock block : blocks) {
+                for (AbstractInsnNode instruction : block.getInstructions()) {
+                    int index = insns.indexOf(instruction);
+                    if (instruction.getOpcode() >= 0 && index >= start && index < end) {
+                        block.addSuccessor(labelToBlock.get(handler.handler));
+                        break;
+                    }
+                }
+            }
+        }
+
         // Pass 4: Eliminate unreachable blocks & identify loop headers
         pruneUnreachableBlocks();
         detectLoopHeaders();

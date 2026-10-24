@@ -48,6 +48,8 @@ public class BytecodeCompiler {
         combinedWat.append("    (import \"env\" \"memory\" (memory 2 20))\n");
         combinedWat.append("    (import \"env\" \"__heap_alloc\" (func $__heap_alloc (param i32) (result i32)))\n");
 
+        if (classes.stream().anyMatch(BytecodeExceptions::usesRuntime)) combinedWat.append(BytecodeExceptions.TAG_WAT);
+
         if (classes.stream().anyMatch(ClassBytecodeCompiler::usesFloatingRemainder))
             combinedWat.append(FloatingPointSupport.remainderFunctionsWat());
 
