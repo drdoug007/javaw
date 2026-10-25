@@ -116,3 +116,7 @@ Revision `reference-streams-v63` adds [lazy sequential reference streams and sel
 ## Unicode case comparisons (`unicode-case-comparison-v71`)
 
 The bytecode runtime now declares simple Character upper/lower conversion, case-insensitive String equality/order/regions and CASE_INSENSITIVE_ORDER. The [Unicode comparison contract](bytecode-unicode-case.md) records Java 17 / Unicode 13 data generation, exhaustive reference checksums, surrogate handling, comparison-sign guarantees and executable pinned-library evidence. Tests execute unchanged Logback Classic/SLF4J Level classes and selected original Spring prefix/suffix methods; this does not establish full library/framework execution. The current selected whole-JAR inventory has 928 declared signatures, 107 missing members and 302 missing owners. Full/locale String case conversion, remaining numeric/wrapper and collection/stream APIs, and the closure-wide reachability/execution gate remain open.
+
+## Character properties and traversal (`unicode-character-properties-v72`)
+
+The remaining inventoried Character signatures now have bundled declarations, including Java 17 classification/numeric/identifier properties and surrogate/code-point helpers. See [the reproducible data, exact semantics and pinned-library evidence](bytecode-character-properties.md). Unchanged Jackson CharTypes/AltEscapes and SnakeYAML Mark/Constant execute against the JVM; this does not close parser/framework reachability or the core-JDK milestone. The earlier BMP-only digit limitation is superseded by int-code-point digit conversion.

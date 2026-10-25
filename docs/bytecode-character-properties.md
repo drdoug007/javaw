@@ -1,0 +1,15 @@
+# Character properties and UTF-16 traversal
+
+Revision `unicode-character-properties-v72` adds the remaining inventoried Character signatures to the bundled bytecode runtime. This is a declaration and tested utility milestone, not complete core-JDK or framework execution.
+
+Character classification uses Java 17 / Unicode 13 data: general category, numeric value, lower/upper case, alphabetic, Java/Unicode identifier start/part, defined, digit, letter, letter-or-digit, space and ISO-control predicates. Both char and int overloads preserve their distinct domains. Integer digit conversion recognizes decimal digits, including supplementary blocks, and ASCII/fullwidth radix letters; Roman numeral numeric values are not radix digits. Invalid integers return the JDK's false/UNASSIGNED/-1 results. Other_Lowercase/Other_Uppercase properties are retained rather than inferred from categories or simple case mappings.
+
+`tools/generate-unicode-properties.py --java-home <JDK17> [--check]` generates the packed range table. It rejects another Java feature version and prints independent whole-domain checksums before compression. The properties checksum is `-1110705514`; the BMP/overload/digit fixture checksum is `1007540470`. String chunks avoid oversized class-file constants and initializer methods. Build-host Unicode versions do not change the table.
+
+Surrogate predicates, code-point validity/width helpers, high/low/toCodePoint and both toChars overloads preserve Java arithmetic and bounds behavior. Isolated surrogate code points are valid inputs to toChars. charCount intentionally returns two for all integers at least 0x10000, including invalid values. The destination overload preserves observable partial writes on invalid indices. Character.compare returns the char difference, including its magnitude.
+
+Array and CharSequence codePointAt, codePointBefore and codePointCount honor slice boundaries, count unmatched surrogates individually, and throw typed null/bounds exceptions. An explicit limit cannot consume the second half of a pair beyond that limit. This does not introduce primitive streams, charset decoding, locale/full String casing, normalization or serialization.
+
+`BytecodeCharacterPropertiesTest` checks every code point against independently generated Java 17 property checksums, all BMP char overloads, supplementary radix digits, invalid values, surrogate construction and failure side effects, and array/sequence slice combinations. Normal/reversed JAR order and independent Wasm instances are tested.
+
+Actual pinned-library evidence includes the unchanged SHA-256-verified Jackson Core 2.15.4 CharTypes and AltEscapes class files (static initialization, identifier tables, escape tables, quoting, hex conversion, defensive copies) and SnakeYAML 2.2 Mark and scanner Constant (original char-array conversion, supplementary/malformed UTF-16, source snippets, line boundaries, truncation and metadata). These are complete utility classes, not Jackson parser or SnakeYAML loader execution. Source facades are not used as binary compatibility evidence.
