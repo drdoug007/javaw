@@ -33,6 +33,22 @@ public final class Collectors {
     public static <T,U,A,R> Collector<T,?,R> mapping(Function<? super T,? extends U> mapper,Collector<? super U,A,R> downstream){
         Objects.requireNonNull(mapper);return new Implementation<T,A,R>(downstream.supplier(),(result,value)->downstream.accumulator().accept(result,mapper.apply(value)),downstream.combiner(),downstream.finisher(),downstream.characteristics().toArray(new Collector.Characteristics[0]),false);
     }
+    private static <K,V> void unique(Map<K,V> map,K key,V value){
+        Objects.requireNonNull(value);if(map.putIfAbsent(key,value)!=null)throw new IllegalStateException("Duplicate key");
+    }
+    public static <T,K,U> Collector<T,?,Map<K,U>> toMap(Function<? super T,? extends K> keys,Function<? super T,? extends U> values){
+        return Collector.of(HashMap<K,U>::new,(map,item)->unique(map,keys.apply(item),values.apply(item)),(left,right)->{for(Map.Entry<K,U> entry:right.entrySet())unique(left,entry.getKey(),entry.getValue());return left;});
+    }
+    public static <T,K,U> Collector<T,?,Map<K,U>> toMap(Function<? super T,? extends K> keys,Function<? super T,? extends U> values,BinaryOperator<U> merger){return toMap(keys,values,merger,HashMap<K,U>::new);}
+    public static <T,K,U,M extends Map<K,U>> Collector<T,?,M> toMap(Function<? super T,? extends K> keys,Function<? super T,? extends U> values,BinaryOperator<U> merger,Supplier<M> factory){
+        return Collector.of(()->factory.get(),(map,item)->map.merge(keys.apply(item),values.apply(item),merger),(left,right)->{for(Map.Entry<K,U> entry:right.entrySet())left.merge(entry.getKey(),entry.getValue(),merger);return left;});
+    }
+    public static <T,K,U> Collector<T,?,Map<K,U>> toUnmodifiableMap(Function<? super T,? extends K> keys,Function<? super T,? extends U> values){
+        Objects.requireNonNull(keys);Objects.requireNonNull(values);return collectingAndThen(toMap(keys,values),Map::copyOf);
+    }
+    public static <T,K,U> Collector<T,?,Map<K,U>> toUnmodifiableMap(Function<? super T,? extends K> keys,Function<? super T,? extends U> values,BinaryOperator<U> merger){
+        Objects.requireNonNull(keys);Objects.requireNonNull(values);Objects.requireNonNull(merger);return collectingAndThen(toMap(keys,values,merger),Map::copyOf);
+    }
     private static final class Join {
         final StringBuilder text=new StringBuilder();final String delimiter;boolean present;
         Join(String delimiter){this.delimiter=delimiter;}
