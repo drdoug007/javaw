@@ -35,6 +35,40 @@ public final class String implements CharSequence,Comparable<String>,java.io.Ser
         if(offset<0 || otherOffset<0 || (long)offset>length()-(long)count || (long)otherOffset>other.length()-(long)count)return false;
         for(int i=0;i<count;i++)if(value[offset+i]!=other.value[otherOffset+i])return false;return true;
     }
+    public static final java.util.Comparator<String> CASE_INSENSITIVE_ORDER=new CaseComparator();
+    private static final class CaseComparator implements java.util.Comparator<String>,java.io.Serializable {
+        public int compare(String left,String right){return left.compareToIgnoreCase(right);}
+    }
+    private static int foldedDifference(int left,int right){
+        int upperLeft=Character.toUpperCase(left),upperRight=Character.toUpperCase(right);
+        return upperLeft==upperRight?0:Character.toLowerCase(upperLeft)-Character.toLowerCase(upperRight);
+    }
+    // A mismatching low surrogate can belong to a pair whose high halves already matched.
+    // Negative results identify pairs starting at index, so the caller advances two units.
+    private int comparisonPoint(int index,int begin,int end){
+        int unit=value[index];
+        if(unit>=0xdc00 && unit<=0xdfff && index>begin && value[index-1]>=0xd800 && value[index-1]<=0xdbff)
+            return 0x10000+((value[index-1]-0xd800)<<10)+(unit-0xdc00);
+        if(unit>=0xd800 && unit<=0xdbff && index+1<end && value[index+1]>=0xdc00 && value[index+1]<=0xdfff)
+            return -(0x10000+((unit-0xd800)<<10)+(value[index+1]-0xdc00));
+        return unit;
+    }
+    private int compareFolded(int begin,int count,String other,int otherBegin,int otherCount){
+        int end=begin+count,otherEnd=otherBegin+otherCount;
+        for(int left=begin,right=otherBegin;left<end && right<otherEnd;left++,right++){
+            int a=value[left],b=other.value[right];if(a==b || foldedDifference(a,b)==0)continue;
+            a=comparisonPoint(left,begin,end);b=other.comparisonPoint(right,otherBegin,otherEnd);
+            if(a<0){a=-a;left++;}if(b<0){b=-b;right++;}
+            int difference=foldedDifference(a,b);if(difference!=0)return difference;
+        }return count-otherCount;
+    }
+    public int compareToIgnoreCase(String other){return compareFolded(0,length(),other,0,other.length());}
+    public boolean equalsIgnoreCase(String other){return other!=null && length()==other.length() && compareFolded(0,length(),other,0,other.length())==0;}
+    public boolean regionMatches(boolean ignoreCase,int offset,String other,int otherOffset,int count){
+        if(!ignoreCase)return regionMatches(offset,other,otherOffset,count);
+        if(offset<0 || otherOffset<0 || (long)offset>length()-(long)count || (long)otherOffset>other.length()-(long)count)return false;
+        return count<=0 || compareFolded(offset,count,other,otherOffset,count)==0;
+    }
     public boolean isBlank(){return whitespaceStart()==length();}
     private int whitespaceStart(){int i=0;while(i<length() && Character.isWhitespace(value[i]))i++;return i;}
     private int whitespaceEnd(){int i=length();while(i>0 && Character.isWhitespace(value[i-1]))i--;return i;}

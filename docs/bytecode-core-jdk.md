@@ -112,3 +112,7 @@ Revision `big-decimal-v62` links [selected BigDecimal and RoundingMode APIs](byt
 ## Sequential reference streams
 
 Revision `reference-streams-v63` adds [lazy sequential reference streams and selected collectors](bytecode-reference-streams.md), including Collection/Arrays/Optional sources, short-circuiting, close/error paths, and execution of four unchanged pinned Micrometer utility classes. Primitive streams, spliterators, parallel execution, broader collector families and the other core-JDK gaps remain open.
+
+## Unicode case comparisons (`unicode-case-comparison-v71`)
+
+The bytecode runtime now declares simple Character upper/lower conversion, case-insensitive String equality/order/regions and CASE_INSENSITIVE_ORDER. The [Unicode comparison contract](bytecode-unicode-case.md) records Java 17 / Unicode 13 data generation, exhaustive reference checksums, surrogate handling, comparison-sign guarantees and executable pinned-library evidence. Tests execute unchanged Logback Classic/SLF4J Level classes and selected original Spring prefix/suffix methods; this does not establish full library/framework execution. The current selected whole-JAR inventory has 928 declared signatures, 107 missing members and 302 missing owners. Full/locale String case conversion, remaining numeric/wrapper and collection/stream APIs, and the closure-wide reachability/execution gate remain open.

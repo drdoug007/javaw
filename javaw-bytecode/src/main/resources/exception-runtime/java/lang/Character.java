@@ -28,6 +28,10 @@ public final class Character implements Comparable<Character>,java.io.Serializab
         else for(int start:DECIMAL_STARTS)if(ch>=start && ch<start+10){value=ch-start;break;}
         return value<radix?value:-1;
     }
+    public static int toUpperCase(int value){return javaw.runtime.UnicodeCase.upper(value);}
+    public static char toUpperCase(char value){return (char)toUpperCase((int)value);}
+    public static int toLowerCase(int value){return javaw.runtime.UnicodeCase.lower(value);}
+    public static char toLowerCase(char value){return (char)toLowerCase((int)value);}
     public static boolean isWhitespace(char value){return isWhitespace((int)value);}
     public static boolean isWhitespace(int value){
         return value>=9 && value<=13 || value>=0x1c && value<=0x20 || value==0x1680
