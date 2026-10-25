@@ -19,9 +19,19 @@ public final class Character implements Comparable<Character>,java.io.Serializab
         return new Character(value);
     }
     public static final int MIN_RADIX=2,MAX_RADIX=36;
-    public static int digit(char value,int radix){return digit((int)value,radix);}
+    // Unicode decimal-digit blocks in the BMP; supplementary code points are not chars.
+    private static final int[] DECIMAL_STARTS={0x30,0x660,0x6f0,0x7c0,0x966,0x9e6,0xa66,0xae6,0xb66,0xbe6,0xc66,0xce6,0xd66,0xde6,0xe50,0xed0,0xf20,0x1040,0x1090,0x17e0,0x1810,0x1946,0x19d0,0x1a80,0x1a90,0x1b50,0x1bb0,0x1c40,0x1c50,0xa620,0xa8d0,0xa900,0xa9d0,0xa9f0,0xaa50,0xabf0,0xff10};
+    public static int digit(char ch,int radix){
+        if(radix<2 || radix>36)return -1;int value=-1;
+        if(ch>='a' && ch<='z')value=ch-'a'+10;else if(ch>='A' && ch<='Z')value=ch-'A'+10;
+        else if(ch>=0xff21 && ch<=0xff3a)value=ch-0xff21+10;else if(ch>=0xff41 && ch<=0xff5a)value=ch-0xff41+10;
+        else for(int start:DECIMAL_STARTS)if(ch>=start && ch<start+10){value=ch-start;break;}
+        return value<radix?value:-1;
+    }
     public static int digit(int value,int radix){
         if(radix<2 || radix>36)return -1;
+        if(value>=0 && value<=65535)return digit((char)value,radix);
+        if(!isValidCodePoint(value))return -1;
         int digit=-1;
         if(getType(value)==9)digit=getNumericValue(value);
         else if(value>='A' && value<='Z')digit=value-'A'+10;
@@ -86,21 +96,25 @@ public final class Character implements Comparable<Character>,java.io.Serializab
     public static int codePointAt(CharSequence text,int index){
         char high=text.charAt(index);if(isHighSurrogate(high) && index+1<text.length()){char low=text.charAt(index+1);if(isLowSurrogate(low))return toCodePoint(high,low);}return high;
     }
-    public static int codePointAt(char[] text,int index){return codePointAt(text,index,text.length);}
+    public static int codePointAt(char[] text,int index){
+        int length=text.length;char high=text[index];if(isHighSurrogate(high) && index+1<length){char low=text[index+1];if(isLowSurrogate(low))return toCodePoint(high,low);}return high;
+    }
     public static int codePointAt(char[] text,int index,int limit){
-        if(index<0 || index>=limit || limit<0 || limit>text.length)throw new IndexOutOfBoundsException();
+        if(index>=limit || limit<0 || limit>text.length)throw new IndexOutOfBoundsException();
         char high=text[index];if(isHighSurrogate(high) && index+1<limit){char low=text[index+1];if(isLowSurrogate(low))return toCodePoint(high,low);}return high;
     }
     public static int codePointBefore(CharSequence text,int index){
         char low=text.charAt(index-1);if(isLowSurrogate(low) && index>1){char high=text.charAt(index-2);if(isHighSurrogate(high))return toCodePoint(high,low);}return low;
     }
-    public static int codePointBefore(char[] text,int index){return codePointBefore(text,index,0);}
+    public static int codePointBefore(char[] text,int index){
+        char low=text[index-1];if(isLowSurrogate(low) && index>1){char high=text[index-2];if(isHighSurrogate(high))return toCodePoint(high,low);}return low;
+    }
     public static int codePointBefore(char[] text,int index,int start){
-        if(start<0 || start>=index || index>text.length)throw new IndexOutOfBoundsException();
+        if(index<=start || start<0 || start>=text.length)throw new IndexOutOfBoundsException();
         char low=text[index-1];if(isLowSurrogate(low) && index-2>=start){char high=text[index-2];if(isHighSurrogate(high))return toCodePoint(high,low);}return low;
     }
     public static int codePointCount(CharSequence text,int begin,int end){
-        if(begin<0 || end<begin || end>text.length())throw new IndexOutOfBoundsException();int count=0;
+        int length=text.length();if(begin<0 || end<begin || end>length)throw new IndexOutOfBoundsException();int count=0;
         for(int i=begin;i<end;i++){char high=text.charAt(i);if(isHighSurrogate(high) && i+1<end && isLowSurrogate(text.charAt(i+1)))i++;count++;}return count;
     }
     public static int codePointCount(char[] text,int offset,int count){

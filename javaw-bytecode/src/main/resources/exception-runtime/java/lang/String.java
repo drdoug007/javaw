@@ -21,7 +21,8 @@ public final class String implements CharSequence,Comparable<String>,java.io.Ser
     }
     @Deprecated public String(byte[] bytes,int highByte){this(bytes,highByte,0,bytes.length);}
     @Deprecated public String(byte[] bytes,int highByte,int offset,int count){
-        if(offset<0 || count<0 || offset>bytes.length-count)throw new StringIndexOutOfBoundsException();
+        int length=bytes.length;
+        if(offset<0 || count<0 || offset>length-count)throw new StringIndexOutOfBoundsException();
         value=new char[count];int high=(highByte&255)<<8;
         for(int i=0;i<count;i++)value[i]=(char)(high|(bytes[offset+i]&255));
     }

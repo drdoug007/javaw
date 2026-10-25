@@ -124,3 +124,7 @@ The remaining inventoried Character signatures now have bundled declarations, in
 ## Legacy byte text (`legacy-byte-text-v73`)
 
 Legacy high-byte String constructors now support the unchanged pinned Jackson floating formatters. See [the constructor contract and exact library-output evidence](bytecode-legacy-byte-text.md). These constructors do not implement charset decoding.
+
+## Collector families (`grouping-collectors-v76`)
+
+The bundled runtime supplies [mutable/unmodifiable map collectors](bytecode-map-collectors.md), [immutable set collection](bytecode-immutable-set-collectors.md) and [sequential grouping](bytecode-grouping-collectors.md), with pinned-library method/instruction evidence explicitly scoped in those contracts. The selected whole-JAR inventory now has 970 declared signatures, 65 missing members and 302 missing owners; these counts do not establish runtime reachability or execution coverage. Primitive streams/spliterators, sorted/synchronized collections, remaining text/numeric APIs and the closure gate remain open.

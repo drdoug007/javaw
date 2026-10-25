@@ -54,7 +54,9 @@ class BytecodeLegacyByteTextTest implements Opcodes {
                 }
                 String snapshot=new String(bytes,0);bytes[65]=0;if(snapshot.charAt(65)!='A')throw new Error();hash=31*hash+snapshot.hashCode();
                 try{new String((byte[])null,0);throw new Error();}catch(NullPointerException e){hash++;}
-                try{new String((byte[])null,0,0,0);throw new Error();}catch(NullPointerException e){hash++;}
+                for(int offset:new int[]{-1,0,Integer.MAX_VALUE})for(int count:new int[]{-1,0,Integer.MAX_VALUE}){
+                    try{new String((byte[])null,0,offset,count);throw new Error();}catch(NullPointerException e){hash++;}
+                }
                 return hash;
             }}
             """);compare(List.of("run"));

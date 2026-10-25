@@ -97,24 +97,41 @@ class BytecodeCharacterPropertiesTest implements Opcodes {
     }
     @Test void arrayAndSequenceTraversalBoundaries() throws Exception {
         fixture("""
-            public class Metadata {public static int run(){int hash=1;
+            public class Metadata {public static int probe(int kind,int index,int end){
                 char[] text={'a',0xd801,0xdc28,0xd800,'x',0xdc00,0xd800,0xd800,0xdc00};String s=new String(text);
-                for(int i=-1;i<=text.length+1;i++)for(int end=-1;end<=text.length+1;end++){
-                    try{hash=31*hash+Character.codePointAt(text,i,end);}catch(IndexOutOfBoundsException e){hash++;}
-                    try{hash=31*hash+Character.codePointBefore(text,i,end);}catch(IndexOutOfBoundsException e){hash++;}
-                    try{hash=31*hash+Character.codePointCount(text,i,end);}catch(IndexOutOfBoundsException e){hash++;}
-                    try{hash=31*hash+Character.codePointCount(s,i,end);}catch(IndexOutOfBoundsException e){hash++;}
-                }
-                for(int i=-1;i<=text.length+1;i++){
-                    try{hash=31*hash+Character.codePointAt(text,i);}catch(IndexOutOfBoundsException e){hash++;}
-                    try{hash=31*hash+Character.codePointBefore(text,i);}catch(IndexOutOfBoundsException e){hash++;}
-                    try{hash=31*hash+Character.codePointAt(s,i);}catch(IndexOutOfBoundsException e){hash++;}
-                    try{hash=31*hash+Character.codePointBefore(s,i);}catch(IndexOutOfBoundsException e){hash++;}
-                }
-                try{Character.codePointCount((char[])null,0,0);throw new Error();}catch(NullPointerException e){hash++;}
-                try{Character.codePointAt((CharSequence)null,0);throw new Error();}catch(NullPointerException e){hash++;}return hash;
+                try{
+                    switch(kind){
+                        case 0:return Character.codePointAt(text,index,end);
+                        case 1:return Character.codePointBefore(text,index,end);
+                        case 2:return Character.codePointCount(text,index,end);
+                        case 3:return Character.codePointCount(s,index,end);
+                        case 4:return Character.codePointAt(text,index);
+                        case 5:return Character.codePointBefore(text,index);
+                        case 6:return Character.codePointAt(s,index);
+                        case 7:return Character.codePointBefore(s,index);
+                        case 8:return Character.codePointAt((char[])null,index,end);
+                        case 9:return Character.codePointBefore((char[])null,index,end);
+                        case 10:return Character.codePointCount((CharSequence)null,index,end);
+                        case 11:return Character.codePointAt((char[])null,index);
+                        case 12:return Character.codePointBefore((char[])null,index);
+                        default:throw new Error();
+                    }
+                }catch(NullPointerException e){return -1;}
+                 catch(ArrayIndexOutOfBoundsException e){return -2;}
+                 catch(StringIndexOutOfBoundsException e){return -3;}
+                 catch(IndexOutOfBoundsException e){return -4;}
             }}
-            """);compare(List.of("run"));
+            """);
+        StringBuilder checks=new StringBuilder();
+        // --release controls class-file APIs, not the host JVM's newer bounds checks.
+        try(InputStream oracle=getClass().getResourceAsStream("/character-traversal-jdk17.txt")){
+            assertNotNull(oracle);String data=new String(oracle.readAllBytes(),java.nio.charset.StandardCharsets.UTF_8);
+            List<String> rows=data.lines().toList();assertEquals(1872,rows.size());
+            for(String row:rows){String[] fields=row.split(" ");String arguments=fields[0]+","+fields[1]+","+fields[2];
+                checks.append("assert.equal(e['Metadata.probe'](").append(arguments).append("),").append(fields[3]).append(",'").append(arguments).append("');\n");
+            }
+        }
+        for(boolean reverse:new boolean[]{false,true})execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),checks.toString());
     }
     @Test void executesUnchangedPinnedJacksonCharTypes() throws Exception {
         Path repository=Path.of(System.getProperty("maven.repo.local",Path.of(System.getProperty("user.home"),".m2","repository").toString()));

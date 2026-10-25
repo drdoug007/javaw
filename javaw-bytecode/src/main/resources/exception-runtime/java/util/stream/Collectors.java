@@ -50,6 +50,18 @@ public final class Collectors {
     public static <T,K,U> Collector<T,?,Map<K,U>> toUnmodifiableMap(Function<? super T,? extends K> keys,Function<? super T,? extends U> values,BinaryOperator<U> merger){
         Objects.requireNonNull(keys);Objects.requireNonNull(values);Objects.requireNonNull(merger);return collectingAndThen(toMap(keys,values,merger),Map::copyOf);
     }
+    public static <T,K> Collector<T,?,Map<K,List<T>>> groupingBy(Function<? super T,? extends K> classifier){return groupingBy(classifier,Collectors.<T>toList());}
+    public static <T,K,A,D> Collector<T,?,Map<K,D>> groupingBy(Function<? super T,? extends K> classifier,Collector<? super T,A,D> downstream){return groupingBy(classifier,HashMap<K,D>::new,downstream);}
+    public static <T,K,D,A,M extends Map<K,D>> Collector<T,?,M> groupingBy(Function<? super T,? extends K> classifier,Supplier<M> factory,Collector<? super T,A,D> downstream){
+        final Supplier<A> buckets=downstream.supplier();final BiConsumer<A,? super T> add=downstream.accumulator();final BinaryOperator<A> merge=downstream.combiner();
+        final boolean identity=downstream.characteristics().contains(Collector.Characteristics.IDENTITY_FINISH);
+        final Function<A,D> finishBucket=identity?null:downstream.finisher();
+        Supplier<Map<K,A>> supply=()->(Map<K,A>)(Map)factory.get();
+        BiConsumer<Map<K,A>,T> accumulate=(map,item)->{K key=Objects.requireNonNull(classifier.apply(item));A bucket=map.computeIfAbsent(key,k->buckets.get());add.accept(bucket,item);};
+        BinaryOperator<Map<K,A>> combine=(left,right)->{for(Map.Entry<K,A> entry:right.entrySet())left.merge(entry.getKey(),entry.getValue(),merge);return left;};
+        Function<Map<K,A>,M> finish=map->{if(!identity){Map raw=map;raw.replaceAll((key,value)->finishBucket.apply((A)value));}return (M)(Map)map;};
+        return new Implementation<T,Map<K,A>,M>(supply,accumulate,combine,finish,new Collector.Characteristics[0],identity);
+    }
     private static final class Join {
         final StringBuilder text=new StringBuilder();final String delimiter;boolean present;
         Join(String delimiter){this.delimiter=delimiter;}

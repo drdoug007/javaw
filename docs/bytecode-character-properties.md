@@ -8,6 +8,8 @@ Character classification uses Java 17 / Unicode 13 data: general category, numer
 
 Surrogate predicates, code-point validity/width helpers, high/low/toCodePoint and both toChars overloads preserve Java arithmetic and bounds behavior. Isolated surrogate code points are valid inputs to toChars. charCount intentionally returns two for all integers at least 0x10000, including invalid values. The destination overload preserves observable partial writes on invalid indices. Character.compare returns the char difference, including its magnitude.
 
+At v76, an independently generated Java 17 oracle checks 1,872 array/sequence/null/bounds cases, including exact exception subtypes. Regenerate it with `tools/generate-character-traversal.py --java-home <JDK17> [--check]`. Newer JDKs changed bounded Character checks; `--release 17` alone does not select Java 17 runtime behavior.
+
 Array and CharSequence codePointAt, codePointBefore and codePointCount honor slice boundaries, count unmatched surrogates individually, and throw typed null/bounds exceptions. An explicit limit cannot consume the second half of a pair beyond that limit. This does not introduce primitive streams, charset decoding, locale/full String casing, normalization or serialization.
 
 `BytecodeCharacterPropertiesTest` checks every code point against independently generated Java 17 property checksums, all BMP char overloads, supplementary radix digits, invalid values, surrogate construction and failure side effects, and array/sequence slice combinations. Normal/reversed JAR order and independent Wasm instances are tested.
