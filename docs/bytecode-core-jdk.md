@@ -120,3 +120,7 @@ The bytecode runtime now declares simple Character upper/lower conversion, case-
 ## Character properties and traversal (`unicode-character-properties-v72`)
 
 The remaining inventoried Character signatures now have bundled declarations, including Java 17 classification/numeric/identifier properties and surrogate/code-point helpers. See [the reproducible data, exact semantics and pinned-library evidence](bytecode-character-properties.md). Unchanged Jackson CharTypes/AltEscapes and SnakeYAML Mark/Constant execute against the JVM; this does not close parser/framework reachability or the core-JDK milestone. The earlier BMP-only digit limitation is superseded by int-code-point digit conversion.
+
+## Legacy byte text (`legacy-byte-text-v73`)
+
+Legacy high-byte String constructors now support the unchanged pinned Jackson floating formatters. See [the constructor contract and exact library-output evidence](bytecode-legacy-byte-text.md). These constructors do not implement charset decoding.

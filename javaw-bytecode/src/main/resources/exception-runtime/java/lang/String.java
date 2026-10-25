@@ -19,6 +19,12 @@ public final class String implements CharSequence,Comparable<String>,java.io.Ser
         if(offset<0 || count<0 || offset>chars.length-count)throw new StringIndexOutOfBoundsException();
         value=new char[count];System.arraycopy(chars,offset,value,0,count);
     }
+    @Deprecated public String(byte[] bytes,int highByte){this(bytes,highByte,0,bytes.length);}
+    @Deprecated public String(byte[] bytes,int highByte,int offset,int count){
+        if(offset<0 || count<0 || offset>bytes.length-count)throw new StringIndexOutOfBoundsException();
+        value=new char[count];int high=(highByte&255)<<8;
+        for(int i=0;i<count;i++)value[i]=(char)(high|(bytes[offset+i]&255));
+    }
     public String(int[] codePoints,int offset,int count){
         int sourceLength=codePoints.length;
         if(offset<0 || count<0 || offset>sourceLength-count)throw new IndexOutOfBoundsException();
