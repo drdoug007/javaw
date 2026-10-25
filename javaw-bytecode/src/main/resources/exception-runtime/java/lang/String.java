@@ -19,6 +19,47 @@ public final class String implements CharSequence,Comparable<String>,java.io.Ser
         if(offset<0 || count<0 || offset>chars.length-count)throw new StringIndexOutOfBoundsException();
         value=new char[count];System.arraycopy(chars,offset,value,0,count);
     }
+    public String(int[] codePoints,int offset,int count){
+        int sourceLength=codePoints.length;
+        if(offset<0 || count<0 || offset>sourceLength-count)throw new IndexOutOfBoundsException();
+        int size=count;
+        for(int i=offset;i<offset+count;i++){
+            int code=codePoints[i];if(code<0 || code>0x10ffff)throw new IllegalArgumentException();
+            if(code>=0x10000){if(size==Integer.MAX_VALUE)throw new OutOfMemoryError();size++;}
+        }
+        value=new char[size];int out=0;
+        for(int i=offset;i<offset+count;i++){int code=codePoints[i];if(code<0x10000)value[out++]=(char)code;
+            else{value[out++]=(char)(0xd800+((code-0x10000)>>10));value[out++]=(char)(0xdc00+((code-0x10000)&1023));}}
+    }
+    public boolean regionMatches(int offset,String other,int otherOffset,int count){
+        if(offset<0 || otherOffset<0 || (long)offset>length()-(long)count || (long)otherOffset>other.length()-(long)count)return false;
+        for(int i=0;i<count;i++)if(value[offset+i]!=other.value[otherOffset+i])return false;return true;
+    }
+    public boolean isBlank(){return whitespaceStart()==length();}
+    private int whitespaceStart(){int i=0;while(i<length() && Character.isWhitespace(value[i]))i++;return i;}
+    private int whitespaceEnd(){int i=length();while(i>0 && Character.isWhitespace(value[i-1]))i--;return i;}
+    public String stripLeading(){return substring(whitespaceStart());}
+    public String stripTrailing(){return substring(0,whitespaceEnd());}
+    public String strip(){int start=whitespaceStart();return start==length()?"":substring(start,whitespaceEnd());}
+    public String repeat(int count){
+        if(count<0)throw new IllegalArgumentException();if(count==1)return this;if(count==0 || length()==0)return "";
+        if(count>Integer.MAX_VALUE/length())throw new OutOfMemoryError();
+        char[] chars=new char[count*length()];for(int i=0;i<chars.length;i+=length())System.arraycopy(value,0,chars,i,length());return new String(chars,true);
+    }
+    public static String join(CharSequence delimiter,CharSequence... elements){
+        String separator=delimiter.toString();StringBuilder out=new StringBuilder();
+        for(int i=0;i<elements.length;i++){if(i!=0)out.append(separator);out.append(String.valueOf((Object)elements[i]));}return out.toString();
+    }
+    public static String join(CharSequence delimiter,Iterable<? extends CharSequence> elements){
+        String separator=delimiter.toString();StringBuilder out=new StringBuilder();boolean first=true;
+        for(CharSequence element:elements){if(!first)out.append(separator);first=false;out.append(String.valueOf((Object)element));}return out.toString();
+    }
+    private int lineEnd(int start){int end=start;while(end<length() && value[end]!='\n' && value[end]!='\r')end++;return end;}
+    private int nextLine(int start){int end=lineEnd(start);if(end==length())return end;return end+1<length() && value[end]=='\r' && value[end+1]=='\n'?end+2:end+1;}
+    public java.util.stream.Stream<String> lines(){
+        return java.util.stream.Stream.iterate(Integer.valueOf(0),i->i.intValue()<length(),i->Integer.valueOf(nextLine(i.intValue())))
+            .map(i->substring(i.intValue(),lineEnd(i.intValue())));
+    }
     public boolean isEmpty(){return value.length==0;}
     public char[] toCharArray(){return value.clone();}
     public void getChars(int start,int end,char[] destination,int offset){

@@ -28,6 +28,12 @@ public final class Character implements Comparable<Character>,java.io.Serializab
         else for(int start:DECIMAL_STARTS)if(ch>=start && ch<start+10){value=ch-start;break;}
         return value<radix?value:-1;
     }
+    public static boolean isWhitespace(char value){return isWhitespace((int)value);}
+    public static boolean isWhitespace(int value){
+        return value>=9 && value<=13 || value>=0x1c && value<=0x20 || value==0x1680
+            || value>=0x2000 && value<=0x2006 || value>=0x2008 && value<=0x200a
+            || value==0x2028 || value==0x2029 || value==0x205f || value==0x3000;
+    }
     public static char forDigit(int digit,int radix){return radix<2 || radix>36 || digit<0 || digit>=radix?0:(char)(digit<10?'0'+digit:'a'+digit-10);}
     public String toString(){return String.valueOf(value);}
     public static String toString(char value){return String.valueOf(value);}
