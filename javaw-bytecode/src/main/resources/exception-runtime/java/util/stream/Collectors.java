@@ -25,6 +25,7 @@ public final class Collectors {
     public static <T,C extends Collection<T>> Collector<T,?,C> toCollection(Supplier<C> factory){return Collector.of(factory,Collection<T>::add,(left,right)->{left.addAll(right);return left;});}
     public static <T> Collector<T,?,List<T>> toList(){return toCollection(ArrayList<T>::new);}
     public static <T> Collector<T,?,Set<T>> toSet(){return Collector.of(HashSet<T>::new,Set<T>::add,(left,right)->{left.addAll(right);return left;},Collector.Characteristics.UNORDERED);}
+    public static <T> Collector<T,?,Set<T>> toUnmodifiableSet(){return collectingAndThen(Collectors.<T>toSet(),Set::copyOf);}
     public static <T> Collector<T,?,List<T>> toUnmodifiableList(){return collectingAndThen(Collectors.<T>toList(),values->{for(T value:values)Objects.requireNonNull(value);return new ReferenceStream.FrozenList<T>(values.toArray());});}
     public static <T,A,R,RR> Collector<T,A,RR> collectingAndThen(Collector<T,A,R> downstream,Function<R,RR> finisher){
         Objects.requireNonNull(finisher);ArrayList<Collector.Characteristics> flags=new ArrayList<Collector.Characteristics>();for(Collector.Characteristics flag:downstream.characteristics())if(flag!=Collector.Characteristics.IDENTITY_FINISH)flags.add(flag);
