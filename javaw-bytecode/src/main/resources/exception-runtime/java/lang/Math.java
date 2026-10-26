@@ -91,4 +91,18 @@ public final class Math {
 
     public static int getExponent(float value){return ((Float.floatToRawIntBits(value)>>>23)&255)-127;}
     public static int getExponent(double value){return (int)((Double.doubleToRawLongBits(value)>>>52)&2047)-1023;}
+    public static float ulp(float value){
+        int exponent=getExponent(value);
+        if(exponent==128)return abs(value);
+        if(exponent==-127)return Float.intBitsToFloat(1);
+        exponent-=23;
+        return Float.intBitsToFloat(exponent>=-126?(exponent+127)<<23:1<<(exponent+149));
+    }
+    public static double ulp(double value){
+        int exponent=getExponent(value);
+        if(exponent==1024)return abs(value);
+        if(exponent==-1023)return Double.longBitsToDouble(1);
+        exponent-=52;
+        return Double.longBitsToDouble(exponent>=-1022?(long)(exponent+1023)<<52:1L<<(exponent+1074));
+    }
 }
