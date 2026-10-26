@@ -159,7 +159,7 @@ public final class TextFormats {
  }
  private static String decimalFraction(Object value,Spec s,Locale locale){
   if(value==null)return "null";
-  if(value instanceof Double || value instanceof Float)throw new UnsupportedOperationException("Binary floating decimal formatting");
+  if(value instanceof Double || value instanceof Float)return binaryFraction(((Number)value).doubleValue(),s,locale);
   if(!(value instanceof BigDecimal))throw new IllegalFormatConversionException(conversion(s),value.getClass());
   numericLocale(locale);BigDecimal n=(BigDecimal)value;int precision=s.precision<0?6:s.precision;
   String digits;
@@ -167,6 +167,15 @@ public final class TextFormats {
   else if(conversion(s)=='e')digits=scientific(n.abs(),precision,flag(s,'#'));
   else {digits=n.abs().setScale(precision,RoundingMode.HALF_UP).toPlainString();if(precision==0 && flag(s,'#'))digits+=".";}
   return localize(decorate(grouped(digits,s),n.signum()<0,"",s),locale);
+ }
+ private static String binaryFraction(double value,Spec s,Locale locale){
+  if(conversion(s)!='f')throw new UnsupportedOperationException("Binary floating conversion");
+  if(!Double.isFinite(value) || Double.doubleToRawLongBits(value)==Long.MIN_VALUE)throw new UnsupportedOperationException("Binary floating special value");
+  numericLocale(locale);boolean negative=value<0;int precision=s.precision<0?6:s.precision;
+  BigDecimal n=value==0?BigDecimal.ZERO:new BigDecimal(Decimal.formatText(Math.abs(value)));
+  String digits=n.setScale(precision,RoundingMode.HALF_UP).toPlainString();
+  if(precision==0 && flag(s,'#'))digits+=".";
+  return localize(decorate(grouped(digits,s),negative,"",s),locale);
  }
  private static String general(BigDecimal n,int precision){
   BigDecimal rounded=n.round(new MathContext(precision,RoundingMode.HALF_UP));

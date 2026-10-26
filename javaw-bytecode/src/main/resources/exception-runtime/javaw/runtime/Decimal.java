@@ -21,9 +21,32 @@ public final class Decimal {
         long significand=exponent==0?fraction:fraction|(1<<23);
         return render(significand,(exponent==0?1:exponent)-150,negative,fraction==0 && exponent>1);
     }
+    /** Java 17 Formatter digit sequence: at least two digits, strict symmetric interval.
+     * Integral values in the small-exponent path retain decimal integer rounding.
+     * This is separate from the shortest String.valueOf representation.
+     */
+    public static String formatText(double value) {
+        long bits=ExceptionSupport.doubleBits(value),fraction=bits&0xfffffffffffffL;
+        int field=(int)((bits>>>52)&2047),exponent=field-1023;
+        if(field==2047 || value==0.0)throw new IllegalArgumentException();
+        long significand=field==0?fraction:fraction|(1L<<52);
+        if(exponent>=-21 && exponent<=62 && value==(long)value){
+            long integer=(long)value;int drop=0;
+            if(exponent>53){long spacing=1L<<(exponent-54);while(spacing>=10){spacing/=10;drop++;}}
+            if(drop==0)return Long.toString(integer);
+            long power=1;for(int i=0;i<drop;i++)power*=10;
+            long quotient=integer/power;if(integer%power>=power/2)quotient++;
+            return Long.toString(quotient)+"E"+drop;
+        }
+        return render(significand,(field==0?1:field)-1075,false,
+            (significand&(significand-1))==0,true);
+    }
     private static String render(long significand,int exponent,boolean negative,boolean asymmetric) {
+        return render(significand,exponent,negative,asymmetric,false);
+    }
+    private static String render(long significand,int exponent,boolean negative,boolean asymmetric,boolean formatting) {
         int[] numerator=new int[80],denominator=new int[80],low=new int[80],high=new int[80],scratch=new int[80];
-        set(numerator,significand*4);set(denominator,1);set(low,asymmetric?1:2);set(high,2);
+        set(numerator,significand*4);set(denominator,1);set(low,asymmetric?1:2);set(high,formatting && asymmetric?1:2);
         if(exponent>=2){shift(numerator,exponent-2);shift(low,exponent-2);shift(high,exponent-2);}
         else shift(denominator,2-exponent);
         int decimalExponent=0;
@@ -38,13 +61,13 @@ public final class Decimal {
         }
         boolean even=(significand&1)==0;
         char[] digits=new char[24];int count=0;
-        int minimum=decimalExponent < -3 || decimalExponent >= 7 ? 2 : 1;
+        int minimum=formatting || decimalExponent < -3 || decimalExponent >= 7 ? 2 : 1;
         for(;;) {
             int digit=0;while(compare(numerator,denominator)>=0){subtract(numerator,denominator);digit++;}
             digits[count++]=(char)('0'+digit);
-            int lower=compare(numerator,low);boolean down=lower<0 || even && lower==0;
+            int lower=compare(numerator,low);boolean down=lower<0 || even && lower==0 && !formatting;
             copy(denominator,scratch);subtract(scratch,numerator);
-            int upper=compare(high,scratch);boolean up=upper>0 || even && upper==0;
+            int upper=compare(high,scratch);boolean up=upper>0 || even && upper==0 && !formatting;
             if(count>=minimum && (down || up)) {
                 boolean round=up && !down;
                 if(up && down) {
