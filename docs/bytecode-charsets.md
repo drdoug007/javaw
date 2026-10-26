@@ -21,3 +21,9 @@ Latin-1 encoding preserves representable units and replaces unmappable units or 
 ## ASCII String decoding (`ascii-decode-v124`)
 
 US-ASCII aliases decode ASCII bytes exactly and replace each non-ASCII byte with U+FFFD. Focused tests exercise exact output and typed failures with JVM/Wasm comparisons.
+
+## ASCII String encoding (`ascii-encode-v125`)
+
+ASCII encoding replaces unmappable characters and malformed surrogates, consuming valid surrogate pairs as one replacement. Focused tests exercise exact output and typed failures with JVM/Wasm comparisons.
+
+Named lookups validate the ASCII charset-name grammar before case-insensitive alias matching, so Unicode case-fold lookalikes cannot select an ASCII-named encoding. Invalid and unsupported names both produce UnsupportedEncodingException for String name overloads.

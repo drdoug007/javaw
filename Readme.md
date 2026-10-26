@@ -1966,3 +1966,5 @@ Bytecode charset progress (v122): ISO-8859-1 and its Java 17 aliases decode ever
 Bytecode charset progress (v123): Latin-1 encoding preserves representable units and replaces unmappable units or surrogate pairs with one question-mark byte per unmappable character. JVM/Wasm comparisons and the reviewed dependency audit pass. See [the charset contract](docs/bytecode-charsets.md); broader text/charset and framework support remains open.
 
 Bytecode charset progress (v124): US-ASCII aliases decode ASCII bytes exactly and replace each non-ASCII byte with U+FFFD. JVM/Wasm comparisons and the reviewed dependency audit pass. See [the charset contract](docs/bytecode-charsets.md); broader text/charset and framework support remains open.
+
+Bytecode charset progress (v125): ASCII encoding replaces unmappable characters and malformed surrogates, consuming valid surrogate pairs as one replacement. JVM/Wasm comparisons and the reviewed dependency audit pass. See [the charset contract](docs/bytecode-charsets.md); broader text/charset and framework support remains open.
