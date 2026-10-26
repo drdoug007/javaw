@@ -105,6 +105,8 @@ class BytecodeTranscendentalTest implements Opcodes {
 
     @Test void tangent() throws Exception {unary("tan",StrictMath::tan,Math::tan);}
 
+    @Test void inverseSine() throws Exception {unary("asin",StrictMath::asin,Math::asin);}
+
     private List<Double> values(){
         List<Double> values=new ArrayList<>();
         double[] boundaries={0.0,-0.0,1,-1,0.5,-0.5,2,-2,Math.PI,-Math.PI,Math.PI/2,-Math.PI/2,
@@ -116,8 +118,13 @@ class BytecodeTranscendentalTest implements Opcodes {
             long bits=((long)exponent<<52)|0x000921fb54442d18L;
             values.add(Double.longBitsToDouble(bits));values.add(Double.longBitsToDouble(bits|Long.MIN_VALUE));
         }
+        for(int multiple=-32;multiple<=32;multiple++){
+            double value=multiple*(Math.PI/2);values.add(Math.nextDown(value));values.add(value);values.add(Math.nextUp(value));
+        }
         long seed=17;
-        for(int i=0;i<512;i++){seed=seed*6364136223846793005L+1442695040888963407L;values.add(Double.longBitsToDouble(seed));}
+        for(int i=0;i<512;i++){seed=seed*6364136223846793005L+1442695040888963407L;
+            values.add(Double.longBitsToDouble(seed));values.add((seed>>>11)*0x1p-52-1.0);
+        }
         return values;
     }
 

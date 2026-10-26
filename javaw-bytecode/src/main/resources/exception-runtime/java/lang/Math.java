@@ -158,4 +158,5 @@ public final class Math {
     public static double sin(double x){return FdLibm.Sin.compute(x);}
     public static double cos(double x){return FdLibm.Cos.compute(x);}
     public static double tan(double x){return FdLibm.Tan.compute(x);}
+    public static double asin(double x){return FdLibm.Asin.compute(x);}
 }

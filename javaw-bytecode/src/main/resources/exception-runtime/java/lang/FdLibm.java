@@ -1294,4 +1294,68 @@ final class FdLibm {
             }
         }
     }
+    static final class Asin {
+        private Asin() {throw new UnsupportedOperationException();}
+
+        private static final double
+            pio2_hi = 0x1.921fb54442d18p0,   //  1.57079632679489655800e+00
+            pio2_lo = 0x1.1a62633145c07p-54, //  6.12323399573676603587e-17
+            pio4_hi = 0x1.921fb54442d18p-1,  //  7.85398163397448278999e-01
+        // coefficient for R(x^2)
+            pS0 =  0x1.5555555555555p-3,     //  1.66666666666666657415e-01
+            pS1 = -0x1.4d61203eb6f7dp-2,     // -3.25565818622400915405e-01
+            pS2 =  0x1.9c1550e884455p-3,     //  2.01212532134862925881e-01
+            pS3 = -0x1.48228b5688f3bp-5,     // -4.00555345006794114027e-02
+            pS4 =  0x1.9efe07501b288p-11,    //  7.91534994289814532176e-04
+            pS5 =  0x1.23de10dfdf709p-15,    //  3.47933107596021167570e-05
+            qS1 = -0x1.33a271c8a2d4bp1,      // -2.40339491173441421878e+00
+            qS2 =  0x1.02ae59c598ac8p1,      //  2.02094576023350569471e+00
+            qS3 = -0x1.6066c1b8d0159p-1,     // -6.88283971605453293030e-01
+            qS4 =  0x1.3b8c5b12e9282p-4;     //  7.70381505559019352791e-02
+
+        static double compute(double x) {
+            double t = 0, w, p, q, c, r, s;
+            int hx, ix;
+            hx = __HI(x);
+            ix = hx & EXP_SIGNIF_BITS;
+            if (ix >= 0x3ff0_0000) {           // |x| >= 1
+                if(((ix - 0x3ff0_0000) | __LO(x)) == 0) {
+                    // asin(1) = +-pi/2 with inexact
+                    return x*pio2_hi + x*pio2_lo;
+                }
+                return (x - x)/(x - x);         // asin(|x| > 1) is NaN
+            } else if (ix < 0x3fe0_0000) {     // |x| < 0.5
+                if (ix < 0x3e40_0000) {        // if |x| < 2**-27
+                    if (HUGE + x > 1.0) {// return x with inexact if x != 0
+                        return x;
+                    }
+                } else {
+                    t = x*x;
+                }
+                p = t*(pS0 + t*(pS1 + t*(pS2 + t*(pS3 + t*(pS4 + t*pS5)))));
+                q = 1.0 + t*(qS1 + t*(qS2 + t*(qS3 + t*qS4)));
+                w = p/q;
+                return x + x*w;
+            }
+            // 1 > |x| >= 0.5
+            w = 1.0 - Math.abs(x);
+            t = w*0.5;
+            p = t*(pS0 + t*(pS1 + t*(pS2 + t*(pS3 + t*(pS4 + t*pS5)))));
+            q = 1.0 + t*(qS1 + t*(qS2 + t*(qS3 + t*qS4)));
+            s = Math.sqrt(t);
+            if (ix >= 0x3FEF_3333) {    // if |x| > 0.975
+                w = p/q;
+                t = pio2_hi - (2.0*(s + s*w) - pio2_lo);
+            } else {
+                w  = s;
+                w  = __LO(w, 0);
+                c  = (t - w*w)/(s + w);
+                r  = p/q;
+                p  = 2.0*s*r - (pio2_lo - 2.0*c);
+                q  = pio4_hi - 2.0*w;
+                t  = pio4_hi - (p - q);
+            }
+            return (hx > 0) ? t : -t;
+        }
+    }
 }

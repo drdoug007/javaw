@@ -37,3 +37,7 @@ Math.cos uses compensated cosine evaluation and the shared large-argument reduce
 ## Portable tangent (`fdlibm-tangent-v106`)
 
 Math.tan uses split argument reduction, kernel transformations and compensated reciprocal evaluation near odd-quadrant poles. It preserves signed zero and rejects nonfinite arguments with NaN.
+
+## Portable inverse sine (`fdlibm-inverse-sine-v107`)
+
+Math.asin uses interval-specific rational approximation and compensated square-root transforms near +/-1. It preserves signed zero and returns NaN outside [-1,1]; tests add dense unit-interval and pole-neighbor samples.
