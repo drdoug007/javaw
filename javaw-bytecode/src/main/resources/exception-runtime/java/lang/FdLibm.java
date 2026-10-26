@@ -1358,4 +1358,67 @@ final class FdLibm {
             return (hx > 0) ? t : -t;
         }
     }
+    static final class Acos {
+        private Acos() {throw new UnsupportedOperationException();}
+
+        private static final double
+            pio2_hi =  0x1.921fb54442d18p0,   //  1.57079632679489655800e+00
+            pio2_lo =  0x1.1a62633145c07p-54, //  6.12323399573676603587e-17
+            pS0     =  0x1.5555555555555p-3,  //  1.66666666666666657415e-01
+            pS1     = -0x1.4d61203eb6f7dp-2,  // -3.25565818622400915405e-01
+            pS2     =  0x1.9c1550e884455p-3,  //  2.01212532134862925881e-01
+            pS3     = -0x1.48228b5688f3bp-5,  // -4.00555345006794114027e-02
+            pS4     =  0x1.9efe07501b288p-11, //  7.91534994289814532176e-04
+            pS5     =  0x1.23de10dfdf709p-15, //  3.47933107596021167570e-05
+            qS1     = -0x1.33a271c8a2d4bp1,   // -2.40339491173441421878e+00
+            qS2     =  0x1.02ae59c598ac8p1,   //  2.02094576023350569471e+00
+            qS3     = -0x1.6066c1b8d0159p-1,  // -6.88283971605453293030e-01
+            qS4     =  0x1.3b8c5b12e9282p-4;  //  7.70381505559019352791e-02
+
+        static double compute(double x) {
+            double z, p, q, r, w, s, c, df;
+            int hx, ix;
+            hx = __HI(x);
+            ix = hx & EXP_SIGNIF_BITS;
+            if (ix >= 0x3ff0_0000) {    // |x| >= 1
+                if (((ix - 0x3ff0_0000) | __LO(x)) == 0) {  // |x| == 1
+                    if (hx > 0) {// acos(1) = 0
+                        return 0.0;
+                    }else {       // acos(-1)= pi
+                        return Math.PI + 2.0*pio2_lo;
+                    }
+                }
+                return (x - x)/(x - x);         // acos(|x| > 1) is NaN
+            }
+            if (ix < 0x3fe0_0000) {     // |x| < 0.5
+                if (ix <= 0x3c60_0000) {  // if |x| < 2**-57
+                    return pio2_hi + pio2_lo;
+                }
+                z = x*x;
+                p = z*(pS0 + z*(pS1 + z*(pS2 + z*(pS3 + z*(pS4 + z*pS5)))));
+                q = 1.0 + z*(qS1 + z*(qS2 + z*(qS3 + z*qS4)));
+                r = p/q;
+                return pio2_hi - (x - (pio2_lo - x*r));
+            } else if (hx < 0) {             // x < -0.5
+                z = (1.0 + x)*0.5;
+                p = z*(pS0 + z*(pS1 + z*(pS2 + z*(pS3 + z*(pS4 + z*pS5)))));
+                q = 1.0 + z*(qS1 + z*(qS2 + z*(qS3 + z*qS4)));
+                s = Math.sqrt(z);
+                r = p/q;
+                w = r*s - pio2_lo;
+                return Math.PI - 2.0*(s+w);
+            } else {                        // x > 0.5
+                z = (1.0 - x)*0.5;
+                s = Math.sqrt(z);
+                df = s;
+                df = __LO(df, 0);
+                c  = (z - df*df)/(s + df);
+                p = z*(pS0 + z*(pS1 + z*(pS2 + z*(pS3 + z*(pS4 + z*pS5)))));
+                q = 1.0 + z*(qS1 + z*(qS2 + z*(qS3 + z*qS4)));
+                r = p/q;
+                w = r*s + c;
+                return 2.0*(df + w);
+            }
+        }
+    }
 }

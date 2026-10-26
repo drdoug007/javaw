@@ -41,3 +41,7 @@ Math.tan uses split argument reduction, kernel transformations and compensated r
 ## Portable inverse sine (`fdlibm-inverse-sine-v107`)
 
 Math.asin uses interval-specific rational approximation and compensated square-root transforms near +/-1. It preserves signed zero and returns NaN outside [-1,1]; tests add dense unit-interval and pole-neighbor samples.
+
+## Portable inverse cosine (`fdlibm-inverse-cosine-v108`)
+
+Math.acos evaluates separate positive/negative endpoint transforms with compensated square roots, preserving endpoint values and returning NaN outside [-1,1].
