@@ -23,6 +23,9 @@
  * questions.
  */
 
+// Javaw adaptation, 2026-10-26: selected algorithms; inline unavailable Double
+// constants and route the internal decimal logarithm through Math.log.
+// The original GPLv2 with Classpath exception continues to apply.
 package java.lang;
 
 /**
@@ -1418,6 +1421,94 @@ final class FdLibm {
                 r = p/q;
                 w = r*s + c;
                 return 2.0*(df + w);
+            }
+        }
+    }
+    static final class Atan {
+        private Atan() {throw new UnsupportedOperationException();}
+
+        private static final double atanhi[] = {
+            0x1.dac670561bb4fp-2,  // atan(0.5)hi 4.63647609000806093515e-01
+            0x1.921fb54442d18p-1,  // atan(1.0)hi 7.85398163397448278999e-01
+            0x1.f730bd281f69bp-1,  // atan(1.5)hi 9.82793723247329054082e-01
+            0x1.921fb54442d18p0,   // atan(inf)hi 1.57079632679489655800e+00
+        };
+
+        private static final double atanlo[] = {
+            0x1.a2b7f222f65e2p-56, // atan(0.5)lo 2.26987774529616870924e-17
+            0x1.1a62633145c07p-55, // atan(1.0)lo 3.06161699786838301793e-17
+            0x1.007887af0cbbdp-56, // atan(1.5)lo 1.39033110312309984516e-17
+            0x1.1a62633145c07p-54, // atan(inf)lo 6.12323399573676603587e-17
+        };
+
+        private static final double aT[] = {
+             0x1.555555555550dp-2, //  3.33333333333329318027e-01
+            -0x1.999999998ebc4p-3, // -1.99999999998764832476e-01
+             0x1.24924920083ffp-3, //  1.42857142725034663711e-01
+            -0x1.c71c6fe231671p-4, // -1.11111104054623557880e-01
+             0x1.745cdc54c206ep-4, //  9.09088713343650656196e-02
+            -0x1.3b0f2af749a6dp-4, // -7.69187620504482999495e-02
+             0x1.10d66a0d03d51p-4, //  6.66107313738753120669e-02
+            -0x1.dde2d52defd9ap-5, // -5.83357013379057348645e-02
+             0x1.97b4b24760debp-5, //  4.97687799461593236017e-02
+            -0x1.2b4442c6a6c2fp-5, // -3.65315727442169155270e-02
+             0x1.0ad3ae322da11p-6, //  1.62858201153657823623e-02
+        };
+
+        static double compute(double x) {
+            double w, s1, s2, z;
+            int ix, hx, id;
+
+            hx = __HI(x);
+            ix = hx & EXP_SIGNIF_BITS;
+            if (ix >= 0x4410_0000) {    // if |x| >= 2^66
+                if (ix > EXP_BITS ||
+                    (ix == EXP_BITS && (__LO(x) != 0))) {
+                    return x+x;             // NaN
+                }
+                if (hx > 0) {
+                    return atanhi[3] + atanlo[3];
+                } else {
+                    return -atanhi[3] - atanlo[3];
+                }
+            } if (ix < 0x3fdc_0000) {        // |x| < 0.4375
+                if (ix < 0x3e20_0000) {      // |x| < 2^-29
+                    if (HUGE + x > 1.0) { // raise inexact
+                        return x;
+                    }
+                }
+                id = -1;
+            } else {
+                x = Math.abs(x);
+                if (ix < 0x3ff3_0000) {         // |x| < 1.1875
+                    if (ix < 0x3fe60000) {      // 7/16 <= |x| < 11/16
+                        id = 0;
+                        x = (2.0*x - 1.0)/(2.0 + x);
+                    } else {                    // 11/16 <= |x| < 19/16
+                        id = 1;
+                        x  = (x - 1.0)/(x + 1.0);
+                    }
+                } else {
+                    if (ix < 0x4003_8000) {      // |x| < 2.4375
+                        id = 2;
+                        x  = (x - 1.5)/(1.0 + 1.5*x);
+                    } else {                    // 2.4375 <= |x| < 2^66
+                        id = 3;
+                        x  = -1.0/x;
+                    }
+                }
+            }
+            // end of argument reduction
+            z = x*x;
+            w = z*z;
+            // break sum from i=0 to 10 aT[i]z**(i+1) into odd and even poly
+            s1 = z*(aT[0] + w*(aT[2] + w*(aT[4] + w*(aT[6] + w*(aT[8] + w*aT[10])))));
+            s2 = w*(aT[1] + w*(aT[3] + w*(aT[5] + w*(aT[7] + w*aT[9]))));
+            if (id < 0) {
+                return x - x*(s1 + s2);
+            } else {
+                z = atanhi[id] - ((x*(s1+s2) - atanlo[id]) - x);
+                return (hx < 0) ? -z: z;
             }
         }
     }

@@ -61,6 +61,11 @@ class BytecodeTranscendentalTest implements Opcodes {
             bits=bits*6364136223846793005L+1442695040888963407L;double y=i%3==0?(double)(int)(bits>>32):Double.longBitsToDouble(bits);
             bases.add(x);powers.add(y);
         }
+        for(int i=0;i<512;i++){
+            bits=bits*6364136223846793005L+1442695040888963407L;double x=(bits>>>11)*0x1p-52+0.5;
+            bits=bits*6364136223846793005L+1442695040888963407L;double y=(bits>>11)*0x1p-41;
+            bases.add(i%2==0?x:-x);powers.add(y);
+        }
         StringJoiner xb=new StringJoiner(","),yb=new StringJoiner(",");
         for(int i=0;i<bases.size();i++){xb.add(Double.doubleToRawLongBits(bases.get(i))+"L");yb.add(Double.doubleToRawLongBits(powers.get(i))+"L");}
         fixture("public class Metadata {static final long[] x={"+xb+"},y={"+yb+"};"+
@@ -109,10 +114,24 @@ class BytecodeTranscendentalTest implements Opcodes {
 
     @Test void inverseCosine() throws Exception {unary("acos",StrictMath::acos,Math::acos);}
 
+    @Test void inverseTangent() throws Exception {unary("atan",StrictMath::atan,Math::atan);}
+
+    @Test void malformedDescriptors() {
+        for(String name:List.of("exp","log","log10","pow","sin","cos","tan","asin","acos","atan")){
+            ClassWriter writer=new ClassWriter(0);writer.visit(V17,ACC_PUBLIC,"BadTranscendental",null,"java/lang/Object",null);
+            MethodVisitor method=writer.visitMethod(ACC_PUBLIC|ACC_STATIC,"run","()F",null,null);
+            method.visitCode();method.visitInsn(FCONST_0);if(name.equals("pow"))method.visitInsn(FCONST_0);
+            method.visitMethodInsn(INVOKESTATIC,"java/lang/Math",name,name.equals("pow")?"(FF)F":"(F)F",false);
+            method.visitInsn(FRETURN);method.visitMaxs(2,0);method.visitEnd();writer.visitEnd();
+            var failure=assertThrows(IllegalArgumentException.class,()->BytecodeCompiler.compileClassWithExceptionRuntime(writer.toByteArray()));
+            assertTrue(failure.getMessage().contains(name),failure.getMessage());
+        }
+    }
+
     private List<Double> values(){
         List<Double> values=new ArrayList<>();
         double[] boundaries={0.0,-0.0,1,-1,0.5,-0.5,2,-2,Math.PI,-Math.PI,Math.PI/2,-Math.PI/2,
-            Math.PI/4,-Math.PI/4,10,100,1000,1.0e-300,1.0e300,1.0e20,-1.0e20,709.782712893384,-745.1332191019411,
+            Math.PI/4,-Math.PI/4,0.4375,-0.4375,0.6875,-0.6875,1.1875,-1.1875,2.4375,-2.4375,0.975,-0.975,10,100,1000,1.0e-300,1.0e300,1.0e20,-1.0e20,709.782712893384,-745.1332191019411,
             0x1p-28,-0x1p-28,0x1p-54,-0x1p-54,0x1p20,-0x1p20,Double.MIN_NORMAL,-Double.MIN_NORMAL,
             Double.MAX_VALUE,-Double.MAX_VALUE,Double.POSITIVE_INFINITY,Double.NEGATIVE_INFINITY,Double.NaN};
         for(double value:boundaries){values.add(Math.nextDown(value));values.add(value);values.add(Math.nextUp(value));}

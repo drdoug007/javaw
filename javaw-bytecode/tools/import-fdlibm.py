@@ -25,7 +25,12 @@ def main():
     masked = re.sub(r'//[^\n]*|/\*[\s\S]*?\*/|"(?:\\.|[^"\\])*"|\x27(?:\\.|[^\x27\\])*\x27',
                     lambda match: ' ' * len(match[0]), source)
     result = source[:source.index('    /** sin(x)')].replace('Double.POSITIVE_INFINITY', '(1.0/0.0)')
-    for name in ['Exp', 'Log', 'Log10', 'Pow', 'Sin', 'Cos', 'RemPio2', 'KernelRemPio2', 'Tan', 'Asin', 'Acos']:
+    result = result.replace('package java.lang;',
+        '// Javaw adaptation, 2026-10-26: selected algorithms; inline unavailable Double\n'
+        '// constants and route the internal decimal logarithm through Math.log.\n'
+        '// The original GPLv2 with Classpath exception continues to apply.\n'
+        'package java.lang;')
+    for name in ['Exp', 'Log', 'Log10', 'Pow', 'Sin', 'Cos', 'RemPio2', 'KernelRemPio2', 'Tan', 'Asin', 'Acos', 'Atan']:
         start = source.index('    static final class ' + name + ' ')
         cursor = masked.index('{', start) + 1
         depth = 1

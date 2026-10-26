@@ -45,3 +45,19 @@ Math.asin uses interval-specific rational approximation and compensated square-r
 ## Portable inverse cosine (`fdlibm-inverse-cosine-v108`)
 
 Math.acos evaluates separate positive/negative endpoint transforms with compensated square roots, preserving endpoint values and returning NaN outside [-1,1].
+
+## Portable inverse tangent (`fdlibm-inverse-tangent-v109`)
+
+Math.atan uses interval reduction and odd/even polynomial splitting, preserves signed zeros and handles infinities and NaNs. Malformed ASM descriptors for all ten APIs are rejected before WAT generation.
+
+## Evidence and remaining scope
+
+`BytecodeTranscendentalTest` uses canonical-bit JVM StrictMath oracles for the portable algorithms and independently compares the JVM Math results within two ULPs, with exact special-value/zero checks. Unary inputs span every exponent and sign, deterministic raw patterns, dense unit intervals and adjacent endpoint/pole samples. Power tests cross special values and integer parity boundaries, plus arbitrary and bounded random pairs. Method references must agree with direct calls. Malformed ASM fixtures exercise rejection of nonexistent float descriptors for every API.
+
+The pinned ANTLR 4.13.0 artifact hash is checked against the runtime lock. Its complete original private `CodePointBuffer.Builder.roundUpToNextPowerOfTwo` instruction body is copied into a public test carrier, with only owner/name/access metadata changed. JVM and Wasm execute that same body over integer and power-boundary inputs. This proves selected-method execution; NIO buffers, builders and ANTLR parser startup remain excluded. Other new APIs have numerical conformance evidence, not additional pinned-library execution claims.
+
+The ten audited declarations reduce missing members from 57 to 47 (978 to 988 declared signatures); missing owners remain 302. These are whole-JAR signature counts, not reachable-closure proof. Atan2, hyperbolic functions, random sources, broader numeric/text APIs, sustained managed allocation and full H2/Spring/Hibernate execution remain open.
+
+## Validation
+
+Combined v100–v109 validation: all 384 tests pass in the required offline bytecode suite (four test forks), with zero failures, errors or skips. All 12 new numerical/admission tests, the pinned ANTLR method-body comparison and the source reproduction check pass. The reviewed 63-JAR audit has unchanged dependency inventory totals; selected signature coverage is 988 declared, 47 missing members and 302 missing owners.
