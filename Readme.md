@@ -1994,3 +1994,5 @@ StrictMath bytecode subset 5/10 (`strict-signs-v154`): signum and StrictMath NaN
 StrictMath bytecode subset 6/10 (`strict-exponents-v155`): exponent extraction and ulp for both precisions. JVM/Wasm evidence: `BytecodeStrictMathTest.exponentsAndUlps` (direct calls, method references, both JAR orders and independent instances). See [the supported contract](docs/bytecode-strict-math.md); broader JDK/framework compatibility remains open.
 
 StrictMath bytecode subset 7/10 (`strict-neighbors-v156`): nextUp, nextDown and mixed-precision nextAfter. JVM/Wasm evidence: `BytecodeStrictMathTest.adjacentValues` (direct calls, method references, both JAR orders and independent instances). See [the supported contract](docs/bytecode-strict-math.md); broader JDK/framework compatibility remains open.
+
+StrictMath bytecode subset 8/10 (`strict-scaling-v157`): scalb including extreme scale factors and subnormal rounding. JVM/Wasm evidence: `BytecodeStrictMathTest.binaryScaling` (direct calls, method references, both JAR orders and independent instances). See [the supported contract](docs/bytecode-strict-math.md); broader JDK/framework compatibility remains open.

@@ -23,3 +23,4 @@ Completed subsets:
 - v154: signum and StrictMath NaN-normalized copySign (`signOperations`).
 - v155: exponent extraction and ulp for both precisions (`exponentsAndUlps`).
 - v156: nextUp, nextDown and mixed-precision nextAfter (`adjacentValues`).
+- v157: scalb including extreme scale factors and subnormal rounding (`binaryScaling`).

@@ -67,4 +67,7 @@ public final class StrictMath {
     public static double nextDown(double x){return Math.nextDown(x);}
     public static float nextAfter(float a,double b){return Math.nextAfter(a,b);}
     public static double nextAfter(double a,double b){return Math.nextAfter(a,b);}
+
+    public static float scalb(float x,int n){return Math.scalb(x,n);}
+    public static double scalb(double x,int n){return Math.scalb(x,n);}
 }
