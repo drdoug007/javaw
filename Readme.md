@@ -1960,3 +1960,5 @@ Bytecode numeric progress (v110): Math.atan2. Quadrants, signed-zero axes, infin
 Bytecode numeric progress (v111): Math.expm1. Compensated exponential evaluation avoids cancellation around zero and handles range endpoints. JVM/Wasm numerical and malformed-descriptor checks pass; see [the numerical contract](docs/bytecode-transcendentals.md). Broader text/numeric and framework support remains open.
 
 Bytecode numeric progress (v112): Math.log1p. Compensated logarithm evaluation preserves tiny inputs and handles the minus-one domain boundary. JVM/Wasm numerical and malformed-descriptor checks pass; see [the numerical contract](docs/bytecode-transcendentals.md). Broader text/numeric and framework support remains open.
+
+Bytecode numeric progress (v113): Math.sinh. Exponential and expm1 transforms preserve signed zeros, tiny arguments and overflow boundaries. JVM/Wasm numerical and malformed-descriptor checks pass; see [the numerical contract](docs/bytecode-transcendentals.md). Broader text/numeric and framework support remains open.

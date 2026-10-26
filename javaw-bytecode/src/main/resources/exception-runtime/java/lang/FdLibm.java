@@ -1802,4 +1802,59 @@ final class FdLibm {
             }
         }
     }
+    static final class Sinh {
+        private Sinh() {throw new UnsupportedOperationException();}
+
+        private static final double shuge = 1.0e307;
+
+        static double compute(double x) {
+            double t, w, h;
+            int ix, jx;
+            /* unsigned */ int lx;
+
+            // High word of |x|
+            jx = __HI(x);
+            ix = jx & EXP_SIGNIF_BITS;
+
+            // x is INF or NaN
+            if (ix >= EXP_BITS) {
+                return x + x;
+            }
+
+            h = 0.5;
+            if (jx < 0) {
+                h = -h;
+            }
+            // |x| in [0,22], return sign(x)*0.5*(E+E/(E+1)))
+            if (ix < 0x4036_0000) {          // |x| < 22
+                if (ix < 0x3e30_0000)        // |x| < 2**-28
+                    if (shuge + x > 1.0) {   // sinh(tiny) = tiny with inexact
+                        return x;
+                    }
+                t = Math.expm1(Math.abs(x));
+                if (ix < 0x3ff0_0000) {
+                    return h*(2.0 * t - t*t/(t + 1.0));
+                }
+                return h*(t + t/(t + 1.0));
+            }
+
+            // |x| in [22, log(maxdouble)] return 0.5*exp(|x|)
+            if (ix < 0x4086_2E42) {
+                return h*Math.exp(Math.abs(x));
+            }
+
+            // |x| in [log(maxdouble), overflowthreshold]
+            lx = __LO(x);
+            if (ix < 0x4086_33CE ||
+                ((ix == 0x4086_33ce) &&
+                 (Long.compareUnsigned(lx, 0x8fb9_f87d) <= 0 ))) {
+                w = Math.exp(0.5 * Math.abs(x));
+                t = h * w;
+                return t * w;
+            }
+
+            // |x| > overflowthreshold, sinh(x) overflow
+            return x * shuge;
+        }
+    }
 }
