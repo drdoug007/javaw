@@ -18,3 +18,4 @@ Completed subsets:
 - v163: NaN and signed infinities for f/e/E/g/G, with ASCII uppercase, sign/parenthesis flags and space padding independent of precision and zero flags.
 - v164: Signed-zero and zero-exponent semantics, retaining negative signs and parentheses when finite values round to zero.
 - v165: Italian/Italy numeric formatting with comma decimal and period grouping symbols for integral, arbitrary-precision and binary floating values.
+- v166: Japanese/Japan numeric formatting with ASCII decimal digits, period decimal and comma grouping, preserving numeric flags and precision.

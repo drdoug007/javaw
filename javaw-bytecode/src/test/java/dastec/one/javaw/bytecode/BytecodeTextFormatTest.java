@@ -232,7 +232,7 @@ class BytecodeTextFormatTest implements Opcodes {
             import java.math.BigInteger;
             public class Metadata {public static int run(int group){int h=0;
              for(String f:new String[]{"%tY"})try{String.format(f,1.0);throw new Error();}catch(UnsupportedOperationException expected){h++;}
-             try{String.format(Locale.JAPAN,"%d",1000);throw new Error();}catch(UnsupportedOperationException expected){h++;}
+             try{String.format(new Locale("zz"),"%d",1000);throw new Error();}catch(UnsupportedOperationException expected){h++;}
              return h;}}
             """);
         // Excluded valid forms deliberately differ from the JDK formatter; verify the diagnostic contract.
