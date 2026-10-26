@@ -142,6 +142,25 @@ public class BigDecimal extends Number implements Comparable<BigDecimal>,java.io
         char first=digits.charAt(0); out.append(first); if(digits.length()>1) { out.append('.'); out.append(digits.substring(1)); }
         out.append('E'); if(exponent>=0) out.append('+'); out.append(""+exponent); return out.toString();
     }
+    public String toEngineeringString() {
+        long adjusted=(long)precision()-decimalScale-1;
+        if(decimalScale>=0 && adjusted>=-6)return toPlainString();
+        long exponent=adjusted-Math.floorMod(adjusted,3);
+        int integerDigits=(int)(adjusted-exponent)+1;
+        String digits=coefficient.abs().toString();
+        StringBuilder out=new StringBuilder();
+        if(signum()<0)out.append('-');
+        if(signum()==0){
+            // Zero keeps enough fractional zeros to preserve its original scale.
+            if(integerDigits==1)out.append('0');
+            else {out.append("0.");for(int i=integerDigits;i<4;i++)out.append('0');exponent+=3;}
+        } else {
+            for(int i=0;i<integerDigits;i++)out.append(i<digits.length()?digits.charAt(i):'0');
+            if(digits.length()>integerDigits){out.append('.');out.append(digits.substring(integerDigits));}
+        }
+        if(exponent!=0){out.append('E');if(exponent>0)out.append('+');out.append(exponent);}
+        return out.toString();
+    }
     public BigInteger toBigInteger() { if(signum()==0 || decimalScale>=precision())return BigInteger.ZERO; if(decimalScale<=0) return coefficient.timesTen(scaleChecked(-(long)decimalScale)); return coefficient.divide(BigInteger.ONE.timesTen(decimalScale)); }
     public BigInteger toBigIntegerExact() { if(signum()==0)return BigInteger.ZERO;if(decimalScale>=precision())throw new ArithmeticException();return setScale(0).coefficient; }
     public int intValue() { return decimalScale<=-32?0:toBigInteger().intValue(); }

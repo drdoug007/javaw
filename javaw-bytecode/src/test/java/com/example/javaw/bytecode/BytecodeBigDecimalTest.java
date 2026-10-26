@@ -161,9 +161,28 @@ int hash=1;
  return hash;
             }}
             """); compare(List.of("run"));
-        fixture("public class Metadata {public static String run(){return java.math.BigDecimal.ONE.toEngineeringString();}}");
+        fixture("public class Metadata {public static String run(){return java.math.BigDecimal.ONE.sqrt(java.math.MathContext.DECIMAL32).toString();}}");
         var failure=assertThrows(IllegalArgumentException.class,()->BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(false))));
-        assertTrue(failure.getMessage().contains("java/math/BigDecimal.toEngineeringString"),failure.getMessage());
+        assertTrue(failure.getMessage().contains("java/math/BigDecimal.sqrt"),failure.getMessage());
+    }
+
+    @Test void engineeringNotationPreservesScaleAndExponentGroups() throws Exception {
+        fixture("""
+            import java.math.*;
+            public class Metadata {public static int run(){int hash=1;
+                for(String coefficient:new String[]{"0","1","-1","12","-123","1234","-10000","999999999999999999999999999999"})
+                    for(int scale=-18;scale<=20;scale++){
+                        BigDecimal value=new BigDecimal(new BigInteger(coefficient),scale);
+                        String text=value.toEngineeringString();hash=31*hash+text.hashCode();
+                        if(value.compareTo(new BigDecimal(text))!=0)throw new Error();
+                    }
+                for(int scale:new int[]{Integer.MIN_VALUE,Integer.MIN_VALUE+1,Integer.MIN_VALUE+2,Integer.MAX_VALUE-2,Integer.MAX_VALUE-1,Integer.MAX_VALUE})
+                    for(long coefficient:new long[]{0,1,-12,1234}){
+                        String text=BigDecimal.valueOf(coefficient,scale).toEngineeringString();hash=31*hash+text.hashCode();
+                    }
+                return hash;
+            }}
+            """);compare(List.of("run"));
     }
 
     @Test void executesSelectedPinnedHibernateDecimalCoercions() throws Exception {
