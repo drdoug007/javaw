@@ -66,6 +66,7 @@ public final class BytecodeExceptionRuntime {
             for(String name:List.of("Optional","OptionalInt","OptionalLong","OptionalDouble","Map","AbstractMap","HashMap","LinkedHashMap","Set","AbstractSet","HashSet","LinkedHashSet"))paths.add("java/util/"+name+".java");
             paths.add("javaw/runtime/IntegralNumbers.java");
             paths.add("javaw/runtime/UnicodeCase.java");
+            paths.add("javaw/runtime/StringUpperData.java");
             paths.add("javaw/runtime/UnicodeProperties.java");
             paths.add("javaw/runtime/FloatingNumbers.java");
             paths.add("javaw/runtime/FusedMath.java");

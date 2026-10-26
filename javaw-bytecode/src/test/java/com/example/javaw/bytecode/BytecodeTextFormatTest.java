@@ -40,6 +40,23 @@ class BytecodeTextFormatTest implements Opcodes {
             """);compare(1);
     }
 
+    @Test void unicodeUppercase() throws Exception {
+        fixture("""
+            import java.util.Locale;
+            public class Metadata {
+                public static int run(int group) {
+                    int h=1,start=group*1024;
+                    for(int cp=start;cp<start+1024 && cp<=0x10ffff;cp++) {
+                        String text=new String(Character.toChars(cp));
+                        String upper=text.toUpperCase(Locale.ROOT);
+                        h=31*h+upper.hashCode();h=31*h+(upper==text?1:0);
+                    }
+                    return h;
+                }
+            }
+            """);compare(1088);
+    }
+
     private byte[] fixture(String source) throws Exception {
         Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
         List<String> options=new ArrayList<>(List.of("-g","-parameters","--release",release,"-d",directory.toString()));
