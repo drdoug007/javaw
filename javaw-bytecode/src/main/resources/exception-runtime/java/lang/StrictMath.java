@@ -60,4 +60,11 @@ public final class StrictMath {
     public static int getExponent(double x){return Math.getExponent(x);}
     public static float ulp(float x){return Math.ulp(x);}
     public static double ulp(double x){return Math.ulp(x);}
+
+    public static float nextUp(float x){return Math.nextUp(x);}
+    public static double nextUp(double x){return Math.nextUp(x);}
+    public static float nextDown(float x){return Math.nextDown(x);}
+    public static double nextDown(double x){return Math.nextDown(x);}
+    public static float nextAfter(float a,double b){return Math.nextAfter(a,b);}
+    public static double nextAfter(double a,double b){return Math.nextAfter(a,b);}
 }
