@@ -71,3 +71,7 @@ Fixed-point f formatting accepts BigDecimal with HALF_UP rounding, requested/def
 ## BigDecimal scientific formatting (big-decimal-scientific-format-v144)
 
 Scientific e/E formatting rounds BigDecimal with HALF_UP, pads fractional digits and signed exponents, supports alternate decimal points and preserves scaled-zero exponents. JVM/Wasm comparisons pass for carry, signs, nulls, wide exponents and both extreme int scales without expanding the magnitude. Binary floating decimal formatting remains excluded.
+
+## BigDecimal general formatting (big-decimal-general-format-v145)
+
+General g/G formatting rounds to significant digits and selects fixed or scientific notation after carry, with Java 17 scaled-zero behavior, retained trailing precision, grouping and padding. JVM/Wasm comparisons pass around notation thresholds, precision zero, nulls, signs and extreme scales. Binary floating decimal formatting remains excluded.

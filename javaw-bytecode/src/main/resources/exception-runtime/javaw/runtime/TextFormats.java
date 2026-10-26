@@ -48,10 +48,10 @@ public final class TextFormats {
    if((flag(s,'+') && flag(s,' ')) || (flag(s,'-') && flag(s,'0')))throw new IllegalFormatFlagsException(flagsText(s));
    allowed(s,c=='d'?"-+ 0,(<":"-#+ 0(<");return;
   }
-  if(c=='f' || c=='e' || c=='E'){
+  if(c=='f' || c=='e' || c=='E' || c=='g' || c=='G'){
    if(flag(s,'0') && s.width<0)throw new MissingFormatWidthException(s.raw);
    if((flag(s,'+') && flag(s,' ')) || (flag(s,'-') && flag(s,'0')))throw new IllegalFormatFlagsException(flagsText(s));
-   allowed(s,c=='f'?"-#+ 0,(<":"-#+ 0(<");return;
+   allowed(s,c=='f'?"-#+ 0,(<":(c=='g' || c=='G')?"-+ 0,(<":"-#+ 0(<");return;
   }
   throw new UnsupportedOperationException("Formatting conversion: "+c);
  }
@@ -65,7 +65,7 @@ public final class TextFormats {
    if(index<0 || (args!=null && index>=args.length))throw new MissingFormatArgumentException(s.raw);last=index;
    Object value=args==null?null:args[index];String text;
    if((c=='s' || c=='S') && flag(s,'#'))throw new FormatFlagsConversionMismatchException("#",conversion(s));
-   if(c=='f' || c=='e' || c=='E')text=decimalFraction(value,s,locale);
+   if(c=='f' || c=='e' || c=='E' || c=='g' || c=='G')text=decimalFraction(value,s,locale);
    else if(c=='o' || c=='x' || c=='X')text=radix(value,s);
    else if(c=='d')text=decimal(value,s,locale);
    else if(c=='b' || c=='B')text=value==null?"false":value instanceof Boolean?value.toString():"true";
@@ -76,7 +76,8 @@ public final class TextFormats {
     else if(value instanceof Byte || value instanceof Short || value instanceof Integer){int cp=((Number)value).intValue();if(!Character.isValidCodePoint(cp))throw new IllegalFormatCodePointException(cp);text=new String(Character.toChars(cp));}
     else throw new IllegalFormatConversionException(conversion(s),value.getClass());
    }else text=String.valueOf(value);
-   if(s.precision>=0 && (value==null || "sSbBhH".indexOf(c)>=0) && text.length()>s.precision)text=text.substring(0,s.precision);
+   int textPrecision=s.precision;
+   if(textPrecision>=0 && (value==null || "sSbBhH".indexOf(c)>=0) && text.length()>textPrecision)text=text.substring(0,textPrecision);
    if(c>='A' && c<='Z')text=text.toUpperCase(locale);
    out.append(pad(text,s));
   }
@@ -110,7 +111,7 @@ public final class TextFormats {
  }
  private static String grouped(String digits,Spec s){
   if(!flag(s,','))return digits;
-  int end=digits.indexOf('.');if(end<0)end=digits.length();StringBuilder out=new StringBuilder();
+  int end=digits.indexOf('.');if(end<0)end=digits.indexOf('e');if(end<0)end=digits.length();StringBuilder out=new StringBuilder();
   for(int i=0;i<end;i++){if(i>0 && (end-i)%3==0)out.append(',');out.append(digits.charAt(i));}out.append(digits.substring(end));return out.toString();
  }
  private static String decimalFraction(Object value,Spec s,Locale locale){
@@ -119,9 +120,16 @@ public final class TextFormats {
   if(!(value instanceof BigDecimal))throw new IllegalFormatConversionException(conversion(s),value.getClass());
   numericLocale(locale);BigDecimal n=(BigDecimal)value;int precision=s.precision<0?6:s.precision;
   String digits;
-  if(conversion(s)=='e')digits=scientific(n.abs(),precision,flag(s,'#'));
+  if(conversion(s)=='g')digits=general(n.abs(),precision==0?1:precision);
+  else if(conversion(s)=='e')digits=scientific(n.abs(),precision,flag(s,'#'));
   else {digits=n.abs().setScale(precision,RoundingMode.HALF_UP).toPlainString();if(precision==0 && flag(s,'#'))digits+=".";}
   return decorate(grouped(digits,s),n.signum()<0,"",s);
+ }
+ private static String general(BigDecimal n,int precision){
+  BigDecimal rounded=n.round(new MathContext(precision,RoundingMode.HALF_UP));
+  long exponent=(long)rounded.precision()-1-rounded.scale();
+  if((n.signum()==0 && n.scale()!=0) || exponent < -4 || exponent>=precision)return scientific(rounded,precision-1,false);
+  return rounded.setScale((int)(precision-exponent-1),RoundingMode.UNNECESSARY).toPlainString();
  }
  private static String scientific(BigDecimal n,int precision,boolean alternate){
   BigDecimal rounded=n.round(new MathContext(Math.addExact(precision,1),RoundingMode.HALF_UP));
