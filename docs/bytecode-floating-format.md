@@ -17,3 +17,4 @@ Completed subsets:
 - v162: Float/Double general g/G formatting with significant-digit precision and notation selection after rounding.
 - v163: NaN and signed infinities for f/e/E/g/G, with ASCII uppercase, sign/parenthesis flags and space padding independent of precision and zero flags.
 - v164: Signed-zero and zero-exponent semantics, retaining negative signs and parentheses when finite values round to zero.
+- v165: Italian/Italy numeric formatting with comma decimal and period grouping symbols for integral, arbitrary-precision and binary floating values.

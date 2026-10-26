@@ -140,7 +140,7 @@ public final class TextFormats {
  }
  private static int numericLocale(Locale locale){
   if(locale.equals(Locale.ROOT) || locale.equals(Locale.ENGLISH) || locale.equals(Locale.US) || locale.equals(Locale.UK))return 0;
-  if(locale.equals(Locale.GERMAN) || locale.equals(Locale.GERMANY))return 1;
+  if(locale.equals(Locale.GERMAN) || locale.equals(Locale.GERMANY) || locale.equals(Locale.ITALIAN) || locale.equals(Locale.ITALY))return 1;
   if(locale.equals(Locale.FRENCH) || locale.equals(Locale.FRANCE))return 2;
   if(locale.getLanguage().equals("ar") && locale.getVariant().isEmpty() && (locale.getCountry().isEmpty() || locale.getCountry().equals("EG")))return 3;
   throw new UnsupportedOperationException("Numeric format locale");
