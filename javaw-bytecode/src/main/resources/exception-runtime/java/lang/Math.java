@@ -165,4 +165,5 @@ public final class Math {
     public static double expm1(double x){return FdLibm.Expm1.compute(x);}
     public static double log1p(double x){return FdLibm.Log1p.compute(x);}
     public static double sinh(double x){return FdLibm.Sinh.compute(x);}
+    public static double cosh(double x){return FdLibm.Cosh.compute(x);}
 }

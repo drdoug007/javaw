@@ -77,3 +77,7 @@ Math.log1p: Compensated logarithm evaluation preserves tiny inputs and handles t
 ## Hyperbolic sine (`fdlibm-sinh-v113`)
 
 Math.sinh: Exponential and expm1 transforms preserve signed zeros, tiny arguments and overflow boundaries. Canonical-bit JVM StrictMath comparisons cover both JAR orders, direct calls, method references and fresh Wasm instances. Malformed float descriptors are rejected. No new pinned-library execution claim is made.
+
+## Hyperbolic cosine (`fdlibm-cosh-v114`)
+
+Math.cosh: Interval-specific exponential transforms handle cancellation, large finite inputs and infinities. Canonical-bit JVM StrictMath comparisons cover both JAR orders, direct calls, method references and fresh Wasm instances. Malformed float descriptors are rejected. No new pinned-library execution claim is made.
