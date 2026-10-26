@@ -29,6 +29,31 @@ public final class String implements CharSequence,Comparable<String>,java.io.Ser
     /** The isolated runtime's default charset is UTF-8. */
     public String(byte[] bytes){this(bytes,0,bytes.length);}
     public String(byte[] bytes,int offset,int count){value=decodeUtf8(bytes,offset,count);}
+    public byte[] getBytes(){
+        long length=0;
+        for(int i=0;i<value.length;i++){
+            int unit=value[i];
+            if(unit<0x80)length++;
+            else if(unit<0x800)length+=2;
+            else if(unit>=0xd800 && unit<=0xdbff && i+1<value.length && value[i+1]>=0xdc00 && value[i+1]<=0xdfff){length+=4;i++;}
+            else length+=unit>=0xd800 && unit<=0xdfff?1:3;
+        }
+        if(length>Integer.MAX_VALUE)throw new OutOfMemoryError();
+        byte[] bytes=new byte[(int)length];int out=0;
+        for(int i=0;i<value.length;i++){
+            int unit=value[i];
+            if(unit<0x80)bytes[out++]=(byte)unit;
+            else if(unit<0x800){bytes[out++]=(byte)(0xc0|(unit>>6));bytes[out++]=(byte)(0x80|(unit&63));}
+            else if(unit>=0xd800 && unit<=0xdbff && i+1<value.length && value[i+1]>=0xdc00 && value[i+1]<=0xdfff){
+                int code=0x10000+((unit-0xd800)<<10)+(value[++i]-0xdc00);
+                bytes[out++]=(byte)(0xf0|(code>>18));bytes[out++]=(byte)(0x80|((code>>12)&63));
+                bytes[out++]=(byte)(0x80|((code>>6)&63));bytes[out++]=(byte)(0x80|(code&63));
+            }else if(unit>=0xd800 && unit<=0xdfff)bytes[out++]=63;
+            else{bytes[out++]=(byte)(0xe0|(unit>>12));bytes[out++]=(byte)(0x80|((unit>>6)&63));bytes[out++]=(byte)(0x80|(unit&63));}
+        }
+        return bytes;
+    }
+
     private static boolean continuation(int value){return (value&0xc0)==0x80;}
     private static char[] decodeUtf8(byte[] bytes,int offset,int count){
         int length=bytes.length;

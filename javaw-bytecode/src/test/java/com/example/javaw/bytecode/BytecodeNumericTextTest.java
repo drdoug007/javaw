@@ -145,6 +145,45 @@ class BytecodeNumericTextTest implements Opcodes {
             """);compare(List.of("run"));
     }
 
+    @Test void utf8EncodingEveryUtf16Unit() throws Exception {
+        assertEquals(java.nio.charset.StandardCharsets.UTF_8,java.nio.charset.Charset.defaultCharset());
+        StringBuilder source=new StringBuilder("import java.util.*;public class Metadata {static int units(int start){int hash=1;for(int c=start;c<start+4096;c++){String text=new String(new char[]{(char)c});byte[] bytes=text.getBytes();hash=31*hash+Arrays.hashCode(bytes)+bytes.length;}return hash;} ");
+        List<String> names=new ArrayList<>();
+        for(int batch=0;batch<16;batch++){String name="run"+batch;names.add(name);source.append("public static int ").append(name).append("(){return units(").append(batch*4096).append(");}");}
+        fixture(source.append("}").toString());compare(names);
+    }
+
+    @Test void utf8EncodingPairsMalformedSurrogatesAndSnapshots() throws Exception {
+        fixture("""
+            import java.util.*;
+            public class Metadata {
+                public static int pairs(){int hash=1;
+                    for(int high=0xd800;high<=0xdbff;high++)for(int low:new int[]{0xdc00,0xdc01,0xdfff}){
+                        String text=new String(new char[]{(char)high,(char)low});byte[] bytes=text.getBytes();
+                        if(!text.equals(new String(bytes)))throw new Error();hash=31*hash+Arrays.hashCode(bytes);}
+                    return hash;}
+                public static int malformed(){int hash=1;int[] units={0x41,0x7ff,0x800,0xd800,0xdbff,0xdc00,0xdfff};
+                    for(int a:units)for(int b:units)for(int c:units){String text=new String(new char[]{(char)a,(char)b,(char)c});hash=31*hash+Arrays.hashCode(text.getBytes());}
+                    String text="é😀";byte[] first=text.getBytes(),second=text.getBytes();if(first==second)throw new Error();
+                    first[0]=0;if(!text.equals(new String(second)) || text.getBytes()[0]==0)throw new Error();
+                    if("".getBytes()=="".getBytes())throw new Error();return hash;}
+            }
+            """);compare(List.of("pairs","malformed"));
+    }
+
+    @Test void executesSelectedPinnedSnakeYamlUtf8Encoding() throws Exception {
+        selectedSnakeYamlBase64(true);
+        fixture("""
+            import org.yaml.snakeyaml.external.biz.base64Coder.Base64Coder;
+            public class Metadata {public static int run(){int hash=1;
+                for(String text:new String[]{"","ASCII","é","😀",new String(new char[]{97,0xd800,98}),new String(new char[]{97,0xdc00,98})}){
+                    String encoded=Base64Coder.encodeString(text);hash=31*hash+encoded.hashCode();
+                    hash=31*hash+Base64Coder.decodeString(encoded).hashCode();}
+                try{Base64Coder.encodeString(null);throw new Error();}catch(NullPointerException e){hash++;}
+                return hash;}}
+            """);compare(List.of("run"));
+    }
+
     private void writeClass(String name,byte[] bytes) throws Exception {
         Path file=directory.resolve(name+".class");Files.createDirectories(file.getParent());Files.write(file,bytes);
     }
