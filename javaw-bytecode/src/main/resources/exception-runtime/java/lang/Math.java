@@ -125,4 +125,14 @@ public final class Math {
         if(value==0)return Double.longBitsToDouble(0x8000000000000001L);
         long bits=Double.doubleToRawLongBits(value);return Double.longBitsToDouble(value>0?bits-1:bits+1);
     }
+    public static float nextAfter(float start,double direction){
+        if(Float.isNaN(start) || Double.isNaN(direction))return start+(float)direction;
+        if(start==direction)return (float)direction;
+        return start<direction?nextUp(start):nextDown(start);
+    }
+    public static double nextAfter(double start,double direction){
+        if(Double.isNaN(start) || Double.isNaN(direction))return start+direction;
+        if(start==direction)return direction;
+        return start<direction?nextUp(start):nextDown(start);
+    }
 }

@@ -67,3 +67,7 @@ Math.nextUp steps one representable value toward positive infinity for float/dou
 ## Next smaller floating values (`floating-next-down-v95`)
 
 Math.nextDown steps one representable value toward negative infinity for float/double, preserving NaNs and negative infinity and crossing signed-zero/subnormal boundaries correctly. JVM/Wasm comparisons exercise both JAR orders and independent instances. These are API conformance tests, not additional pinned-library or reachable-closure execution claims. Dependency inventory counts remain unchanged.
+
+## Directed adjacent floating values (`floating-next-after-v96`)
+
+Both Math.nextAfter overloads retain the double direction, preserve the destination zero sign on equality and handle NaNs, infinities and underflow/overflow boundaries. JVM/Wasm comparisons exercise both JAR orders and independent instances. These are API conformance tests, not additional pinned-library or reachable-closure execution claims. Dependency inventory counts remain unchanged.
