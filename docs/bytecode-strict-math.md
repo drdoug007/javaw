@@ -18,3 +18,4 @@ Completed subsets:
 
 - v150: square root, angle conversion and constants (`rootsAndAngles`).
 - v151: floor, ceil, ties-to-even rint and saturating round (`rounding`).
+- v152: integral and floating absolute values, including checked overflow (`absoluteValues`).

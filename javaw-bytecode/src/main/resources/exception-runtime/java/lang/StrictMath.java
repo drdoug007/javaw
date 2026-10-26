@@ -34,4 +34,11 @@ public final class StrictMath {
     public static double rint(double x){return Math.rint(x);}
     public static long round(double x){return Math.round(x);}
     public static int round(float x){return Math.round(x);}
+
+    public static int abs(int x){return Math.abs(x);}
+    public static long abs(long x){return Math.abs(x);}
+    public static float abs(float x){return Math.abs(x);}
+    public static double abs(double x){return Math.abs(x);}
+    public static int absExact(int x){return Math.absExact(x);}
+    public static long absExact(long x){return Math.absExact(x);}
 }

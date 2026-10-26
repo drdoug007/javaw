@@ -1984,3 +1984,5 @@ Bytecode numeric formatting progress (v140–v149): String formatting now accept
 StrictMath bytecode subset 1/10 (`strict-roots-angles-v150`): square root, angle conversion and constants. JVM/Wasm evidence: `BytecodeStrictMathTest.rootsAndAngles` (direct calls, method references, both JAR orders and independent instances). See [the supported contract](docs/bytecode-strict-math.md); broader JDK/framework compatibility remains open.
 
 StrictMath bytecode subset 2/10 (`strict-rounding-v151`): floor, ceil, ties-to-even rint and saturating round. JVM/Wasm evidence: `BytecodeStrictMathTest.rounding` (direct calls, method references, both JAR orders and independent instances). See [the supported contract](docs/bytecode-strict-math.md); broader JDK/framework compatibility remains open.
+
+StrictMath bytecode subset 3/10 (`strict-absolute-v152`): integral and floating absolute values, including checked overflow. JVM/Wasm evidence: `BytecodeStrictMathTest.absoluteValues` (direct calls, method references, both JAR orders and independent instances). See [the supported contract](docs/bytecode-strict-math.md); broader JDK/framework compatibility remains open.
