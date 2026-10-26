@@ -26,6 +26,50 @@ public final class String implements CharSequence,Comparable<String>,java.io.Ser
         value=new char[count];int high=(highByte&255)<<8;
         for(int i=0;i<count;i++)value[i]=(char)(high|(bytes[offset+i]&255));
     }
+    /** The isolated runtime's default charset is UTF-8. */
+    public String(byte[] bytes){this(bytes,0,bytes.length);}
+    public String(byte[] bytes,int offset,int count){value=decodeUtf8(bytes,offset,count);}
+    private static boolean continuation(int value){return (value&0xc0)==0x80;}
+    private static char[] decodeUtf8(byte[] bytes,int offset,int count){
+        int length=bytes.length;
+        if(offset<0 || count<0 || offset>length-count)throw new StringIndexOutOfBoundsException();
+        char[] decoded=new char[count];int out=0,end=offset+count;
+        while(offset<end){
+            int first=bytes[offset++]&255;
+            if(first<128){decoded[out++]=(char)first;continue;}
+            if(first>=0xc2 && first<=0xdf){
+                if(offset<end && continuation(bytes[offset]))decoded[out++]=(char)(((first&31)<<6)|(bytes[offset++]&63));
+                else decoded[out++]='\ufffd';
+                continue;
+            }
+            if(first>=0xe0 && first<=0xef){
+                if(offset==end){decoded[out++]='\ufffd';continue;}
+                int second=bytes[offset]&255;
+                if(!continuation(second) || first==0xe0 && second<0xa0){decoded[out++]='\ufffd';continue;}
+                offset++;
+                if(offset==end || !continuation(bytes[offset])){decoded[out++]='\ufffd';continue;}
+                int code=((first&15)<<12)|((second&63)<<6)|(bytes[offset++]&63);
+                decoded[out++]=(char)(code>=0xd800 && code<=0xdfff?0xfffd:code);
+                continue;
+            }
+            if(first>=0xf0 && first<=0xf4){
+                if(offset==end){decoded[out++]='\ufffd';continue;}
+                int second=bytes[offset]&255;
+                if(!continuation(second) || first==0xf0 && second<0x90 || first==0xf4 && second>0x8f){decoded[out++]='\ufffd';continue;}
+                offset++;
+                if(offset==end || !continuation(bytes[offset])){decoded[out++]='\ufffd';continue;}
+                int third=bytes[offset++]&63;
+                if(offset==end || !continuation(bytes[offset])){decoded[out++]='\ufffd';continue;}
+                int code=((first&7)<<18)|((second&63)<<12)|(third<<6)|(bytes[offset++]&63);
+                code-=0x10000;decoded[out++]=(char)(0xd800+(code>>10));decoded[out++]=(char)(0xdc00+(code&1023));
+                continue;
+            }
+            decoded[out++]='\ufffd';
+        }
+        if(out==count)return decoded;
+        char[] result=new char[out];System.arraycopy(decoded,0,result,0,out);return result;
+    }
+
     public String(int[] codePoints,int offset,int count){
         int sourceLength=codePoints.length;
         if(offset<0 || count<0 || offset>sourceLength-count)throw new IndexOutOfBoundsException();

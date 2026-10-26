@@ -78,6 +78,73 @@ class BytecodeNumericTextTest implements Opcodes {
             """);compare(List.of("run"));
     }
 
+    @Test void utf8DecodingAllBytePairs() throws Exception {
+        assertEquals(java.nio.charset.StandardCharsets.UTF_8,java.nio.charset.Charset.defaultCharset());
+        StringBuilder source=new StringBuilder("public class Metadata {static int pairs(int start){int hash=1;for(int a=start;a<start+16;a++)for(int b=0;b<256;b++){byte[] bytes={(byte)a,(byte)b};String text=new String(bytes);hash=31*hash+text.hashCode()+text.length();}return hash;} ");
+        List<String> names=new ArrayList<>();
+        for(int batch=0;batch<16;batch++){String name="run"+batch;names.add(name);source.append("public static int ").append(name).append("(){return pairs(").append(batch*16).append(");}");}
+        fixture(source.append("}").toString());compare(names);
+    }
+
+    @Test void utf8DecodingBoundariesSlicesAndSnapshots() throws Exception {
+        fixture("""
+            public class Metadata {
+                static final int[] tails={0,0x7f,0x80,0x8f,0x90,0x9f,0xa0,0xbf,0xc0,0xff};
+                static int triples(int first){int hash=1;for(int b:tails)for(int c:tails){byte[] bytes={(byte)first,(byte)b,(byte)c};
+                    for(int size=1;size<=3;size++){String text=new String(bytes,0,size);hash=31*hash+text.hashCode()+text.length();}}return hash;}
+                static int quads(int first){int hash=1;for(int b:tails)for(int c:tails)for(int d:tails){byte[] bytes={(byte)first,(byte)b,(byte)c,(byte)d};
+                    for(int size=2;size<=4;size++){String text=new String(bytes,0,size);hash=31*hash+text.hashCode()+text.length();}}return hash;}
+                public static int a(){return triples(0xe0)+triples(0xed);}
+                public static int b(){return triples(0xe1)+triples(0xef);}
+                public static int c(){return quads(0xf0);}
+                public static int d(){return quads(0xf1);}
+                public static int e(){return quads(0xf4);}
+                public static int failures(){int hash=1;
+                    byte[] bytes={99,65,(byte)0xc3,(byte)0xa9,90};String text=new String(bytes,1,3);bytes[1]=66;
+                    if(!text.equals("Aé"))throw new Error();
+                    for(int[] slice:new int[][]{{-1,1},{0,-1},{4,2},{Integer.MAX_VALUE,1},{1,Integer.MAX_VALUE}})
+                        try{new String(bytes,slice[0],slice[1]);throw new Error();}catch(StringIndexOutOfBoundsException e){hash++;}
+                    try{new String((byte[])null);throw new Error();}catch(NullPointerException e){hash++;}
+                    try{new String((byte[])null,-1,-1);throw new Error();}catch(NullPointerException e){hash++;}
+                    for(int n=0;n<256;n++){String one=new String(new byte[]{(byte)n});hash=31*hash+one.hashCode();}
+                    return hash;}
+            }
+            """);compare(List.of("a","b","c","d","e","failures"));
+    }
+
+    private void selectedSnakeYamlBase64(boolean encoding) throws Exception {
+        Path repository=Path.of(System.getProperty("maven.repo.local",Path.of(System.getProperty("user.home"),".m2","repository").toString()));
+        Path artifact=repository.resolve("org/yaml/snakeyaml/2.2/snakeyaml-2.2.jar");
+        assertDigest(artifact,"1467931448a0817696ae2805b7b8b20bfb082652bf9c4efaed528930dc49389b");
+        try(JarFile jar=new JarFile(artifact.toFile())){
+            ClassNode node=new ClassNode();new ClassReader(jar.getInputStream(jar.getJarEntry("org/yaml/snakeyaml/external/biz/base64Coder/Base64Coder.class")).readAllBytes()).accept(node,0);
+            node.fields.removeIf(f->f.name.equals("systemLineSeparator"));
+            node.methods.removeIf(m->m.name.equals("encodeLines") || m.name.equals("decodeLines") || !encoding && m.name.equals("encodeString"));
+            MethodNode initializer=node.methods.stream().filter(m->m.name.equals("<clinit>")).findFirst().orElseThrow();
+            List<AbstractInsnNode> prefix=new ArrayList<>();
+            for(AbstractInsnNode instruction:initializer.instructions){if(instruction.getOpcode()>=0)prefix.add(instruction);if(prefix.size()==3)break;}
+            assertEquals("line.separator",((LdcInsnNode)prefix.get(0)).cst);
+            assertEquals("java/lang/System",((MethodInsnNode)prefix.get(1)).owner);
+            assertEquals("getProperty",((MethodInsnNode)prefix.get(1)).name);
+            assertEquals("systemLineSeparator",((FieldInsnNode)prefix.get(2)).name);
+            prefix.forEach(initializer.instructions::remove);
+            ClassWriter writer=new ClassWriter(0);node.accept(writer);writeClass(node.name,writer.toByteArray());
+        }
+        fixtureClasspath=directory.toString();
+    }
+
+    @Test void executesSelectedPinnedSnakeYamlUtf8Decoding() throws Exception {
+        selectedSnakeYamlBase64(false);
+        fixture("""
+            import org.yaml.snakeyaml.external.biz.base64Coder.Base64Coder;
+            public class Metadata {public static int run(){int hash=1;
+                for(String encoded:new String[]{"","QQ==","w6k=","8J+YgA==","wK8=","7aCA","8J8=","9JCAgA=="}){
+                    String decoded=Base64Coder.decodeString(encoded);hash=31*hash+decoded.hashCode()+decoded.length();}
+                try{Base64Coder.decodeString("!");throw new Error();}catch(IllegalArgumentException e){hash++;}
+                return hash;}}
+            """);compare(List.of("run"));
+    }
+
     private void writeClass(String name,byte[] bytes) throws Exception {
         Path file=directory.resolve(name+".class");Files.createDirectories(file.getParent());Files.write(file,bytes);
     }
@@ -88,17 +155,13 @@ class BytecodeNumericTextTest implements Opcodes {
     private void compare(List<String> names) throws Exception {
         StringBuilder assertions=new StringBuilder();
         try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)){
-            Class<?> type=loader.loadClass(fixtureClassName);for(String name:names){Object expected=type.getMethod(name).invoke(null);assertions.append("assert.equal(").append(expected instanceof String?"text(e['"+fixtureClassName+".":"e['"+fixtureClassName+".").append(name).append(expected instanceof String?"']()),":"'](),").append(expected instanceof String?js((String)expected):expected).append(");\n");}
+            Class<?> type=loader.loadClass(fixtureClassName);
+            for(String name:names){Object expected=type.getMethod(name).invoke(null);assertInstanceOf(Integer.class,expected);
+                assertions.append("assert.equal(e['").append(fixtureClassName).append(".").append(name).append("'](),").append(expected).append(");\n");}
         }
         for(boolean reverse:new boolean[]{false,true})execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),assertions.toString());
     }
 
-    private String js(String value) {
-        if(value==null)return "null";
-        StringBuilder out=new StringBuilder("\"");
-        for(char c:value.toCharArray())out.append(String.format("\\u%04x",(int)c));
-        return out.append('"').toString();
-    }
     private void run(String... arguments) throws Exception {
         Path log=directory.resolve("command.log");Process process=new ProcessBuilder(arguments).redirectErrorStream(true).redirectOutput(log.toFile()).start();
         if(!process.waitFor(60,TimeUnit.SECONDS)){process.destroyForcibly();fail("Command timed out");}
@@ -111,18 +174,16 @@ class BytecodeNumericTextTest implements Opcodes {
             const fs=require('node:fs'),assert=require('node:assert/strict');
             const compiled=new WebAssembly.Module(fs.readFileSync(process.argv[2]));
             for(let instance=0;instance<2;instance++) {
-                const memory=new WebAssembly.Memory({initial:2,maximum:20});let heap=1024,allocations=0,failAllocation=false;
-                const e=new WebAssembly.Instance(compiled,{env:{memory,__heap_alloc:size=>{
-                    allocations++;if(failAllocation){failAllocation=false;return 0;}
-                    const address=heap;heap+=size;
-                    while(heap>memory.buffer.byteLength)memory.grow(1);
-                    new Uint8Array(memory.buffer,address,size).fill(0x7f);return address;
-                }}}).exports;
-                assert.equal(allocations,0);heap=Math.max(heap,e.__exception_heap_base?.value??0);
-                function text(pointer){if(!pointer)return null;const view=new DataView(memory.buffer);
-                    const chars=view.getInt32(pointer+4,true),length=view.getInt32(chars+4,true);
-                    let result='';for(let i=0;i<length;i++)result+=String.fromCharCode(view.getUint16(chars+8+2*i,true));return result;}
-            """+assertions+"\n}");
+                function fresh(){
+                    const memory=new WebAssembly.Memory({initial:2,maximum:20});let heap=1024,allocations=0;
+                    const e=new WebAssembly.Instance(compiled,{env:{memory,__heap_alloc:size=>{
+                        allocations++;const address=heap;heap+=size;
+                        while(heap>memory.buffer.byteLength)memory.grow(1);
+                        new Uint8Array(memory.buffer,address,size).fill(0x7f);return address;
+                    }}}).exports;
+                    assert.equal(allocations,0);heap=Math.max(heap,e.__exception_heap_base?.value??0);return e;
+                }
+            """+assertions.replace("e['","fresh()['")+"\n}");
         run("node",script.toString(),output.toString());
     }
 }
