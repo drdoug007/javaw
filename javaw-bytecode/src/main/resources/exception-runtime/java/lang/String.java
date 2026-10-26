@@ -307,4 +307,17 @@ public final class String implements CharSequence,Comparable<String>,java.io.Ser
         }
         return new String(decoded,0,out);
     }
+    public String indent(int amount){
+        if(isEmpty())return "";
+        String padding=amount>0?" ".repeat(amount):"";
+        StringBuilder out=new StringBuilder();
+        for(int start=0;start<length();){
+            int end=lineEnd(start),content=start;
+            if(amount<0){long remaining=-(long)amount;
+                while(content<end && remaining>0 && Character.isWhitespace(value[content])){content++;remaining--;}}
+            out.append(padding).append(this,content,end).append((char)10);
+            start=nextLine(start);
+        }
+        return out.toString();
+    }
 }

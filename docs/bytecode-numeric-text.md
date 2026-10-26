@@ -1,4 +1,4 @@
-# Decimal arithmetic, unsigned bytes and UTF-8 text
+# Bytecode numeric and text APIs
 
 These APIs execute as bundled bytecode inside Wasm. They do not use source facades or host arithmetic/charset callbacks.
 
@@ -79,3 +79,11 @@ Math.scalb preserves a single final rounding, signed zeros, subnormal ties and s
 ## String escape translation (`string-escape-translation-v98`)
 
 String.translateEscapes implements standard and octal escapes, space escapes and CR/LF/CRLF continuations; malformed/trailing escapes raise IllegalArgumentException. Unicode escape processing belongs to the Java lexer and is deliberately rejected here. JVM/Wasm comparisons exercise both JAR orders and independent instances. These are API conformance tests, not additional pinned-library or reachable-closure execution claims. Dependency inventory counts remain unchanged.
+
+## String indentation (`string-indentation-v99`)
+
+String.indent adds spaces or removes Java whitespace per line, normalizes CR/LF/CRLF and terminates nonempty output lines with LF. Integer.MIN_VALUE removal avoids negation overflow; empty input remains empty even for Integer.MAX_VALUE padding. JVM/Wasm comparisons exercise both JAR orders and independent instances. These are API conformance tests, not additional pinned-library or reachable-closure execution claims. Dependency inventory counts remain unchanged.
+
+Floating comparisons canonicalize NaNs and distinguish signed zero. NaN payload propagation and JDK algorithmic complexity are not promised. The ten v90–v99 subsets leave locale conversion, regex, formatting, charset objects, additional numeric APIs and actual framework execution open.
+
+Combined v90–v99 validation: the required offline bytecode suite passes all 372 tests with zero failures, errors or skips. The final 63-JAR audit passes with unchanged dependency inventory; only the compiler revision changes in the reviewed baseline.

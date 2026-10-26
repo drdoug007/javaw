@@ -210,6 +210,32 @@ class BytecodeNumericTextTest implements Opcodes {
             """);compare(List.of("run"));
     }
 
+    @Test void stringIndentation() throws Exception {
+        fixture("""
+            public class Metadata {
+                static int check(int hash,String text){
+                    for(int n:new int[]{Integer.MIN_VALUE,-100,-4,-1,0,1,4,10}){
+                        String out=text.indent(n);hash=31*hash+out.hashCode()+out.length();}return hash;
+                }
+                public static int run(){int hash=1;
+                    String[] texts={"","a"," ",new String(new char[]{13}),new String(new char[]{10}),
+                        new String(new char[]{13,10,13,10}),new String(new char[]{' ',9,'A',13,10,' ',10,9,'B',13,'C'}),
+                        new String(new char[]{0x2003,0x2003,'X',10,0xa0,'Y',13,0x2028,'Z'}),
+                        new String(new char[]{0xd800,0xdc00,10,0xd800})};
+                    for(String text:texts)hash=check(hash,text);
+                    int[] whitespace={0,9,11,12,28,29,30,31,32,0x85,0xa0,0x1680,0x2000,0x2003,0x2007,0x2028,0x2029,0x202f,0x205f,0x3000};
+                    for(int c:whitespace)hash=check(hash,new String(new char[]{(char)c,(char)c,'X',13,10,(char)c,'Y'}));
+                    long seed=17;char[] alphabet={'A',' ',9,10,13,0x2003,0xd800,0xdc00};
+                    for(int n=0;n<24;n++){char[] units=new char[10];for(int i=0;i<units.length;i++){
+                        seed=seed*6364136223846793005L+1;units[i]=alphabet[(int)((seed>>>32)&7)];}
+                        hash=check(hash,new String(units));}
+                    if(!"".indent(Integer.MAX_VALUE).isEmpty())throw new Error();
+                    java.util.function.BiFunction<String,Integer,String> op=String::indent;
+                    return hash+op.apply("a",2).hashCode();}}
+
+            """);compare(List.of("run"));
+    }
+
     @Test void unsignedBytesAndMethodReferences() throws Exception {
         fixture("""
             import java.util.function.*;
