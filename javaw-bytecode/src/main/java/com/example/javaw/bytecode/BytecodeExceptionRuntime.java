@@ -40,6 +40,7 @@ public final class BytecodeExceptionRuntime {
             paths.add("java/io/UnsupportedEncodingException.java");
             paths.add("javaw/runtime/TextCharsets.java");
             paths.add("java/util/Objects.java");
+            paths.add("java/util/Locale.java");
             paths.add("java/util/Arrays.java");
             paths.add("java/util/UUID.java");
             paths.add("java/lang/invoke/StringConcatException.java");
