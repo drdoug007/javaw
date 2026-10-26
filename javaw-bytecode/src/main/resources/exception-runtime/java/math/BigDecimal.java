@@ -200,6 +200,30 @@ public class BigDecimal extends Number implements Comparable<BigDecimal>,java.io
     public BigDecimal(long value,MathContext context){this(value);applyContext(context);}
     public BigDecimal(double value,MathContext context){this(value);applyContext(context);}
 
+    public BigDecimal divide(BigDecimal other,MathContext context){
+        int precision=context.getPrecision();
+        if(precision==0)return divide(other);
+        if(other==null)throw new NullPointerException();
+        if(other.signum()==0)throw new ArithmeticException();
+        int preferred=clampedScale((long)decimalScale-other.decimalScale);
+        if(signum()==0)return new BigDecimal(BigInteger.ZERO,preferred);
+        BigInteger numerator=coefficient,denominator=other.coefficient;
+        int order=numerator.precision()-denominator.precision();
+        int comparison=order>=0?numerator.abs().compareTo(denominator.abs().timesTen(order)):
+            numerator.abs().timesTen(-order).compareTo(denominator.abs());
+        if(comparison<0)order--;
+        long shift=(long)precision-1-order;
+        long scale=shift+(long)decimalScale-other.decimalScale;
+        if(shift>=0)numerator=numerator.timesTen(scaleChecked(shift));
+        else denominator=denominator.timesTen(scaleChecked(-shift));
+        boolean exact=numerator.remainder(denominator).signum()==0;
+        BigInteger result=rounded(numerator,denominator,context.getRoundingMode());
+        if(result.precision()>precision){result=result.divide(BigInteger.TEN);scale--;}
+        // A terminating result retains the preferred scale as far as precision permits.
+        while(exact && scale>preferred && result.remainder(BigInteger.TEN).signum()==0){result=result.divide(BigInteger.TEN);scale--;}
+        return new BigDecimal(result,scaleChecked(scale));
+    }
+
     public BigDecimal add(BigDecimal other,MathContext context){
         if(context==null)throw new NullPointerException();
         int precision=context.getPrecision();

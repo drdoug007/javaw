@@ -457,6 +457,23 @@ int hash=1;
             """);compare(List.of("run"));
     }
 
+    @Test void contextDivision() throws Exception {
+        fixture("""
+            import java.math.*;
+            public class Metadata {public static int run(){int hash=1;
+                for(String x:new String[]{"0.00","1.00","-9.995","999.95"})for(String y:new String[]{"0.0","3.00","-2"})for(RoundingMode mode:RoundingMode.values()){
+                    try{BigDecimal result=new BigDecimal(x).divide(new BigDecimal(y),new MathContext(3,mode));hash=31*hash+result.toString().hashCode()+result.scale();}catch(ArithmeticException e){hash=31*hash+7;}}
+                for(String x:new String[]{"1E+2147483647","1E-2147483647","0E-2147483647"})for(String y:new String[]{"1E+2147483647","1E-2147483647","10"}){
+                    try{hash=31*hash+new BigDecimal(x).divide(new BigDecimal(y),MathContext.DECIMAL32).toString().hashCode();}catch(ArithmeticException e){hash+=11;}}
+                for(int p:new int[]{0,1,2,8})for(String x:new String[]{"1.00","1000","2.50","1001","9999"})for(String y:new String[]{"2.0","3","0.125","1000"}){
+                    try{hash=31*hash+new BigDecimal(x).divide(new BigDecimal(y),new MathContext(p)).toString().hashCode();}catch(ArithmeticException e){hash+=13;}}
+                try{BigDecimal.ONE.divide(null,MathContext.DECIMAL32);throw new Error();}catch(NullPointerException e){hash++;}
+                try{BigDecimal.ONE.divide(BigDecimal.ONE,(MathContext)null);throw new Error();}catch(NullPointerException e){hash++;}
+                return hash;
+            }}
+            """);compare(List.of("run"));
+    }
+
     private void writeClass(String name,byte[] bytes) throws Exception {
         Path file=directory.resolve(name+".class");Files.createDirectories(file.getParent());Files.write(file,bytes);
     }
