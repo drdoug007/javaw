@@ -43,3 +43,7 @@ Encoding evidence covers all 65,536 UTF-16 single units, 3,072 supplementary pai
 Remaining limits: default charset configuration and explicit Charset/name overloads are unsupported. The UTF-8 default is a deliberate isolated-runtime contract, not inheritance of a browser or host locale. These APIs do not prove whole-library startup, managed allocation stability or completion of the broad numeric/text milestone.
 
 Combined validation at `utf8-encoding-v89`: the required offline bytecode suite passes all 362 tests with zero failures, errors or skips (four test forks). This includes all 21 decimal tests and eight unsigned-byte/UTF-8 tests. The final reviewed 63-JAR audit passes with unchanged dependency inventory. The whole-JAR linkage inventory now reports 978 declared signatures, 57 missing members and 302 missing owners; these are declaration counts, not reachable-closure execution proof.
+
+## Unsigned Short conversions (`unsigned-shorts-v90`)
+
+Short.toUnsignedInt/toUnsignedLong preserve every 16-bit pattern through masking, including method references. JVM/Wasm comparisons exercise both JAR orders and independent instances. These are API conformance tests, not additional pinned-library or reachable-closure execution claims. Dependency inventory counts remain unchanged.

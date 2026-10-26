@@ -36,4 +36,6 @@ public final class Short extends Number implements Comparable<Short>,java.io.Ser
     public int hashCode(){return (int)value;}
     public static int hashCode(short value){return (int)value;}
     public int compareTo(Short other){return compare(value,other.value);}
+    public static int toUnsignedInt(short value){return value&65535;}
+    public static long toUnsignedLong(short value){return value&65535L;}
 }

@@ -42,6 +42,18 @@ class BytecodeNumericTextTest implements Opcodes {
         return bytes.toByteArray();
     }
 
+    @Test void unsignedShorts() throws Exception {
+        fixture("""
+            public class Metadata {public static int run(){int hash=1;
+                java.util.function.ToIntFunction<Short> ints=Short::toUnsignedInt;
+                java.util.function.ToLongFunction<Short> longs=Short::toUnsignedLong;
+                for(int n=-32768;n<=32767;n++){short s=(short)n;int a=Short.toUnsignedInt(s);long b=Short.toUnsignedLong(s);
+                    if(a!=(n&65535) || b!=a)throw new Error();hash=31*hash+a;}
+                for(short s:new short[]{-32768,-129,-1,0,127,32767})hash+=ints.applyAsInt(s)+(int)longs.applyAsLong(s);
+                return hash;}}
+            """);compare(List.of("run"));
+    }
+
     @Test void unsignedBytesAndMethodReferences() throws Exception {
         fixture("""
             import java.util.function.*;
