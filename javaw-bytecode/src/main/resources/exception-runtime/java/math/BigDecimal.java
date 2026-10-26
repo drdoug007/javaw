@@ -200,6 +200,27 @@ public class BigDecimal extends Number implements Comparable<BigDecimal>,java.io
     public BigDecimal(long value,MathContext context){this(value);applyContext(context);}
     public BigDecimal(double value,MathContext context){this(value);applyContext(context);}
 
+    public BigDecimal pow(int n,MathContext context){
+        int precision=context.getPrecision();
+        if(n<-999999999 || n>999999999)throw new ArithmeticException();
+        if(precision==0)return pow(n);
+        if(n==0)return ONE;
+        int magnitude=n<0?-n:n,digits=0;
+        for(int value=magnitude;value!=0;value/=10)digits++;
+        if(digits>precision)throw new ArithmeticException();
+        MathContext work=new MathContext(precision+digits+1,context.getRoundingMode());
+        BigDecimal result=ONE;boolean seen=false;
+        // Match the specified left-to-right sequence, including intermediate rounding.
+        for(int bit=1;bit<=31;bit++){
+            magnitude+=magnitude;
+            if(magnitude<0){seen=true;result=result.multiply(this,work);}
+            if(bit==31)break;
+            if(seen)result=result.multiply(result,work);
+        }
+        if(n<0)result=ONE.divide(result,work);
+        return result.roundedContext(context);
+    }
+
     public BigDecimal divide(BigDecimal other,MathContext context){
         int precision=context.getPrecision();
         if(precision==0)return divide(other);

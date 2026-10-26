@@ -474,6 +474,22 @@ int hash=1;
             """);compare(List.of("run"));
     }
 
+    @Test void contextPowers() throws Exception {
+        fixture("""
+            import java.math.*;
+            public class Metadata {public static int run(){int hash=1;
+                for(String x:new String[]{"1.005","-2.5"})for(int n:new int[]{2,-3})for(RoundingMode mode:RoundingMode.values()){
+                    try{BigDecimal result=new BigDecimal(x).pow(n,new MathContext(3,mode));hash=31*hash+result.toString().hashCode()+result.scale();}catch(ArithmeticException e){hash=31*hash+7;}}
+                for(int n:new int[]{-1000000000,-999999999,-10,-1,0,1,10,999999999,1000000000})for(int p:new int[]{0,1,9}){
+                    try{hash=31*hash+BigDecimal.ONE.pow(n,new MathContext(p)).toString().hashCode();}catch(ArithmeticException e){hash+=11;}}
+                for(int n:new int[]{-1,0,1,3})try{hash+=new BigDecimal("0.00").pow(n,MathContext.DECIMAL32).hashCode();}catch(ArithmeticException e){hash+=13;}
+                try{BigDecimal.ONE.pow(1,new MathContext(Integer.MAX_VALUE));throw new Error();}catch(IllegalArgumentException e){hash++;}
+                try{BigDecimal.ONE.pow(0,null);throw new Error();}catch(NullPointerException e){hash++;}
+                return hash;
+            }}
+            """);compare(List.of("run"));
+    }
+
     private void writeClass(String name,byte[] bytes) throws Exception {
         Path file=directory.resolve(name+".class");Files.createDirectories(file.getParent());Files.write(file,bytes);
     }
