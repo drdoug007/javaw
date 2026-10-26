@@ -25,7 +25,7 @@ def main():
     masked = re.sub(r'//[^\n]*|/\*[\s\S]*?\*/|"(?:\\.|[^"\\])*"|\x27(?:\\.|[^\x27\\])*\x27',
                     lambda match: ' ' * len(match[0]), source)
     result = source[:source.index('    /** sin(x)')].replace('Double.POSITIVE_INFINITY', '(1.0/0.0)')
-    for name in ['Exp', 'Log', 'Log10', 'Pow', 'Sin', 'Cos', 'RemPio2', 'KernelRemPio2']:
+    for name in ['Exp', 'Log', 'Log10', 'Pow', 'Sin', 'Cos', 'RemPio2', 'KernelRemPio2', 'Tan']:
         start = source.index('    static final class ' + name + ' ')
         cursor = masked.index('{', start) + 1
         depth = 1

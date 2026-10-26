@@ -33,3 +33,7 @@ Math.sin uses split-remainder reduction for moderate inputs and multiprecision r
 ## Portable cosine (`fdlibm-cosine-v105`)
 
 Math.cos uses compensated cosine evaluation and the shared large-argument reducer, returns one for both zeros and produces NaN for nonfinite arguments.
+
+## Portable tangent (`fdlibm-tangent-v106`)
+
+Math.tan uses split argument reduction, kernel transformations and compensated reciprocal evaluation near odd-quadrant poles. It preserves signed zero and rejects nonfinite arguments with NaN.
