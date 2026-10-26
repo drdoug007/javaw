@@ -152,4 +152,5 @@ public final class Math {
         return result;
     }
     public static double exp(double x){return FdLibm.Exp.compute(x);}
+    public static double log(double x){return FdLibm.Log.compute(x);}
 }

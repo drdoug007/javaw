@@ -11,3 +11,7 @@ The algorithms close inventoried declarations, not the reachable dependency clos
 ## Portable exponential (`fdlibm-exponential-v100`)
 
 Math.exp handles finite range reduction, subnormal rounding, overflow/underflow, signed zeros, infinities and NaNs using the fdlibm exponential algorithm.
+
+## Portable natural logarithm (`fdlibm-natural-log-v101`)
+
+Math.log performs fdlibm normalization and split-logarithm evaluation across subnormal/normal ranges; zero yields negative infinity, and negative inputs yield NaN.
