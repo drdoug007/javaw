@@ -21,3 +21,4 @@ Completed subsets:
 - v152: integral and floating absolute values, including checked overflow (`absoluteValues`).
 - v153: int, long, float and double min/max with signed zeros and NaNs (`extrema`).
 - v154: signum and StrictMath NaN-normalized copySign (`signOperations`).
+- v155: exponent extraction and ulp for both precisions (`exponentsAndUlps`).

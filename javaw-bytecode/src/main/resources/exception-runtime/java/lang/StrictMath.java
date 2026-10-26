@@ -55,4 +55,9 @@ public final class StrictMath {
     public static double signum(double x){return Math.signum(x);}
     public static float copySign(float a,float b){return Math.copySign(a,Float.isNaN(b)?1:b);}
     public static double copySign(double a,double b){return Math.copySign(a,Double.isNaN(b)?1:b);}
+
+    public static int getExponent(float x){return Math.getExponent(x);}
+    public static int getExponent(double x){return Math.getExponent(x);}
+    public static float ulp(float x){return Math.ulp(x);}
+    public static double ulp(double x){return Math.ulp(x);}
 }

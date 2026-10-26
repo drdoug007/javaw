@@ -1990,3 +1990,5 @@ StrictMath bytecode subset 3/10 (`strict-absolute-v152`): integral and floating 
 StrictMath bytecode subset 4/10 (`strict-extrema-v153`): int, long, float and double min/max with signed zeros and NaNs. JVM/Wasm evidence: `BytecodeStrictMathTest.extrema` (direct calls, method references, both JAR orders and independent instances). See [the supported contract](docs/bytecode-strict-math.md); broader JDK/framework compatibility remains open.
 
 StrictMath bytecode subset 5/10 (`strict-signs-v154`): signum and StrictMath NaN-normalized copySign. JVM/Wasm evidence: `BytecodeStrictMathTest.signOperations` (direct calls, method references, both JAR orders and independent instances). See [the supported contract](docs/bytecode-strict-math.md); broader JDK/framework compatibility remains open.
+
+StrictMath bytecode subset 6/10 (`strict-exponents-v155`): exponent extraction and ulp for both precisions. JVM/Wasm evidence: `BytecodeStrictMathTest.exponentsAndUlps` (direct calls, method references, both JAR orders and independent instances). See [the supported contract](docs/bytecode-strict-math.md); broader JDK/framework compatibility remains open.
