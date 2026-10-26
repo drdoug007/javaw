@@ -13,3 +13,9 @@ The focused JVM/Wasm comparisons pass in both JAR orders and independent instanc
 BigDecimal.pow(int, MathContext) uses the Java working precision (requested precision plus exponent digits plus one), the specified repeated-squaring order, reciprocal division for negative powers and final rounding. Exponent range/digit limits and unlimited negative powers raise ArithmeticException.
 
 The focused JVM/Wasm comparisons pass in both JAR orders and independent instances. The reviewed 63-JAR audit baseline changes only the compiler revision, with unchanged dependency inventory.
+
+## unsigned byte conversions (`unsigned-bytes-v87`)
+
+Byte.toUnsignedInt and toUnsignedLong mask the signed input to 0–255. JVM/Wasm comparisons cover every byte and execute unchanged pinned Hibernate RowVersionComparator and ComparableComparator classes, including bridge dispatch, ordering and null failures.
+
+The focused JVM/Wasm comparisons pass in both JAR orders and independent instances. The reviewed 63-JAR audit baseline changes only the compiler revision, with unchanged dependency inventory.

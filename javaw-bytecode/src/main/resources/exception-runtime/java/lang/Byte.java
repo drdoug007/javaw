@@ -31,6 +31,8 @@ public final class Byte extends Number implements Comparable<Byte>,java.io.Seria
     }
     public String toString(){return String.valueOf((int)value);}
     public static String toString(byte value){return String.valueOf((int)value);}
+    public static int toUnsignedInt(byte value){return value&255;}
+    public static long toUnsignedLong(byte value){return value&255L;}
     public static int compare(byte left,byte right){return left==right?0:left<right?-1:1;}
     public boolean equals(Object other){return other instanceof Byte && value==((Byte)other).value;}
     public int hashCode(){return (int)value;}
