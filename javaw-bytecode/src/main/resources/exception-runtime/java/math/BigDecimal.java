@@ -200,6 +200,32 @@ public class BigDecimal extends Number implements Comparable<BigDecimal>,java.io
     public BigDecimal(long value,MathContext context){this(value);applyContext(context);}
     public BigDecimal(double value,MathContext context){this(value);applyContext(context);}
 
+    public BigDecimal add(BigDecimal other,MathContext context){
+        if(context==null)throw new NullPointerException();
+        int precision=context.getPrecision();
+        if(precision==0)return add(other);
+        if(other==null)throw new NullPointerException();
+        if(signum()==0 || other.signum()==0){
+            int preferred=Math.max(decimalScale,other.decimalScale);
+            if(signum()==0 && other.signum()==0)return new BigDecimal(BigInteger.ZERO,preferred);
+            BigDecimal result=(signum()==0?other:this).roundedContext(context);
+            long padded=(long)result.decimalScale+Math.max(0,precision-result.precision());
+            return result.setScale((int)Math.min(preferred,padded));
+        }
+        BigDecimal large=this,small=other;
+        long order=(long)precision()-decimalScale,otherOrder=(long)other.precision()-other.decimalScale;
+        if(order<otherOrder){large=other;small=this;long swap=order;order=otherOrder;otherOrder=swap;}
+        // Keep two guard digits and a signed sticky digit rather than expanding
+        // an arbitrarily distant addend. Opposite signs still round correctly.
+        long padding=Math.max(0L,(long)precision+2-large.precision());
+        long stickyScale=(long)large.decimalScale+padding;
+        if(otherOrder < -stickyScale && stickyScale<=Integer.MAX_VALUE){
+            small=new BigDecimal(BigInteger.valueOf(small.signum()),(int)stickyScale);
+            return large.add(small).roundedContext(context);
+        }
+        return add(other).roundedContext(context);
+    }
+
     public BigDecimal ulp(){return new BigDecimal(BigInteger.ONE,decimalScale);}
     private static int clampedScale(long scale){return scale<Integer.MIN_VALUE?Integer.MIN_VALUE:scale>Integer.MAX_VALUE?Integer.MAX_VALUE:(int)scale;}
     private int checkedScale(long scale){return signum()==0?clampedScale(scale):scaleChecked(scale);}
