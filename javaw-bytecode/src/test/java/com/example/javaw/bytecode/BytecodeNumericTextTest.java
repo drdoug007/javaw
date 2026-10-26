@@ -189,6 +189,27 @@ class BytecodeNumericTextTest implements Opcodes {
             """);compare(List.of("run"));
     }
 
+    @Test void stringEscapeTranslation() throws Exception {
+        fixture("""
+            public class Metadata {
+                static int translated(int hash,String text){try{String out=text.translateEscapes();return 31*hash+out.hashCode()+out.length();}
+                    catch(IllegalArgumentException expected){return 31*hash-1;}}
+                public static int run(){int hash=1;
+                    for(int c=0;c<256;c++)hash=translated(hash,new String(new char[]{'A',92,(char)c,'Z'}));
+                    for(int n=0;n<512;n++){
+                        char a=(char)('0'+(n>>6)),b=(char)('0'+((n>>3)&7)),c=(char)('0'+(n&7));
+                        hash=translated(hash,new String(new char[]{92,a,b,c,'7'}));
+                    }
+                    hash=translated(hash,new String(new char[]{92}));
+                    hash=translated(hash,new String(new char[]{'A',92,13,10,'Z',92,10,'X',92,13,'Q'}));
+                    hash=translated(hash,new String(new char[]{92,'u','0','0','4','1'}));
+                    hash=translated(hash,new String(new char[]{0,(char)0xd800,(char)0xdc00,(char)0xffff}));
+                    java.util.function.UnaryOperator<String> op=String::translateEscapes;
+                    return hash+op.apply("").length();}}
+
+            """);compare(List.of("run"));
+    }
+
     @Test void unsignedBytesAndMethodReferences() throws Exception {
         fixture("""
             import java.util.function.*;

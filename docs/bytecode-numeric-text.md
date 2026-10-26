@@ -75,3 +75,7 @@ Both Math.nextAfter overloads retain the double direction, preserve the destinat
 ## Power-of-two floating scaling (`floating-scaling-v97`)
 
 Math.scalb preserves a single final rounding, signed zeros, subnormal ties and saturation for all int scale factors. Tests cross every exponent transition and random values with 48 scale boundaries including both int extremes. JVM/Wasm comparisons exercise both JAR orders and independent instances. These are API conformance tests, not additional pinned-library or reachable-closure execution claims. Dependency inventory counts remain unchanged.
+
+## String escape translation (`string-escape-translation-v98`)
+
+String.translateEscapes implements standard and octal escapes, space escapes and CR/LF/CRLF continuations; malformed/trailing escapes raise IllegalArgumentException. Unicode escape processing belongs to the Java lexer and is deliberately rejected here. JVM/Wasm comparisons exercise both JAR orders and independent instances. These are API conformance tests, not additional pinned-library or reachable-closure execution claims. Dependency inventory counts remain unchanged.

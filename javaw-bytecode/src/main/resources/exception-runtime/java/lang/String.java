@@ -284,4 +284,27 @@ public final class String implements CharSequence,Comparable<String>,java.io.Ser
 
     public static String copyValueOf(char[] chars){return new String(chars);}
     public static String copyValueOf(char[] chars,int offset,int count){return new String(chars,offset,count);}
+    public String translateEscapes(){
+        char[] decoded=new char[length()];int out=0;
+        for(int i=0;i<length();i++){
+            char c=value[i];
+            if(c!=92){decoded[out++]=c;continue;}
+            if(++i==length())throw new IllegalArgumentException();
+            c=value[i];
+            switch(c){
+                case 'b':c=8;break;case 't':c=9;break;case 'n':c=10;break;
+                case 'f':c=12;break;case 'r':c=13;break;case 's':c=32;break;
+                case 34:case 39:case 92:break;
+                case 10:continue;
+                case 13:if(i+1<length() && value[i+1]==10)i++;continue;
+                default:
+                    if(c<'0' || c>'7')throw new IllegalArgumentException();
+                    int code=c-'0',remaining=c<='3'?2:1;
+                    while(remaining-->0 && i+1<length() && value[i+1]>='0' && value[i+1]<='7')code=(code<<3)+(value[++i]-'0');
+                    c=(char)code;
+            }
+            decoded[out++]=c;
+        }
+        return new String(decoded,0,out);
+    }
 }
