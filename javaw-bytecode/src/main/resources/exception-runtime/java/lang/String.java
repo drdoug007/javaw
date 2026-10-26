@@ -30,6 +30,12 @@ public final class String implements CharSequence,Comparable<String>,java.io.Ser
     /** The isolated runtime's default charset is UTF-8. */
     public String(byte[] bytes){this(bytes,0,bytes.length);}
     public String(byte[] bytes,int offset,int count){value=decodeUtf8(bytes,offset,count);}
+    public String(byte[] bytes,String charsetName) throws java.io.UnsupportedEncodingException {
+        value=javaw.runtime.TextCharsets.decode(bytes,0,bytes==null?0:bytes.length,charsetName).value;
+    }
+    public String(byte[] bytes,int offset,int count,String charsetName) throws java.io.UnsupportedEncodingException {
+        value=javaw.runtime.TextCharsets.decode(bytes,offset,count,charsetName).value;
+    }
     public byte[] getBytes(){
         long length=0;
         for(int i=0;i<value.length;i++){

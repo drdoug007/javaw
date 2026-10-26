@@ -36,6 +36,9 @@ public final class BytecodeExceptionRuntime {
             List<String> paths=new ArrayList<>();
             for(String name:NAMES)paths.add("java/lang/"+name+".java");
             paths.add("java/io/Serializable.java");
+            paths.add("java/io/IOException.java");
+            paths.add("java/io/UnsupportedEncodingException.java");
+            paths.add("javaw/runtime/TextCharsets.java");
             paths.add("java/util/Objects.java");
             paths.add("java/util/Arrays.java");
             paths.add("java/util/UUID.java");
