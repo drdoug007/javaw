@@ -7,10 +7,11 @@ public final class String implements CharSequence,Comparable<String>,java.io.Ser
     private String nextInterned;
     public String toUpperCase(java.util.Locale locale) {
         String language=locale.getLanguage();
-        if(language.equals("tr") || language.equals("az") || language.equals("lt"))throw new UnsupportedOperationException("Contextual uppercase locale");
+        if(language.equals("lt"))throw new UnsupportedOperationException("Contextual uppercase locale");
         boolean copy=false;StringBuilder out=new StringBuilder();
         for(int i=0;i<length();) {
             int cp=codePointAt(i);i+=Character.charCount(cp);copy|=javaw.runtime.StringUpperData.copiesUnchanged(cp);
+            if(cp==105 && (language.equals("tr") || language.equals("az"))){out.append((char)304);continue;}
             String expansion=javaw.runtime.StringUpperData.expansion(cp);
             if(expansion!=null)out.append(expansion);else out.appendCodePoint(Character.toUpperCase(cp));
         }

@@ -57,6 +57,19 @@ class BytecodeTextFormatTest implements Opcodes {
             """);compare(1088);
     }
 
+    @Test void turkicUppercase() throws Exception {
+        fixture("""
+            import java.util.Locale;
+            public class Metadata {public static int run(int group){int h=1;
+                for(String lang:new String[]{"tr","az","TR","AZ","en"}) {
+                    Locale l=new Locale(lang,"tr");
+                    for(int cp=group*256;cp<(group+1)*256;cp+=17){String s="i"+new String(Character.toChars(cp))+"ıİi";h=31*h+s.toUpperCase(l).hashCode();}
+                }
+                try {"".toUpperCase((Locale)null);return 0;}catch(NullPointerException expected){return h;}
+            }}
+            """);compare(256);
+    }
+
     private byte[] fixture(String source) throws Exception {
         Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
         List<String> options=new ArrayList<>(List.of("-g","-parameters","--release",release,"-d",directory.toString()));
