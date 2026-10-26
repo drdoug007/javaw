@@ -67,3 +67,7 @@ Hexadecimal x/X formatting accepts arbitrary-precision signed magnitudes, altern
 ## BigDecimal fixed formatting (big-decimal-fixed-format-v143)
 
 Fixed-point f formatting accepts BigDecimal with HALF_UP rounding, requested/default fractional precision, grouping, alternate decimal points, signs and padding. JVM/Wasm cases cover ties, carry, negative values rounding to zero, large magnitudes, tiny fractions and null precision. Binary floating decimal conversion remains explicitly unsupported.
+
+## BigDecimal scientific formatting (big-decimal-scientific-format-v144)
+
+Scientific e/E formatting rounds BigDecimal with HALF_UP, pads fractional digits and signed exponents, supports alternate decimal points and preserves scaled-zero exponents. JVM/Wasm comparisons pass for carry, signs, nulls, wide exponents and both extreme int scales without expanding the magnitude. Binary floating decimal formatting remains excluded.

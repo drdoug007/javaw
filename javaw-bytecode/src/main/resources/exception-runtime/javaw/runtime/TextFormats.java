@@ -48,10 +48,10 @@ public final class TextFormats {
    if((flag(s,'+') && flag(s,' ')) || (flag(s,'-') && flag(s,'0')))throw new IllegalFormatFlagsException(flagsText(s));
    allowed(s,c=='d'?"-+ 0,(<":"-#+ 0(<");return;
   }
-  if(c=='f'){
+  if(c=='f' || c=='e' || c=='E'){
    if(flag(s,'0') && s.width<0)throw new MissingFormatWidthException(s.raw);
    if((flag(s,'+') && flag(s,' ')) || (flag(s,'-') && flag(s,'0')))throw new IllegalFormatFlagsException(flagsText(s));
-   allowed(s,"-#+ 0,(<");return;
+   allowed(s,c=='f'?"-#+ 0,(<":"-#+ 0(<");return;
   }
   throw new UnsupportedOperationException("Formatting conversion: "+c);
  }
@@ -65,7 +65,7 @@ public final class TextFormats {
    if(index<0 || (args!=null && index>=args.length))throw new MissingFormatArgumentException(s.raw);last=index;
    Object value=args==null?null:args[index];String text;
    if((c=='s' || c=='S') && flag(s,'#'))throw new FormatFlagsConversionMismatchException("#",conversion(s));
-   if(c=='f')text=decimalFraction(value,s,locale);
+   if(c=='f' || c=='e' || c=='E')text=decimalFraction(value,s,locale);
    else if(c=='o' || c=='x' || c=='X')text=radix(value,s);
    else if(c=='d')text=decimal(value,s,locale);
    else if(c=='b' || c=='B')text=value==null?"false":value instanceof Boolean?value.toString():"true";
@@ -118,9 +118,19 @@ public final class TextFormats {
   if(value instanceof Double || value instanceof Float)throw new UnsupportedOperationException("Binary floating decimal formatting");
   if(!(value instanceof BigDecimal))throw new IllegalFormatConversionException(conversion(s),value.getClass());
   numericLocale(locale);BigDecimal n=(BigDecimal)value;int precision=s.precision<0?6:s.precision;
-  String digits=n.abs().setScale(precision,RoundingMode.HALF_UP).toPlainString();
-  if(precision==0 && flag(s,'#'))digits+=".";
+  String digits;
+  if(conversion(s)=='e')digits=scientific(n.abs(),precision,flag(s,'#'));
+  else {digits=n.abs().setScale(precision,RoundingMode.HALF_UP).toPlainString();if(precision==0 && flag(s,'#'))digits+=".";}
   return decorate(grouped(digits,s),n.signum()<0,"",s);
+ }
+ private static String scientific(BigDecimal n,int precision,boolean alternate){
+  BigDecimal rounded=n.round(new MathContext(Math.addExact(precision,1),RoundingMode.HALF_UP));
+  long exponent=(long)rounded.precision()-1-rounded.scale();
+  String coefficient=rounded.unscaledValue().toString();
+  String fraction=coefficient.substring(1);if(fraction.length()<precision)fraction+="0".repeat(precision-fraction.length());
+  String mantissa=coefficient.substring(0,1);if(precision>0 || alternate)mantissa+="."+fraction;
+  String power=Long.toString(exponent<0?-exponent:exponent);if(power.length()<2)power="0"+power;
+  return mantissa+"e"+(exponent<0?"-":"+")+power;
  }
  private static String decorate(String digits,boolean negative,String radixPrefix,Spec s){
   String prefix=negative?(flag(s,'(')?"(":"-"):flag(s,'+')?"+":flag(s,' ')?" ":"";
