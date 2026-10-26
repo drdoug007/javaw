@@ -45,26 +45,20 @@ Validation: the required full bytecode suite passes all 293 tests. After the fin
 
 Validation: the required full bytecode run executed 339 tests, with 338 passing and one stale test-fixture compilation failure (the unsupported sqrt fixture initially returned BigDecimal from a String method). The fixture was corrected; both affected tests pass on focused rerun. The reviewed 63-JAR audit passes with unchanged inventory counts and only the compiler revision updated.
 
-## Context addition (`context-addition-v80`)
+## Context arithmetic (v80–v84)
 
-Finite precision addition rounds once after exact alignment, using guard/sticky digits for distant nonzero operands and bounded padding for zero operands. This avoids expansion proportional to an extreme scale gap. Precision zero retains exact addition. Null operands/contexts raise NullPointerException. JVM/Wasm regression comparisons cover all rounding modes, signed inputs, zeros, precision-zero behavior, precision boundaries and typed failures, in both JAR orders and independent instances. The addition test also covers extreme scale gaps.
+| Operation | Revision | Behavior |
+| --- | --- | --- |
+| add(BigDecimal, MathContext) | context-addition-v80 | Rounds once after alignment; guard/sticky digits for distant nonzero operands and bounded padding for zeros avoid expansion proportional to extreme scale gaps. |
+| subtract(BigDecimal, MathContext) | context-subtraction-v81 | Negates the subtrahend and uses context addition, preserving cancellation and preferred scales. |
+| multiply(BigDecimal, MathContext) | context-multiplication-v82 | Forms the exact coefficient product and preferred scale before context rounding, including carries and UNNECESSARY failures. |
+| divideToIntegralValue(BigDecimal, MathContext) | context-integral-division-v83 | Truncates toward zero, discarding only trailing coefficient zeros to fit precision; otherwise raises ArithmeticException, regardless of rounding mode. |
+| remainder / divideAndRemainder(BigDecimal, MathContext) | context-remainders-v84 | Constrains the integral quotient, then computes the exact remainder without rounding it; remainder precision can exceed the context precision. |
 
-Validation: the focused `BytecodeBigDecimalTest` context test passes; the reviewed 63-JAR audit differs only in compiler revision and passes after that baseline update. The pinned linkage inventory contains no direct calls to these context overloads; this is API conformance evidence, not new pinned-library execution evidence. Arbitrary precision remains bounded by available Wasm memory; expanded coefficients and exact (precision-zero) alignment can exhaust it. Context divide/pow, full framework execution and the broad numeric milestone remain open.
+Precision zero retains the corresponding exact operation. Null operands/contexts raise NullPointerException; zero divisors and impossible quotient precision raise ArithmeticException. Exception messages are outside the compatibility contract. Available Wasm memory bounds arbitrary precision; expanded coefficients and exact alignment can exhaust it. Integral division currently forms the exact quotient before applying its precision constraint.
 
-## Context subtraction (`context-subtraction-v81`)
+Five focused `BytecodeBigDecimalTest` cases compare JVM/Wasm results in both JAR orders and independent instances. They cover every rounding mode, signed inputs, zero scales, precision-zero behavior, ties/carries, cancellation, precision boundaries and typed failures. Addition also covers extreme scale gaps and signed sticky rounding; integral division covers trailing-zero compression; remainder tests require exact results with more digits than context precision.
 
-Subtraction negates the subtrahend and uses context addition, preserving cancellation, preferred scales and the distant-operand guard/sticky path. Null operands/contexts raise NullPointerException. JVM/Wasm regression comparisons cover all rounding modes, signed inputs, zeros, precision-zero behavior, precision boundaries and typed failures, in both JAR orders and independent instances. The addition test also covers extreme scale gaps.
+Each task's focused regression and reviewed 63-JAR audit passes. Each baseline update changes only the compiler revision, preserving dependency inventory counts. The pinned linkage inventory contains no direct calls to these context overloads; these tests establish API conformance, without new pinned-library execution evidence. Context divide/pow, full framework execution and the broad numeric milestone remain open.
 
-Validation: the focused `BytecodeBigDecimalTest` context test passes; the reviewed 63-JAR audit differs only in compiler revision and passes after that baseline update. The pinned linkage inventory contains no direct calls to these context overloads; this is API conformance evidence, not new pinned-library execution evidence. Arbitrary precision remains bounded by available Wasm memory; expanded coefficients and exact (precision-zero) alignment can exhaust it. Context divide/pow, full framework execution and the broad numeric milestone remain open.
-
-## Context multiplication (`context-multiplication-v82`)
-
-Multiplication forms the exact coefficient product and preferred scale before a single context rounding, including carry propagation and UNNECESSARY failures. Null operands/contexts raise NullPointerException. JVM/Wasm regression comparisons cover all rounding modes, signed inputs, zeros, precision-zero behavior, precision boundaries and typed failures, in both JAR orders and independent instances. The addition test also covers extreme scale gaps.
-
-Validation: the focused `BytecodeBigDecimalTest` context test passes; the reviewed 63-JAR audit differs only in compiler revision and passes after that baseline update. The pinned linkage inventory contains no direct calls to these context overloads; this is API conformance evidence, not new pinned-library execution evidence. Arbitrary precision remains bounded by available Wasm memory; expanded coefficients and exact (precision-zero) alignment can exhaust it. Context divide/pow, full framework execution and the broad numeric milestone remain open.
-
-## Context integral division (`context-integral-division-v83`)
-
-Integral division truncates toward zero and discards only trailing coefficient zeros to fit the context precision. A quotient requiring too many significant digits raises ArithmeticException regardless of rounding mode. Precision zero retains the exact overload and its preferred scale. Null operands/contexts raise NullPointerException. JVM/Wasm regression comparisons cover all rounding modes, signed inputs, zeros, precision-zero behavior, precision boundaries and typed failures, in both JAR orders and independent instances. The addition test also covers extreme scale gaps.
-
-Validation: the focused `BytecodeBigDecimalTest` context test passes; the reviewed 63-JAR audit differs only in compiler revision and passes after that baseline update. The pinned linkage inventory contains no direct calls to these context overloads; this is API conformance evidence, not new pinned-library execution evidence. Arbitrary precision remains bounded by available Wasm memory; expanded coefficients and exact (precision-zero) alignment can exhaust it. Context divide/pow, full framework execution and the broad numeric milestone remain open.
+Combined validation at `context-remainders-v84`: the required offline bytecode suite passes all 352 tests with zero failures, errors or skips (four test forks). The final 63-JAR baseline audit passes with unchanged dependency inventory.

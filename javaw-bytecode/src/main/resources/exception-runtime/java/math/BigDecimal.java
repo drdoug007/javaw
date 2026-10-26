@@ -248,6 +248,13 @@ public class BigDecimal extends Number implements Comparable<BigDecimal>,java.io
         return compact.setScale(Math.max(compact.decimalScale,scale));
     }
 
+    public BigDecimal[] divideAndRemainder(BigDecimal other,MathContext context){
+        BigDecimal quotient=divideToIntegralValue(other,context);
+        // The context constrains the quotient, never the exact remainder.
+        return new BigDecimal[]{quotient,subtract(quotient.multiply(other))};
+    }
+    public BigDecimal remainder(BigDecimal other,MathContext context){return divideAndRemainder(other,context)[1];}
+
     public BigDecimal ulp(){return new BigDecimal(BigInteger.ONE,decimalScale);}
     private static int clampedScale(long scale){return scale<Integer.MIN_VALUE?Integer.MIN_VALUE:scale>Integer.MAX_VALUE?Integer.MAX_VALUE:(int)scale;}
     private int checkedScale(long scale){return signum()==0?clampedScale(scale):scaleChecked(scale);}
