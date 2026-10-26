@@ -99,6 +99,8 @@ class BytecodeTranscendentalTest implements Opcodes {
         }
     }
 
+    @Test void sine() throws Exception {unary("sin",StrictMath::sin,Math::sin);}
+
     private List<Double> values(){
         List<Double> values=new ArrayList<>();
         double[] boundaries={0.0,-0.0,1,-1,0.5,-0.5,2,-2,Math.PI,-Math.PI,Math.PI/2,-Math.PI/2,

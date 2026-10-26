@@ -155,4 +155,5 @@ public final class Math {
     public static double log(double x){return FdLibm.Log.compute(x);}
     public static double log10(double x){return FdLibm.Log10.compute(x);}
     public static double pow(double x,double y){return FdLibm.Pow.compute(x,y);}
+    public static double sin(double x){return FdLibm.Sin.compute(x);}
 }
