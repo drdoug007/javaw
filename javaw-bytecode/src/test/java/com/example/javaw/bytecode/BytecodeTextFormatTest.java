@@ -121,6 +121,27 @@ class BytecodeTextFormatTest implements Opcodes {
             """);compare(1);
     }
 
+    @Test void generalFormatting() throws Exception {
+        fixture("""
+            import java.util.*;
+            public class Metadata {
+             static int fail(String f,Object value){try{String.format(f,value);return 0;}
+              catch(IllegalFormatConversionException e){return e.getConversion()+e.getArgumentClass().getName().hashCode();}
+              catch(IllegalFormatCodePointException e){return e.getCodePoint();}
+              catch(IllegalFormatPrecisionException e){return e.getPrecision()+19;}
+              catch(FormatFlagsConversionMismatchException e){return e.getFlags().hashCode()+e.getConversion();}}
+             public static int run(int group){int h=1;
+              for(String f:new String[]{"%b/%B","%10.3h/%-10.2H","%.0B %.4H","%1$S %1$B %1$H"})
+               for(Object value:new Object[]{null,true,false,0,1,-1,"iıİß"})h=31*h+String.format(f,value,value).hashCode();
+              for(Object value:new Object[]{null,(byte)65,(short)105,0x10428,(char)0xd800,0x10ffff})
+               for(String f:new String[]{"%c","%C","%5c/%-5C"})h=31*h+String.format(f,value,value).hashCode();
+              for(Object value:new Object[]{-1,0x110000,1L,1.0,"x",true})h=31*h+fail("%c",value);
+              for(String f:new String[]{"%#b","%+h","%.2c","%0c"})h=31*h+fail(f,65);
+              return h;
+             }}
+            """);compare(1);
+    }
+
     private byte[] fixture(String source) throws Exception {
         Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
         List<String> options=new ArrayList<>(List.of("-g","-parameters","--release",release,"-d",directory.toString()));

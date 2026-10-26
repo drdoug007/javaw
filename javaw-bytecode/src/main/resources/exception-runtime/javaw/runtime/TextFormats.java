@@ -36,6 +36,8 @@ public final class TextFormats {
   if(c=='%'){if(s.precision>=0)throw new IllegalFormatPrecisionException(s.precision);if(!s.flags.isEmpty() && !s.flags.equals("-"))throw new IllegalFormatFlagsException(s.flags);if(flag(s,'-') && s.width<0)throw new MissingFormatWidthException(s.raw);return;}
   if(flag(s,'-') && s.width<0)throw new MissingFormatWidthException(s.raw);
   if(c=='s' || c=='S'){allowed(s,"-#<");return;}
+  if(c=='b' || c=='B' || c=='h' || c=='H'){allowed(s,"-<");return;}
+  if(c=='c' || c=='C'){if(s.precision>=0)throw new IllegalFormatPrecisionException(s.precision);allowed(s,"-<");return;}
   throw new UnsupportedOperationException("Formatting conversion: "+c);
  }
  public static String format(Locale locale,String format,Object[] args){
@@ -48,9 +50,16 @@ public final class TextFormats {
    if(index<0 || (args!=null && index>=args.length))throw new MissingFormatArgumentException(s.raw);last=index;
    Object value=args==null?null:args[index];String text;
    if(flag(s,'#'))throw new FormatFlagsConversionMismatchException("#",c);
-   text=String.valueOf(value);
+   if(c=='b' || c=='B')text=value==null?"false":value instanceof Boolean?value.toString():"true";
+   else if(c=='h' || c=='H')text=value==null?"null":Integer.toHexString(value.hashCode());
+   else if(c=='c' || c=='C') {
+    if(value==null)text="null";
+    else if(value instanceof Character)text=String.valueOf(((Character)value).charValue());
+    else if(value instanceof Byte || value instanceof Short || value instanceof Integer){int cp=((Number)value).intValue();if(!Character.isValidCodePoint(cp))throw new IllegalFormatCodePointException(cp);text=new String(Character.toChars(cp));}
+    else throw new IllegalFormatConversionException(c,value.getClass());
+   }else text=String.valueOf(value);
    if(s.precision>=0 && text.length()>s.precision)text=text.substring(0,s.precision);
-   if(c=='S')text=text.toUpperCase(locale);
+   if(c>='A' && c<='Z')text=text.toUpperCase(locale);
    out.append(pad(text,s));
   }
   return out.toString();
