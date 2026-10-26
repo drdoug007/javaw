@@ -7,15 +7,26 @@ public final class String implements CharSequence,Comparable<String>,java.io.Ser
     private String nextInterned;
     public String toUpperCase(java.util.Locale locale) {
         String language=locale.getLanguage();
-        if(language.equals("lt"))throw new UnsupportedOperationException("Contextual uppercase locale");
-        boolean copy=false;StringBuilder out=new StringBuilder();
+        boolean copy=false,started=false;StringBuilder out=new StringBuilder();
         for(int i=0;i<length();) {
-            int cp=codePointAt(i);i+=Character.charCount(cp);copy|=javaw.runtime.StringUpperData.copiesUnchanged(cp);
-            if(cp==105 && (language.equals("tr") || language.equals("az"))){out.append((char)304);continue;}
+            int at=i,cp=codePointAt(i);i+=Character.charCount(cp);
             String expansion=javaw.runtime.StringUpperData.expansion(cp);
+            started|=Character.toUpperCase(cp)!=cp || expansion!=null || javaw.runtime.StringUpperData.copiesUnchanged(cp);
+            if(!started){out.appendCodePoint(cp);continue;}
+            if(cp==775 && language.equals("lt") && afterSoftDotted(at))continue;
+            copy|=javaw.runtime.StringUpperData.copiesUnchanged(cp);
+            if(cp==105 && (language.equals("tr") || language.equals("az"))){out.append((char)304);continue;}
             if(expansion!=null)out.append(expansion);else out.appendCodePoint(Character.toUpperCase(cp));
         }
         String result=out.toString();return !copy && equals(result)?this:result;
+    }
+    private boolean afterSoftDotted(int index) {
+        while(index>0) {
+            int cp=codePointBefore(index);index-=Character.charCount(cp);
+            if(cp==0x69 || cp==0x6a || cp==0x12f || cp==0x268 || cp==0x456 || cp==0x458 || cp==0x1d62 || cp==0x1e2d || cp==0x1ecb || cp==0x2071)return true;
+            int cc=javaw.runtime.StringUpperData.combining(cp);if(cc==0 || cc==230)return false;
+        }
+        return false;
     }
     public String intern() {
         for(String text=interned;text!=null;text=text.nextInterned) if(equals(text))return text;

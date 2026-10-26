@@ -13,3 +13,7 @@ String.toUpperCase(Locale) supports general Unicode 13 uppercase, 102 full expan
 ## Turkic uppercase (turkic-uppercase-v132)
 
 String.toUpperCase(Locale) maps i to dotted capital I for Turkish and Azeri, with general full uppercase elsewhere. JVM/Wasm tests pass across BMP samples, locale normalization, mixed dotted/dotless text and null-locale failures. Tests use bounded batches because the host allocator does not reclaim memory.
+
+## Lithuanian uppercase (lithuanian-uppercase-v133)
+
+Lithuanian uppercase removes combining dot above after soft-dotted letters with Java 17 combining-class barriers and preserves the initial unchanged-prefix behavior. JVM/Wasm comparisons pass for all ten Java 17 soft-dotted bases, intervening BMP samples, repeated dots, surrogate text and nonmatching bases; full-table data remains reproducible.

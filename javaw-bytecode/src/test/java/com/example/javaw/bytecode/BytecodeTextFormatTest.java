@@ -70,6 +70,21 @@ class BytecodeTextFormatTest implements Opcodes {
             """);compare(256);
     }
 
+    @Test void lithuanianUppercase() throws Exception {
+        fixture("""
+            import java.util.Locale;
+            public class Metadata {public static int run(int group){int h=1;Locale l=new Locale("lt");
+                int[] bases={105,106,303,616,1110,1112,7522,7725,7883,8305,97,304,0x10428,0xd800};
+                for(int base:bases)for(int cc=group*256;cc<(group+1)*256;cc+=13){
+                    String s=new String(Character.toChars(base))+new String(Character.toChars(cc))+"̇̇";
+                    h=31*h+s.toUpperCase(l).hashCode();
+                }
+                for(int base:bases)h=31*h+(new String(Character.toChars(base))+"̇").toUpperCase(l).hashCode();
+                return h;
+            }}
+            """);compare(256);
+    }
+
     private byte[] fixture(String source) throws Exception {
         Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
         List<String> options=new ArrayList<>(List.of("-g","-parameters","--release",release,"-d",directory.toString()));
