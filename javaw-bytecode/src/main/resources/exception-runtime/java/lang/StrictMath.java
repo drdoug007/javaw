@@ -50,4 +50,9 @@ public final class StrictMath {
     public static long max(long a,long b){return Math.max(a,b);}
     public static float max(float a,float b){return Math.max(a,b);}
     public static double max(double a,double b){return Math.max(a,b);}
+
+    public static float signum(float x){return Math.signum(x);}
+    public static double signum(double x){return Math.signum(x);}
+    public static float copySign(float a,float b){return Math.copySign(a,Float.isNaN(b)?1:b);}
+    public static double copySign(double a,double b){return Math.copySign(a,Double.isNaN(b)?1:b);}
 }

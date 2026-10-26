@@ -1988,3 +1988,5 @@ StrictMath bytecode subset 2/10 (`strict-rounding-v151`): floor, ceil, ties-to-e
 StrictMath bytecode subset 3/10 (`strict-absolute-v152`): integral and floating absolute values, including checked overflow. JVM/Wasm evidence: `BytecodeStrictMathTest.absoluteValues` (direct calls, method references, both JAR orders and independent instances). See [the supported contract](docs/bytecode-strict-math.md); broader JDK/framework compatibility remains open.
 
 StrictMath bytecode subset 4/10 (`strict-extrema-v153`): int, long, float and double min/max with signed zeros and NaNs. JVM/Wasm evidence: `BytecodeStrictMathTest.extrema` (direct calls, method references, both JAR orders and independent instances). See [the supported contract](docs/bytecode-strict-math.md); broader JDK/framework compatibility remains open.
+
+StrictMath bytecode subset 5/10 (`strict-signs-v154`): signum and StrictMath NaN-normalized copySign. JVM/Wasm evidence: `BytecodeStrictMathTest.signOperations` (direct calls, method references, both JAR orders and independent instances). See [the supported contract](docs/bytecode-strict-math.md); broader JDK/framework compatibility remains open.
