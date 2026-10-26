@@ -85,6 +85,19 @@ class BytecodeTextFormatTest implements Opcodes {
             """);compare(256);
     }
 
+    @Test void defaultUppercase() throws Exception {
+        fixture("""
+            import java.util.Locale;
+            import java.util.function.Function;
+            public class Metadata {public static int run(int group){int h=1;Function<String,String> f=String::toUpperCase;
+                for(String s:new String[]{"","abc","ABC","Straße","iıİ","ﬃ","ᾀ","𐐨",new String(new char[]{(char)0xd800,120,(char)0xdc00}),"ȧi̇"}) {
+                    h=31*h+s.toUpperCase().hashCode();h=31*h+f.apply(s).hashCode();h=31*h+(s==s.toUpperCase()?1:0);
+                    h=31*h+(s.toUpperCase().equals(s.toUpperCase(Locale.ROOT))?1:0);
+                }return h;
+            }}
+            """);compare(1);
+    }
+
     private byte[] fixture(String source) throws Exception {
         Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
         List<String> options=new ArrayList<>(List.of("-g","-parameters","--release",release,"-d",directory.toString()));

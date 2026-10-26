@@ -17,3 +17,7 @@ String.toUpperCase(Locale) maps i to dotted capital I for Turkish and Azeri, wit
 ## Lithuanian uppercase (lithuanian-uppercase-v133)
 
 Lithuanian uppercase removes combining dot above after soft-dotted letters with Java 17 combining-class barriers and preserves the initial unchanged-prefix behavior. JVM/Wasm comparisons pass for all ten Java 17 soft-dotted bases, intervening BMP samples, repeated dots, surrogate text and nonmatching bases; full-table data remains reproducible.
+
+## Default String uppercase (default-uppercase-v134)
+
+String.toUpperCase() uses the isolated ROOT locale. Direct calls and method references match a Java 17 ROOT-default oracle for expansions, supplementary and malformed-surrogate text, unchanged identity and mixed combining marks. Configurable defaults and lowercase remain unsupported.

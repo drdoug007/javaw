@@ -5,6 +5,7 @@ public final class String implements CharSequence,Comparable<String>,java.io.Ser
     private final char[] value;
     private static String interned;
     private String nextInterned;
+    public String toUpperCase(){return toUpperCase(java.util.Locale.getDefault());}
     public String toUpperCase(java.util.Locale locale) {
         String language=locale.getLanguage();
         boolean copy=false,started=false;StringBuilder out=new StringBuilder();
