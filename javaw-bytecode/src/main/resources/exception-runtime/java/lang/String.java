@@ -16,7 +16,8 @@ public final class String implements CharSequence,Comparable<String>,java.io.Ser
     public String(StringBuilder text){this(text.toString());}
     public String(StringBuffer text){this(text.toString());}
     public String(char[] chars,int offset,int count){
-        if(offset<0 || count<0 || offset>chars.length-count)throw new StringIndexOutOfBoundsException();
+        int length=chars.length;
+        if(offset<0 || count<0 || offset>length-count)throw new StringIndexOutOfBoundsException();
         value=new char[count];System.arraycopy(chars,offset,value,0,count);
     }
     @Deprecated public String(byte[] bytes,int highByte){this(bytes,highByte,0,bytes.length);}
@@ -281,4 +282,6 @@ public final class String implements CharSequence,Comparable<String>,java.io.Ser
         return new String(result,true);
     }
 
+    public static String copyValueOf(char[] chars){return new String(chars);}
+    public static String copyValueOf(char[] chars,int offset,int count){return new String(chars,offset,count);}
 }

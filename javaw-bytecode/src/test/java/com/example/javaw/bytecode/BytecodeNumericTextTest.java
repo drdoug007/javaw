@@ -54,6 +54,22 @@ class BytecodeNumericTextTest implements Opcodes {
             """);compare(List.of("run"));
     }
 
+    @Test void stringCopyFactories() throws Exception {
+        fixture("""
+            public class Metadata {public static int run(){int hash=1;
+                char[] chars={'A',0,(char)0xd800,(char)0xdc00,'Z'};
+                java.util.function.Function<char[],String> factory=String::copyValueOf;
+                String snapshot=factory.apply(chars);chars[0]='B';hash=31*hash+snapshot.hashCode();
+                for(int start=0;start<=chars.length;start++)for(int count=0;count<=chars.length-start;count++)
+                    hash=31*hash+String.copyValueOf(chars,start,count).hashCode();
+                for(int[] slice:new int[][]{{-1,1},{0,-1},{4,2},{Integer.MAX_VALUE,1},{1,Integer.MAX_VALUE}})
+                    try{String.copyValueOf(chars,slice[0],slice[1]);throw new Error();}catch(StringIndexOutOfBoundsException e){hash++;}
+                try{String.copyValueOf(null);throw new Error();}catch(NullPointerException e){hash++;}
+                try{String.copyValueOf(null,-1,-1);throw new Error();}catch(NullPointerException e){hash++;}
+                return hash;}}
+            """);compare(List.of("run"));
+    }
+
     @Test void unsignedBytesAndMethodReferences() throws Exception {
         fixture("""
             import java.util.function.*;

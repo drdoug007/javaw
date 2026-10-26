@@ -47,3 +47,7 @@ Combined validation at `utf8-encoding-v89`: the required offline bytecode suite 
 ## Unsigned Short conversions (`unsigned-shorts-v90`)
 
 Short.toUnsignedInt/toUnsignedLong preserve every 16-bit pattern through masking, including method references. JVM/Wasm comparisons exercise both JAR orders and independent instances. These are API conformance tests, not additional pinned-library or reachable-closure execution claims. Dependency inventory counts remain unchanged.
+
+## String copy factories (`string-copy-factories-v91`)
+
+Both copyValueOf overloads create defensive UTF-16 snapshots and preserve null/bounds exception types and precedence. JVM/Wasm comparisons exercise both JAR orders and independent instances. These are API conformance tests, not additional pinned-library or reachable-closure execution claims. Dependency inventory counts remain unchanged.
