@@ -1,6 +1,6 @@
 package java.lang;
 
-/** Selected reproducible fdlibm operations; other StrictMath APIs remain unsupported. */
+/** Deterministic numeric operations for the isolated linked bytecode runtime. */
 public final class StrictMath {
     private StrictMath() {}
     public static double exp(double x){return Math.exp(x);}
@@ -22,4 +22,10 @@ public final class StrictMath {
     public static double cbrt(double x){return Math.cbrt(x);}
     public static double hypot(double x,double y){return Math.hypot(x,y);}
     public static double IEEEremainder(double x,double y){return Math.IEEEremainder(x,y);}
+
+    public static final double E=2.718281828459045;
+    public static final double PI=3.141592653589793;
+    public static double sqrt(double x){return Math.sqrt(x);}
+    public static double toRadians(double x){return Math.toRadians(x);}
+    public static double toDegrees(double x){return Math.toDegrees(x);}
 }

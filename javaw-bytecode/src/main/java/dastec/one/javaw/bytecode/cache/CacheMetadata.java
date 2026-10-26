@@ -3,7 +3,7 @@ package dastec.one.javaw.bytecode.cache;
 import java.util.*;
 
 public class CacheMetadata {
-    public static final String COMPILER_VERSION = "1.0-SNAPSHOT-hexadecimal-float-format-v149";
+    public static final String COMPILER_VERSION = "1.0-SNAPSHOT-strict-roots-angles-v150";
     private String groupId;
     private String artifactId;
     private String version;
