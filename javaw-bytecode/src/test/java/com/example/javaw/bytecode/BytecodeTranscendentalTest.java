@@ -167,8 +167,10 @@ class BytecodeTranscendentalTest implements Opcodes {
 
     @Test void tanhPortable() throws Exception {unary("tanh",StrictMath::tanh,Math::tanh);}
 
+    @Test void cbrtPortable() throws Exception {unary("cbrt",StrictMath::cbrt,Math::cbrt);}
+
     @Test void malformedDescriptors() {
-        for(String name:List.of("exp","log","log10","pow","sin","cos","tan","asin","acos","atan","atan2","expm1","log1p","sinh","cosh","tanh")){
+        for(String name:List.of("exp","log","log10","pow","sin","cos","tan","asin","acos","atan","atan2","expm1","log1p","sinh","cosh","tanh","cbrt")){
             ClassWriter writer=new ClassWriter(0);writer.visit(V17,ACC_PUBLIC,"BadTranscendental",null,"java/lang/Object",null);
             MethodVisitor method=writer.visitMethod(ACC_PUBLIC|ACC_STATIC,"run","()F",null,null);
             method.visitCode();method.visitInsn(FCONST_0);if(List.of("pow","atan2","hypot","IEEEremainder").contains(name))method.visitInsn(FCONST_0);

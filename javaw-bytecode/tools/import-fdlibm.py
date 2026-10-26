@@ -30,7 +30,7 @@ def main():
         '// constants; route internal StrictMath calls through portable Math adapters.\n'
         '// The original GPLv2 with Classpath exception continues to apply.\n'
         'package java.lang;')
-    for name in ['Exp', 'Log', 'Log10', 'Pow', 'Sin', 'Cos', 'RemPio2', 'KernelRemPio2', 'Tan', 'Asin', 'Acos', 'Atan', 'Atan2', 'Expm1', 'Log1p', 'Sinh', 'Cosh', 'Tanh']:
+    for name in ['Exp', 'Log', 'Log10', 'Pow', 'Sin', 'Cos', 'RemPio2', 'KernelRemPio2', 'Tan', 'Asin', 'Acos', 'Atan', 'Atan2', 'Expm1', 'Log1p', 'Sinh', 'Cosh', 'Tanh', 'Cbrt']:
         start = source.index('    static final class ' + name + ' ')
         cursor = masked.index('{', start) + 1
         depth = 1

@@ -85,3 +85,7 @@ Math.cosh: Interval-specific exponential transforms handle cancellation, large f
 ## Hyperbolic tangent (`fdlibm-tanh-v115`)
 
 Math.tanh: Expm1 transforms preserve tiny signed inputs and saturate at signed one for large arguments. Canonical-bit JVM StrictMath comparisons cover both JAR orders, direct calls, method references and fresh Wasm instances. Malformed float descriptors are rejected. No new pinned-library execution claim is made.
+
+## Cube root (`fdlibm-cbrt-v116`)
+
+Math.cbrt: Exponent scaling and corrected iteration cover negative inputs, subnormals and signed zeros. Canonical-bit JVM StrictMath comparisons cover both JAR orders, direct calls, method references and fresh Wasm instances. Malformed float descriptors are rejected. No new pinned-library execution claim is made.
