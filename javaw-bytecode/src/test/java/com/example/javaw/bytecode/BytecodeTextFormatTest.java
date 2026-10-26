@@ -354,6 +354,17 @@ class BytecodeTextFormatTest implements Opcodes {
             """);compare(2);
     }
 
+    @Test void arabicNumericFormatting() throws Exception {
+        fixture("""
+            import java.math.*;import java.util.*;
+            public class Metadata {public static int run(int group){int h=1;
+             Locale l=group==0?new Locale("ar"):new Locale("ar","EG");
+             for(Object n:new Object[]{-1234567L,0,BigInteger.TEN.pow(40).negate()})for(String f:new String[]{"%,d","%+,060d","%(,060d","%#025x"})h=31*h+String.format(l,f,n).hashCode();
+             for(BigDecimal n:new BigDecimal[]{new BigDecimal("-1234567.895"),new BigDecimal("0.000012345"),new BigDecimal("9.9999995"),new BigDecimal("0.00")})for(String f:new String[]{"%,.2f","%+,060.2f","%(,060.5g","%.3e","%E"})h=31*h+String.format(l,f,n).hashCode();
+             return h;}}
+            """);compare(2);
+    }
+
     private byte[] fixture(String source) throws Exception {
         Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
         List<String> options=new ArrayList<>(List.of("-g","-parameters","--release",release,"-d",directory.toString()));

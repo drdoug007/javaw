@@ -83,3 +83,7 @@ Selected GERMAN/GERMANY numeric formatting uses comma decimal and period groupin
 ## French numeric localization (french-numeric-format-v147)
 
 Selected FRENCH/FRANCE numeric formatting uses comma decimal and U+202F narrow no-break-space grouping symbols from the Java 17 default CLDR provider. JVM/Wasm comparisons pass across integral and BigDecimal conversions, padding, signs, rounded fractions and exponents. Provider selection, extensions and other French country identities remain unsupported.
+
+## Arabic numeric localization (arabic-numeric-format-v148)
+
+Selected ar/ar_EG numeric formatting shapes decimal digits with U+0660 zero, U+066B decimal and U+066C grouping symbols from Java 17 default CLDR data. JVM/Wasm comparisons pass for integral/BigDecimal values, sign and zero padding, rounded fractions and shaped exponents; radix digits remain ASCII. Other country variants, extensions and provider selection remain unsupported.
