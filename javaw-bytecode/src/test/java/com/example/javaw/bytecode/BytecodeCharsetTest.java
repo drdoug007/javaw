@@ -138,6 +138,26 @@ class BytecodeCharsetTest implements Opcodes {
             """);compare(64);
     }
 
+    @Test void utf16BigEndian() throws Exception {
+        fixture("""
+            import java.util.Arrays;
+            public class Metadata {public static int run(int group) throws Exception {int hash=1;String[] names={"UTF-16BE","ISO-10646-UCS-2","UTF_16BE","UnicodeBigUnmarked","X-UTF-16BE"};String name=names[group%names.length];
+                for(int c=group*1024;c<(group+1)*1024;c++){
+                    byte[] bytes={(byte)(c>>8),(byte)c};String text=new String(bytes,name);hash=31*hash+text.hashCode()+text.length();
+                    hash=31*hash+Arrays.hashCode(new String(new char[]{(char)c}).getBytes(name));
+                }
+                int[] units={0,65,0xd800,0xdbff,0xdc00,0xdfff,0xfeff,0xfffe};
+                for(int a:units)for(int b:units){char[] chars={(char)a,(char)b};hash=31*hash+Arrays.hashCode(new String(chars).getBytes(name));
+                    byte[] bytes={(byte)(a>>8),(byte)a,(byte)(b>>8),(byte)b,(byte)65};
+                    for(int offset=0;offset<3;offset++)for(int length=0;length<=bytes.length-offset;length++){
+                        String text=new String(bytes,offset,length,name);hash=31*hash+text.hashCode()+text.length();}}
+                for(String alias:names){byte[] bytes={(byte)0xff,(byte)0xfe,65,0,(byte)0xfe,(byte)0xff};
+                    hash=31*hash+new String(bytes,alias).hashCode();hash=31*hash+Arrays.hashCode("é😀".getBytes(alias));
+                    hash=31*hash+Arrays.hashCode("".getBytes(alias));hash=31*hash+new String(new byte[]{65},alias).hashCode();}
+                return hash;}}
+            """);compare(64);
+    }
+
     private void compare(int groups) throws Exception {
         List<Integer> hashes=new ArrayList<>();
         try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)){

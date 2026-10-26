@@ -27,3 +27,7 @@ US-ASCII aliases decode ASCII bytes exactly and replace each non-ASCII byte with
 ASCII encoding replaces unmappable characters and malformed surrogates, consuming valid surrogate pairs as one replacement. Focused tests exercise exact output and typed failures with JVM/Wasm comparisons.
 
 Named lookups validate the ASCII charset-name grammar before case-insensitive alias matching, so Unicode case-fold lookalikes cannot select an ASCII-named encoding. Invalid and unsupported names both produce UnsupportedEncodingException for String name overloads.
+
+## Big-endian UTF-16 String conversion (`utf16be-codec-v126`)
+
+UTF-16BE preserves byte order and literal BOM units, replaces malformed input with the JVM consumption rules and encodes malformed surrogates as U+FFFD. Focused tests exercise exact output and typed failures with JVM/Wasm comparisons.
