@@ -41,4 +41,13 @@ public final class StrictMath {
     public static double abs(double x){return Math.abs(x);}
     public static int absExact(int x){return Math.absExact(x);}
     public static long absExact(long x){return Math.absExact(x);}
+
+    public static int min(int a,int b){return Math.min(a,b);}
+    public static long min(long a,long b){return Math.min(a,b);}
+    public static float min(float a,float b){return Math.min(a,b);}
+    public static double min(double a,double b){return Math.min(a,b);}
+    public static int max(int a,int b){return Math.max(a,b);}
+    public static long max(long a,long b){return Math.max(a,b);}
+    public static float max(float a,float b){return Math.max(a,b);}
+    public static double max(double a,double b){return Math.max(a,b);}
 }
