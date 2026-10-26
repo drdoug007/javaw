@@ -18,6 +18,7 @@ class BytecodeLowercaseTest implements Opcodes {
     @TempDir Path directory;
     private String release="17";
     private byte[] pinnedCarrier;
+    private final Map<String,byte[]> carriers=new HashMap<>();
     private String fixtureClasspath;
     private String fixtureClassName="Metadata";
 
@@ -93,6 +94,70 @@ class BytecodeLowercaseTest implements Opcodes {
             """);compare(1);
     }
 
+    private byte[] original(Path artifact,String hash,String name) throws Exception {
+        assertEquals(hash,HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(artifact))));
+        byte[] bytes;try(JarFile jar=new JarFile(artifact.toFile())){bytes=jar.getInputStream(jar.getJarEntry(name+".class")).readAllBytes();}
+        Path file=directory.resolve(name+".class");Files.createDirectories(file.getParent());Files.write(file,bytes);
+        fixtureClasspath=artifact.toString();return bytes;
+    }
+
+    @Test void pinnedSpringBooleanConverter() throws Exception {
+        Path artifact=Path.of(System.getProperty("maven.repo.local",System.getProperty("user.home")+"/.m2/repository"))
+            .resolve("org/springframework/spring-core/6.1.5/spring-core-6.1.5.jar");
+        String name="org/springframework/core/convert/support/StringToBooleanConverter";ClassNode carrier=new ClassNode();
+        new ClassReader(original(artifact,"476dac28509b3f47d0b5e895a639fa75ac2218f074ce214e44832a836c469f7e",name)).accept(carrier,0);
+        carrier.interfaces.clear();carrier.signature=null;carrier.visibleAnnotations=null;carrier.invisibleAnnotations=null;
+        for(MethodNode m:carrier.methods){m.visibleAnnotations=null;m.invisibleAnnotations=null;m.visibleTypeAnnotations=null;m.invisibleTypeAnnotations=null;}
+        ClassWriter writer=new ClassWriter(0);carrier.accept(writer);carriers.put(name+".class",writer.toByteArray());
+        fixtureClassName="org.springframework.core.convert.support.Metadata";
+        fixture("""
+            package org.springframework.core.convert.support;
+            public class Metadata {public static int run(int group){int h=1;StringToBooleanConverter c=new StringToBooleanConverter();
+             for(String s:new String[]{""," ","true","TRUE","TrUe","on","YES","1","FALSE","Off","NO","0"," true ","TrUe\\t","unknown","İ","Σ","𐐀"}){
+              try{h=31*h+String.valueOf(c.convert(s)).hashCode();}catch(IllegalArgumentException e){h=31*h+e.getMessage().hashCode();}
+             }
+             try{c.convert(null);throw new Error();}catch(NullPointerException e){h++;}return h;}}
+            """);compare(1);
+    }
+
+    @Test void pinnedJacksonLowerCaseStrategy() throws Exception {
+        Path artifact=Path.of(System.getProperty("maven.repo.local",System.getProperty("user.home")+"/.m2/repository"))
+            .resolve("com/fasterxml/jackson/core/jackson-databind/2.15.4/jackson-databind-2.15.4.jar");
+        String name="com/fasterxml/jackson/databind/PropertyNamingStrategies$LowerCaseStrategy";ClassNode original=new ClassNode();
+        new ClassReader(original(artifact,"0f99ff7719eef3ee85608b3dee6ecf3c698003fe9d6e34eabbfabccdc9b5ac2c",name)).accept(original,0);
+        ClassWriter carrier=new ClassWriter(0);carrier.visit(V17,ACC_PUBLIC,name,null,"java/lang/Object",null);
+        for(FieldNode f:original.fields)f.accept(carrier);
+        for(MethodNode m:original.methods)if(m.name.equals("translate") || m.name.equals("<clinit>"))m.accept(carrier);
+        MethodVisitor init=carrier.visitMethod(ACC_PUBLIC,"<init>","()V",null,null);init.visitCode();init.visitVarInsn(ALOAD,0);
+        init.visitMethodInsn(INVOKESPECIAL,"java/lang/Object","<init>","()V",false);init.visitInsn(RETURN);init.visitMaxs(1,1);init.visitEnd();carrier.visitEnd();
+        carriers.put(name+".class",carrier.toByteArray());
+        fixture("""
+            import com.fasterxml.jackson.databind.PropertyNamingStrategies.LowerCaseStrategy;
+            public class Metadata {public static int run(int group){int h=1;LowerCaseStrategy c=LowerCaseStrategy.INSTANCE;
+             for(String s:new String[]{null,"","abc","ABC","Iİıi","ΟΣ","ΑΣ'Α","𐐀Σ","𐐀",new String(new char[]{(char)0xd800,120,(char)0xdc00}),"ÁΣ"}){
+              String result=c.translate(s);h=31*h+(result==null?0:result.hashCode());h=31*h+(s==result?1:0);
+             }return h;}}
+            """);compare(1);
+    }
+
+    @Test void excludedSigmaDictionaryAndMalformedDescriptors() throws Exception {
+        fixture("""
+            import java.util.Locale;
+            public class Metadata {public static int run(int group){
+             try{"aΣ".toLowerCase(new Locale("th"));throw new Error();}catch(UnsupportedOperationException e){return 7;}
+            }}
+            """);
+        for(boolean reverse:new boolean[]{false,true})execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),"[7]");
+        for(boolean locale:new boolean[]{false,true}){
+            ClassWriter writer=new ClassWriter(0);writer.visit(V17,ACC_PUBLIC,"BadLowercase",null,"java/lang/Object",null);
+            MethodVisitor m=writer.visitMethod(ACC_PUBLIC|ACC_STATIC,"run","()Ljava/lang/Object;",null,null);m.visitCode();m.visitLdcInsn("x");if(locale)m.visitInsn(ACONST_NULL);
+            m.visitMethodInsn(INVOKEVIRTUAL,"java/lang/String","toLowerCase",locale?"(Ljava/util/Locale;)Ljava/lang/Object;":"()Ljava/lang/Object;",false);
+            m.visitInsn(ARETURN);m.visitMaxs(2,0);m.visitEnd();writer.visitEnd();
+            var failure=assertThrows(IllegalArgumentException.class,()->BytecodeCompiler.compileClassWithExceptionRuntime(writer.toByteArray()));
+            assertTrue(failure.getMessage().contains("toLowerCase"),failure.getMessage());
+        }
+    }
+
     private byte[] fixture(String source) throws Exception {
         Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
         List<String> options=new ArrayList<>(List.of("-g","-parameters","--release",release,"-d",directory.toString()));
@@ -114,7 +179,7 @@ class BytecodeLowercaseTest implements Opcodes {
             for(Path file:files){
                 String entry=directory.relativize(file).toString();
                 if(pinnedCarrier!=null && entry.startsWith("com/fasterxml/") && !entry.endsWith("JacksonInject$Value.class"))continue;
-                jar.putNextEntry(new JarEntry(directory.relativize(file).toString()));jar.write(pinnedCarrier!=null && entry.endsWith("JacksonInject$Value.class")?pinnedCarrier:Files.readAllBytes(file));jar.closeEntry();}
+                jar.putNextEntry(new JarEntry(directory.relativize(file).toString()));jar.write(pinnedCarrier!=null && entry.endsWith("JacksonInject$Value.class")?pinnedCarrier:carriers.getOrDefault(entry,Files.readAllBytes(file)));jar.closeEntry();}
         }
         return bytes.toByteArray();
     }
@@ -122,7 +187,7 @@ class BytecodeLowercaseTest implements Opcodes {
     private void compare(int groups) throws Exception {
         Path java=Path.of(System.getProperty("javaw.jdk17.home",System.getProperty("user.home")+"/Library/Java/JavaVirtualMachines/graalvm-ce-17.0.9/Contents/Home"),"bin/java");
         assertTrue(Files.isExecutable(java),"A JDK 17 oracle is required (javaw.jdk17.home)");
-        run(java.toString(),"-Djava.locale.providers=CLDR","-Duser.language=","-Duser.country=","-Duser.variant=","-cp",directory.toString(),"CaseOracle",fixtureClassName,Integer.toString(groups));
+        run(java.toString(),"-Djava.locale.providers=CLDR","-Duser.language=","-Duser.country=","-Duser.variant=","-cp",directory.toString()+(fixtureClasspath==null?"":File.pathSeparator+fixtureClasspath),"CaseOracle",fixtureClassName,Integer.toString(groups));
         String expected=Files.readString(directory.resolve("command.log")).trim();
         for(boolean reverse:new boolean[]{false,true})
             execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),expected);
