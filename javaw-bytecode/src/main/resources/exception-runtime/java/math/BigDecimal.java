@@ -232,6 +232,11 @@ public class BigDecimal extends Number implements Comparable<BigDecimal>,java.io
         return add(other.negate(),context);
     }
 
+    public BigDecimal multiply(BigDecimal other,MathContext context){
+        if(context==null)throw new NullPointerException();
+        return multiply(other).roundedContext(context);
+    }
+
     public BigDecimal ulp(){return new BigDecimal(BigInteger.ONE,decimalScale);}
     private static int clampedScale(long scale){return scale<Integer.MIN_VALUE?Integer.MIN_VALUE:scale>Integer.MAX_VALUE?Integer.MAX_VALUE:(int)scale;}
     private int checkedScale(long scale){return signum()==0?clampedScale(scale):scaleChecked(scale);}
