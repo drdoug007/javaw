@@ -65,3 +65,7 @@ Combined v100–v109 validation: all 384 tests pass in the required offline byte
 ## Two-argument inverse tangent (`fdlibm-atan2-v110`)
 
 Math.atan2: Quadrants, signed-zero axes, infinities and extreme ratios use the portable fdlibm atan2 algorithm. Canonical-bit JVM StrictMath comparisons cover both JAR orders, direct calls, method references and fresh Wasm instances. Malformed float descriptors are rejected. No new pinned-library execution claim is made.
+
+## Exponential minus one (`fdlibm-expm1-v111`)
+
+Math.expm1: Compensated exponential evaluation avoids cancellation around zero and handles range endpoints. Canonical-bit JVM StrictMath comparisons cover both JAR orders, direct calls, method references and fresh Wasm instances. Malformed float descriptors are rejected. No new pinned-library execution claim is made.
