@@ -248,6 +248,22 @@ public final class String implements CharSequence,Comparable<String>,java.io.Ser
     public boolean isBlank(){return whitespaceStart()==length();}
     private int whitespaceStart(){int i=0;while(i<length() && Character.isWhitespace(value[i]))i++;return i;}
     private int whitespaceEnd(){int i=length();while(i>0 && Character.isWhitespace(value[i-1]))i--;return i;}
+    public String stripIndent(){
+        if(length()==0)return "";
+        char last=value[length()-1];boolean optOut=last=='\r' || last=='\n';
+        int remove=optOut?0:Integer.MAX_VALUE;
+        if(!optOut)for(int start=0;start<length();start=nextLine(start)){
+            int end=lineEnd(start);String line=substring(start,end);int first=line.whitespaceStart();
+            if(first<line.length() || end==length())remove=Math.min(remove,first);
+        }
+        StringBuilder out=new StringBuilder();boolean firstLine=true;
+        for(int start=0;start<length();start=nextLine(start)){
+            String line=substring(start,lineEnd(start));int first=line.whitespaceStart(),end=line.whitespaceEnd();
+            if(!firstLine)out.append('\n');firstLine=false;
+            if(first<end)out.append(line,Math.min(remove,first),end);
+        }
+        if(optOut)out.append('\n');return out.toString();
+    }
     public String stripLeading(){return substring(whitespaceStart());}
     public String stripTrailing(){return substring(0,whitespaceEnd());}
     public String strip(){int start=whitespaceStart();return start==length()?"":substring(start,whitespaceEnd());}

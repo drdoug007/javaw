@@ -177,6 +177,18 @@ class BytecodeLowercaseTest implements Opcodes {
             """);compare(1);
     }
 
+    @Test void stripIndent() throws Exception {
+        fixture("""
+            import java.util.*;import java.util.function.*;
+            public class Metadata {public static int run(int group){int h=1;Function<String,String> f=String::stripIndent;
+             for(String ending:new String[]{"","\\n","\\r","\\r\\n"})for(String s:new String[]{""," ","\\t","  one  ","  one\\n    two\\n "," \\n   \\n  ","\\tA\\r\\n \\tB\\r    C","\\n","\\n\\n","a\\r\\rb","  😀\\n   𐐀  ","  a\\u2028  \\n  b\\u2029","\\u2000a\\u2003\\n\\u2000b\\u2002","\\u00a0a\\u00a0\\n  b"," a\\u0085\\n b"}){
+              String text=s+ending;String result=text.stripIndent();h=31*h+result.hashCode();h=31*h+f.apply(text).hashCode();h=31*h+result.stripIndent().hashCode();
+             }
+             for(int cp=group*256;cp<group*256+256;cp+=13){String c=new String(Character.toChars(cp));h=31*h+(c+"A "+c+"\\r\\n  "+c+"B ").stripIndent().hashCode();}
+             return h;}}
+            """);compare(256);
+    }
+
     private byte[] fixture(String source) throws Exception {
         Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
         List<String> options=new ArrayList<>(List.of("-g","-parameters","--release",release,"-d",directory.toString()));
