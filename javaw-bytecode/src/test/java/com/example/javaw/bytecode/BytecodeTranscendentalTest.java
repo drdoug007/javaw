@@ -48,10 +48,61 @@ class BytecodeTranscendentalTest implements Opcodes {
 
     @Test void decimalLogarithm() throws Exception {unary("log10",StrictMath::log10,Math::log10);}
 
+    @Test void powers() throws Exception {
+        List<Double> bases=new ArrayList<>(),powers=new ArrayList<>();
+        double[] edges={0,-0.0,1,-1,2,-2,0.5,-0.5,Double.MIN_VALUE,-Double.MIN_VALUE,Double.MIN_NORMAL,
+            Double.MAX_VALUE,Double.POSITIVE_INFINITY,Double.NEGATIVE_INFINITY,Double.NaN,
+            0x1.fffffffffffffp-1,0x1.0000000000001p0,-0x1.fffffffffffffp-1,-0x1.0000000000001p0};
+        double[] exponents={0,-0.0,0.5,-0.5,1,-1,2,-2,3,-3,4,-4,31,-31,1023,-1023,1024,-1074,1075,
+            0x1p31,-0x1p31,0x1p52-1,0x1p52,0x1p53-1,0x1p53,Double.MAX_VALUE,Double.POSITIVE_INFINITY,Double.NEGATIVE_INFINITY,Double.NaN};
+        for(double x:edges)for(double y:exponents){bases.add(x);powers.add(y);}
+        long bits=17;for(int i=0;i<1536;i++){
+            bits=bits*6364136223846793005L+1442695040888963407L;double x=Double.longBitsToDouble(bits);
+            bits=bits*6364136223846793005L+1442695040888963407L;double y=i%3==0?(double)(int)(bits>>32):Double.longBitsToDouble(bits);
+            bases.add(x);powers.add(y);
+        }
+        StringJoiner xb=new StringJoiner(","),yb=new StringJoiner(",");
+        for(int i=0;i<bases.size();i++){xb.add(Double.doubleToRawLongBits(bases.get(i))+"L");yb.add(Double.doubleToRawLongBits(powers.get(i))+"L");}
+        fixture("public class Metadata {static final long[] x={"+xb+"},y={"+yb+"};"+
+            "public static int run(int group){java.util.function.DoubleBinaryOperator reference=Math::pow;int hash=1;"+
+            "for(int i=group*64;i<x.length && i<(group+1)*64;i++){double a=Double.longBitsToDouble(x[i]),b=Double.longBitsToDouble(y[i]);double result=Math.pow(a,b);"+
+            "long bits=Double.doubleToLongBits(result);if(bits!=Double.doubleToLongBits(reference.applyAsDouble(a,b)))throw new Error();"+
+            "hash=31*hash+(int)(bits^(bits>>>32));}return hash;}}");
+        List<Integer> hashes=new ArrayList<>();
+        for(int start=0;start<bases.size();start+=64){int hash=1;
+            for(int i=start;i<Math.min(start+64,bases.size());i++){
+                double x=bases.get(i),y=powers.get(i),expected=StrictMath.pow(x,y);
+                checkMathAllowance(expected,Math.pow(x,y),"pow "+x+" "+y);
+                long b=Double.doubleToLongBits(expected);hash=31*hash+(int)(b^(b>>>32));
+            }hashes.add(hash);
+        }compare(hashes);
+    }
+
+    @Test void pinnedAntlrPowerRoundingBody() throws Exception {
+        Path artifact=Path.of(System.getProperty("maven.repo.local",Path.of(System.getProperty("user.home"),".m2","repository").toString()))
+            .resolve("org/antlr/antlr4-runtime/4.13.0/antlr4-runtime-4.13.0.jar");
+        assertEquals("bd7f7b5d07bc0b047f10915b32ca4bb1de9e57d8049098882e4453c88c076a5d",
+            HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(artifact))));
+        ClassNode original=new ClassNode();
+        try(JarFile jar=new JarFile(artifact.toFile())){new ClassReader(jar.getInputStream(jar.getJarEntry("org/antlr/v4/runtime/CodePointBuffer$Builder.class")).readAllBytes()).accept(original,0);}
+        MethodNode selected=original.methods.stream().filter(m->m.name.equals("roundUpToNextPowerOfTwo")).findFirst().orElseThrow();
+        assertEquals("(I)I",selected.desc);
+        assertTrue(Arrays.stream(selected.instructions.toArray()).anyMatch(insn->insn instanceof MethodInsnNode call && call.owner.equals("java/lang/Math") && call.name.equals("pow")));
+        // Preserve the complete instruction body in a public test carrier; buffers/builders are excluded.
+        selected.access=ACC_PUBLIC|ACC_STATIC;selected.name="round";
+        ClassWriter writer=new ClassWriter(0);writer.visit(original.version,ACC_PUBLIC,"PinnedPower",null,"java/lang/Object",null);selected.accept(writer);writer.visitEnd();
+        Files.write(directory.resolve("PinnedPower.class"),writer.toByteArray());fixtureClasspath=directory.toString();
+        fixture("public class Metadata {public static int run(int group){int hash=1;for(int i=-100;i<100;i++)hash=31*hash+PinnedPower.round(i);"+
+            "for(int bit=0;bit<31;bit++)for(int delta=-1;delta<=1;delta++)hash=31*hash+PinnedPower.round((1<<bit)+delta);return hash;}}");
+        try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)){
+            compare(List.of((Integer)loader.loadClass("Metadata").getMethod("run",int.class).invoke(null,0)));
+        }
+    }
+
     private List<Double> values(){
         List<Double> values=new ArrayList<>();
         double[] boundaries={0.0,-0.0,1,-1,0.5,-0.5,2,-2,Math.PI,-Math.PI,Math.PI/2,-Math.PI/2,
-            Math.PI/4,-Math.PI/4,1.0e20,-1.0e20,709.782712893384,-745.1332191019411,
+            Math.PI/4,-Math.PI/4,10,100,1000,1.0e-300,1.0e300,1.0e20,-1.0e20,709.782712893384,-745.1332191019411,
             0x1p-28,-0x1p-28,0x1p-54,-0x1p-54,0x1p20,-0x1p20,Double.MIN_NORMAL,-Double.MIN_NORMAL,
             Double.MAX_VALUE,-Double.MAX_VALUE,Double.POSITIVE_INFINITY,Double.NEGATIVE_INFINITY,Double.NaN};
         for(double value:boundaries){values.add(Math.nextDown(value));values.add(value);values.add(Math.nextUp(value));}

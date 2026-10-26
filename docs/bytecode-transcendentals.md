@@ -19,3 +19,7 @@ Math.log performs fdlibm normalization and split-logarithm evaluation across sub
 ## Portable decimal logarithm (`fdlibm-decimal-log-v102`)
 
 Math.log10 uses split base-conversion constants and the portable natural logarithm, preserving exact powers-of-ten results and special values.
+
+## Portable floating powers (`fdlibm-powers-v103`)
+
+Math.pow handles negative-base parity, signed zero, nonintegral domains, extreme exponents and subnormal/overflow results. An isolated carrier also executes the complete original pinned ANTLR 4.13.0 power-rounding method body; buffer/parser execution is excluded.
