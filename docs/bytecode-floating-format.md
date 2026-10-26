@@ -19,3 +19,4 @@ Completed subsets:
 - v164: Signed-zero and zero-exponent semantics, retaining negative signs and parentheses when finite values round to zero.
 - v165: Italian/Italy numeric formatting with comma decimal and period grouping symbols for integral, arbitrary-precision and binary floating values.
 - v166: Japanese/Japan numeric formatting with ASCII decimal digits, period decimal and comma grouping, preserving numeric flags and precision.
+- v167: Chinese/China/Taiwan numeric formatting with Java 17 CLDR decimal and grouping symbols; PRC and simplified/traditional aliases share these identities.

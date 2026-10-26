@@ -128,6 +128,20 @@ class BytecodeFloatingFormatTest implements Opcodes {
             """);compare(16);
     }
 
+    @Test void chineseNumeric() throws Exception {
+        fixture("""
+            import java.util.*;import java.math.*;
+            public class Metadata {public static int run(int group){
+             Locale[] locales={Locale.CHINESE,Locale.CHINA,Locale.TAIWAN};Locale locale=locales[group%locales.length];int index=group/locales.length;
+             double[] values={1234567.895,-1234567.895,0.00009999995,9.99995,-0.0,Double.MIN_VALUE,Double.MAX_VALUE,Double.NaN};
+             double value=values[index];float f=(float)value;int h=1;
+             for(String fmt:new String[]{"%,d","%+025d","%(,030d","%#030x","%#030X","%#030o"})for(Object v:new Object[]{1234567,-1234567,Long.MIN_VALUE,new BigInteger("-123456789012345678901234567890")})h=31*h+String.format(locale,fmt,v).hashCode();
+             for(String fmt:new String[]{"%,020.2f","%(030.3f","%+.4e","%025.2E","%,.6g","% 030.9G"})for(Object v:new Object[]{value,f,new BigDecimal("-123456.78995")})h=31*h+String.format(locale,fmt,v).hashCode();
+             h=31*h+String.format(locale,"%.2f",(Object)null).hashCode();return h;
+            }}
+            """);compare(24);
+    }
+
     private byte[] fixture(String source) throws Exception {
         Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
         List<String> options=new ArrayList<>(List.of("-g","-parameters","--release",release,"-d",directory.toString()));

@@ -139,6 +139,7 @@ public final class TextFormats {
   return localize(decorate(digits,negative,"",s),locale);
  }
  private static int numericLocale(Locale locale){
+  if(locale.equals(Locale.CHINESE) || locale.equals(Locale.CHINA) || locale.equals(Locale.TAIWAN))return 0;
   if(locale.equals(Locale.JAPANESE) || locale.equals(Locale.JAPAN))return 0;
   if(locale.equals(Locale.ROOT) || locale.equals(Locale.ENGLISH) || locale.equals(Locale.US) || locale.equals(Locale.UK))return 0;
   if(locale.equals(Locale.GERMAN) || locale.equals(Locale.GERMANY) || locale.equals(Locale.ITALIAN) || locale.equals(Locale.ITALY))return 1;
