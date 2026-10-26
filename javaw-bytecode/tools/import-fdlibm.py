@@ -30,7 +30,7 @@ def main():
         '// constants; route internal StrictMath calls through portable Math adapters.\n'
         '// The original GPLv2 with Classpath exception continues to apply.\n'
         'package java.lang;')
-    for name in ['Exp', 'Log', 'Log10', 'Pow', 'Sin', 'Cos', 'RemPio2', 'KernelRemPio2', 'Tan', 'Asin', 'Acos', 'Atan', 'Atan2', 'Expm1']:
+    for name in ['Exp', 'Log', 'Log10', 'Pow', 'Sin', 'Cos', 'RemPio2', 'KernelRemPio2', 'Tan', 'Asin', 'Acos', 'Atan', 'Atan2', 'Expm1', 'Log1p']:
         start = source.index('    static final class ' + name + ' ')
         cursor = masked.index('{', start) + 1
         depth = 1
@@ -40,7 +40,7 @@ def main():
             elif masked[cursor] == '}':
                 depth -= 1
             cursor += 1
-        result += source[start:cursor].replace('Double.MAX_VALUE', '0x1.fffffffffffffp1023').replace('StrictMath.', 'Math.') + '\n'
+        result += source[start:cursor].replace('Double.MAX_VALUE', '0x1.fffffffffffffp1023').replace('StrictMath.', 'Math.').replace('Double.NaN', '(0.0/0.0)') + '\n'
     result += '}\n'
     destination = resources / 'java/lang/FdLibm.java'
     if args.check:

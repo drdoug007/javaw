@@ -159,8 +159,10 @@ class BytecodeTranscendentalTest implements Opcodes {
 
     @Test void expm1Portable() throws Exception {unary("expm1",StrictMath::expm1,Math::expm1);}
 
+    @Test void log1pPortable() throws Exception {unary("log1p",StrictMath::log1p,Math::log1p);}
+
     @Test void malformedDescriptors() {
-        for(String name:List.of("exp","log","log10","pow","sin","cos","tan","asin","acos","atan","atan2","expm1")){
+        for(String name:List.of("exp","log","log10","pow","sin","cos","tan","asin","acos","atan","atan2","expm1","log1p")){
             ClassWriter writer=new ClassWriter(0);writer.visit(V17,ACC_PUBLIC,"BadTranscendental",null,"java/lang/Object",null);
             MethodVisitor method=writer.visitMethod(ACC_PUBLIC|ACC_STATIC,"run","()F",null,null);
             method.visitCode();method.visitInsn(FCONST_0);if(List.of("pow","atan2","hypot","IEEEremainder").contains(name))method.visitInsn(FCONST_0);

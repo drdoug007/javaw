@@ -163,4 +163,5 @@ public final class Math {
     public static double atan(double x){return FdLibm.Atan.compute(x);}
     public static double atan2(double x,double y){return FdLibm.Atan2.compute(x,y);}
     public static double expm1(double x){return FdLibm.Expm1.compute(x);}
+    public static double log1p(double x){return FdLibm.Log1p.compute(x);}
 }

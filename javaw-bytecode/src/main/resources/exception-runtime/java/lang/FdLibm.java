@@ -1705,4 +1705,101 @@ final class FdLibm {
             return y;
         }
     }
+    static final class Log1p {
+        private static final double ln2_hi = 0x1.62e42feep-1;       // 6.93147180369123816490e-01
+        private static final double ln2_lo = 0x1.a39ef35793c76p-33; // 1.90821492927058770002e-10
+        private static final double Lp1    = 0x1.5555555555593p-1;  // 6.666666666666735130e-01
+        private static final double Lp2    = 0x1.999999997fa04p-2;  // 3.999999999940941908e-01
+        private static final double Lp3    = 0x1.2492494229359p-2;  // 2.857142874366239149e-01
+        private static final double Lp4    = 0x1.c71c51d8e78afp-3;  // 2.222219843214978396e-01
+        private static final double Lp5    = 0x1.7466496cb03dep-3;  // 1.818357216161805012e-01
+        private static final double Lp6    = 0x1.39a09d078c69fp-3;  // 1.531383769920937332e-01
+        private static final double Lp7    = 0x1.2f112df3e5244p-3;  // 1.479819860511658591e-01
+
+        public static double compute(double x) {
+            double hfsq, f=0, c=0, s, z, R, u;
+            int k, hx, hu=0, ax;
+
+            hx = __HI(x);           /* high word of x */
+            ax = hx & EXP_SIGNIF_BITS;
+
+            k = 1;
+            if (hx < 0x3FDA_827A) {                  /* x < 0.41422  */
+                if (ax >= 0x3ff0_0000) {             /* x <= -1.0 */
+                    if (x == -1.0) /* log1p(-1)=-inf */
+                        return -INFINITY;
+                    else
+                        return (0.0/0.0);           /* log1p(x < -1) = NaN */
+                }
+
+                if (ax < 0x3e20_0000) {                /* |x| < 2**-29 */
+                    if (TWO54 + x > 0.0                /* raise inexact */
+                       && ax < 0x3c90_0000)            /* |x| < 2**-54 */
+                        return x;
+                    else
+                        return x - x*x*0.5;
+                }
+
+                if (hx > 0 || hx <= 0xbfd2_bec3) { /* -0.2929 < x < 0.41422 */
+                    k=0;
+                    f=x;
+                    hu=1;
+                }
+            }
+
+            if (hx >= EXP_BITS) {
+                return x + x;
+            }
+
+            if (k != 0) {
+                if (hx < 0x4340_0000) {
+                    u  = 1.0 + x;
+                    hu = __HI(u);           /* high word of u */
+                    k  = (hu >> 20) - 1023;
+                    c  = (k > 0)? 1.0 - (u-x) : x-(u-1.0); /* correction term */
+                    c /= u;
+                } else {
+                    u  = x;
+                    hu = __HI(u);           /* high word of u */
+                    k  = (hu >> 20) - 1023;
+                    c  = 0;
+                }
+                hu &= 0x000f_ffff;
+                if (hu < 0x6_a09e) {
+                    u = __HI(u, hu | 0x3ff0_0000);       /* normalize u */
+                } else {
+                    k += 1;
+                    u = __HI(u, hu | 0x3fe0_0000);       /* normalize u/2 */
+                    hu = (0x0010_0000 - hu) >> 2;
+                }
+                f = u - 1.0;
+            }
+
+            hfsq = 0.5*f*f;
+            if (hu == 0) {     /* |f| < 2**-20 */
+                if (f == 0.0) {
+                    if (k == 0) {
+                        return 0.0;
+                    } else {
+                        c += k * ln2_lo;
+                        return k * ln2_hi + c;
+                    }
+                }
+                R = hfsq * (1.0 - 0.66666666666666666*f);
+                if (k == 0) {
+                    return f - R;
+                } else {
+                    return k * ln2_hi - ((R-(k * ln2_lo+c)) - f);
+                }
+            }
+            s = f/(2.0 + f);
+            z = s * s;
+            R = z * (Lp1 + z * (Lp2 + z * (Lp3 + z * (Lp4 + z * (Lp5 + z * (Lp6 + z*Lp7))))));
+            if (k == 0) {
+                return f - (hfsq - s*(hfsq + R));
+            } else {
+                return k * ln2_hi - ((hfsq - (s*(hfsq + R) + (k * ln2_lo+c))) - f);
+            }
+        }
+    }
 }

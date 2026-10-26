@@ -69,3 +69,7 @@ Math.atan2: Quadrants, signed-zero axes, infinities and extreme ratios use the p
 ## Exponential minus one (`fdlibm-expm1-v111`)
 
 Math.expm1: Compensated exponential evaluation avoids cancellation around zero and handles range endpoints. Canonical-bit JVM StrictMath comparisons cover both JAR orders, direct calls, method references and fresh Wasm instances. Malformed float descriptors are rejected. No new pinned-library execution claim is made.
+
+## Natural logarithm of one plus x (`fdlibm-log1p-v112`)
+
+Math.log1p: Compensated logarithm evaluation preserves tiny inputs and handles the minus-one domain boundary. Canonical-bit JVM StrictMath comparisons cover both JAR orders, direct calls, method references and fresh Wasm instances. Malformed float descriptors are rejected. No new pinned-library execution claim is made.

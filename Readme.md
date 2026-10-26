@@ -1958,3 +1958,5 @@ Bytecode numeric progress (v100–v109): Math.exp/log/log10/pow/sin/cos/tan/asin
 Bytecode numeric progress (v110): Math.atan2. Quadrants, signed-zero axes, infinities and extreme ratios use the portable fdlibm atan2 algorithm. JVM/Wasm numerical and malformed-descriptor checks pass; see [the numerical contract](docs/bytecode-transcendentals.md). Broader text/numeric and framework support remains open.
 
 Bytecode numeric progress (v111): Math.expm1. Compensated exponential evaluation avoids cancellation around zero and handles range endpoints. JVM/Wasm numerical and malformed-descriptor checks pass; see [the numerical contract](docs/bytecode-transcendentals.md). Broader text/numeric and framework support remains open.
+
+Bytecode numeric progress (v112): Math.log1p. Compensated logarithm evaluation preserves tiny inputs and handles the minus-one domain boundary. JVM/Wasm numerical and malformed-descriptor checks pass; see [the numerical contract](docs/bytecode-transcendentals.md). Broader text/numeric and framework support remains open.
