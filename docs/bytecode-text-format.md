@@ -63,3 +63,7 @@ Octal formatting accepts arbitrary-precision signed magnitudes, alternate prefix
 ## BigInteger hexadecimal formatting (big-integer-hex-format-v142)
 
 Hexadecimal x/X formatting accepts arbitrary-precision signed magnitudes, alternate prefixes, uppercase digits, parentheses and zero padding after sign and prefix. JVM/Wasm comparisons pass for zero and both signs beyond long range; primitive two-complement formatting remains a separate supported path.
+
+## BigDecimal fixed formatting (big-decimal-fixed-format-v143)
+
+Fixed-point f formatting accepts BigDecimal with HALF_UP rounding, requested/default fractional precision, grouping, alternate decimal points, signs and padding. JVM/Wasm cases cover ties, carry, negative values rounding to zero, large magnitudes, tiny fractions and null precision. Binary floating decimal conversion remains explicitly unsupported.

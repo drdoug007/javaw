@@ -301,6 +301,17 @@ class BytecodeTextFormatTest implements Opcodes {
             """);compare(5);
     }
 
+    @Test void bigDecimalFixedFormatting() throws Exception {
+        fixture("""
+            import java.math.*;import java.util.*;
+            public class Metadata {public static int run(int group){int h=1;
+             String[] values={"0","0.000","-0.000","1.2345","-1.2345","0.000000001","-0.000000001","999999999999999999999999999999.9995","-999.995","1E+30","1E-30"};
+             Object v=group==values.length?null:new BigDecimal(values[group]);
+             for(String f:new String[]{"%f","%.0f","%#.0f","%+.3f","% 40.2f","%(,045.2f","%-40.9f","%,.5f","%.12f"})h=31*h+String.format(Locale.ROOT,f,v).hashCode();
+             return h;}}
+            """);compare(12);
+    }
+
     private byte[] fixture(String source) throws Exception {
         Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
         List<String> options=new ArrayList<>(List.of("-g","-parameters","--release",release,"-d",directory.toString()));

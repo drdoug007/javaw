@@ -1,5 +1,6 @@
 package javaw.runtime;
 import java.util.*;
+import java.math.*;
 /** Selected String formatting, without a public Formatter/provider implementation. */
 public final class TextFormats {
  private TextFormats(){}
@@ -47,6 +48,11 @@ public final class TextFormats {
    if((flag(s,'+') && flag(s,' ')) || (flag(s,'-') && flag(s,'0')))throw new IllegalFormatFlagsException(flagsText(s));
    allowed(s,c=='d'?"-+ 0,(<":"-#+ 0(<");return;
   }
+  if(c=='f'){
+   if(flag(s,'0') && s.width<0)throw new MissingFormatWidthException(s.raw);
+   if((flag(s,'+') && flag(s,' ')) || (flag(s,'-') && flag(s,'0')))throw new IllegalFormatFlagsException(flagsText(s));
+   allowed(s,"-#+ 0,(<");return;
+  }
   throw new UnsupportedOperationException("Formatting conversion: "+c);
  }
  public static String format(Locale locale,String format,Object[] args){
@@ -59,7 +65,8 @@ public final class TextFormats {
    if(index<0 || (args!=null && index>=args.length))throw new MissingFormatArgumentException(s.raw);last=index;
    Object value=args==null?null:args[index];String text;
    if((c=='s' || c=='S') && flag(s,'#'))throw new FormatFlagsConversionMismatchException("#",conversion(s));
-   if(c=='o' || c=='x' || c=='X')text=radix(value,s);
+   if(c=='f')text=decimalFraction(value,s,locale);
+   else if(c=='o' || c=='x' || c=='X')text=radix(value,s);
    else if(c=='d')text=decimal(value,s,locale);
    else if(c=='b' || c=='B')text=value==null?"false":value instanceof Boolean?value.toString():"true";
    else if(c=='h' || c=='H')text=value==null?"null":Integer.toHexString(value.hashCode());
@@ -69,7 +76,7 @@ public final class TextFormats {
     else if(value instanceof Byte || value instanceof Short || value instanceof Integer){int cp=((Number)value).intValue();if(!Character.isValidCodePoint(cp))throw new IllegalFormatCodePointException(cp);text=new String(Character.toChars(cp));}
     else throw new IllegalFormatConversionException(conversion(s),value.getClass());
    }else text=String.valueOf(value);
-   if(s.precision>=0 && text.length()>s.precision)text=text.substring(0,s.precision);
+   if(s.precision>=0 && (value==null || "sSbBhH".indexOf(c)>=0) && text.length()>s.precision)text=text.substring(0,s.precision);
    if(c>='A' && c<='Z')text=text.toUpperCase(locale);
    out.append(pad(text,s));
   }
@@ -92,11 +99,28 @@ public final class TextFormats {
  private static String decimal(Object value,Spec s,Locale locale){
   if(value==null)return "null";
   if(!(value instanceof Byte || value instanceof Short || value instanceof Integer || value instanceof Long || value instanceof java.math.BigInteger))throw new IllegalFormatConversionException(conversion(s),value.getClass());
-  if(!(locale.equals(Locale.ROOT) || locale.equals(Locale.ENGLISH) || locale.equals(Locale.US) || locale.equals(Locale.UK)))throw new UnsupportedOperationException("Numeric format locale");
+  numericLocale(locale);
   String digits=value.toString();boolean negative=digits.charAt(0)=='-';
   if(negative)digits=digits.substring(1);
   if(flag(s,',')){StringBuilder grouped=new StringBuilder();for(int i=0;i<digits.length();i++){if(i>0 && (digits.length()-i)%3==0)grouped.append(',');grouped.append(digits.charAt(i));}digits=grouped.toString();}
   return decorate(digits,negative,"",s);
+ }
+ private static void numericLocale(Locale locale){
+  if(!(locale.equals(Locale.ROOT) || locale.equals(Locale.ENGLISH) || locale.equals(Locale.US) || locale.equals(Locale.UK)))throw new UnsupportedOperationException("Numeric format locale");
+ }
+ private static String grouped(String digits,Spec s){
+  if(!flag(s,','))return digits;
+  int end=digits.indexOf('.');if(end<0)end=digits.length();StringBuilder out=new StringBuilder();
+  for(int i=0;i<end;i++){if(i>0 && (end-i)%3==0)out.append(',');out.append(digits.charAt(i));}out.append(digits.substring(end));return out.toString();
+ }
+ private static String decimalFraction(Object value,Spec s,Locale locale){
+  if(value==null)return "null";
+  if(value instanceof Double || value instanceof Float)throw new UnsupportedOperationException("Binary floating decimal formatting");
+  if(!(value instanceof BigDecimal))throw new IllegalFormatConversionException(conversion(s),value.getClass());
+  numericLocale(locale);BigDecimal n=(BigDecimal)value;int precision=s.precision<0?6:s.precision;
+  String digits=n.abs().setScale(precision,RoundingMode.HALF_UP).toPlainString();
+  if(precision==0 && flag(s,'#'))digits+=".";
+  return decorate(grouped(digits,s),n.signum()<0,"",s);
  }
  private static String decorate(String digits,boolean negative,String radixPrefix,Spec s){
   String prefix=negative?(flag(s,'(')?"(":"-"):flag(s,'+')?"+":flag(s,' ')?" ":"";
