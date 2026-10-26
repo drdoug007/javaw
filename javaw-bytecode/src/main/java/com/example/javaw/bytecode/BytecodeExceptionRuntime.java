@@ -84,6 +84,7 @@ public final class BytecodeExceptionRuntime {
             paths.add("java/lang/invoke/MethodHandle.java");
             paths.add("java/lang/invoke/VarHandle.java");
             paths.add("java/nio/ByteOrder.java");
+            for(String name:List.of("Charset","StandardCharsets","IllegalCharsetNameException","UnsupportedCharsetException"))paths.add("java/nio/charset/"+name+".java");
             paths.add("javaw/runtime/ExceptionSupport.java");
             paths.add("javaw/runtime/ReflectionSupport.java");
             paths.add("javaw/runtime/Decimal.java");

@@ -36,6 +36,15 @@ public final class String implements CharSequence,Comparable<String>,java.io.Ser
     public String(byte[] bytes,int offset,int count,String charsetName) throws java.io.UnsupportedEncodingException {
         value=javaw.runtime.TextCharsets.decode(bytes,offset,count,charsetName).value;
     }
+    public String(byte[] bytes,java.nio.charset.Charset charset){
+        value=javaw.runtime.TextCharsets.decode(bytes,0,bytes==null?0:bytes.length,javaw.runtime.TextCharsets.identifier(charset)).value;
+    }
+    public String(byte[] bytes,int offset,int count,java.nio.charset.Charset charset){
+        value=javaw.runtime.TextCharsets.decode(bytes,offset,count,javaw.runtime.TextCharsets.identifier(charset)).value;
+    }
+    public byte[] getBytes(java.nio.charset.Charset charset){
+        return javaw.runtime.TextCharsets.encode(this,javaw.runtime.TextCharsets.identifier(charset));
+    }
     public byte[] getBytes(String charsetName) throws java.io.UnsupportedEncodingException {
         return javaw.runtime.TextCharsets.encode(this,charsetName);
     }

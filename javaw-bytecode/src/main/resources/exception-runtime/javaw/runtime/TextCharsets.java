@@ -3,6 +3,28 @@ package javaw.runtime;
 /** Stateless, replacement-mode String codecs for the explicitly supported charsets. */
 public final class TextCharsets {
     private TextCharsets() {}
+    private static final String[][] NAMES={
+        {"UTF-8","UTF8","unicode-1-1-utf-8"},
+        {"ISO-8859-1","cp819","ISO_8859_1","csISOLatin1","IBM819","latin1","ISO8859-1","iso-ir-100","ISO_8859-1:1987","ISO8859_1","819","l1","ISO_8859-1","8859_1","IBM-819"},
+        {"US-ASCII","iso_646.irv:1983","ASCII","iso-ir-6","cp367","ANSI_X3.4-1986","us","646","ISO646-US","ISO_646.irv:1991","csASCII","IBM367","ascii7","ANSI_X3.4-1968"},
+        {"UTF-16BE","ISO-10646-UCS-2","UTF_16BE","UnicodeBigUnmarked","X-UTF-16BE"},
+        {"UTF-16LE","UnicodeLittleUnmarked","UTF_16LE","X-UTF-16LE"},
+        {"UTF-16","UTF_16","unicode","UnicodeBig","utf16"}
+    };
+    public static String canonical(int id){return NAMES[id][0];}
+    public static String[] aliases(int id){String[] names=NAMES[id],result=new String[names.length-1];
+        System.arraycopy(names,1,result,0,result.length);return result;}
+    public static int identifier(java.nio.charset.Charset charset){
+        if(charset==null)throw new NullPointerException();
+        if(charset==java.nio.charset.StandardCharsets.UTF_8)return 0;
+        if(charset==java.nio.charset.StandardCharsets.ISO_8859_1)return 1;
+        if(charset==java.nio.charset.StandardCharsets.US_ASCII)return 2;
+        if(charset==java.nio.charset.StandardCharsets.UTF_16BE)return 3;
+        if(charset==java.nio.charset.StandardCharsets.UTF_16LE)return 4;
+        if(charset==java.nio.charset.StandardCharsets.UTF_16)return 5;
+        throw new UnsupportedOperationException("Custom charset conversion is unsupported");
+    }
+
     public static boolean validName(String name){
         if(name.length()==0)return false;
         for(int i=0;i<name.length();i++){char c=name.charAt(i);
@@ -14,12 +36,7 @@ public final class TextCharsets {
     public static int lookup(String name) throws java.io.UnsupportedEncodingException {
         if(name==null)throw new NullPointerException();
         if(!validName(name))throw new java.io.UnsupportedEncodingException(name);
-        if(name.equalsIgnoreCase("UTF-8") || name.equalsIgnoreCase("UTF8") || name.equalsIgnoreCase("unicode-1-1-utf-8"))return 0;
-        if(name.equalsIgnoreCase("ISO-8859-1") || name.equalsIgnoreCase("cp819") || name.equalsIgnoreCase("ISO_8859_1") || name.equalsIgnoreCase("csISOLatin1") || name.equalsIgnoreCase("IBM819") || name.equalsIgnoreCase("latin1") || name.equalsIgnoreCase("ISO8859-1") || name.equalsIgnoreCase("iso-ir-100") || name.equalsIgnoreCase("ISO_8859-1:1987") || name.equalsIgnoreCase("ISO8859_1") || name.equalsIgnoreCase("819") || name.equalsIgnoreCase("l1") || name.equalsIgnoreCase("ISO_8859-1") || name.equalsIgnoreCase("8859_1") || name.equalsIgnoreCase("IBM-819"))return 1;
-        if(name.equalsIgnoreCase("US-ASCII") || name.equalsIgnoreCase("iso_646.irv:1983") || name.equalsIgnoreCase("ASCII") || name.equalsIgnoreCase("iso-ir-6") || name.equalsIgnoreCase("cp367") || name.equalsIgnoreCase("ANSI_X3.4-1986") || name.equalsIgnoreCase("us") || name.equalsIgnoreCase("646") || name.equalsIgnoreCase("ISO646-US") || name.equalsIgnoreCase("ISO_646.irv:1991") || name.equalsIgnoreCase("csASCII") || name.equalsIgnoreCase("IBM367") || name.equalsIgnoreCase("ascii7") || name.equalsIgnoreCase("ANSI_X3.4-1968"))return 2;
-        if(name.equalsIgnoreCase("UTF-16BE") || name.equalsIgnoreCase("ISO-10646-UCS-2") || name.equalsIgnoreCase("UTF_16BE") || name.equalsIgnoreCase("UnicodeBigUnmarked") || name.equalsIgnoreCase("X-UTF-16BE"))return 3;
-        if(name.equalsIgnoreCase("UTF-16LE") || name.equalsIgnoreCase("UnicodeLittleUnmarked") || name.equalsIgnoreCase("UTF_16LE") || name.equalsIgnoreCase("X-UTF-16LE"))return 4;
-        if(name.equalsIgnoreCase("UTF-16") || name.equalsIgnoreCase("UTF_16") || name.equalsIgnoreCase("unicode") || name.equalsIgnoreCase("UnicodeBig") || name.equalsIgnoreCase("utf16"))return 5;
+        for(int id=0;id<NAMES.length;id++)for(String alias:NAMES[id])if(name.equalsIgnoreCase(alias))return id;
         throw new java.io.UnsupportedEncodingException(name);
     }
     public static byte[] encode(String text,String name) throws java.io.UnsupportedEncodingException {
@@ -27,21 +44,13 @@ public final class TextCharsets {
     }
     public static byte[] encode(String text,int charset){
         if(charset==0)return text.getBytes();
-        if(charset==2){
+        if(charset==1 || charset==2){
+            int limit=charset==1?255:127;
             int size=text.length();
             for(int j=0;j<text.length()-1;j++)if(Character.isHighSurrogate(text.charAt(j)) && Character.isLowSurrogate(text.charAt(j+1))){size--;j++;}
             byte[] result=new byte[size];int out=0;
             for(int j=0;j<text.length();j++){char c=text.charAt(j);
-                if(c<=127)result[out++]=(byte)c;
-                else{result[out++]=63;if(Character.isHighSurrogate(c) && j+1<text.length() && Character.isLowSurrogate(text.charAt(j+1)))j++;}
-            }return result;
-        }
-        if(charset==1){
-            int size=text.length();
-            for(int j=0;j<text.length()-1;j++)if(Character.isHighSurrogate(text.charAt(j)) && Character.isLowSurrogate(text.charAt(j+1))){size--;j++;}
-            byte[] result=new byte[size];int out=0;
-            for(int j=0;j<text.length();j++){char c=text.charAt(j);
-                if(c<=255)result[out++]=(byte)c;
+                if(c<=limit)result[out++]=(byte)c;
                 else{result[out++]=63;if(Character.isHighSurrogate(c) && j+1<text.length() && Character.isLowSurrogate(text.charAt(j+1)))j++;}
             }return result;
         }

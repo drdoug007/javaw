@@ -1,0 +1,6 @@
+package java.nio.charset;
+public class IllegalCharsetNameException extends IllegalArgumentException {
+    private final String charsetName;
+    public IllegalCharsetNameException(String charsetName){super(charsetName);this.charsetName=charsetName;}
+    public String getCharsetName(){return charsetName;}
+}
