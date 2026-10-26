@@ -84,7 +84,7 @@ public final class TextFormats {
    }else text=String.valueOf(value);
    int textPrecision=s.precision;
    if(textPrecision>=0 && (value==null || "sSbBhH".indexOf(c)>=0) && text.length()>textPrecision)text=text.substring(0,textPrecision);
-   if(c>='A' && c<='Z')text=text.toUpperCase(c=='A' || ((value instanceof Double || value instanceof Float) && !Double.isFinite(((Number)value).doubleValue()))?Locale.ROOT:locale);
+   if(c>='A' && c<='Z')text=text.toUpperCase(c=='A' || ((c=='E' || c=='G') && (value instanceof Double || value instanceof Float) && !Double.isFinite(((Number)value).doubleValue()))?Locale.ROOT:locale);
    out.append(pad(text,s));
   }
   return out.toString();

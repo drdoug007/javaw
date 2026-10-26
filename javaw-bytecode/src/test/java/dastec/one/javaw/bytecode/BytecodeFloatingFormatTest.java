@@ -84,7 +84,7 @@ class BytecodeFloatingFormatTest implements Opcodes {
             public class Metadata {public static int run(int group){int h=1;
              Locale[] locales={Locale.ROOT,Locale.GERMANY,Locale.FRANCE,new Locale("ar","EG"),new Locale("tr"),new Locale("lt"),Locale.JAPAN};
              for(Object v:new Object[]{Double.NaN,Double.POSITIVE_INFINITY,Double.NEGATIVE_INFINITY,Float.NaN,Float.POSITIVE_INFINITY,Float.NEGATIVE_INFINITY,Double.longBitsToDouble(0xfff8000000000001L),Float.intBitsToFloat(0xffc00001)})
-              for(String f:new String[]{"%f","%e","%E","%g","%G","%.0f","%.1e","%.2g","%#.0f","%020f","%+020E","% 020G","%(020f","%-20.0G","%(020.2E","%+,020.1g"})h=31*h+String.format(locales[group],f,v).hashCode();
+              for(String f:new String[]{"%f","%e","%E","%g","%G","%S","%.0f","%.1e","%.2g","%#.0f","%020f","%+020E","% 020G","%(020f","%-20.0G","%(020.2E","%+,020.1g"})h=31*h+String.format(locales[group],f,v).hashCode();
              return h;}}
             """);compare(7);
     }
@@ -154,6 +154,63 @@ class BytecodeFloatingFormatTest implements Opcodes {
              h=31*h+String.format(locale,"%.2f",(Object)null).hashCode();return h;
             }}
             """);compare(16);
+    }
+
+    @Test void everyFiniteExponent() throws Exception {
+        fixture("""
+            import java.util.*;
+            public class Metadata {public static int run(int group){
+             long field=group+1L;long fraction=group%3==0?0:group%3==1?1:0xfffffffffffffL;
+             double n=Double.longBitsToDouble((field<<52)|fraction);int h=1;
+             for(double v:new double[]{n,-n})for(String format:new String[]{"%."+(group%30)+"f","%."+(group%30)+"e","%."+(group%30)+"g"})h=31*h+String.format(Locale.ROOT,format,v).hashCode();
+             return h;}}
+            """);compare(2046);
+    }
+
+    @Test void pinnedJacksonBinaryFormatting() throws Exception {
+        Path artifact=Path.of(System.getProperty("maven.repo.local",Path.of(System.getProperty("user.home"),".m2","repository").toString()))
+            .resolve("com/fasterxml/jackson/core/jackson-databind/2.15.4/jackson-databind-2.15.4.jar");
+        assertEquals("0f99ff7719eef3ee85608b3dee6ecf3c698003fe9d6e34eabbfabccdc9b5ac2c",
+            HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(artifact))));
+        ClassNode original=new ClassNode();
+        try(JarFile jar=new JarFile(artifact.toFile())){new ClassReader(jar.getInputStream(jar.getJarEntry("com/fasterxml/jackson/databind/DatabindContext.class"))).accept(original,0);}
+        ClassWriter carrier=new ClassWriter(0);carrier.visit(V17,ACC_PUBLIC,original.name,null,"java/lang/Object",null);
+        for(MethodNode method:original.methods)if(method.name.equals("<init>") || method.name.equals("_format"))method.accept(carrier);
+        carrier.visitEnd();Path file=directory.resolve(original.name+".class");Files.createDirectories(file.getParent());Files.write(file,carrier.toByteArray());
+        fixtureClasspath=directory.toString();
+        fixture("""
+            import java.util.*;
+            import com.fasterxml.jackson.databind.DatabindContext;
+            public class Metadata {
+             public static class Item extends DatabindContext {public String call(String f,Object... a){return _format(f,a);}}
+             public static int run(int group){int h=1;Item context=new Item();
+              double[] edge={0.0,-0.0,0.1,2.675,9.99995,1e23,1e-5,Double.MIN_VALUE,Double.MIN_NORMAL,Double.MAX_VALUE,Double.NaN,Double.POSITIVE_INFINITY,Double.NEGATIVE_INFINITY};
+              long bits=group+31;for(int i=0;i<9;i++)bits=bits*6364136223846793005L+1442695040888963407L;
+              double n=group<edge.length?edge[group]:Double.longBitsToDouble(bits);
+              for(Object v:new Object[]{n,(float)n,null})for(String f:new String[]{"%.17f","%+040.9e","%(040.6G","%1$.2f %<.3e %<.4g"})h=31*h+context.call(f,v).hashCode();
+              h=31*h+String.format((Locale)null,"%.3g",n).hashCode();
+              h=31*h+"%.5e".formatted(n).hashCode();
+              h=31*h+context.call("%not parsed").hashCode();
+              try{context.call("%s",(Object[])null);throw new Error();}catch(NullPointerException expected){h++;}
+              try{context.call("%f",1);throw new Error();}catch(IllegalFormatConversionException expected){h+=expected.getConversion()+expected.getArgumentClass().getName().hashCode();}
+              return h;}}
+            """);compare(128);
+    }
+
+    @Test void malformedFormattingDescriptors() {
+        for(boolean localized:new boolean[]{false,true}) {
+            ClassWriter writer=new ClassWriter(0);writer.visit(V17,ACC_PUBLIC,"BadBinaryFormat",null,"java/lang/Object",null);
+            MethodVisitor method=writer.visitMethod(ACC_PUBLIC|ACC_STATIC,"run","()Ljava/lang/Object;",null,null);
+            method.visitCode();if(localized)method.visitInsn(ACONST_NULL);
+            method.visitLdcInsn("%f");method.visitInsn(ACONST_NULL);
+            method.visitMethodInsn(INVOKESTATIC,"java/lang/String","format",localized?
+                "(Ljava/util/Locale;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/Object;":
+                "(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/Object;",false);
+            method.visitInsn(ARETURN);method.visitMaxs(3,0);method.visitEnd();writer.visitEnd();
+            var failure=assertThrows(IllegalArgumentException.class,
+                ()->BytecodeCompiler.compileClassWithExceptionRuntime(writer.toByteArray()));
+            assertTrue(failure.getMessage().contains("format"),failure.getMessage());
+        }
     }
 
     private byte[] fixture(String source) throws Exception {
