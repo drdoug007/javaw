@@ -88,10 +88,9 @@ public final class TextFormats {
  }
  private static String decimal(Object value,Spec s,Locale locale){
   if(value==null)return "null";
-  if(value instanceof java.math.BigInteger)throw new UnsupportedOperationException("BigInteger formatting");
-  if(!(value instanceof Byte || value instanceof Short || value instanceof Integer || value instanceof Long))throw new IllegalFormatConversionException(conversion(s),value.getClass());
+  if(!(value instanceof Byte || value instanceof Short || value instanceof Integer || value instanceof Long || value instanceof java.math.BigInteger))throw new IllegalFormatConversionException(conversion(s),value.getClass());
   if(!(locale.equals(Locale.ROOT) || locale.equals(Locale.ENGLISH) || locale.equals(Locale.US) || locale.equals(Locale.UK)))throw new UnsupportedOperationException("Numeric format locale");
-  long n=((Number)value).longValue();String digits=Long.toString(n);boolean negative=n<0;
+  String digits=value.toString();boolean negative=digits.charAt(0)=='-';
   if(negative)digits=digits.substring(1);
   if(flag(s,',')){StringBuilder grouped=new StringBuilder();for(int i=0;i<digits.length();i++){if(i>0 && (digits.length()-i)%3==0)grouped.append(',');grouped.append(digits.charAt(i));}digits=grouped.toString();}
   String prefix=negative?(flag(s,'(')?"(":"-"):flag(s,'+')?"+":flag(s,' ')?" ":"";

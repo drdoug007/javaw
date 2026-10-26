@@ -51,3 +51,7 @@ String.format(Locale,...) and String.formatted(...) share the selected formattin
 ## Combined validation
 
 Combined v130–v139 validation: all 421 tests pass in the required offline bytecode suite (four forks), with zero failures, errors or skips. All 14 text/admission tests pass, including exhaustive Java 17 singleton uppercase, contextual casing, formatting and typed failures, excluded-form diagnostics, and pinned Jackson constructor/formatting-method carrier execution against the original-library JVM oracle. Unicode table regeneration and the reviewed 63-JAR audit check pass with unchanged inventory totals (26,625 classes and 734 resources). Selected core-JDK coverage is 1,003 declared signatures, 32 missing members and 302 missing owners. Lowercase/regex, excluded formatting, configurable locales, allocation stability and complete framework execution remain open.
+
+## BigInteger decimal formatting (big-integer-decimal-format-v140)
+
+Decimal formatting accepts arbitrary-precision integer values with signs, grouping, parentheses, alignment and zero padding. JVM/Wasm comparisons pass for zero, both signs and values beyond long range, including indexed reuse; primitive decimal and explicit-exclusion regressions pass.

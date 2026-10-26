@@ -233,11 +233,10 @@ class BytecodeTextFormatTest implements Opcodes {
             public class Metadata {public static int run(int group){int h=0;
              for(String f:new String[]{"%f","%e","%g","%a","%tY"})try{String.format(f,1.0);throw new Error();}catch(UnsupportedOperationException expected){h++;}
              try{String.format(Locale.GERMANY,"%d",1000);throw new Error();}catch(UnsupportedOperationException expected){h++;}
-             try{String.format("%d",BigInteger.ONE);throw new Error();}catch(UnsupportedOperationException expected){h++;}
              return h;}}
             """);
         // Excluded valid forms deliberately differ from the JDK formatter; verify the diagnostic contract.
-        for(boolean reverse:new boolean[]{false,true})execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),"[7]");
+        for(boolean reverse:new boolean[]{false,true})execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),"[6]");
     }
 
     @Test void formattingDiagnostics() throws Exception {
@@ -268,6 +267,18 @@ class BytecodeTextFormatTest implements Opcodes {
             m.visitInsn(ARETURN);m.visitMaxs(2,0);m.visitEnd();writer.visitEnd();
             assertThrows(IllegalArgumentException.class,()->BytecodeCompiler.compileClassWithExceptionRuntime(writer.toByteArray()));
         }
+    }
+
+    @Test void bigIntegerDecimalFormatting() throws Exception {
+        fixture("""
+            import java.math.*;import java.util.*;
+            public class Metadata {public static int run(int group){int h=1;
+             String[] values={"0","1","-1","1234567890123456789012345678901234567890","-9999999999999999999999999999999999999999999999999999999999999999"};
+             BigInteger v=new BigInteger(values[group]);
+             for(String f:new String[]{"%d","%+,d","%(,d","%+080d","%(080d","%-80d","% 80d","%+,080d","%1$d %<d"})h=31*h+String.format(Locale.ROOT,f,v).hashCode();
+             return h;}}
+
+            """);compare(5);
     }
 
     private byte[] fixture(String source) throws Exception {
