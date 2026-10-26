@@ -28,4 +28,10 @@ public final class StrictMath {
     public static double sqrt(double x){return Math.sqrt(x);}
     public static double toRadians(double x){return Math.toRadians(x);}
     public static double toDegrees(double x){return Math.toDegrees(x);}
+
+    public static double floor(double x){return Math.floor(x);}
+    public static double ceil(double x){return Math.ceil(x);}
+    public static double rint(double x){return Math.rint(x);}
+    public static long round(double x){return Math.round(x);}
+    public static int round(float x){return Math.round(x);}
 }
