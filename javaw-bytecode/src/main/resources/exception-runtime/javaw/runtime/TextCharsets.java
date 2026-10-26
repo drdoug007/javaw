@@ -7,6 +7,7 @@ public final class TextCharsets {
         if(name==null)throw new NullPointerException();
         if(name.equalsIgnoreCase("UTF-8") || name.equalsIgnoreCase("UTF8") || name.equalsIgnoreCase("unicode-1-1-utf-8"))return 0;
         if(name.equalsIgnoreCase("ISO-8859-1") || name.equalsIgnoreCase("cp819") || name.equalsIgnoreCase("ISO_8859_1") || name.equalsIgnoreCase("csISOLatin1") || name.equalsIgnoreCase("IBM819") || name.equalsIgnoreCase("latin1") || name.equalsIgnoreCase("ISO8859-1") || name.equalsIgnoreCase("iso-ir-100") || name.equalsIgnoreCase("ISO_8859-1:1987") || name.equalsIgnoreCase("ISO8859_1") || name.equalsIgnoreCase("819") || name.equalsIgnoreCase("l1") || name.equalsIgnoreCase("ISO_8859-1") || name.equalsIgnoreCase("8859_1") || name.equalsIgnoreCase("IBM-819"))return 1;
+        if(name.equalsIgnoreCase("US-ASCII") || name.equalsIgnoreCase("iso_646.irv:1983") || name.equalsIgnoreCase("ASCII") || name.equalsIgnoreCase("iso-ir-6") || name.equalsIgnoreCase("cp367") || name.equalsIgnoreCase("ANSI_X3.4-1986") || name.equalsIgnoreCase("us") || name.equalsIgnoreCase("646") || name.equalsIgnoreCase("ISO646-US") || name.equalsIgnoreCase("ISO_646.irv:1991") || name.equalsIgnoreCase("csASCII") || name.equalsIgnoreCase("IBM367") || name.equalsIgnoreCase("ascii7") || name.equalsIgnoreCase("ANSI_X3.4-1968"))return 2;
         throw new java.io.UnsupportedEncodingException(name);
     }
     public static byte[] encode(String text,String name) throws java.io.UnsupportedEncodingException {
@@ -29,6 +30,11 @@ public final class TextCharsets {
         int length=bytes.length;
         if(offset<0 || count<0 || offset>length-count)throw new StringIndexOutOfBoundsException();
         if(charset==0)return new String(bytes,offset,count);
+        if(charset==2){char[] chars=new char[count];
+            for(int j=0;j<count;j++){int b=bytes[offset+j]&255;chars[j]=(char)(b<128?b:0xfffd);}
+            return new String(chars);
+        }
+
         if(charset==1){char[] chars=new char[count];
             for(int j=0;j<count;j++){int b=bytes[offset+j]&255;chars[j]=(char)(b);}
             return new String(chars);

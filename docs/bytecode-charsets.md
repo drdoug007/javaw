@@ -17,3 +17,7 @@ ISO-8859-1 and its Java 17 aliases decode every unsigned byte to the correspondi
 ## Latin-1 String encoding (`latin1-encode-v123`)
 
 Latin-1 encoding preserves representable units and replaces unmappable units or surrogate pairs with one question-mark byte per unmappable character. Focused tests exercise exact output and typed failures with JVM/Wasm comparisons.
+
+## ASCII String decoding (`ascii-decode-v124`)
+
+US-ASCII aliases decode ASCII bytes exactly and replace each non-ASCII byte with U+FFFD. Focused tests exercise exact output and typed failures with JVM/Wasm comparisons.

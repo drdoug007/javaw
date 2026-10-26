@@ -111,6 +111,16 @@ class BytecodeCharsetTest implements Opcodes {
             """);compare(64);
     }
 
+    @Test void asciiDecoding() throws Exception {
+        fixture("""
+            public class Metadata {public static int run(int group) throws Exception {int hash=1;String[] names={"US-ASCII","iso_646.irv:1983","ASCII","iso-ir-6","cp367","ANSI_X3.4-1986","us","646","ISO646-US","ISO_646.irv:1991","csASCII","IBM367","ascii7","ANSI_X3.4-1968"};
+                for(String name:names)for(int b=0;b<256;b++){
+                    byte[] bytes={(byte)b,(byte)(255-b),65};String text=new String(bytes,name);
+                    hash=31*hash+text.hashCode()+text.length();hash=31*hash+new String(bytes,1,1,name).hashCode();
+                }return hash;}}
+            """);compare(1);
+    }
+
     private void compare(int groups) throws Exception {
         List<Integer> hashes=new ArrayList<>();
         try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)){
