@@ -55,3 +55,7 @@ Combined v130–v139 validation: all 421 tests pass in the required offline byte
 ## BigInteger decimal formatting (big-integer-decimal-format-v140)
 
 Decimal formatting accepts arbitrary-precision integer values with signs, grouping, parentheses, alignment and zero padding. JVM/Wasm comparisons pass for zero, both signs and values beyond long range, including indexed reuse; primitive decimal and explicit-exclusion regressions pass.
+
+## BigInteger octal formatting (big-integer-octal-format-v141)
+
+Octal formatting accepts arbitrary-precision signed magnitudes, alternate prefixes, signs, parentheses and prefix-aware zero padding. JVM/Wasm comparisons pass for zero and positive/negative values beyond long range; primitive unsigned-width formatting regressions remain passing.

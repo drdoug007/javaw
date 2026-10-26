@@ -77,7 +77,11 @@ public final class TextFormats {
  }
  private static String radix(Object value,Spec s){
   if(value==null)return "null";
-  if(value instanceof java.math.BigInteger)throw new UnsupportedOperationException("BigInteger formatting");
+  if(value instanceof java.math.BigInteger){
+   if(s.conversion!='o')throw new UnsupportedOperationException("BigInteger hexadecimal formatting");
+   java.math.BigInteger n=(java.math.BigInteger)value;
+   return decorate(n.abs().toString(8),n.signum()<0,flag(s,'#')?"0":"",s);
+  }
   if(!(value instanceof Byte || value instanceof Short || value instanceof Integer || value instanceof Long))throw new IllegalFormatConversionException(conversion(s),value.getClass());
   allowed(s,"-#0<");long n=((Number)value).longValue();
   if(value instanceof Byte)n&=255L;else if(value instanceof Short)n&=65535L;else if(value instanceof Integer)n&=4294967295L;
@@ -93,7 +97,11 @@ public final class TextFormats {
   String digits=value.toString();boolean negative=digits.charAt(0)=='-';
   if(negative)digits=digits.substring(1);
   if(flag(s,',')){StringBuilder grouped=new StringBuilder();for(int i=0;i<digits.length();i++){if(i>0 && (digits.length()-i)%3==0)grouped.append(',');grouped.append(digits.charAt(i));}digits=grouped.toString();}
+  return decorate(digits,negative,"",s);
+ }
+ private static String decorate(String digits,boolean negative,String radixPrefix,Spec s){
   String prefix=negative?(flag(s,'(')?"(":"-"):flag(s,'+')?"+":flag(s,' ')?" ":"";
+  prefix+=radixPrefix;
   String suffix=negative && flag(s,'(')?")":"";
   int zeros=s.width-prefix.length()-digits.length()-suffix.length();
   if(flag(s,'0') && zeros>0)digits="0".repeat(zeros)+digits;
