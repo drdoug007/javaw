@@ -89,4 +89,6 @@ public final class Math {
         return (long)value;
     }
 
+    public static int getExponent(float value){return ((Float.floatToRawIntBits(value)>>>23)&255)-127;}
+    public static int getExponent(double value){return (int)((Double.doubleToRawLongBits(value)>>>52)&2047)-1023;}
 }

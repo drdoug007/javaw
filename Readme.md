@@ -1954,3 +1954,5 @@ Bytecode numeric/text progress (v85–v89): BigDecimal context division and powe
 Bytecode subset `unsigned-shorts-v90`: Unsigned Short conversions. Short.toUnsignedInt/toUnsignedLong preserve every 16-bit pattern through masking, including method references. See [the numeric/text contract](docs/bytecode-numeric-text.md) and `BytecodeNumericTextTest`. Full framework execution remains open.
 
 Bytecode subset `string-copy-factories-v91`: String copy factories. Both copyValueOf overloads create defensive UTF-16 snapshots and preserve null/bounds exception types and precedence. See [the numeric/text contract](docs/bytecode-numeric-text.md) and `BytecodeNumericTextTest`. Full framework execution remains open.
+
+Bytecode subset `floating-exponents-v92`: Floating exponent extraction. Math.getExponent handles normal/subnormal values, both zeros, infinities and NaNs for float and double; tests cover every exponent transition and deterministic raw-bit patterns. See [the numeric/text contract](docs/bytecode-numeric-text.md) and `BytecodeNumericTextTest`. Full framework execution remains open.

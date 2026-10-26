@@ -51,3 +51,7 @@ Short.toUnsignedInt/toUnsignedLong preserve every 16-bit pattern through masking
 ## String copy factories (`string-copy-factories-v91`)
 
 Both copyValueOf overloads create defensive UTF-16 snapshots and preserve null/bounds exception types and precedence. JVM/Wasm comparisons exercise both JAR orders and independent instances. These are API conformance tests, not additional pinned-library or reachable-closure execution claims. Dependency inventory counts remain unchanged.
+
+## Floating exponent extraction (`floating-exponents-v92`)
+
+Math.getExponent handles normal/subnormal values, both zeros, infinities and NaNs for float and double; tests cover every exponent transition and deterministic raw-bit patterns. JVM/Wasm comparisons exercise both JAR orders and independent instances. These are API conformance tests, not additional pinned-library or reachable-closure execution claims. Dependency inventory counts remain unchanged.
