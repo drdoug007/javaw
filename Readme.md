@@ -1991,3 +1991,5 @@ Decimal floating subset 2/10 (`binary-scientific-format-v161`): Float/Double sci
 Decimal floating subset 3/10 (`binary-general-format-v162`): Float/Double general g/G formatting with significant-digit precision and notation selection after rounding. See [the formatting contract](docs/bytecode-floating-format.md) and `BytecodeFloatingFormatTest` for Java 17 JVM/Wasm evidence. Broader JDK/framework execution remains open.
 
 Decimal floating subset 4/10 (`binary-nonfinite-format-v163`): NaN and signed infinities for f/e/E/g/G, with ASCII uppercase, sign/parenthesis flags and space padding independent of precision and zero flags. See [the formatting contract](docs/bytecode-floating-format.md) and `BytecodeFloatingFormatTest` for Java 17 JVM/Wasm evidence. Broader JDK/framework execution remains open.
+
+Decimal floating subset 5/10 (`binary-signed-zero-format-v164`): Signed-zero and zero-exponent semantics, retaining negative signs and parentheses when finite values round to zero. See [the formatting contract](docs/bytecode-floating-format.md) and `BytecodeFloatingFormatTest` for Java 17 JVM/Wasm evidence. Broader JDK/framework execution remains open.

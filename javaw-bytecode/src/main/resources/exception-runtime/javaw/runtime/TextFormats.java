@@ -171,8 +171,7 @@ public final class TextFormats {
  private static String binaryFraction(double value,Spec s,Locale locale){
   if(Double.isNaN(value))return "NaN";
   if(Double.isInfinite(value))return decorate("Infinity",value<0,"",s,-1);
-  if(Double.doubleToRawLongBits(value)==Long.MIN_VALUE)throw new UnsupportedOperationException("Binary floating negative zero");
-  numericLocale(locale);boolean negative=value<0;int precision=s.precision<0?6:s.precision;
+  numericLocale(locale);boolean negative=Double.doubleToRawLongBits(value)<0;int precision=s.precision<0?6:s.precision;
   BigDecimal n=value==0?BigDecimal.ZERO:new BigDecimal(Decimal.formatText(Math.abs(value)));
   String digits=conversion(s)=='g'?general(n,precision==0?1:precision):conversion(s)=='e'?scientific(n,precision,flag(s,'#')):n.setScale(precision,RoundingMode.HALF_UP).toPlainString();
   if(conversion(s)=='f' && precision==0 && flag(s,'#'))digits+=".";

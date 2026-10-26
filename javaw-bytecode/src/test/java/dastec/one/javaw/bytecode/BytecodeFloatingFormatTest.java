@@ -89,6 +89,17 @@ class BytecodeFloatingFormatTest implements Opcodes {
             """);compare(7);
     }
 
+    @Test void signedZerosAndRoundedZeros() throws Exception {
+        fixture("""
+            import java.util.*;
+            public class Metadata {public static int run(int group){int h=1;
+             Locale[] locales={Locale.ROOT,Locale.GERMANY,Locale.FRANCE,new Locale("ar","EG")};
+             for(Object v:new Object[]{0.0,-0.0,0.0f,-0.0f,Double.MIN_VALUE,-Double.MIN_VALUE,Float.MIN_VALUE,-Float.MIN_VALUE,0.0000001,-0.0000001})
+              for(String f:new String[]{"%f","%e","%E","%g","%G","%.0f","%.0e","%.0g","%#.0f","%#.0e","%020.2f","%+020.1E","% 020.3G","%(020.0f","%-20.0G","%(020.2E","%+,020.1g"})h=31*h+String.format(locales[group],f,v).hashCode();
+             return h;}}
+            """);compare(4);
+    }
+
     private byte[] fixture(String source) throws Exception {
         Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
         List<String> options=new ArrayList<>(List.of("-g","-parameters","--release",release,"-d",directory.toString()));
