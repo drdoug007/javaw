@@ -59,3 +59,7 @@ Decimal formatting accepts arbitrary-precision integer values with signs, groupi
 ## BigInteger octal formatting (big-integer-octal-format-v141)
 
 Octal formatting accepts arbitrary-precision signed magnitudes, alternate prefixes, signs, parentheses and prefix-aware zero padding. JVM/Wasm comparisons pass for zero and positive/negative values beyond long range; primitive unsigned-width formatting regressions remain passing.
+
+## BigInteger hexadecimal formatting (big-integer-hex-format-v142)
+
+Hexadecimal x/X formatting accepts arbitrary-precision signed magnitudes, alternate prefixes, uppercase digits, parentheses and zero padding after sign and prefix. JVM/Wasm comparisons pass for zero and both signs beyond long range; primitive two-complement formatting remains a separate supported path.

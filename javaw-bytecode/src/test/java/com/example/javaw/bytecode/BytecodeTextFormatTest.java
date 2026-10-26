@@ -291,6 +291,16 @@ class BytecodeTextFormatTest implements Opcodes {
             """);compare(5);
     }
 
+    @Test void bigIntegerHexFormatting() throws Exception {
+        fixture("""
+            import java.math.*;import java.util.*;
+            public class Metadata {public static int run(int group){int h=1;
+             BigInteger v=new BigInteger(new String[]{"0","1","-1","123456789012345678901234567890","-9999999999999999999999999999999999999999999999999999"}[group]);
+             for(String f:new String[]{"%x","%X","%#x","%+x","% (80x","%+#080x","%(#080X","%-#80X","% 80x"})h=31*h+String.format(Locale.ROOT,f,v).hashCode();
+             return h;}}
+            """);compare(5);
+    }
+
     private byte[] fixture(String source) throws Exception {
         Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
         List<String> options=new ArrayList<>(List.of("-g","-parameters","--release",release,"-d",directory.toString()));

@@ -78,9 +78,8 @@ public final class TextFormats {
  private static String radix(Object value,Spec s){
   if(value==null)return "null";
   if(value instanceof java.math.BigInteger){
-   if(s.conversion!='o')throw new UnsupportedOperationException("BigInteger hexadecimal formatting");
    java.math.BigInteger n=(java.math.BigInteger)value;
-   return decorate(n.abs().toString(8),n.signum()<0,flag(s,'#')?"0":"",s);
+   return decorate(n.abs().toString(s.conversion=='o'?8:16),n.signum()<0,flag(s,'#')?(s.conversion=='o'?"0":"0x"):"",s);
   }
   if(!(value instanceof Byte || value instanceof Short || value instanceof Integer || value instanceof Long))throw new IllegalFormatConversionException(conversion(s),value.getClass());
   allowed(s,"-#0<");long n=((Number)value).longValue();
