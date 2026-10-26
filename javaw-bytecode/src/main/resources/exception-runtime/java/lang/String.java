@@ -11,18 +11,26 @@ public final class String implements CharSequence,Comparable<String>,java.io.Ser
     public String toLowerCase(java.util.Locale locale){
         String language=locale.getLanguage();
         boolean turkic=language.equals("tr") || language.equals("az");
-        if(language.equals("lt"))throw new UnsupportedOperationException("Contextual lowercase locale");
+        boolean lithuanian=language.equals("lt");
         StringBuilder out=new StringBuilder();boolean changed=false;
         for(int i=0;i<length();){
             int cp=codePointAt(i);i+=Character.charCount(cp);
             changed|=cp>=0x10000 || (cp>=0xd800 && cp<=0xdfff);
             if(cp==0x3a3){out.append((char)(lowerFinalSigma(i-1,language)?0x3c2:0x3c3));changed=true;continue;}
+            if(lithuanian && (cp=='I' || cp=='J' || cp==0x12e) && lowerMoreAbove(i)){out.appendCodePoint(Character.toLowerCase(cp)).append((char)0x307);changed=true;continue;}
+            if(lithuanian && (cp==0xcc || cp==0xcd || cp==0x128)){out.append('i').append((char)0x307).append((char)(cp==0xcc?0x300:cp==0xcd?0x301:0x303));changed=true;continue;}
             if(turkic && cp=='I'){out.append(lowerBeforeDot(i)?'i':(char)0x131);changed=true;continue;}
             if(turkic && cp==0x307 && lowerAfterI(i-1)){changed=true;continue;}
             if(cp==0x130){out.append('i');if(!turkic)out.append((char)0x307);changed=true;}
             else{int lower=Character.toLowerCase(cp);out.appendCodePoint(lower);changed|=lower!=cp;}
         }
         return changed?out.toString():this;
+    }
+    private boolean lowerMoreAbove(int index){
+        while(index<length()){
+            int cp=codePointAt(index),cc=javaw.runtime.StringUpperData.combining(cp);
+            if(cc==230)return true;if(cc==0)return false;index+=Character.charCount(cp);
+        }return false;
     }
     private boolean lowerBeforeDot(int index){
         while(index<length()){

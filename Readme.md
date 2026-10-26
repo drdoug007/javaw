@@ -1994,3 +1994,5 @@ Lowercase/text subset 2/10 (`unicode-root-lowercase-v171`): ROOT Unicode lowerca
 Lowercase/text subset 3/10 (`contextual-final-sigma-v172`): Final-sigma lowercase using Java 17 boundary-query and cased-character semantics; word punctuation, combining marks, supplementary contexts and surrogate cuts are compared with the JVM. Thai dictionary-dependent sigma contexts are explicitly excluded. See [the runtime contract](docs/bytecode-lowercase.md) and `BytecodeLowercaseTest`. Broader JDK/framework execution remains open.
 
 Lowercase/text subset 4/10 (`turkic-lowercase-v173`): Turkish/Azeri dotted and dotless I, conditional dot removal, combining-class barriers, locale normalization and unchanged identity. See [the runtime contract](docs/bytecode-lowercase.md) and `BytecodeLowercaseTest`. Broader JDK/framework execution remains open.
+
+Lowercase/text subset 5/10 (`lithuanian-lowercase-v174`): Lithuanian dot retention before above accents, I/J/ogonek contexts, precomposed grave/acute/tilde expansions and combining-class barriers. See [the runtime contract](docs/bytecode-lowercase.md) and `BytecodeLowercaseTest`. Broader JDK/framework execution remains open.

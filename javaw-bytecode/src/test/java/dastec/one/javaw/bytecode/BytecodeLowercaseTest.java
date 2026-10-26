@@ -72,6 +72,16 @@ class BytecodeLowercaseTest implements Opcodes {
             """);compare(256);
     }
 
+    @Test void lithuanianLowercase() throws Exception {
+        fixture("""
+            import java.util.*;
+            public class Metadata {public static int run(int group){int h=1;Locale l=new Locale("LT","lt");
+             for(String s:new String[]{"","IJĮĮÌÍĨİ","I\\u0307","J\\u0301","Į\\u0323\\u0301","I\\u034f\\u0301","ÌÍĨ","I\\u0307\\u0307","ΟΣI","𐐀J","i"}){String lower=s.toLowerCase(l);h=31*h+lower.hashCode();h=31*h+(s==lower?1:0);}
+             for(int cp=group*256;cp<group*256+256;cp+=13){String c=new String(Character.toChars(cp));for(String s:new String[]{"I"+c+"\\u0301", "J"+c,"Į"+c+"\\u0307",c+"I","I"+c+"J\\u0301"})h=31*h+s.toLowerCase(l).hashCode();}
+             return h;}}
+            """);compare(256);
+    }
+
     private byte[] fixture(String source) throws Exception {
         Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
         List<String> options=new ArrayList<>(List.of("-g","-parameters","--release",release,"-d",directory.toString()));
