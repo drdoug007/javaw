@@ -105,4 +105,14 @@ public final class Math {
         exponent-=52;
         return Double.longBitsToDouble(exponent>=-1022?(long)(exponent+1023)<<52:1L<<(exponent+1074));
     }
+    public static float nextUp(float value){
+        if(Float.isNaN(value) || value==1.0f/0.0f)return value;
+        if(value==0)return Float.intBitsToFloat(1);
+        int bits=Float.floatToRawIntBits(value);return Float.intBitsToFloat(value>0?bits+1:bits-1);
+    }
+    public static double nextUp(double value){
+        if(Double.isNaN(value) || value==1.0/0.0)return value;
+        if(value==0)return Double.longBitsToDouble(1);
+        long bits=Double.doubleToRawLongBits(value);return Double.longBitsToDouble(value>0?bits+1:bits-1);
+    }
 }
