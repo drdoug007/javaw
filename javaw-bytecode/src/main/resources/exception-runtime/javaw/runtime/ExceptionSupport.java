@@ -2,6 +2,7 @@ package javaw.runtime;
 
 /** Initialization failure adapters plus module-local stack/metadata intrinsics. */
 public final class ExceptionSupport {
+    public static double doubleSqrt(double value){return 0;}
     public static long doubleBits(double value){return 0;}
     public static int floatBits(float value){return 0;}
     public static double doubleValue(long bits){return 0;}

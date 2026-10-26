@@ -223,6 +223,86 @@ java.util.List<Integer> list=new java.util.ArrayList<>(java.util.Arrays.asList(3
         Files.write(selected,original);compare(List.of("run"));assertArrayEquals(original,Files.readAllBytes(selected));
     }
 
+    @Test void squareRootsMatchIeeeBoundariesAndRawPatterns() throws Exception {
+        fixture("""
+            import java.util.function.DoubleUnaryOperator;
+            public class Metadata {public static int run(){int hash=1;
+                DoubleUnaryOperator root=Math::sqrt;
+                long[] boundaries={0,Long.MIN_VALUE,1,2,3,-1,0x000fffffffffffffL,0x0010000000000000L,
+                    0x3fefffffffffffffL,0x3ff0000000000000L,0x3ff0000000000001L,0x4000000000000000L,
+                    0x4010000000000000L,0x7fefffffffffffffL,0x7ff0000000000000L,0xfff0000000000000L,
+                    0x7ff0000000000001L,0x7ff8000000000000L,0xbff0000000000000L};
+                for(long bits:boundaries){double value=Double.longBitsToDouble(bits);
+                    hash=31*hash+Double.hashCode(Math.sqrt(value));hash=31*hash+Double.hashCode(root.applyAsDouble(value));}
+                for(int exponent=0;exponent<2047;exponent++)for(long offset:new long[]{-1,0,1}){
+                    long bits=((long)exponent<<52)+offset;
+                    hash=31*hash+Double.hashCode(Math.sqrt(Double.longBitsToDouble(bits)));}
+                long bits=42;for(int i=0;i<10000;i++){bits=bits*6364136223846793005L+1442695040888963407L;
+                    hash=31*hash+Double.hashCode(Math.sqrt(Double.longBitsToDouble(bits)));}
+                return hash;
+            }}
+            """);compare(List.of("run"));
+    }
+
+    @Test void angularConversionsPreserveRoundingAndSpecialValues() throws Exception {
+        fixture("""
+            import java.util.function.DoubleUnaryOperator;
+            public class Metadata {public static int run(){int hash=1;
+                DoubleUnaryOperator radians=Math::toRadians,degrees=Math::toDegrees;
+                double[] cases={0.0,-0.0,Double.MIN_VALUE,-Double.MIN_VALUE,Double.MIN_NORMAL,
+                    Double.MAX_VALUE,-Double.MAX_VALUE,Double.POSITIVE_INFINITY,Double.NEGATIVE_INFINITY,Double.NaN,
+                    1,-1,90,-90,180,360,Math.PI,Math.E};
+                for(double value:cases){hash=31*hash+Double.hashCode(radians.applyAsDouble(value));
+                    hash=31*hash+Double.hashCode(degrees.applyAsDouble(value));}
+                long bits=1234;for(int i=0;i<10000;i++){bits=bits*6364136223846793005L+1442695040888963407L;
+                    double value=Double.longBitsToDouble(bits);
+                    hash=31*hash+Double.hashCode(Math.toRadians(value));hash=31*hash+Double.hashCode(Math.toDegrees(value));}
+                return hash;
+            }}
+            """);compare(List.of("run"));
+    }
+
+    @Test void executesOriginalPinnedH2StandardDeviationBodies() throws Exception {
+        Path artifact=Path.of(System.getProperty("maven.repo.local",Path.of(System.getProperty("user.home"),".m2","repository").toString())).resolve("com/h2database/h2/2.2.224/h2-2.2.224.jar");
+        assertEquals("b9d8f19358ada82a4f6eb5b174c6cfe320a375b5a9cb5a4fe456d623e6e55497",HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(artifact))));
+        String name="org/h2/engine/QueryStatisticsData$QueryEntry";
+        ClassNode selected=new ClassNode();
+        try(JarFile jar=new JarFile(artifact.toFile())){new ClassReader(jar.getInputStream(jar.getJarEntry(name+".class")).readAllBytes()).accept(selected,0);}
+        selected.methods.removeIf(method->!Set.of("<init>","getExecutionTimeStandardDeviation","getRowCountStandardDeviation").contains(method.name));
+        assertEquals(3,selected.methods.size());
+        // Supply private accumulated statistics without replacing any retained H2 instruction.
+        MethodNode state=new MethodNode(ACC_PUBLIC,"testState","(IDD)V",null,null);
+        state.visitCode();state.visitVarInsn(ALOAD,0);state.visitVarInsn(ILOAD,1);state.visitFieldInsn(PUTFIELD,name,"count","I");
+        state.visitVarInsn(ALOAD,0);state.visitVarInsn(DLOAD,2);state.visitFieldInsn(PUTFIELD,name,"executionTimeM2Nanos","D");
+        state.visitVarInsn(ALOAD,0);state.visitVarInsn(DLOAD,4);state.visitFieldInsn(PUTFIELD,name,"rowCountM2","D");
+        state.visitInsn(RETURN);state.visitMaxs(3,6);state.visitEnd();selected.methods.add(state);
+        ClassWriter writer=new ClassWriter(0);selected.accept(writer);
+        Path file=directory.resolve(name+".class");Files.createDirectories(file.getParent());Files.write(file,writer.toByteArray());
+        fixtureClasspath=directory+File.pathSeparator+artifact;
+        fixture("""
+            import org.h2.engine.QueryStatisticsData.QueryEntry;
+            public class Metadata {public static int run(){int hash=1;
+                QueryEntry entry=new QueryEntry("select 1");
+                for(int count:new int[]{-1,0,1,2,3,17,Integer.MAX_VALUE})
+                    for(double m2:new double[]{0,-0.0,1,2,9,Double.MIN_VALUE,Double.MAX_VALUE,Double.POSITIVE_INFINITY,Double.NaN,-1}){
+                        entry.testState(count,m2,m2*0.5);
+                        hash=31*hash+Double.hashCode(entry.getExecutionTimeStandardDeviation());
+                        hash=31*hash+Double.hashCode(entry.getRowCountStandardDeviation());
+                    }
+                return hash;
+            }}
+            """);compare(List.of("run"));
+    }
+
+    @Test void malformedSquareRootDescriptorDoesNotBypassLinkage() {
+        ClassWriter writer=new ClassWriter(0);writer.visit(V17,ACC_PUBLIC,"BadMath",null,"java/lang/Object",null);
+        MethodVisitor method=writer.visitMethod(ACC_PUBLIC|ACC_STATIC,"run","()D",null,null);
+        method.visitCode();method.visitInsn(LCONST_0);method.visitMethodInsn(INVOKESTATIC,"java/lang/Math","sqrt","(J)D",false);
+        method.visitInsn(DRETURN);method.visitMaxs(2,0);method.visitEnd();writer.visitEnd();
+        var failure=assertThrows(IllegalArgumentException.class,()->BytecodeCompiler.compileClassWithExceptionRuntime(writer.toByteArray()));
+        assertTrue(failure.getMessage().contains("sqrt"),failure.getMessage());
+    }
+
     private void compare(List<String> names) throws Exception {
         StringBuilder assertions=new StringBuilder();
         try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)){

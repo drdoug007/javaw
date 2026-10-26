@@ -105,6 +105,7 @@ public class BytecodeCompiler {
         if (!implicit.isEmpty() || classes.stream().anyMatch(BytecodeExceptions::usesRuntime)) combinedWat.append(BytecodeExceptions.TAG_WAT);
         for (var kind : implicit) combinedWat.append(runtimeDispatch.implicitExceptionRuntimeWat(kind));
         if(exceptionRuntime)combinedWat.append("""
+            (func $__double_sqrt (param f64) (result f64) local.get 0 f64.sqrt)
             (func $__double_bits (param f64) (result i64) local.get 0 i64.reinterpret_f64)
             (func $__float_bits (param f32) (result i32) local.get 0 i32.reinterpret_f32)
             (func $__double_value (param i64) (result f64) local.get 0 f64.reinterpret_i64)

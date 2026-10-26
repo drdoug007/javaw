@@ -174,6 +174,7 @@ public final class BytecodeDispatch {
     public String exceptionSupportIntrinsic(MethodInsnNode call) {
         if (!exceptionRuntimeEnabled() || !call.owner.equals("javaw/runtime/ExceptionSupport") || call.getOpcode() != Opcodes.INVOKESTATIC) return null;
         String metadata = switch(call.name+call.desc) {
+            case "doubleSqrt(D)D" -> "$__double_sqrt";
             case "doubleBits(D)J" -> "$__double_bits";
             case "floatBits(F)I" -> "$__float_bits";
             case "doubleValue(J)D" -> "$__double_value";

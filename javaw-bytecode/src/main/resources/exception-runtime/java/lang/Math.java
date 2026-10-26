@@ -3,6 +3,11 @@ package java.lang;
 /** Selected numeric operations for the isolated linked bytecode runtime. */
 public final class Math {
     private Math() {}
+    public static final double E=2.718281828459045;
+    public static final double PI=3.141592653589793;
+    public static double sqrt(double value){return javaw.runtime.ExceptionSupport.doubleSqrt(value);}
+    public static double toRadians(double degrees){return degrees*0.017453292519943295;}
+    public static double toDegrees(double radians){return radians*57.29577951308232;}
     public static int max(int a,int b){return a>=b?a:b;}
     public static int min(int a,int b){return a<=b?a:b;}
     public static long max(long a,long b){return a>=b?a:b;}
