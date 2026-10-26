@@ -75,3 +75,7 @@ Scientific e/E formatting rounds BigDecimal with HALF_UP, pads fractional digits
 ## BigDecimal general formatting (big-decimal-general-format-v145)
 
 General g/G formatting rounds to significant digits and selects fixed or scientific notation after carry, with Java 17 scaled-zero behavior, retained trailing precision, grouping and padding. JVM/Wasm comparisons pass around notation thresholds, precision zero, nulls, signs and extreme scales. Binary floating decimal formatting remains excluded.
+
+## German numeric localization (german-numeric-format-v146)
+
+Selected GERMAN/GERMANY numeric formatting uses comma decimal and period grouping symbols for integral and BigDecimal conversions, including zero padding and scientific exponents. JVM/Wasm comparisons pass for signs, large integers, rounding and notation; hexadecimal output remains ASCII. Other locale identities remain explicitly excluded pending selected support.

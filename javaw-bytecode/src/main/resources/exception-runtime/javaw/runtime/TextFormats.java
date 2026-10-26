@@ -104,10 +104,19 @@ public final class TextFormats {
   String digits=value.toString();boolean negative=digits.charAt(0)=='-';
   if(negative)digits=digits.substring(1);
   if(flag(s,',')){StringBuilder grouped=new StringBuilder();for(int i=0;i<digits.length();i++){if(i>0 && (digits.length()-i)%3==0)grouped.append(',');grouped.append(digits.charAt(i));}digits=grouped.toString();}
-  return decorate(digits,negative,"",s);
+  return localize(decorate(digits,negative,"",s),locale);
  }
- private static void numericLocale(Locale locale){
-  if(!(locale.equals(Locale.ROOT) || locale.equals(Locale.ENGLISH) || locale.equals(Locale.US) || locale.equals(Locale.UK)))throw new UnsupportedOperationException("Numeric format locale");
+ private static int numericLocale(Locale locale){
+  if(locale.equals(Locale.ROOT) || locale.equals(Locale.ENGLISH) || locale.equals(Locale.US) || locale.equals(Locale.UK))return 0;
+  if(locale.equals(Locale.GERMAN) || locale.equals(Locale.GERMANY))return 1;
+  throw new UnsupportedOperationException("Numeric format locale");
+ }
+ private static String localize(String text,Locale locale){
+  int style=numericLocale(locale);if(style==0)return text;
+  char decimal=',',grouping='.';int zero='0';
+  StringBuilder out=new StringBuilder();for(int i=0;i<text.length();i++){char c=text.charAt(i);
+   out.append(c=='.'?decimal:c==','?grouping:c>='0' && c<='9'?(char)(zero+c-'0'):c);
+  }return out.toString();
  }
  private static String grouped(String digits,Spec s){
   if(!flag(s,','))return digits;
@@ -123,7 +132,7 @@ public final class TextFormats {
   if(conversion(s)=='g')digits=general(n.abs(),precision==0?1:precision);
   else if(conversion(s)=='e')digits=scientific(n.abs(),precision,flag(s,'#'));
   else {digits=n.abs().setScale(precision,RoundingMode.HALF_UP).toPlainString();if(precision==0 && flag(s,'#'))digits+=".";}
-  return decorate(grouped(digits,s),n.signum()<0,"",s);
+  return localize(decorate(grouped(digits,s),n.signum()<0,"",s),locale);
  }
  private static String general(BigDecimal n,int precision){
   BigDecimal rounded=n.round(new MathContext(precision,RoundingMode.HALF_UP));

@@ -232,7 +232,7 @@ class BytecodeTextFormatTest implements Opcodes {
             import java.math.BigInteger;
             public class Metadata {public static int run(int group){int h=0;
              for(String f:new String[]{"%f","%e","%g","%a","%tY"})try{String.format(f,1.0);throw new Error();}catch(UnsupportedOperationException expected){h++;}
-             try{String.format(Locale.GERMANY,"%d",1000);throw new Error();}catch(UnsupportedOperationException expected){h++;}
+             try{String.format(Locale.JAPAN,"%d",1000);throw new Error();}catch(UnsupportedOperationException expected){h++;}
              return h;}}
             """);
         // Excluded valid forms deliberately differ from the JDK formatter; verify the diagnostic contract.
@@ -330,6 +330,17 @@ class BytecodeTextFormatTest implements Opcodes {
              for(String f:new String[]{"%g","%G","%.0g","%.1g","%+.3g","% 40.2G","%(045.2g","%-40.9g","%,.12g"})h=31*h+String.format(Locale.ROOT,f,values[group]).hashCode();
              return h;}}
             """);compare(13);
+    }
+
+    @Test void germanNumericFormatting() throws Exception {
+        fixture("""
+            import java.math.*;import java.util.*;
+            public class Metadata {public static int run(int group){int h=1;
+             Locale l=group==0?Locale.GERMAN:Locale.GERMANY;
+             for(Object n:new Object[]{-1234567L,0,BigInteger.TEN.pow(40).negate()})for(String f:new String[]{"%,d","%+,060d","%(,060d","%#025x"})h=31*h+String.format(l,f,n).hashCode();
+             for(BigDecimal n:new BigDecimal[]{new BigDecimal("-1234567.895"),new BigDecimal("0.000012345"),new BigDecimal("9.9999995"),new BigDecimal("0.00")})for(String f:new String[]{"%,.2f","%+,060.2f","%(,060.5g","%.3e","%E"})h=31*h+String.format(l,f,n).hashCode();
+             return h;}}
+            """);compare(2);
     }
 
     private byte[] fixture(String source) throws Exception {
