@@ -71,3 +71,7 @@ Math.nextDown steps one representable value toward negative infinity for float/d
 ## Directed adjacent floating values (`floating-next-after-v96`)
 
 Both Math.nextAfter overloads retain the double direction, preserve the destination zero sign on equality and handle NaNs, infinities and underflow/overflow boundaries. JVM/Wasm comparisons exercise both JAR orders and independent instances. These are API conformance tests, not additional pinned-library or reachable-closure execution claims. Dependency inventory counts remain unchanged.
+
+## Power-of-two floating scaling (`floating-scaling-v97`)
+
+Math.scalb preserves a single final rounding, signed zeros, subnormal ties and saturation for all int scale factors. Tests cross every exponent transition and random values with 48 scale boundaries including both int extremes. JVM/Wasm comparisons exercise both JAR orders and independent instances. These are API conformance tests, not additional pinned-library or reachable-closure execution claims. Dependency inventory counts remain unchanged.

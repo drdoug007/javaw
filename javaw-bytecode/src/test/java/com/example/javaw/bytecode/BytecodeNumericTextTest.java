@@ -168,6 +168,27 @@ class BytecodeNumericTextTest implements Opcodes {
             """);compare(List.of("run"));
     }
 
+    @Test void floatingScaling() throws Exception {
+        fixture("""
+            public class Metadata {
+                static final int[] scales={Integer.MIN_VALUE,-2100,-2099,-1075,-1074,-1024,-1023,-1022,-1021,-513,-512,-511,-279,-278,-277,-150,-149,-127,-126,-125,-54,-53,-52,-25,-24,-23,-1,0,1,23,24,52,53,125,126,127,128,277,278,279,511,512,513,1023,1024,2099,2100,Integer.MAX_VALUE};
+                static int sample(int hash,int bits,long wide){
+                    float f=Float.intBitsToFloat(bits);double d=Double.longBitsToDouble(wide);
+                    for(int scale:scales){hash=31*hash+Float.floatToIntBits(Math.scalb(f,scale));
+                        long b=Double.doubleToLongBits(Math.scalb(d,scale));hash=31*hash+(int)(b^(b>>>32));}return hash;
+                }
+                public static int run(){int hash=1;
+                    for(int e=0;e<256;e++)for(int delta=-1;delta<=1;delta++)for(int sign=0;sign<2;sign++)
+                        hash=sample(hash,((e<<23)+delta)^(sign<<31),0);
+                    for(int e=0;e<2048;e++)for(int delta=-1;delta<=1;delta++)for(int sign=0;sign<2;sign++)
+                        hash=sample(hash,0,(((long)e<<52)+delta)^((long)sign<<63));
+                    long seed=17;for(int i=0;i<3000;i++){seed=seed*6364136223846793005L+1442695040888963407L;hash=sample(hash,(int)(seed>>>32),seed);}
+                    java.util.function.BiFunction<Double,Integer,Double> op=Math::scalb;hash+=op.apply(1.0,-1074).hashCode();
+                    return hash;}}
+
+            """);compare(List.of("run"));
+    }
+
     @Test void unsignedBytesAndMethodReferences() throws Exception {
         fixture("""
             import java.util.function.*;

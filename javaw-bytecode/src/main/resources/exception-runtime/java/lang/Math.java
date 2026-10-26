@@ -135,4 +135,20 @@ public final class Math {
         if(start==direction)return direction;
         return start<direction?nextUp(start):nextDown(start);
     }
+    public static float scalb(float value,int scale){
+        // The double product is exact; narrowing performs the sole float rounding.
+        scale=max(-278,min(278,scale));
+        return (float)((double)value*Double.longBitsToDouble((long)(scale+1023)<<52));
+    }
+    public static double scalb(double value,int scale){
+        // Chunk factors are normal powers of two. Only the final nonzero
+        // subnormal product can round; monotone scaling cannot recover overflow.
+        scale=max(-2099,min(2099,scale));
+        int remainder=scale%512;
+        double result=value*Double.longBitsToDouble((long)(remainder+1023)<<52);
+        scale-=remainder;
+        while(scale>0){result*=0x1.0p512;scale-=512;}
+        while(scale<0){result*=0x1.0p-512;scale+=512;}
+        return result;
+    }
 }
