@@ -28,9 +28,10 @@ def main():
     result = result.replace('package java.lang;',
         '// Javaw adaptation, 2026-10-26: selected algorithms; inline unavailable Double\n'
         '// constants; route internal StrictMath calls through portable Math adapters.\n'
+        '// Hypot omits its internal assertion and uses exact scalb for powerOfTwoD.\n'
         '// The original GPLv2 with Classpath exception continues to apply.\n'
         'package java.lang;')
-    for name in ['Exp', 'Log', 'Log10', 'Pow', 'Sin', 'Cos', 'RemPio2', 'KernelRemPio2', 'Tan', 'Asin', 'Acos', 'Atan', 'Atan2', 'Expm1', 'Log1p', 'Sinh', 'Cosh', 'Tanh', 'Cbrt']:
+    for name in ['Exp', 'Log', 'Log10', 'Pow', 'Sin', 'Cos', 'RemPio2', 'KernelRemPio2', 'Tan', 'Asin', 'Acos', 'Atan', 'Atan2', 'Expm1', 'Log1p', 'Sinh', 'Cosh', 'Tanh', 'Cbrt', 'Hypot']:
         start = source.index('    static final class ' + name + ' ')
         cursor = masked.index('{', start) + 1
         depth = 1
@@ -40,7 +41,7 @@ def main():
             elif masked[cursor] == '}':
                 depth -= 1
             cursor += 1
-        result += source[start:cursor].replace('Double.MAX_VALUE', '0x1.fffffffffffffp1023').replace('StrictMath.', 'Math.').replace('Double.NaN', '(0.0/0.0)') + '\n'
+        result += source[start:cursor].replace('Double.MAX_VALUE', '0x1.fffffffffffffp1023').replace('StrictMath.', 'Math.').replace('Double.NaN', '(0.0/0.0)').replace('Double.MIN_NORMAL', '0x1.0p-1022').replace('            assert a >= b;','            // Ordering is established by the preceding swap.').replace('Math.powerOfTwoD(k)', 'Math.scalb(1.0, k)') + '\n'
     result += '}\n'
     destination = resources / 'java/lang/FdLibm.java'
     if args.check:

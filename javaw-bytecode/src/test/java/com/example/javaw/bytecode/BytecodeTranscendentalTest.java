@@ -169,8 +169,51 @@ class BytecodeTranscendentalTest implements Opcodes {
 
     @Test void cbrtPortable() throws Exception {unary("cbrt",StrictMath::cbrt,Math::cbrt);}
 
+    @Test void hypotPairs() throws Exception {
+        List<Double> bases=new ArrayList<>(),powers=new ArrayList<>();
+        double[] edges={0,-0.0,1,-1,2,-2,0.5,-0.5,Double.MIN_VALUE,-Double.MIN_VALUE,Double.MIN_NORMAL,
+            Math.nextDown(0x1p500),0x1p500,Math.nextUp(0x1p500),0x1p-500,0x1p600,0x1p-600,
+            Double.MAX_VALUE,Double.POSITIVE_INFINITY,Double.NEGATIVE_INFINITY,Double.NaN,
+            0x1.fffffffffffffp-1,0x1.0000000000001p0,-0x1.fffffffffffffp-1,-0x1.0000000000001p0};
+        double[] exponents={0,-0.0,0.5,-0.5,1,-1,2,-2,3,-3,4,-4,31,-31,1023,-1023,1024,-1074,1075,
+            0x1p31,-0x1p31,0x1p52-1,0x1p52,0x1p53-1,0x1p53,Math.nextDown(0x1p500),0x1p500,Math.nextUp(0x1p500),0x1p-500,0x1p600,0x1p-600,
+            Double.MAX_VALUE,Double.POSITIVE_INFINITY,Double.NEGATIVE_INFINITY,Double.NaN};
+        for(double x:edges)for(double y:exponents){bases.add(x);powers.add(y);}
+        long bits=17;for(int i=0;i<1536;i++){
+            bits=bits*6364136223846793005L+1442695040888963407L;double x=Double.longBitsToDouble(bits);
+            bits=bits*6364136223846793005L+1442695040888963407L;double y=i%3==0?(double)(int)(bits>>32):Double.longBitsToDouble(bits);
+            bases.add(x);powers.add(y);
+        }
+        for(int i=0;i<512;i++){
+            bits=bits*6364136223846793005L+1442695040888963407L;double x=(bits>>>11)*0x1p-52+0.5;
+            bits=bits*6364136223846793005L+1442695040888963407L;double y=(bits>>11)*0x1p-41;
+            bases.add(i%2==0?x:-x);powers.add(y);
+        }
+        for(int exponent=0;exponent<2048;exponent+=16){
+            double x=Double.longBitsToDouble(((long)exponent<<52)|0x921fb54442d18L);
+            for(double y:new double[]{Math.nextDown(x),x,Math.nextUp(x),-x,0x1p-1022,0x1p500}){
+                bases.add(x);powers.add(y);bases.add(y);powers.add(-x);
+            }
+        }
+        StringJoiner xb=new StringJoiner(","),yb=new StringJoiner(",");
+        for(int i=0;i<bases.size();i++){xb.add(Double.doubleToRawLongBits(bases.get(i))+"L");yb.add(Double.doubleToRawLongBits(powers.get(i))+"L");}
+        fixture("public class Metadata {static final long[] x=x(),y=y();static long[] x(){return new long[]{"+xb+"};}static long[] y(){return new long[]{"+yb+"};}"+
+            "public static int run(int group){java.util.function.DoubleBinaryOperator reference=Math::hypot;int hash=1;"+
+            "for(int i=group*64;i<x.length && i<(group+1)*64;i++){double a=Double.longBitsToDouble(x[i]),b=Double.longBitsToDouble(y[i]);double result=Math.hypot(a,b);"+
+            "long bits=Double.doubleToLongBits(result);if(bits!=Double.doubleToLongBits(reference.applyAsDouble(a,b)))throw new Error();"+
+            "hash=31*hash+(int)(bits^(bits>>>32));}return hash;}}");
+        List<Integer> hashes=new ArrayList<>();
+        for(int start=0;start<bases.size();start+=64){int hash=1;
+            for(int i=start;i<Math.min(start+64,bases.size());i++){
+                double x=bases.get(i),y=powers.get(i),expected=StrictMath.hypot(x,y);
+                checkMathAllowance(expected,Math.hypot(x,y),"hypot "+x+" "+y);
+                long b=Double.doubleToLongBits(expected);hash=31*hash+(int)(b^(b>>>32));
+            }hashes.add(hash);
+        }compare(hashes);
+    }
+
     @Test void malformedDescriptors() {
-        for(String name:List.of("exp","log","log10","pow","sin","cos","tan","asin","acos","atan","atan2","expm1","log1p","sinh","cosh","tanh","cbrt")){
+        for(String name:List.of("exp","log","log10","pow","sin","cos","tan","asin","acos","atan","atan2","expm1","log1p","sinh","cosh","tanh","cbrt","hypot")){
             ClassWriter writer=new ClassWriter(0);writer.visit(V17,ACC_PUBLIC,"BadTranscendental",null,"java/lang/Object",null);
             MethodVisitor method=writer.visitMethod(ACC_PUBLIC|ACC_STATIC,"run","()F",null,null);
             method.visitCode();method.visitInsn(FCONST_0);if(List.of("pow","atan2","hypot","IEEEremainder").contains(name))method.visitInsn(FCONST_0);

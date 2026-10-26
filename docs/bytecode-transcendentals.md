@@ -89,3 +89,7 @@ Math.tanh: Expm1 transforms preserve tiny signed inputs and saturate at signed o
 ## Cube root (`fdlibm-cbrt-v116`)
 
 Math.cbrt: Exponent scaling and corrected iteration cover negative inputs, subnormals and signed zeros. Canonical-bit JVM StrictMath comparisons cover both JAR orders, direct calls, method references and fresh Wasm instances. Malformed float descriptors are rejected. No new pinned-library execution claim is made.
+
+## Scaled Euclidean norm (`fdlibm-hypot-v117`)
+
+Math.hypot: Scaling and compensated square roots avoid premature overflow and underflow; infinity dominates NaN. Canonical-bit JVM StrictMath comparisons cover both JAR orders, direct calls, method references and fresh Wasm instances. Malformed float descriptors are rejected. No new pinned-library execution claim is made.

@@ -168,4 +168,5 @@ public final class Math {
     public static double cosh(double x){return FdLibm.Cosh.compute(x);}
     public static double tanh(double x){return FdLibm.Tanh.compute(x);}
     public static double cbrt(double x){return FdLibm.Cbrt.compute(x);}
+    public static double hypot(double x,double y){return FdLibm.Hypot.compute(x,y);}
 }

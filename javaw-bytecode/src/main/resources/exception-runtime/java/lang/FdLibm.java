@@ -25,6 +25,7 @@
 
 // Javaw adaptation, 2026-10-26: selected algorithms; inline unavailable Double
 // constants; route internal StrictMath calls through portable Math adapters.
+// Hypot omits its internal assertion and uses exact scalb for powerOfTwoD.
 // The original GPLv2 with Classpath exception continues to apply.
 package java.lang;
 
@@ -2005,6 +2006,110 @@ final class FdLibm {
 
             // Restore the original sign bit
             return sign * t;
+        }
+    }
+    static final class Hypot {
+        public static final double TWO_MINUS_600 = 0x1.0p-600;
+        public static final double TWO_PLUS_600  = 0x1.0p+600;
+
+        private Hypot() {
+            throw new UnsupportedOperationException();
+        }
+
+        public static double compute(double x, double y) {
+            double a = Math.abs(x);
+            double b = Math.abs(y);
+
+            if (!Double.isFinite(a) || !Double.isFinite(b)) {
+                if (a == INFINITY || b == INFINITY)
+                    return INFINITY;
+                else
+                    return a + b; // Propagate NaN significand bits
+            }
+
+            if (b > a) {
+                double tmp = a;
+                a = b;
+                b = tmp;
+            }
+            // Ordering is established by the preceding swap.
+
+            // Doing bitwise conversion after screening for NaN allows
+            // the code to not worry about the possibility of
+            // "negative" NaN values.
+
+            // Note: the ha and hb variables are the high-order
+            // 32-bits of a and b stored as integer values. The ha and
+            // hb values are used first for a rough magnitude
+            // comparison of a and b and second for simulating higher
+            // precision by allowing a and b, respectively, to be
+            // decomposed into non-overlapping portions. Both of these
+            // uses could be eliminated. The magnitude comparison
+            // could be eliminated by extracting and comparing the
+            // exponents of a and b or just be performing a
+            // floating-point divide.  Splitting a floating-point
+            // number into non-overlapping portions can be
+            // accomplished by judicious use of multiplies and
+            // additions. For details see T. J. Dekker, A Floating-Point
+            // Technique for Extending the Available Precision,
+            // Numerische Mathematik, vol. 18, 1971, pp.224-242 and
+            // subsequent work.
+
+            int ha = __HI(a);        // high word of a
+            int hb = __HI(b);        // high word of b
+
+            if ((ha - hb) > 0x3c00000) {
+                return a + b;  // x / y > 2**60
+            }
+
+            int k = 0;
+            if (a > 0x1.00000_ffff_ffffp500) {   // a > ~2**500
+                // scale a and b by 2**-600
+                ha -= 0x25800000;
+                hb -= 0x25800000;
+                a = a * TWO_MINUS_600;
+                b = b * TWO_MINUS_600;
+                k += 600;
+            }
+            double t1, t2;
+            if (b < 0x1.0p-500) {   // b < 2**-500
+                if (b < 0x1.0p-1022) {      // subnormal b or 0 */
+                    if (b == 0.0)
+                        return a;
+                    t1 = 0x1.0p1022;   // t1 = 2^1022
+                    b *= t1;
+                    a *= t1;
+                    k -= 1022;
+                } else {            // scale a and b by 2^600
+                    ha += 0x25800000;       // a *= 2^600
+                    hb += 0x25800000;       // b *= 2^600
+                    a = a * TWO_PLUS_600;
+                    b = b * TWO_PLUS_600;
+                    k -= 600;
+                }
+            }
+            // medium size a and b
+            double w = a - b;
+            if (w > b) {
+                t1 = 0;
+                t1 = __HI(t1, ha);
+                t2 = a - t1;
+                w  = Math.sqrt(t1*t1 - (b*(-b) - t2 * (a + t1)));
+            } else {
+                double y1, y2;
+                a  = a + a;
+                y1 = 0;
+                y1 = __HI(y1, hb);
+                y2 = b - y1;
+                t1 = 0;
+                t1 = __HI(t1, ha + 0x00100000);
+                t2 = a - t1;
+                w  = Math.sqrt(t1*y1 - (w*(-w) - (t1*y2 + t2*b)));
+            }
+            if (k != 0) {
+                return Math.scalb(1.0, k) * w;
+            } else
+                return w;
         }
     }
 }

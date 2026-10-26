@@ -1,5 +1,6 @@
 FdLibm.java is adapted from OpenJDK 21.0.2 (GraalVM Community) java.base/java/lang/FdLibm.java.
 Source SHA-256: f1c8f58db6d010532182fd2370f35e1cf7ac03f71f90a793fd15f4f88323dc46
 The original copyright and GPLv2 with Classpath exception are preserved.
-Only selected nested algorithms are bundled; Double constants are inlined and internal logarithm calls use Math.log.
+Only selected nested algorithms are bundled; Double constants are inlined and internal StrictMath calls use portable Math adapters.
+Hypot omits the internal ordering assertion (the preceding swap establishes it) and uses Math.scalb(1.0,k) for exact power-of-two scaling.
 Adaptation date: 2026-10-26. The modified source retains the GPLv2 with Classpath exception.
