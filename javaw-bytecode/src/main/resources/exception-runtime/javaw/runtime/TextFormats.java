@@ -169,11 +169,10 @@ public final class TextFormats {
   return localize(decorate(grouped(digits,s),n.signum()<0,"",s),locale);
  }
  private static String binaryFraction(double value,Spec s,Locale locale){
-  if(conversion(s)!='f' && conversion(s)!='e')throw new UnsupportedOperationException("Binary floating conversion");
   if(!Double.isFinite(value) || Double.doubleToRawLongBits(value)==Long.MIN_VALUE)throw new UnsupportedOperationException("Binary floating special value");
   numericLocale(locale);boolean negative=value<0;int precision=s.precision<0?6:s.precision;
   BigDecimal n=value==0?BigDecimal.ZERO:new BigDecimal(Decimal.formatText(Math.abs(value)));
-  String digits=conversion(s)=='e'?scientific(n,precision,flag(s,'#')):n.setScale(precision,RoundingMode.HALF_UP).toPlainString();
+  String digits=conversion(s)=='g'?general(n,precision==0?1:precision):conversion(s)=='e'?scientific(n,precision,flag(s,'#')):n.setScale(precision,RoundingMode.HALF_UP).toPlainString();
   if(conversion(s)=='f' && precision==0 && flag(s,'#'))digits+=".";
   return localize(decorate(grouped(digits,s),negative,"",s),locale);
  }

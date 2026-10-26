@@ -1987,3 +1987,5 @@ Bytecode StrictMath progress (v150–v159): ten subsets expose square root/angle
 Decimal floating subset 1/10 (`binary-fixed-format-v160`): Float/Double fixed-point f formatting with Java 17 decimal digit generation and HALF_UP precision. See [the formatting contract](docs/bytecode-floating-format.md) and `BytecodeFloatingFormatTest` for Java 17 JVM/Wasm evidence. Broader JDK/framework execution remains open.
 
 Decimal floating subset 2/10 (`binary-scientific-format-v161`): Float/Double scientific e/E formatting with rounded mantissas, exponent padding and alternate decimal points. See [the formatting contract](docs/bytecode-floating-format.md) and `BytecodeFloatingFormatTest` for Java 17 JVM/Wasm evidence. Broader JDK/framework execution remains open.
+
+Decimal floating subset 3/10 (`binary-general-format-v162`): Float/Double general g/G formatting with significant-digit precision and notation selection after rounding. See [the formatting contract](docs/bytecode-floating-format.md) and `BytecodeFloatingFormatTest` for Java 17 JVM/Wasm evidence. Broader JDK/framework execution remains open.

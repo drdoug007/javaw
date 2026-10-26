@@ -231,12 +231,12 @@ class BytecodeTextFormatTest implements Opcodes {
             import java.util.*;
             import java.math.BigInteger;
             public class Metadata {public static int run(int group){int h=0;
-             for(String f:new String[]{"%g","%tY"})try{String.format(f,1.0);throw new Error();}catch(UnsupportedOperationException expected){h++;}
+             for(String f:new String[]{"%tY"})try{String.format(f,1.0);throw new Error();}catch(UnsupportedOperationException expected){h++;}
              try{String.format(Locale.JAPAN,"%d",1000);throw new Error();}catch(UnsupportedOperationException expected){h++;}
              return h;}}
             """);
         // Excluded valid forms deliberately differ from the JDK formatter; verify the diagnostic contract.
-        for(boolean reverse:new boolean[]{false,true})execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),"[3]");
+        for(boolean reverse:new boolean[]{false,true})execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),"[2]");
     }
 
     @Test void formattingDiagnostics() throws Exception {
