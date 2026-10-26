@@ -53,6 +53,11 @@ public final class TextFormats {
    if((flag(s,'+') && flag(s,' ')) || (flag(s,'-') && flag(s,'0')))throw new IllegalFormatFlagsException(flagsText(s));
    allowed(s,c=='f'?"-#+ 0,(<":(c=='g' || c=='G')?"-+ 0,(<":"-#+ 0(<");return;
   }
+  if(c=='a' || c=='A'){
+   if(flag(s,'0') && s.width<0)throw new MissingFormatWidthException(s.raw);
+   if((flag(s,'+') && flag(s,' ')) || (flag(s,'-') && flag(s,'0')))throw new IllegalFormatFlagsException(flagsText(s));
+   allowed(s,"-#+ 0<");return;
+  }
   throw new UnsupportedOperationException("Formatting conversion: "+c);
  }
  public static String format(Locale locale,String format,Object[] args){
@@ -65,7 +70,8 @@ public final class TextFormats {
    if(index<0 || (args!=null && index>=args.length))throw new MissingFormatArgumentException(s.raw);last=index;
    Object value=args==null?null:args[index];String text;
    if((c=='s' || c=='S') && flag(s,'#'))throw new FormatFlagsConversionMismatchException("#",conversion(s));
-   if(c=='f' || c=='e' || c=='E' || c=='g' || c=='G')text=decimalFraction(value,s,locale);
+   if(c=='a' || c=='A')text=hexFloat(value,s);
+   else if(c=='f' || c=='e' || c=='E' || c=='g' || c=='G')text=decimalFraction(value,s,locale);
    else if(c=='o' || c=='x' || c=='X')text=radix(value,s);
    else if(c=='d')text=decimal(value,s,locale);
    else if(c=='b' || c=='B')text=value==null?"false":value instanceof Boolean?value.toString():"true";
@@ -78,7 +84,7 @@ public final class TextFormats {
    }else text=String.valueOf(value);
    int textPrecision=s.precision;
    if(textPrecision>=0 && (value==null || "sSbBhH".indexOf(c)>=0) && text.length()>textPrecision)text=text.substring(0,textPrecision);
-   if(c>='A' && c<='Z')text=text.toUpperCase(locale);
+   if(c>='A' && c<='Z')text=text.toUpperCase(c=='A'?Locale.ROOT:locale);
    out.append(pad(text,s));
   }
   return out.toString();
@@ -96,6 +102,32 @@ public final class TextFormats {
   String prefix=flag(s,'#')?(s.conversion=='o'?"0":"0x"):"";
   int zeros=s.width-prefix.length()-digits.length();if(flag(s,'0') && zeros>0)digits="0".repeat(zeros)+digits;
   return prefix+digits;
+ }
+ private static String hexFloat(Object value,Spec s){
+  if(value==null)return "null";
+  if(!(value instanceof Double || value instanceof Float))throw new IllegalFormatConversionException(conversion(s),value.getClass());
+  double n=((Number)value).doubleValue();long bits=Double.doubleToRawLongBits(n);boolean negative=bits<0;
+  long magnitude=bits&Long.MAX_VALUE,fraction=magnitude&0xfffffffffffffL;int field=(int)(magnitude>>>52);
+  if(field==2047){if(fraction!=0)return "NaN";return (negative?"-":flag(s,'+')?"+":flag(s,' ')?" ":"")+"Infinity";}
+  int precision=s.precision==0?1:s.precision;int exponent=field==0?(magnitude==0?0:-1022):field-1023;
+  String digits;
+  if(precision>0 && precision<13 && magnitude!=0){
+   if(field==0){long scaled=Double.doubleToRawLongBits(Math.scalb(Math.abs(n),54));fraction=scaled&0xfffffffffffffL;exponent=(int)(scaled>>>52)-1023-54;}
+   long significand=fraction|0x10000000000000L;int drop=52-4*precision;
+   long kept=significand>>>drop,remainder=significand&((1L<<drop)-1),half=1L<<(drop-1);
+   if(remainder>half || (remainder==half && (kept&1)!=0))kept++;
+   if(kept==(1L<<(4*precision+1))){kept>>>=1;exponent++;}
+   String hex=Long.toHexString(kept);digits=hex.substring(0,1)+"."+hex.substring(1);
+  }else {
+   String hex=Long.toHexString(fraction);hex="0".repeat(13-hex.length())+hex;
+   if(precision<0){int end=hex.length();while(end>1 && hex.charAt(end-1)=='0')end--;hex=hex.substring(0,end);}
+   else if(precision<13)hex=hex.substring(0,precision);else if(precision>13)hex+="0".repeat(precision-13);
+   digits=(field==0?"0":"1")+"."+hex;
+  }
+  int width=s.width;
+  // Java 17 calculates hexadecimal zero padding before appending precision zeros.
+  if(flag(s,'0') && precision>0){int end=digits.length(),dot=digits.indexOf('.');while(end>dot+2 && digits.charAt(end-1)=='0')end--;width+=digits.length()-end;}
+  return decorate(digits+"p"+exponent,negative,"0x",s,width);
  }
  private static String decimal(Object value,Spec s,Locale locale){
   if(value==null)return "null";
@@ -151,11 +183,12 @@ public final class TextFormats {
   String power=Long.toString(exponent<0?-exponent:exponent);if(power.length()<2)power="0"+power;
   return mantissa+"e"+(exponent<0?"-":"+")+power;
  }
- private static String decorate(String digits,boolean negative,String radixPrefix,Spec s){
+ private static String decorate(String digits,boolean negative,String radixPrefix,Spec s){return decorate(digits,negative,radixPrefix,s,s.width);}
+ private static String decorate(String digits,boolean negative,String radixPrefix,Spec s,int width){
   String prefix=negative?(flag(s,'(')?"(":"-"):flag(s,'+')?"+":flag(s,' ')?" ":"";
   prefix+=radixPrefix;
   String suffix=negative && flag(s,'(')?")":"";
-  int zeros=s.width-prefix.length()-digits.length()-suffix.length();
+  int zeros=width-prefix.length()-digits.length()-suffix.length();
   if(flag(s,'0') && zeros>0)digits="0".repeat(zeros)+digits;
   return prefix+digits+suffix;
  }

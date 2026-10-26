@@ -231,12 +231,12 @@ class BytecodeTextFormatTest implements Opcodes {
             import java.util.*;
             import java.math.BigInteger;
             public class Metadata {public static int run(int group){int h=0;
-             for(String f:new String[]{"%f","%e","%g","%a","%tY"})try{String.format(f,1.0);throw new Error();}catch(UnsupportedOperationException expected){h++;}
+             for(String f:new String[]{"%f","%e","%g","%tY"})try{String.format(f,1.0);throw new Error();}catch(UnsupportedOperationException expected){h++;}
              try{String.format(Locale.JAPAN,"%d",1000);throw new Error();}catch(UnsupportedOperationException expected){h++;}
              return h;}}
             """);
         // Excluded valid forms deliberately differ from the JDK formatter; verify the diagnostic contract.
-        for(boolean reverse:new boolean[]{false,true})execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),"[6]");
+        for(boolean reverse:new boolean[]{false,true})execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),"[5]");
     }
 
     @Test void formattingDiagnostics() throws Exception {
@@ -365,6 +365,81 @@ class BytecodeTextFormatTest implements Opcodes {
             """);compare(2);
     }
 
+    @Test void hexFloatingFormatting() throws Exception {
+        fixture("""
+            import java.util.*;
+            public class Metadata {public static int run(int group){int h=1;
+             long[] edge={0L,Long.MIN_VALUE,1L,0x000fffffffffffffL,0x0010000000000000L,0x7fefffffffffffffL,0x7ff0000000000000L,0xfff0000000000000L,0x7ff8000000000000L,0xfff0000000000001L,0x3ff1800000000000L,0x3ff2800000000000L};
+             for(int i=group*8;i<(group+1)*8;i++){
+              long bits=i<edge.length?edge[i]:((long)i*0x9e3779b97f4a7c15L)^0xd1b54a32d192ed03L;
+              for(Object n:new Object[]{Double.longBitsToDouble(bits),Float.intBitsToFloat(i<edge.length?new int[]{0,0x80000000,1,0x7fffff,0x800000,0x7f7fffff,0x7f800000,0xff800000,0x7fc00000,0xff800001,0x3f8c0000,0x3f940000}[i]:(int)(bits>>>17)),null})
+               for(String f:new String[]{"%a","%A","%.0a","%.1a","%.2a","%.6a","%.12a","%.13a","%.15a","%+030.3a","%-30a"})h=31*h+String.format(Locale.ROOT,f,n).hashCode();
+             }
+             h=31*h+String.format(new Locale("tr"),"%A",Double.POSITIVE_INFINITY).hashCode();
+             return h;}}
+            """);compare(64);
+    }
+
+    @Test void hexFloatingRounding() throws Exception {
+        fixture("""
+            import java.util.*;
+            public class Metadata {public static int run(int group){int h=1,p=group+1,drop=52-4*p;long base=1L<<(4*p);
+             for(int edge=0;edge<8;edge++)for(int delta=-1;delta<=1;delta++){
+              long kept=base|(edge==7?base-1:edge),sig=(kept<<drop)+(1L<<(drop-1))+delta;
+              for(long sign:new long[]{0,Long.MIN_VALUE}){
+               double n=Double.longBitsToDouble(sign|0x3ff0000000000000L|(sig&0xfffffffffffffL));
+               h=31*h+String.format(Locale.ROOT,"%."+p+"a",n).hashCode();
+               h=31*h+String.format(Locale.ROOT,"%030."+p+"A",n).hashCode();
+              }
+             }return h;}}
+            """);compare(12);
+    }
+
+    @Test void pinnedJacksonNumericFormatting() throws Exception {
+        Path artifact=Path.of(System.getProperty("maven.repo.local",Path.of(System.getProperty("user.home"),".m2","repository").toString()))
+            .resolve("com/fasterxml/jackson/core/jackson-databind/2.15.4/jackson-databind-2.15.4.jar");
+        assertEquals("0f99ff7719eef3ee85608b3dee6ecf3c698003fe9d6e34eabbfabccdc9b5ac2c",
+            HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(artifact))));
+        ClassNode original=new ClassNode();
+        try(JarFile jar=new JarFile(artifact.toFile())){new ClassReader(jar.getInputStream(jar.getJarEntry("com/fasterxml/jackson/databind/DatabindContext.class"))).accept(original,0);}
+        ClassWriter carrier=new ClassWriter(0);carrier.visit(V17,ACC_PUBLIC,original.name,null,"java/lang/Object",null);
+        for(MethodNode method:original.methods)if(method.name.equals("<init>") || method.name.equals("_format"))method.accept(carrier);
+        carrier.visitEnd();Path file=directory.resolve(original.name+".class");Files.createDirectories(file.getParent());Files.write(file,carrier.toByteArray());
+        fixtureClasspath=directory.toString();
+        fixture("""
+            import java.math.*;
+            import com.fasterxml.jackson.databind.DatabindContext;
+            public class Metadata {
+             public static class Item extends DatabindContext {public String call(String f,Object... a){return _format(f,a);}}
+             public static int run(int group){int h=1;Item context=new Item();
+              BigInteger i=new BigInteger("-1234567890123456789012345678901234567890");
+              for(String f:new String[]{"%+,d","%(#080o","%+#080X"})h=31*h+context.call(f,i).hashCode();
+              for(String v:new String[]{"-123456.78995","0.00009999995","0.000"})for(String f:new String[]{"%+,030.3f","%.3e","%.5G"})h=31*h+context.call(f,new BigDecimal(v)).hashCode();
+              for(double d:new double[]{Double.MIN_VALUE,-0.0,Double.MAX_VALUE,Double.POSITIVE_INFINITY})h=31*h+context.call("%+030.2a",d).hashCode();
+              h=31*h+context.call("%not parsed").hashCode();
+              try{context.call("%s",(Object[])null);throw new Error();}catch(NullPointerException expected){h++;}
+              return h;}}
+            """);compare(1);
+    }
+
+    @Test void numericFormattingFailures() throws Exception {
+        fixture("""
+            import java.math.*;import java.util.*;
+            public class Metadata {
+             static int runCase(String f,Object v){try{return String.format(Locale.ROOT,f,v).hashCode();}catch(IllegalFormatException e){int h=e.getClass().getName().hashCode();
+              if(e instanceof IllegalFormatConversionException){h=31*h+((IllegalFormatConversionException)e).getConversion();h=31*h+((IllegalFormatConversionException)e).getArgumentClass().getName().hashCode();}
+              if(e instanceof MissingFormatWidthException)h=31*h+((MissingFormatWidthException)e).getFormatSpecifier().hashCode();
+              if(e instanceof IllegalFormatFlagsException)h=31*h+((IllegalFormatFlagsException)e).getFlags().hashCode();
+              if(e instanceof FormatFlagsConversionMismatchException){h=31*h+((FormatFlagsConversionMismatchException)e).getFlags().hashCode();h=31*h+((FormatFlagsConversionMismatchException)e).getConversion();}
+              return h;}}
+             public static int run(int group){int h=1;
+              for(String f:new String[]{"%f","%e","%E","%g","%G","%a","%A"})for(Object v:new Object[]{1L,true,BigInteger.ONE,"x",(char)65})h=31*h+runCase(f,v);
+              for(String f:new String[]{"%,e","%,E","%#g","%#G","%(a","%,a","%0f","%-0.2e","%+ g","%+ 10A","%#-g","%0-20.2f"})h=31*h+runCase(f,new BigDecimal("1.25"));
+              h=31*h+runCase("%a",new BigDecimal("1.25"));return h;
+             }}
+            """);compare(1);
+    }
+
     private byte[] fixture(String source) throws Exception {
         Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
         List<String> options=new ArrayList<>(List.of("-g","-parameters","--release",release,"-d",directory.toString()));
@@ -394,7 +469,7 @@ class BytecodeTextFormatTest implements Opcodes {
     private void compare(int groups) throws Exception {
         Path java=Path.of(System.getProperty("javaw.jdk17.home",System.getProperty("user.home")+"/Library/Java/JavaVirtualMachines/graalvm-ce-17.0.9/Contents/Home"),"bin/java");
         assertTrue(Files.isExecutable(java),"A JDK 17 oracle is required (javaw.jdk17.home)");
-        run(java.toString(),"-Duser.language=","-Duser.country=","-Duser.variant=","-cp",directory.toString(),"CaseOracle",fixtureClassName,Integer.toString(groups));
+        run(java.toString(),"-Djava.locale.providers=CLDR","-Duser.language=","-Duser.country=","-Duser.variant=","-cp",directory.toString(),"CaseOracle",fixtureClassName,Integer.toString(groups));
         String expected=Files.readString(directory.resolve("command.log")).trim();
         for(boolean reverse:new boolean[]{false,true})
             execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),expected);
