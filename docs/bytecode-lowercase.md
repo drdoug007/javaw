@@ -21,3 +21,4 @@ Completed subsets:
 - v172: Final-sigma lowercase using Java 17 boundary-query and cased-character semantics; word punctuation, combining marks, supplementary contexts and surrogate cuts are compared with the JVM. Thai dictionary-dependent sigma contexts are explicitly excluded.
 - v173: Turkish/Azeri dotted and dotless I, conditional dot removal, combining-class barriers, locale normalization and unchanged identity.
 - v174: Lithuanian dot retention before above accents, I/J/ogonek contexts, precomposed grave/acute/tilde expansions and combining-class barriers.
+- v175: String.toLowerCase() uses the isolated ROOT default, with direct calls, both overload method references, contextual sigma and Java 17 identity/Unicode behavior.

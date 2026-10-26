@@ -82,6 +82,17 @@ class BytecodeLowercaseTest implements Opcodes {
             """);compare(256);
     }
 
+    @Test void defaultLowercase() throws Exception {
+        fixture("""
+            import java.util.*;import java.util.function.*;
+            public class Metadata {public static int run(int group){int h=1;Function<String,String> f=String::toLowerCase;BiFunction<String,Locale,String> withLocale=String::toLowerCase;
+             for(String s:new String[]{"","abc","ABC","Iİıi","ΟΣ","ΑΣ'Α","𐐀Σ","𐐀",new String(new char[]{(char)0xd800,120,(char)0xdc00}),"A\\u0301Σ","ⱢĲẞ"}){
+              h=31*h+s.toLowerCase().hashCode();h=31*h+f.apply(s).hashCode();h=31*h+(s==s.toLowerCase()?1:0);
+              h=31*h+(s.toLowerCase().equals(withLocale.apply(s,Locale.ROOT))?1:0);
+             }return h;}}
+            """);compare(1);
+    }
+
     private byte[] fixture(String source) throws Exception {
         Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
         List<String> options=new ArrayList<>(List.of("-g","-parameters","--release",release,"-d",directory.toString()));

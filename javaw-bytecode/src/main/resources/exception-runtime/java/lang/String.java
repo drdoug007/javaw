@@ -8,6 +8,7 @@ public final class String implements CharSequence,Comparable<String>,java.io.Ser
     public static String format(java.util.Locale locale,String format,Object... args){return javaw.runtime.TextFormats.format(locale,format,args);}
     public String formatted(Object... args){return format(this,args);}
     public static String format(String format,Object... args){return javaw.runtime.TextFormats.format(java.util.Locale.getDefault(),format,args);}
+    public String toLowerCase(){return toLowerCase(java.util.Locale.getDefault());}
     public String toLowerCase(java.util.Locale locale){
         String language=locale.getLanguage();
         boolean turkic=language.equals("tr") || language.equals("az");

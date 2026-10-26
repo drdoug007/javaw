@@ -1996,3 +1996,5 @@ Lowercase/text subset 3/10 (`contextual-final-sigma-v172`): Final-sigma lowercas
 Lowercase/text subset 4/10 (`turkic-lowercase-v173`): Turkish/Azeri dotted and dotless I, conditional dot removal, combining-class barriers, locale normalization and unchanged identity. See [the runtime contract](docs/bytecode-lowercase.md) and `BytecodeLowercaseTest`. Broader JDK/framework execution remains open.
 
 Lowercase/text subset 5/10 (`lithuanian-lowercase-v174`): Lithuanian dot retention before above accents, I/J/ogonek contexts, precomposed grave/acute/tilde expansions and combining-class barriers. See [the runtime contract](docs/bytecode-lowercase.md) and `BytecodeLowercaseTest`. Broader JDK/framework execution remains open.
+
+Lowercase/text subset 6/10 (`default-lowercase-v175`): String.toLowerCase() uses the isolated ROOT default, with direct calls, both overload method references, contextual sigma and Java 17 identity/Unicode behavior. See [the runtime contract](docs/bytecode-lowercase.md) and `BytecodeLowercaseTest`. Broader JDK/framework execution remains open.
