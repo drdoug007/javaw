@@ -5,3 +5,7 @@ The isolated bytecode runtime uses UTF-8 by default. Named conversions support o
 ## Named UTF-8 String constructors (`named-utf8-decode-v120`)
 
 Named whole-array and sliced String constructors resolve UTF-8 aliases, preserve replacement behavior and report unsupported names before array bounds failures. Focused tests exercise exact output and typed failures with JVM/Wasm comparisons.
+
+## Named UTF-8 String encoding (`named-utf8-encode-v121`)
+
+String.getBytes(String) supports UTF-8 aliases with isolated-surrogate replacement, fresh output arrays and typed unknown/null-name failures. Focused tests exercise exact output and typed failures with JVM/Wasm comparisons.
