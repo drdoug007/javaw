@@ -237,6 +237,17 @@ public class BigDecimal extends Number implements Comparable<BigDecimal>,java.io
         return multiply(other).roundedContext(context);
     }
 
+    public BigDecimal divideToIntegralValue(BigDecimal other,MathContext context){
+        int precision=context.getPrecision();
+        BigDecimal quotient=divideToIntegralValue(other);
+        if(precision==0 || quotient.precision()<=precision)return quotient;
+        // Only trailing zeros may be discarded: rounding must never change the integer.
+        BigDecimal compact=quotient.stripTrailingZeros();
+        if(compact.precision()>precision)throw new ArithmeticException();
+        int scale=scaleChecked((long)quotient.decimalScale-(quotient.precision()-precision));
+        return compact.setScale(Math.max(compact.decimalScale,scale));
+    }
+
     public BigDecimal ulp(){return new BigDecimal(BigInteger.ONE,decimalScale);}
     private static int clampedScale(long scale){return scale<Integer.MIN_VALUE?Integer.MIN_VALUE:scale>Integer.MAX_VALUE?Integer.MAX_VALUE:(int)scale;}
     private int checkedScale(long scale){return signum()==0?clampedScale(scale):scaleChecked(scale);}
