@@ -40,6 +40,25 @@ class BytecodeFloatingFormatTest implements Opcodes {
             """);compare(80);
     }
 
+    @Test void finiteScientific() throws Exception {
+        fixture("""
+            import java.util.*;
+            public class Metadata {
+             public static int run(int group){
+              double[] edges={0,1,-1,0.1,0.005,0.015,2.675,-2.675,9.995,99.9995,1e23,1e-4,1e-5,1e-6,1e-7,Double.MIN_VALUE,-Double.MIN_VALUE,Double.MIN_NORMAL,Double.MAX_VALUE,Math.nextDown(1e23),Math.nextUp(1e23),0x1p60,Math.nextUp(0x1p60),0x1p-1022};
+              long bits=12345+group;for(int i=0;i<9;i++)bits=bits*6364136223846793005L+1442695040888963407L;
+              double n=group<edges.length?edges[group]:Double.longBitsToDouble(bits);
+              if(!Double.isFinite(n) || n==0)n=1.2345678901234567;
+              float f=(float)n;if(!Float.isFinite(f) || f==0)f=Float.intBitsToFloat((int)bits&0x7f7fffff);
+              int h=1;
+              for(Object value:new Object[]{Double.valueOf(n),Float.valueOf(f)})
+               for(String format:new String[]{"%e","%E","%.0e","%#.0e","%.2e","%.6E","%.17e","%.25E","%+040.3e","% 40.2E","%(045.2e","%-40.9E"})h=31*h+String.format(Locale.ROOT,format,value).hashCode();
+              return h;
+             }
+            }
+            """);compare(100);
+    }
+
     private byte[] fixture(String source) throws Exception {
         Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
         List<String> options=new ArrayList<>(List.of("-g","-parameters","--release",release,"-d",directory.toString()));

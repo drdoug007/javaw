@@ -13,3 +13,4 @@ locales remain unsupported. The isolated default locale is ROOT.
 Completed subsets:
 
 - v160: Float/Double fixed-point f formatting with Java 17 decimal digit generation and HALF_UP precision.
+- v161: Float/Double scientific e/E formatting with rounded mantissas, exponent padding and alternate decimal points.
