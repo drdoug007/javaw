@@ -242,6 +242,31 @@ class BytecodeStrictMathTest implements Opcodes {
             """);compare(List.of("run"));
     }
 
+    @Test void integerArithmetic() throws Exception {
+        fixture("""
+            public class Metadata {
+            interface Scale {double apply(double x,int n);}
+            interface Fused {double apply(double a,double b,double c);}
+            static int d(int h,double x){return 31*h+Long.hashCode(Double.doubleToLongBits(x));}
+            static int f(int h,float x){return 31*h+Float.floatToIntBits(x);}
+            public static int run(){
+             double[] values={0.0,-0.0,1,-1,0.5,-0.5,1.5,-1.5,2.5,-2.5,Double.MIN_VALUE,-Double.MIN_VALUE,Double.MIN_NORMAL,Double.MAX_VALUE,Double.POSITIVE_INFINITY,Double.NEGATIVE_INFINITY,Double.NaN,Double.longBitsToDouble(0xfff8000000000001L)};
+             long[] edges={0,Long.MIN_VALUE,Long.MAX_VALUE,-1,1,0x8000000000000001L,0x7fefffffffffffffL,0x0010000000000000L,0x000fffffffffffffL,0x7ff0000000000000L,0xfff0000000000000L,0x7ff8000000000000L,0xfff8000000000001L,0x80000000L,0x7fffffffL,0x7f800000L,0xff800000L,0x7fc00000L,0xffc00001L,0x00800000L,0x007fffffL};
+             int h=1;long state=123456789;
+             java.util.function.LongBinaryOperator op=StrictMath::multiplyHigh;
+             for(int k=0;k<600;k++){
+             state=state*6364136223846793005L+1442695040888963407L;
+             long bits=k<edges.length*edges.length?edges[k%edges.length]:state,other=edges[(k/edges.length)%edges.length];
+             double x=k<values.length?values[k]:Double.longBitsToDouble(bits);
+             float f=Float.intBitsToFloat((int)bits);int i=(int)bits,j=(int)other;
+             try{h=31*h+StrictMath.addExact(i,j);}catch(ArithmeticException e){h=31*h+23;}try{h=31*h+Long.hashCode(StrictMath.addExact(bits,other));}catch(ArithmeticException e){h=31*h+23;}try{h=31*h+StrictMath.subtractExact(i,j);}catch(ArithmeticException e){h=31*h+23;}try{h=31*h+Long.hashCode(StrictMath.subtractExact(bits,other));}catch(ArithmeticException e){h=31*h+23;}try{h=31*h+StrictMath.multiplyExact(i,j);}catch(ArithmeticException e){h=31*h+23;}try{h=31*h+Long.hashCode(StrictMath.multiplyExact(bits,other));}catch(ArithmeticException e){h=31*h+23;}try{h=31*h+StrictMath.floorDiv(i,j);}catch(ArithmeticException e){h=31*h+23;}try{h=31*h+Long.hashCode(StrictMath.floorDiv(bits,other));}catch(ArithmeticException e){h=31*h+23;}try{h=31*h+StrictMath.floorMod(i,j);}catch(ArithmeticException e){h=31*h+23;}try{h=31*h+Long.hashCode(StrictMath.floorMod(bits,other));}catch(ArithmeticException e){h=31*h+23;}try{h=31*h+StrictMath.incrementExact(i);}catch(ArithmeticException e){h=31*h+29;}try{h=31*h+Long.hashCode(StrictMath.incrementExact(bits));}catch(ArithmeticException e){h=31*h+29;}try{h=31*h+StrictMath.decrementExact(i);}catch(ArithmeticException e){h=31*h+29;}try{h=31*h+Long.hashCode(StrictMath.decrementExact(bits));}catch(ArithmeticException e){h=31*h+29;}try{h=31*h+StrictMath.negateExact(i);}catch(ArithmeticException e){h=31*h+29;}try{h=31*h+Long.hashCode(StrictMath.negateExact(bits));}catch(ArithmeticException e){h=31*h+29;}try{h=31*h+StrictMath.toIntExact(bits);}catch(ArithmeticException e){h+=31;}h=31*h+Long.hashCode(StrictMath.multiplyFull(i,j));h=31*h+Long.hashCode(StrictMath.multiplyHigh(bits,other));try{h=31*h+Long.hashCode(StrictMath.multiplyExact(bits,j));}catch(ArithmeticException e){h+=37;}try{h=31*h+Long.hashCode(StrictMath.floorDiv(bits,j));h=31*h+StrictMath.floorMod(bits,j);}catch(ArithmeticException e){h+=41;}
+             h=d(h,(double)op.applyAsLong(bits,other));
+             }
+             return h;
+            }}
+            """);compare(List.of("run"));
+    }
+
     private void compare(List<String> names) throws Exception {
         StringBuilder assertions=new StringBuilder();
         try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)){

@@ -70,4 +70,27 @@ public final class StrictMath {
 
     public static float scalb(float x,int n){return Math.scalb(x,n);}
     public static double scalb(double x,int n){return Math.scalb(x,n);}
+
+    public static int addExact(int a,int b){return Math.addExact(a,b);}
+    public static long addExact(long a,long b){return Math.addExact(a,b);}
+    public static int subtractExact(int a,int b){return Math.subtractExact(a,b);}
+    public static long subtractExact(long a,long b){return Math.subtractExact(a,b);}
+    public static int multiplyExact(int a,int b){return Math.multiplyExact(a,b);}
+    public static long multiplyExact(long a,long b){return Math.multiplyExact(a,b);}
+    public static int floorDiv(int a,int b){return Math.floorDiv(a,b);}
+    public static long floorDiv(long a,long b){return Math.floorDiv(a,b);}
+    public static int floorMod(int a,int b){return Math.floorMod(a,b);}
+    public static long floorMod(long a,long b){return Math.floorMod(a,b);}
+    public static int incrementExact(int x){return Math.incrementExact(x);}
+    public static long incrementExact(long x){return Math.incrementExact(x);}
+    public static int decrementExact(int x){return Math.decrementExact(x);}
+    public static long decrementExact(long x){return Math.decrementExact(x);}
+    public static int negateExact(int x){return Math.negateExact(x);}
+    public static long negateExact(long x){return Math.negateExact(x);}
+    public static int toIntExact(long x){return Math.toIntExact(x);}
+    public static long multiplyFull(int a,int b){return Math.multiplyFull(a,b);}
+    public static long multiplyHigh(long a,long b){return Math.multiplyHigh(a,b);}
+    public static long multiplyExact(long a,int b){return Math.multiplyExact(a,b);}
+    public static long floorDiv(long a,int b){return Math.floorDiv(a,b);}
+    public static int floorMod(long a,int b){return Math.floorMod(a,b);}
 }
