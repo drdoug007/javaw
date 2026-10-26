@@ -109,11 +109,12 @@ public final class TextFormats {
  private static int numericLocale(Locale locale){
   if(locale.equals(Locale.ROOT) || locale.equals(Locale.ENGLISH) || locale.equals(Locale.US) || locale.equals(Locale.UK))return 0;
   if(locale.equals(Locale.GERMAN) || locale.equals(Locale.GERMANY))return 1;
+  if(locale.equals(Locale.FRENCH) || locale.equals(Locale.FRANCE))return 2;
   throw new UnsupportedOperationException("Numeric format locale");
  }
  private static String localize(String text,Locale locale){
   int style=numericLocale(locale);if(style==0)return text;
-  char decimal=',',grouping='.';int zero='0';
+  char decimal=',',grouping=style==2?' ':'.';int zero='0';
   StringBuilder out=new StringBuilder();for(int i=0;i<text.length();i++){char c=text.charAt(i);
    out.append(c=='.'?decimal:c==','?grouping:c>='0' && c<='9'?(char)(zero+c-'0'):c);
   }return out.toString();
