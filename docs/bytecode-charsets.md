@@ -13,3 +13,7 @@ String.getBytes(String) supports UTF-8 aliases with isolated-surrogate replaceme
 ## Latin-1 String decoding (`latin1-decode-v122`)
 
 ISO-8859-1 and its Java 17 aliases decode every unsigned byte to the corresponding UTF-16 unit. Focused tests exercise exact output and typed failures with JVM/Wasm comparisons.
+
+## Latin-1 String encoding (`latin1-encode-v123`)
+
+Latin-1 encoding preserves representable units and replaces unmappable units or surrogate pairs with one question-mark byte per unmappable character. Focused tests exercise exact output and typed failures with JVM/Wasm comparisons.

@@ -94,6 +94,23 @@ class BytecodeCharsetTest implements Opcodes {
             """);compare(1);
     }
 
+    @Test void latin1Encoding() throws Exception {
+        fixture("""
+            import java.util.Arrays;
+            public class Metadata {
+                static int encoded(String text,String name){try{byte[] bytes=text.getBytes(name);return 31*Arrays.hashCode(bytes)+bytes.length;}
+                    catch(Exception e){return e.getClass().getName().hashCode();}}
+                public static int run(int group) throws Exception {int hash=1;String name="ISO-8859-1";
+                    for(int c=group*1024;c<(group+1)*1024;c++)hash=31*hash+encoded(new String(new char[]{(char)c}),name);
+                    int[] units={0,65,127,128,255,256,0xd800,0xdbff,0xdc00,0xdfff,0xffff};
+                    for(int b:units)for(int c:units)hash=31*hash+encoded(new String(new char[]{(char)(0xd800+group),(char)b,(char)c}),name);
+                    if(group==0){for(String n:new String[]{null,"","!","unknown",name})hash=31*hash+encoded("é😀",n);
+                        String text="Aé😀";byte[] a=text.getBytes(name),b=text.getBytes(name);if(a==b)throw new Error();a[0]=0;if(b[0]!=65)throw new Error();
+                        if("".getBytes(name)=="".getBytes(name))throw new Error();}
+                    return hash;}}
+            """);compare(64);
+    }
+
     private void compare(int groups) throws Exception {
         List<Integer> hashes=new ArrayList<>();
         try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)){

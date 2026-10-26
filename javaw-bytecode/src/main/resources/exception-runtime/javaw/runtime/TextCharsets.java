@@ -14,6 +14,15 @@ public final class TextCharsets {
     }
     public static byte[] encode(String text,int charset){
         if(charset==0)return text.getBytes();
+        if(charset==1){
+            int size=text.length();
+            for(int j=0;j<text.length()-1;j++)if(Character.isHighSurrogate(text.charAt(j)) && Character.isLowSurrogate(text.charAt(j+1))){size--;j++;}
+            byte[] result=new byte[size];int out=0;
+            for(int j=0;j<text.length();j++){char c=text.charAt(j);
+                if(c<=255)result[out++]=(byte)c;
+                else{result[out++]=63;if(Character.isHighSurrogate(c) && j+1<text.length() && Character.isLowSurrogate(text.charAt(j+1)))j++;}
+            }return result;
+        }
         throw new UnsupportedOperationException();
     }
     public static String decode(byte[] bytes,int offset,int count,int charset){
