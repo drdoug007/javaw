@@ -115,4 +115,14 @@ public final class Math {
         if(value==0)return Double.longBitsToDouble(1);
         long bits=Double.doubleToRawLongBits(value);return Double.longBitsToDouble(value>0?bits+1:bits-1);
     }
+    public static float nextDown(float value){
+        if(Float.isNaN(value) || value==-1.0f/0.0f)return value;
+        if(value==0)return Float.intBitsToFloat(0x80000001);
+        int bits=Float.floatToRawIntBits(value);return Float.intBitsToFloat(value>0?bits-1:bits+1);
+    }
+    public static double nextDown(double value){
+        if(Double.isNaN(value) || value==-1.0/0.0)return value;
+        if(value==0)return Double.longBitsToDouble(0x8000000000000001L);
+        long bits=Double.doubleToRawLongBits(value);return Double.longBitsToDouble(value>0?bits-1:bits+1);
+    }
 }

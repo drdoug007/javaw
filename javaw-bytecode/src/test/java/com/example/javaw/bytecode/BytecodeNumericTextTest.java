@@ -124,6 +124,24 @@ class BytecodeNumericTextTest implements Opcodes {
             """);compare(List.of("run"));
     }
 
+    @Test void floatingNextDown() throws Exception {
+        fixture("""
+            public class Metadata {
+                static int mix(int h,float v){return 31*h+Float.floatToIntBits(v);}
+                static int mix(int h,double v){long b=Double.doubleToLongBits(v);return 31*h+(int)(b^(b>>>32));}
+                static int sample(int hash,int bits,long wide){float f=Float.intBitsToFloat(bits);double d=Double.longBitsToDouble(wide);
+                    hash=mix(hash,Math.nextDown(f));hash=mix(hash,Math.nextDown(d));return hash;}
+                public static int run(){int hash=1;
+                    for(int e=0;e<256;e++)for(int delta=-1;delta<=1;delta++)for(int sign=0;sign<2;sign++)
+                        hash=sample(hash,((e<<23)+delta)^(sign<<31),0);
+                    for(int e=0;e<2048;e++)for(int delta=-1;delta<=1;delta++)for(int sign=0;sign<2;sign++)
+                        hash=sample(hash,0,(((long)e<<52)+delta)^((long)sign<<63));
+                    long seed=17;for(int i=0;i<3000;i++){seed=seed*6364136223846793005L+1442695040888963407L;hash=sample(hash,(int)(seed>>>32),seed);}
+                    java.util.function.DoubleUnaryOperator op=Math::nextDown;hash=mix(hash,op.applyAsDouble(0.0)); return hash;}}
+
+            """);compare(List.of("run"));
+    }
+
     @Test void unsignedBytesAndMethodReferences() throws Exception {
         fixture("""
             import java.util.function.*;

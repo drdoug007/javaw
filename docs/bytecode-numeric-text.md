@@ -63,3 +63,7 @@ Math.ulp computes exact spacing for float/double, including subnormal spacing, s
 ## Next larger floating values (`floating-next-up-v94`)
 
 Math.nextUp steps one representable value toward positive infinity for float/double, preserving NaNs and positive infinity and crossing signed-zero/subnormal boundaries correctly. JVM/Wasm comparisons exercise both JAR orders and independent instances. These are API conformance tests, not additional pinned-library or reachable-closure execution claims. Dependency inventory counts remain unchanged.
+
+## Next smaller floating values (`floating-next-down-v95`)
+
+Math.nextDown steps one representable value toward negative infinity for float/double, preserving NaNs and negative infinity and crossing signed-zero/subnormal boundaries correctly. JVM/Wasm comparisons exercise both JAR orders and independent instances. These are API conformance tests, not additional pinned-library or reachable-closure execution claims. Dependency inventory counts remain unchanged.
