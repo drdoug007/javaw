@@ -69,6 +69,8 @@ public final class BytecodeExceptionRuntime {
             paths.add("javaw/runtime/IntegralNumbers.java");
             paths.add("javaw/runtime/UnicodeCase.java");
             paths.add("javaw/runtime/StringUpperData.java");
+            paths.add("javaw/runtime/StringLowerData.java");
+            paths.add("javaw/runtime/WordBreaks.java");
             paths.add("javaw/runtime/UnicodeProperties.java");
             paths.add("javaw/runtime/FloatingNumbers.java");
             paths.add("javaw/runtime/FusedMath.java");

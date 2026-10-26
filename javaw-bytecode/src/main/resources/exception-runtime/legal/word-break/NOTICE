@@ -1,0 +1,21 @@
+Word-boundary data is generated from GraalVM CE 17.0.9+9.1 / OpenJDK 17.0.9,
+using the ROOT word BreakIterator tables. The original Oracle and IBM notices
+are preserved in StringLowerData.java and the complete upstream rules here.
+The tables/rules and adapted WordBreaks.java retain GPLv2 with the Classpath
+exception. The extraction tool is project-owned Apache 2.0.
+WordBreaks preserves the ROOT boundary cursor algorithms (forward/backward
+state transitions, following/isBoundary, UTF-16 cursor and cached boundary)
+from the complete upstream RuleBasedBreakIterator source included here.
+
+Upstream source: OpenJDK jdk17u, tag jdk-17.0.9+9,
+src/java.base/share/classes/sun/text/resources/BreakIteratorRules.java
+https://github.com/openjdk/jdk17u/tree/jdk-17.0.9%2B9
+Rules source SHA-256: 7ac4cca9f001b7e1e3b9db76a82a899104fcb743947d34ffe012a89bf5466a4b
+
+Reproduce: python3 javaw-bytecode/tools/generate-string-lowercase.py
+  --java-home <JDK-17-home> --check
+Reflection extracts the forward/backward transition/category/accept/lookahead tables;
+packing changes their representation. The runtime uses an adapted boundary cursor. Dictionary segmentation and public BreakIterator APIs
+are not implemented. No change is made to the original upstream rules.
+
+RuleBasedBreakIterator source SHA-256: 9b01b18dcf9b2e7abc85d69f21a32d1ef05de6d1dc2186fb018926a8290b72af
