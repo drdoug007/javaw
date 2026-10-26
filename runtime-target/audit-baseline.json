@@ -32,7 +32,7 @@
     "analysis": "class-reference estimate; reflection/resources/generated classes are not complete reachability",
     "artifacts": "63",
     "classDefinitions": "26625",
-    "compilerRevision": "1.0-SNAPSHOT-lowercase-word-data-v170",
+    "compilerRevision": "1.0-SNAPSHOT-unicode-root-lowercase-v171",
     "duplicateClasses": "0",
     "javaFeature": "17",
     "resources": "734",

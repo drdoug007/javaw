@@ -17,3 +17,4 @@ remain excluded. The isolated default locale is ROOT.
 Completed subsets:
 
 - v170: Reproducible Java 17 ROOT word-boundary data and an internal boundary cursor for final-sigma contexts, retaining upstream notices and license.
+- v171: ROOT Unicode lowercase with full dotted-I expansion, supplementary mappings, surrogate preservation, unchanged-result identity and null-locale failures; final sigma and Turkic/Lithuanian contexts are staged separately.

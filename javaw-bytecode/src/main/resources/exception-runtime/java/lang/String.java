@@ -8,6 +8,19 @@ public final class String implements CharSequence,Comparable<String>,java.io.Ser
     public static String format(java.util.Locale locale,String format,Object... args){return javaw.runtime.TextFormats.format(locale,format,args);}
     public String formatted(Object... args){return format(this,args);}
     public static String format(String format,Object... args){return javaw.runtime.TextFormats.format(java.util.Locale.getDefault(),format,args);}
+    public String toLowerCase(java.util.Locale locale){
+        String language=locale.getLanguage();
+        if(language.equals("tr") || language.equals("az") || language.equals("lt"))throw new UnsupportedOperationException("Contextual lowercase locale");
+        StringBuilder out=new StringBuilder();boolean changed=false;
+        for(int i=0;i<length();){
+            int cp=codePointAt(i);i+=Character.charCount(cp);
+            changed|=cp>=0x10000 || (cp>=0xd800 && cp<=0xdfff);
+            if(cp==0x3a3)throw new UnsupportedOperationException("Contextual final sigma");
+            if(cp==0x130){out.append('i').append((char)0x307);changed=true;}
+            else{int lower=Character.toLowerCase(cp);out.appendCodePoint(lower);changed|=lower!=cp;}
+        }
+        return changed?out.toString():this;
+    }
     public String toUpperCase(){return toUpperCase(java.util.Locale.getDefault());}
     public String toUpperCase(java.util.Locale locale) {
         String language=locale.getLanguage();
