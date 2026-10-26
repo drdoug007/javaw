@@ -29,20 +29,22 @@ public final class TextFormats {
   if(literal<length){Spec s=new Spec();s.literal=format.substring(literal);specs.add(s);}return specs;
  }
  private static boolean flag(Spec s,char f){return s.flags.indexOf(f)>=0;}
- private static void allowed(Spec s,String allowed){String bad="";for(int i=0;i<s.flags.length();i++){char c=s.flags.charAt(i);if(allowed.indexOf(c)<0)bad+=c;}if(!bad.isEmpty())throw new FormatFlagsConversionMismatchException(bad,s.conversion);}
+ private static char conversion(Spec s){char c=s.conversion;return c>='A' && c<='Z'?(char)(c+32):c;}
+ private static String flagsText(Spec s){String text=s.conversion>='A' && s.conversion<='Z'?"^":"";for(int i=0;i<FLAGS.length();i++)if(flag(s,FLAGS.charAt(i)))text+=FLAGS.charAt(i);return text;}
+ private static void allowed(Spec s,String allowed){String bad="";for(int i=0;i<s.flags.length();i++){char c=s.flags.charAt(i);if(allowed.indexOf(c)<0)bad+=c;}if(!bad.isEmpty())throw new FormatFlagsConversionMismatchException(bad,conversion(s));}
  private static void validate(Spec s){
   char c=s.conversion;
-  if(c=='n'){if(s.precision>=0)throw new IllegalFormatPrecisionException(s.precision);if(s.width>=0)throw new IllegalFormatWidthException(s.width);if(!s.flags.isEmpty())throw new IllegalFormatFlagsException(s.flags);return;}
-  if(c=='%'){if(s.precision>=0)throw new IllegalFormatPrecisionException(s.precision);if(!s.flags.isEmpty() && !s.flags.equals("-"))throw new IllegalFormatFlagsException(s.flags);if(flag(s,'-') && s.width<0)throw new MissingFormatWidthException(s.raw);return;}
+  if(c=='n'){if(s.precision>=0)throw new IllegalFormatPrecisionException(s.precision);if(s.width>=0)throw new IllegalFormatWidthException(s.width);if(!s.flags.isEmpty())throw new IllegalFormatFlagsException(flagsText(s));return;}
+  if(c=='%'){if(s.precision>=0)throw new IllegalFormatPrecisionException(s.precision);if(!s.flags.isEmpty() && !s.flags.equals("-"))throw new IllegalFormatFlagsException(flagsText(s));if(flag(s,'-') && s.width<0)throw new MissingFormatWidthException(s.raw);return;}
   if(flag(s,'-') && s.width<0)throw new MissingFormatWidthException(s.raw);
   if(c=='s' || c=='S'){allowed(s,"-#<");return;}
   if(c=='b' || c=='B' || c=='h' || c=='H'){allowed(s,"-<");return;}
   if(c=='c' || c=='C'){if(s.precision>=0)throw new IllegalFormatPrecisionException(s.precision);allowed(s,"-<");return;}
-  if(c=='d'){
+  if(c=='d' || c=='o' || c=='x' || c=='X'){
    if(s.precision>=0)throw new IllegalFormatPrecisionException(s.precision);
    if(flag(s,'0') && s.width<0)throw new MissingFormatWidthException(s.raw);
-   if((flag(s,'+') && flag(s,' ')) || (flag(s,'-') && flag(s,'0')))throw new IllegalFormatFlagsException(s.flags);
-   allowed(s,"-+ 0,(<");return;
+   if((flag(s,'+') && flag(s,' ')) || (flag(s,'-') && flag(s,'0')))throw new IllegalFormatFlagsException(flagsText(s));
+   allowed(s,c=='d'?"-+ 0,(<":"-#+ 0(<");return;
   }
   throw new UnsupportedOperationException("Formatting conversion: "+c);
  }
@@ -55,15 +57,16 @@ public final class TextFormats {
    int index;if(flag(s,'<')){index=last;}else if(s.index>0)index=s.index-1;else index=ordinary++;
    if(index<0 || (args!=null && index>=args.length))throw new MissingFormatArgumentException(s.raw);last=index;
    Object value=args==null?null:args[index];String text;
-   if(flag(s,'#'))throw new FormatFlagsConversionMismatchException("#",c);
-   if(c=='d')text=decimal(value,s,locale);
+   if((c=='s' || c=='S') && flag(s,'#'))throw new FormatFlagsConversionMismatchException("#",c);
+   if(c=='o' || c=='x' || c=='X')text=radix(value,s);
+   else if(c=='d')text=decimal(value,s,locale);
    else if(c=='b' || c=='B')text=value==null?"false":value instanceof Boolean?value.toString():"true";
    else if(c=='h' || c=='H')text=value==null?"null":Integer.toHexString(value.hashCode());
    else if(c=='c' || c=='C') {
     if(value==null)text="null";
     else if(value instanceof Character)text=String.valueOf(((Character)value).charValue());
     else if(value instanceof Byte || value instanceof Short || value instanceof Integer){int cp=((Number)value).intValue();if(!Character.isValidCodePoint(cp))throw new IllegalFormatCodePointException(cp);text=new String(Character.toChars(cp));}
-    else throw new IllegalFormatConversionException(c,value.getClass());
+    else throw new IllegalFormatConversionException(conversion(s),value.getClass());
    }else text=String.valueOf(value);
    if(s.precision>=0 && text.length()>s.precision)text=text.substring(0,s.precision);
    if(c>='A' && c<='Z')text=text.toUpperCase(locale);
@@ -71,10 +74,21 @@ public final class TextFormats {
   }
   return out.toString();
  }
+ private static String radix(Object value,Spec s){
+  if(value==null)return "null";
+  if(value instanceof java.math.BigInteger)throw new UnsupportedOperationException("BigInteger formatting");
+  if(!(value instanceof Byte || value instanceof Short || value instanceof Integer || value instanceof Long))throw new IllegalFormatConversionException(conversion(s),value.getClass());
+  allowed(s,"-#0<");long n=((Number)value).longValue();
+  if(value instanceof Byte)n&=255L;else if(value instanceof Short)n&=65535L;else if(value instanceof Integer)n&=4294967295L;
+  String digits=Long.toUnsignedString(n,s.conversion=='o'?8:16);
+  String prefix=flag(s,'#')?(s.conversion=='o'?"0":"0x"):"";
+  int zeros=s.width-prefix.length()-digits.length();if(flag(s,'0') && zeros>0)digits="0".repeat(zeros)+digits;
+  return prefix+digits;
+ }
  private static String decimal(Object value,Spec s,Locale locale){
   if(value==null)return "null";
   if(value instanceof java.math.BigInteger)throw new UnsupportedOperationException("BigInteger formatting");
-  if(!(value instanceof Byte || value instanceof Short || value instanceof Integer || value instanceof Long))throw new IllegalFormatConversionException(s.conversion,value.getClass());
+  if(!(value instanceof Byte || value instanceof Short || value instanceof Integer || value instanceof Long))throw new IllegalFormatConversionException(conversion(s),value.getClass());
   String language=locale.getLanguage(),country=locale.getCountry();
   if(!language.isEmpty() && !(language.equals("en") && (country.isEmpty() || country.equals("US") || country.equals("GB"))))throw new UnsupportedOperationException("Numeric format locale");
   long n=((Number)value).longValue();String digits=Long.toString(n);boolean negative=n<0;

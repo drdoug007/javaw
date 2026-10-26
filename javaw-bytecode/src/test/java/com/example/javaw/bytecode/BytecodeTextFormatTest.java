@@ -163,6 +163,26 @@ class BytecodeTextFormatTest implements Opcodes {
             """);compare(10);
     }
 
+    @Test void radixFormatting() throws Exception {
+        fixture("""
+            import java.util.*;
+            public class Metadata {
+             static int fail(String f,Object value){try{String.format(f,value);return 0;}
+              catch(IllegalFormatConversionException e){return e.getConversion()+e.getArgumentClass().getName().hashCode();}
+              catch(IllegalFormatPrecisionException e){return e.getPrecision()+19;}
+              catch(MissingFormatWidthException e){return e.getFormatSpecifier().hashCode();}
+              catch(IllegalFormatFlagsException e){return e.getFlags().hashCode();}
+              catch(FormatFlagsConversionMismatchException e){return e.getFlags().hashCode()+e.getConversion();}}
+             public static int run(int group){int h=1;
+              Object[] values={null,(byte)-1,(short)-1,-1,-1L,Long.MIN_VALUE,Long.MAX_VALUE,(byte)-128,(short)-32768,Integer.MIN_VALUE,0,123456};
+              for(String f:new String[]{"%o","%x","%X","%#o","%#x","%#X","%25x","%-25o","%025X","%#025o","%#025x","%#025X"})h=31*h+String.format(f,values[group]).hashCode();
+              for(String f:new String[]{"%+x","%(o","% x","%,x","%.1o","%0X","%-0x","%+ x","%-05o","%+ 5X"})h=31*h+fail(f,values[group]);
+              for(Object v:new Object[]{1.5,"1",true,(char)65})h=31*h+fail("%x",v);
+              return h;
+             }}
+            """);compare(12);
+    }
+
     private byte[] fixture(String source) throws Exception {
         Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
         List<String> options=new ArrayList<>(List.of("-g","-parameters","--release",release,"-d",directory.toString()));

@@ -33,3 +33,7 @@ String.format supports b/B, h/H and c/C, including nulls, UTF-16 precision for g
 ## Decimal integral formatting (decimal-formatting-v137)
 
 String.format d supports boxed byte/short/int/long, exact minimum/maximum values, signs, grouping, parentheses, alignment and zeros after signs. JVM/Wasm comparisons pass for values, nulls and typed flag/precision/type failures. Numeric localization is restricted to ROOT and selected English identities; BigInteger formatting is explicitly unsupported.
+
+## Octal and hexadecimal formatting (radix-formatting-v138)
+
+String.format o/x/X supports unsigned boxed byte/short/int/long bit patterns, alternate prefixes, alignment and zeros after prefixes, including null handling. JVM/Wasm comparisons pass for negative bit patterns, missing widths, minimum/maximum values, zero and typed failures; canonical uppercase error flags and lowercase conversion getter payloads match Java 17. BigInteger formatting remains unsupported.
