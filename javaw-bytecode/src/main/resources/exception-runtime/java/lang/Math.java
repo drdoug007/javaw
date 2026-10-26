@@ -151,4 +151,5 @@ public final class Math {
         while(scale<0){result*=0x1.0p-512;scale+=512;}
         return result;
     }
+    public static double exp(double x){return FdLibm.Exp.compute(x);}
 }

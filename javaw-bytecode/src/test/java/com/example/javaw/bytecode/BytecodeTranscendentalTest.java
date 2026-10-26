@@ -1,0 +1,121 @@
+package com.example.javaw.bytecode;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.objectweb.asm.*;
+import org.objectweb.asm.tree.*;
+import javax.tools.ToolProvider;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
+import java.util.jar.*;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+class BytecodeTranscendentalTest implements Opcodes {
+    @TempDir Path directory;
+    private String release="17";
+    private String fixtureClasspath;
+    private String fixtureClassName="Metadata";
+
+    private byte[] fixture(String source) throws Exception {
+        Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
+        List<String> options=new ArrayList<>(List.of("-g","-parameters","--release",release,"-d",directory.toString()));
+        if(fixtureClasspath!=null)options.addAll(List.of("-classpath",fixtureClasspath));
+        options.add(file.toString());
+        assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,options.toArray(String[]::new)));
+        return jar(false);
+    }
+
+    private byte[] jar(boolean reverse) throws Exception {
+        List<Path> files;
+        try(var paths=Files.walk(directory)) {
+            files=new ArrayList<>(paths.filter(path->path.toString().endsWith(".class")).sorted().toList());
+        }
+        if(reverse)Collections.reverse(files);
+        ByteArrayOutputStream bytes=new ByteArrayOutputStream();
+        try(JarOutputStream jar=new JarOutputStream(bytes)) {
+            for(Path file:files){jar.putNextEntry(new JarEntry(directory.relativize(file).toString()));jar.write(Files.readAllBytes(file));jar.closeEntry();}
+        }
+        return bytes.toByteArray();
+    }
+
+    @Test void exponential() throws Exception {unary("exp",StrictMath::exp,Math::exp);}
+
+    private List<Double> values(){
+        List<Double> values=new ArrayList<>();
+        double[] boundaries={0.0,-0.0,1,-1,0.5,-0.5,2,-2,Math.PI,-Math.PI,Math.PI/2,-Math.PI/2,
+            Math.PI/4,-Math.PI/4,1.0e20,-1.0e20,709.782712893384,-745.1332191019411,
+            0x1p-28,-0x1p-28,0x1p-54,-0x1p-54,0x1p20,-0x1p20,Double.MIN_NORMAL,-Double.MIN_NORMAL,
+            Double.MAX_VALUE,-Double.MAX_VALUE,Double.POSITIVE_INFINITY,Double.NEGATIVE_INFINITY,Double.NaN};
+        for(double value:boundaries){values.add(Math.nextDown(value));values.add(value);values.add(Math.nextUp(value));}
+        for(int exponent=0;exponent<2048;exponent++){
+            long bits=((long)exponent<<52)|0x000921fb54442d18L;
+            values.add(Double.longBitsToDouble(bits));values.add(Double.longBitsToDouble(bits|Long.MIN_VALUE));
+        }
+        long seed=17;
+        for(int i=0;i<512;i++){seed=seed*6364136223846793005L+1442695040888963407L;values.add(Double.longBitsToDouble(seed));}
+        return values;
+    }
+
+    private void unary(String name,java.util.function.DoubleUnaryOperator strict,java.util.function.DoubleUnaryOperator intrinsic) throws Exception {
+        List<Double> values=values();StringJoiner bits=new StringJoiner(",");
+        for(double value:values)bits.add(Double.doubleToRawLongBits(value)+"L");
+        fixture("public class Metadata {static final long[] bits={"+bits+"};"+
+            "public static int run(int group){java.util.function.DoubleUnaryOperator reference=Math::"+name+";int hash=1;"+
+            "for(int i=group*64;i<bits.length && i<(group+1)*64;i++){double x=Double.longBitsToDouble(bits[i]);double y=Math."+name+"(x);"+
+            "long b=Double.doubleToLongBits(y);if(b!=Double.doubleToLongBits(reference.applyAsDouble(x)))throw new Error();"+
+            "hash=31*hash+(int)(b^(b>>>32));}return hash;}}");
+        List<Integer> hashes=new ArrayList<>();
+        for(int start=0;start<values.size();start+=64){int hash=1;
+            for(int i=start;i<Math.min(start+64,values.size());i++){
+                double x=values.get(i),expected=strict.applyAsDouble(x),actual=intrinsic.applyAsDouble(x);
+                checkMathAllowance(expected,actual,name+" input "+Double.toHexString(x));
+                long b=Double.doubleToLongBits(expected);hash=31*hash+(int)(b^(b>>>32));
+            }hashes.add(hash);
+        }
+        compare(hashes);
+    }
+
+    private void checkMathAllowance(double expected,double actual,String context){
+        if(Double.isNaN(expected)){assertTrue(Double.isNaN(actual),context);return;}
+        if(expected==0.0 || Double.isInfinite(expected)){
+            assertEquals(Double.doubleToLongBits(expected),Double.doubleToLongBits(actual),context);return;
+        }
+        // Math and StrictMath each permit error; their results need not be bit-identical.
+        assertTrue(Math.abs(expected-actual)<=2*Math.ulp(expected),context+" expected "+expected+" actual "+actual);
+    }
+
+    private void compare(List<Integer> hashes) throws Exception {
+        String expected=hashes.toString();
+        for(boolean reverse:new boolean[]{false,true})
+            execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),expected);
+    }
+
+    private void run(String... arguments) throws Exception {
+        Path log=directory.resolve("command.log");Process process=new ProcessBuilder(arguments).redirectErrorStream(true).redirectOutput(log.toFile()).start();
+        if(!process.waitFor(60,TimeUnit.SECONDS)){process.destroyForcibly();fail("Command timed out");}
+        assertEquals(0,process.exitValue(),Files.readString(log));
+    }
+    private void execute(String wat,String expected) throws Exception {
+        Path input=directory.resolve("metadata.wat"),output=directory.resolve("metadata.wasm"),script=directory.resolve("run.cjs");
+        Files.writeString(input,wat);run("wat2wasm","--enable-exceptions",input.toString(),"-o",output.toString());
+        Files.writeString(script,"""
+            const fs=require('node:fs'),assert=require('node:assert/strict');
+            const compiled=new WebAssembly.Module(fs.readFileSync(process.argv[2]));
+            const expected=EXPECTED;
+            for(let group=0;group<expected.length;group++)for(let instance=0;instance<2;instance++) {
+                const memory=new WebAssembly.Memory({initial:2,maximum:20});let heap=1024,allocations=0;
+                const e=new WebAssembly.Instance(compiled,{env:{memory,__heap_alloc:size=>{
+                    allocations++;
+                    const address=heap;heap+=size;
+                    while(heap>memory.buffer.byteLength)memory.grow(1);
+                    new Uint8Array(memory.buffer,address,size).fill(0x7f);return address;
+                }}}).exports;
+                assert.equal(allocations,0);heap=Math.max(heap,e.__exception_heap_base?.value??0);
+            """.replace("EXPECTED",expected)+"assert.equal(e['"+fixtureClassName+".run'](group),expected[group],'batch '+group);\n}");
+        run("node",script.toString(),output.toString());
+    }
+}
