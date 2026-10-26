@@ -165,8 +165,10 @@ class BytecodeTranscendentalTest implements Opcodes {
 
     @Test void coshPortable() throws Exception {unary("cosh",StrictMath::cosh,Math::cosh);}
 
+    @Test void tanhPortable() throws Exception {unary("tanh",StrictMath::tanh,Math::tanh);}
+
     @Test void malformedDescriptors() {
-        for(String name:List.of("exp","log","log10","pow","sin","cos","tan","asin","acos","atan","atan2","expm1","log1p","sinh","cosh")){
+        for(String name:List.of("exp","log","log10","pow","sin","cos","tan","asin","acos","atan","atan2","expm1","log1p","sinh","cosh","tanh")){
             ClassWriter writer=new ClassWriter(0);writer.visit(V17,ACC_PUBLIC,"BadTranscendental",null,"java/lang/Object",null);
             MethodVisitor method=writer.visitMethod(ACC_PUBLIC|ACC_STATIC,"run","()F",null,null);
             method.visitCode();method.visitInsn(FCONST_0);if(List.of("pow","atan2","hypot","IEEEremainder").contains(name))method.visitInsn(FCONST_0);
@@ -181,7 +183,8 @@ class BytecodeTranscendentalTest implements Opcodes {
         List<Double> values=new ArrayList<>();
         double[] boundaries={0.0,-0.0,1,-1,0.5,-0.5,2,-2,Math.PI,-Math.PI,Math.PI/2,-Math.PI/2,
             Math.PI/4,-Math.PI/4,0.4375,-0.4375,0.6875,-0.6875,1.1875,-1.1875,2.4375,-2.4375,0.975,-0.975,10,100,1000,1.0e-300,1.0e300,1.0e20,-1.0e20,709.782712893384,-745.1332191019411,
-            0x1p-28,-0x1p-28,0x1p-54,-0x1p-54,0x1p20,-0x1p20,Double.MIN_NORMAL,-Double.MIN_NORMAL,
+            22,-22,Math.log(2),-Math.log(2),56*Math.log(2),-56*Math.log(2),710.4758600739439,-710.4758600739439,
+            27,-27,64,-64,0x1p-28,-0x1p-28,0x1p-54,-0x1p-54,0x1p20,-0x1p20,Double.MIN_NORMAL,-Double.MIN_NORMAL,
             Double.MAX_VALUE,-Double.MAX_VALUE,Double.POSITIVE_INFINITY,Double.NEGATIVE_INFINITY,Double.NaN};
         for(double value:boundaries){values.add(Math.nextDown(value));values.add(value);values.add(Math.nextUp(value));}
         for(int exponent=0;exponent<2048;exponent++){

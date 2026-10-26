@@ -81,3 +81,7 @@ Math.sinh: Exponential and expm1 transforms preserve signed zeros, tiny argument
 ## Hyperbolic cosine (`fdlibm-cosh-v114`)
 
 Math.cosh: Interval-specific exponential transforms handle cancellation, large finite inputs and infinities. Canonical-bit JVM StrictMath comparisons cover both JAR orders, direct calls, method references and fresh Wasm instances. Malformed float descriptors are rejected. No new pinned-library execution claim is made.
+
+## Hyperbolic tangent (`fdlibm-tanh-v115`)
+
+Math.tanh: Expm1 transforms preserve tiny signed inputs and saturate at signed one for large arguments. Canonical-bit JVM StrictMath comparisons cover both JAR orders, direct calls, method references and fresh Wasm instances. Malformed float descriptors are rejected. No new pinned-library execution claim is made.

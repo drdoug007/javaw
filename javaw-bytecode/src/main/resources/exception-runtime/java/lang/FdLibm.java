@@ -1911,4 +1911,43 @@ final class FdLibm {
             return huge*huge;
         }
     }
+    static final class Tanh {
+        private Tanh() {throw new UnsupportedOperationException();}
+
+        private static final double tiny = 1.0e-300;
+
+        static double compute(double x) {
+            double t, z;
+            int jx, ix;
+
+            // High word of |x|.
+            jx = __HI(x);
+            ix = jx & EXP_SIGNIF_BITS;
+
+            // x is INF or NaN
+            if (ix >= EXP_BITS) {
+                if (jx >= 0) {  // tanh(+-inf)=+-1
+                    return 1.0/x + 1.0;
+                } else {        // tanh(NaN) = NaN
+                    return 1.0/x - 1.0;
+                }
+            }
+
+            // |x| < 22
+            if (ix < 0x4036_0000) {          // |x| < 22
+                if (ix<0x3c80_0000)          // |x| < 2**-55
+                    return x*(1.0 + x);      // tanh(small) = small
+                if (ix>=0x3ff0_0000) {       // |x| >= 1
+                    t = Math.expm1(2.0*Math.abs(x));
+                    z = 1.0 - 2.0/(t + 2.0);
+                } else {
+                    t = Math.expm1(-2.0*Math.abs(x));
+                    z= -t/(t + 2.0);
+                }
+            } else { // |x| > 22, return +-1
+                z = 1.0 - tiny;             // raised inexact flag
+            }
+            return (jx >= 0)? z: -z;
+        }
+    }
 }
