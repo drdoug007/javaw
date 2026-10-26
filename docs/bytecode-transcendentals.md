@@ -56,7 +56,7 @@ Math.atan uses interval reduction and odd/even polynomial splitting, preserves s
 
 The pinned ANTLR 4.13.0 artifact hash is checked against the runtime lock. Its complete original private `CodePointBuffer.Builder.roundUpToNextPowerOfTwo` instruction body is copied into a public test carrier, with only owner/name/access metadata changed. JVM and Wasm execute that same body over integer and power-boundary inputs. This proves selected-method execution; NIO buffers, builders and ANTLR parser startup remain excluded. Other new APIs have numerical conformance evidence, not additional pinned-library execution claims.
 
-The ten audited declarations reduce missing members from 57 to 47 (978 to 988 declared signatures); missing owners remain 302. These are whole-JAR signature counts, not reachable-closure proof. Atan2, hyperbolic functions, random sources, broader numeric/text APIs, sustained managed allocation and full H2/Spring/Hibernate execution remain open.
+The ten audited declarations reduce missing members from 57 to 47 (978 to 988 declared signatures); missing owners remain 302. These are whole-JAR signature counts, not reachable-closure proof. Atan2 and hyperbolic functions are added below in v110–v115. Random sources, broader numeric/text APIs, sustained managed allocation and full H2/Spring/Hibernate execution remain open.
 
 ## Validation
 
@@ -97,3 +97,11 @@ Math.hypot: Scaling and compensated square roots avoid premature overflow and un
 ## IEEE nearest-even remainder (`fdlibm-ieeeremainder-v118`)
 
 Math.IEEEremainder: Portable bitwise reduction implements nearest-even quotient ties, signed zeros and invalid nonfinite domains. Canonical-bit JVM StrictMath comparisons cover both JAR orders, direct calls, method references and fresh Wasm instances. Malformed float descriptors are rejected. No new pinned-library execution claim is made.
+
+## Selected StrictMath adapters (`fdlibm-strict-adapters-v119`)
+
+StrictMath exposes exp, log, log10, pow, sin, cos, tan, asin, acos, atan, atan2, expm1, log1p, sinh, cosh, tanh, cbrt, hypot and IEEEremainder through the same portable fdlibm Math implementations. A mixed-operation test compares every adapter with the JVM StrictMath canonical-bit oracle over exponent/sign/boundary samples and deterministic binary pairs. Both direct calls and method references execute in both JAR orders and fresh instances. Malformed float descriptors for both owners are rejected. Other StrictMath signatures are intentionally absent and receive unsupported-member diagnostics; no additional whole-library execution claim is made.
+
+## Combined v110–v119 validation
+
+Combined v110–v119 validation: all 394 tests pass in the required offline bytecode suite (four test forks), with zero failures, errors or skips. All 22 transcendental/admission tests pass, including the selected StrictMath adapters, expanded binary boundary/tie cases and the pinned ANTLR method-body comparison. The reviewed 63-JAR audit has unchanged dependency inventory totals; selected signature coverage is 992 declared, 43 missing members and 302 missing owners. The pinned fdlibm reproduction check passes. These subsets establish numerical API conformance; broader text/numeric support and whole-framework execution remain open.
