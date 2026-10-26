@@ -1960,3 +1960,5 @@ Bytecode numeric progress (v110–v119): portable Math.atan2/expm1/log1p/sinh/co
 Bytecode charset progress (v120): Named whole-array and sliced String constructors resolve UTF-8 aliases, preserve replacement behavior and report unsupported names before array bounds failures. JVM/Wasm comparisons and the reviewed dependency audit pass. See [the charset contract](docs/bytecode-charsets.md); broader text/charset and framework support remains open.
 
 Bytecode charset progress (v121): String.getBytes(String) supports UTF-8 aliases with isolated-surrogate replacement, fresh output arrays and typed unknown/null-name failures. JVM/Wasm comparisons and the reviewed dependency audit pass. See [the charset contract](docs/bytecode-charsets.md); broader text/charset and framework support remains open.
+
+Bytecode charset progress (v122): ISO-8859-1 and its Java 17 aliases decode every unsigned byte to the corresponding UTF-16 unit. JVM/Wasm comparisons and the reviewed dependency audit pass. See [the charset contract](docs/bytecode-charsets.md); broader text/charset and framework support remains open.

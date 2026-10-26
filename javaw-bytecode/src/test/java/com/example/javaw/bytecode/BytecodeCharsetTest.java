@@ -84,6 +84,16 @@ class BytecodeCharsetTest implements Opcodes {
             """);compare(64);
     }
 
+    @Test void latin1Decoding() throws Exception {
+        fixture("""
+            public class Metadata {public static int run(int group) throws Exception {int hash=1;String[] names={"ISO-8859-1","cp819","ISO_8859_1","csISOLatin1","IBM819","latin1","ISO8859-1","iso-ir-100","ISO_8859-1:1987","ISO8859_1","819","l1","ISO_8859-1","8859_1","IBM-819"};
+                for(String name:names)for(int b=0;b<256;b++){
+                    byte[] bytes={(byte)b,(byte)(255-b),65};String text=new String(bytes,name);
+                    hash=31*hash+text.hashCode()+text.length();hash=31*hash+new String(bytes,1,1,name).hashCode();
+                }return hash;}}
+            """);compare(1);
+    }
+
     private void compare(int groups) throws Exception {
         List<Integer> hashes=new ArrayList<>();
         try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)){
