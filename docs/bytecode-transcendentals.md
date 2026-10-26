@@ -15,3 +15,7 @@ Math.exp handles finite range reduction, subnormal rounding, overflow/underflow,
 ## Portable natural logarithm (`fdlibm-natural-log-v101`)
 
 Math.log performs fdlibm normalization and split-logarithm evaluation across subnormal/normal ranges; zero yields negative infinity, and negative inputs yield NaN.
+
+## Portable decimal logarithm (`fdlibm-decimal-log-v102`)
+
+Math.log10 uses split base-conversion constants and the portable natural logarithm, preserving exact powers-of-ten results and special values.

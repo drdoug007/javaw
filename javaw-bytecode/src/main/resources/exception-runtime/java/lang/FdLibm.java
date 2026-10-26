@@ -296,4 +296,47 @@ final class FdLibm {
             }
         }
     }
+    static final class Log10 {
+        private static final double ivln10    = 0x1.bcb7b1526e50ep-2;  // 4.34294481903251816668e-01
+
+        private static final double log10_2hi = 0x1.34413509f6p-2;     // 3.01029995663611771306e-01;
+        private static final double log10_2lo = 0x1.9fef311f12b36p-42; // 3.69423907715893078616e-13;
+
+        private Log10() {
+            throw new UnsupportedOperationException();
+        }
+
+        public static double compute(double x) {
+            double y, z;
+            int i, k;
+
+            int hx = __HI(x); // high word of x
+            int lx = __LO(x); // low word of x
+
+            k=0;
+            if (hx < 0x0010_0000) {                  /* x < 2**-1022  */
+                if (((hx & EXP_SIGNIF_BITS) | lx) == 0) {
+                    return -TWO54/0.0;               /* log(+-0)=-inf */
+                }
+                if (hx < 0) {
+                    return (x - x)/0.0;              /* log(-#) = NaN */
+                }
+                k -= 54;
+                x *= TWO54; /* subnormal number, scale up x */
+                hx = __HI(x);
+            }
+
+            if (hx >= EXP_BITS) {
+                return x + x;
+            }
+
+            k += (hx >> 20) - 1023;
+            i  = (k  & SIGN_BIT) >>> 31; // unsigned shift
+            hx = (hx & 0x000f_ffff) | ((0x3ff - i) << 20);
+            y  = (double)(k + i);
+            x = __HI(x, hx); // replace high word of x with hx
+            z  = y * log10_2lo + ivln10 * Math.log(x);
+            return  z + y * log10_2hi;
+        }
+    }
 }
