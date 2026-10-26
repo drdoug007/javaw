@@ -267,6 +267,45 @@ class BytecodeStrictMathTest implements Opcodes {
             """);compare(List.of("run"));
     }
 
+    @Test void fusedMultiplyAdd() throws Exception {
+        fixture("""
+            public class Metadata {
+            interface Scale {double apply(double x,int n);}
+            interface Fused {double apply(double a,double b,double c);}
+            static int d(int h,double x){return 31*h+Long.hashCode(Double.doubleToLongBits(x));}
+            static int f(int h,float x){return 31*h+Float.floatToIntBits(x);}
+            public static int run(){
+             double[] values={0.0,-0.0,1,-1,0.5,-0.5,1.5,-1.5,2.5,-2.5,Double.MIN_VALUE,-Double.MIN_VALUE,Double.MIN_NORMAL,Double.MAX_VALUE,Double.POSITIVE_INFINITY,Double.NEGATIVE_INFINITY,Double.NaN,Double.longBitsToDouble(0xfff8000000000001L)};
+             long[] edges={0,Long.MIN_VALUE,Long.MAX_VALUE,-1,1,0x8000000000000001L,0x7fefffffffffffffL,0x0010000000000000L,0x000fffffffffffffL,0x7ff0000000000000L,0xfff0000000000000L,0x7ff8000000000000L,0xfff8000000000001L,0x80000000L,0x7fffffffL,0x7f800000L,0xff800000L,0x7fc00000L,0xffc00001L,0x00800000L,0x007fffffL};
+             int h=1;long state=123456789;
+             Fused op=StrictMath::fma;
+             for(int k=0;k<250;k++){
+             state=state*6364136223846793005L+1442695040888963407L;
+             long bits=k<edges.length?edges[k]:state,other=edges[(k*7+1)%edges.length];
+             double x=k<values.length?values[k]:Double.longBitsToDouble(bits);
+             float f=Float.intBitsToFloat((int)bits);int i=(int)bits,j=(int)other;
+             double y=values[k%values.length],z=values[(k*7+3)%values.length];h=d(h,StrictMath.fma(x,y,z));h=f(h,StrictMath.fma(f,(float)y,(float)z));h=d(h,StrictMath.fma(x,1.0000000000000002,-x));h=f(h,StrictMath.fma(f,1.0000001f,-f));
+             h=d(h,op.apply(x,1.0000000000000002,-x));
+             }
+             return h;
+            }}
+            """);compare(List.of("run"));
+    }
+
+    @Test void malformedDescriptorsAndUnboundRandomAreRejected() {
+        for(String name:List.of("sqrt","copySign","scalb","fma","random")) {
+            ClassWriter writer=new ClassWriter(0);
+            writer.visit(V17,ACC_PUBLIC,"BadStrictMath",null,"java/lang/Object",null);
+            MethodVisitor method=writer.visitMethod(ACC_PUBLIC|ACC_STATIC,"run","()D",null,null);
+            method.visitCode();
+            method.visitMethodInsn(INVOKESTATIC,"java/lang/StrictMath",name,"()D",false);
+            method.visitInsn(DRETURN);method.visitMaxs(2,0);method.visitEnd();writer.visitEnd();
+            var failure=assertThrows(IllegalArgumentException.class,
+                ()->BytecodeCompiler.compileClassWithExceptionRuntime(writer.toByteArray()));
+            assertTrue(failure.getMessage().contains(name),failure.getMessage());
+        }
+    }
+
     private void compare(List<String> names) throws Exception {
         StringBuilder assertions=new StringBuilder();
         try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)){

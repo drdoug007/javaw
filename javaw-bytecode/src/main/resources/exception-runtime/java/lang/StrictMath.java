@@ -93,4 +93,7 @@ public final class StrictMath {
     public static long multiplyExact(long a,int b){return Math.multiplyExact(a,b);}
     public static long floorDiv(long a,int b){return Math.floorDiv(a,b);}
     public static int floorMod(long a,int b){return Math.floorMod(a,b);}
+
+    public static float fma(float a,float b,float c){return Math.fma(a,b,c);}
+    public static double fma(double a,double b,double c){return Math.fma(a,b,c);}
 }
