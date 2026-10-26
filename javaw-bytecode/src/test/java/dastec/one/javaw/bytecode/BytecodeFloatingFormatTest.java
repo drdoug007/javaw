@@ -78,6 +78,17 @@ class BytecodeFloatingFormatTest implements Opcodes {
             """);compare(100);
     }
 
+    @Test void nonfiniteDecimal() throws Exception {
+        fixture("""
+            import java.util.*;
+            public class Metadata {public static int run(int group){int h=1;
+             Locale[] locales={Locale.ROOT,Locale.GERMANY,Locale.FRANCE,new Locale("ar","EG"),new Locale("tr"),new Locale("lt"),Locale.JAPAN};
+             for(Object v:new Object[]{Double.NaN,Double.POSITIVE_INFINITY,Double.NEGATIVE_INFINITY,Float.NaN,Float.POSITIVE_INFINITY,Float.NEGATIVE_INFINITY,Double.longBitsToDouble(0xfff8000000000001L),Float.intBitsToFloat(0xffc00001)})
+              for(String f:new String[]{"%f","%e","%E","%g","%G","%.0f","%.1e","%.2g","%#.0f","%020f","%+020E","% 020G","%(020f","%-20.0G","%(020.2E","%+,020.1g"})h=31*h+String.format(locales[group],f,v).hashCode();
+             return h;}}
+            """);compare(7);
+    }
+
     private byte[] fixture(String source) throws Exception {
         Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
         List<String> options=new ArrayList<>(List.of("-g","-parameters","--release",release,"-d",directory.toString()));

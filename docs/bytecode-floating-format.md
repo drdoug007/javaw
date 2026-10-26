@@ -15,3 +15,4 @@ Completed subsets:
 - v160: Float/Double fixed-point f formatting with Java 17 decimal digit generation and HALF_UP precision.
 - v161: Float/Double scientific e/E formatting with rounded mantissas, exponent padding and alternate decimal points.
 - v162: Float/Double general g/G formatting with significant-digit precision and notation selection after rounding.
+- v163: NaN and signed infinities for f/e/E/g/G, with ASCII uppercase, sign/parenthesis flags and space padding independent of precision and zero flags.

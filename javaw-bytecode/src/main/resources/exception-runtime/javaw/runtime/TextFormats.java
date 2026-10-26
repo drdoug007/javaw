@@ -84,7 +84,7 @@ public final class TextFormats {
    }else text=String.valueOf(value);
    int textPrecision=s.precision;
    if(textPrecision>=0 && (value==null || "sSbBhH".indexOf(c)>=0) && text.length()>textPrecision)text=text.substring(0,textPrecision);
-   if(c>='A' && c<='Z')text=text.toUpperCase(c=='A'?Locale.ROOT:locale);
+   if(c>='A' && c<='Z')text=text.toUpperCase(c=='A' || ((value instanceof Double || value instanceof Float) && !Double.isFinite(((Number)value).doubleValue()))?Locale.ROOT:locale);
    out.append(pad(text,s));
   }
   return out.toString();
@@ -169,7 +169,9 @@ public final class TextFormats {
   return localize(decorate(grouped(digits,s),n.signum()<0,"",s),locale);
  }
  private static String binaryFraction(double value,Spec s,Locale locale){
-  if(!Double.isFinite(value) || Double.doubleToRawLongBits(value)==Long.MIN_VALUE)throw new UnsupportedOperationException("Binary floating special value");
+  if(Double.isNaN(value))return "NaN";
+  if(Double.isInfinite(value))return decorate("Infinity",value<0,"",s,-1);
+  if(Double.doubleToRawLongBits(value)==Long.MIN_VALUE)throw new UnsupportedOperationException("Binary floating negative zero");
   numericLocale(locale);boolean negative=value<0;int precision=s.precision<0?6:s.precision;
   BigDecimal n=value==0?BigDecimal.ZERO:new BigDecimal(Decimal.formatText(Math.abs(value)));
   String digits=conversion(s)=='g'?general(n,precision==0?1:precision):conversion(s)=='e'?scientific(n,precision,flag(s,'#')):n.setScale(precision,RoundingMode.HALF_UP).toPlainString();
