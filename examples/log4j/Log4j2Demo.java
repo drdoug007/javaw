@@ -1,7 +1,7 @@
-package com.example.javaw.examples.log4j;
+package dastec.one.javaw.examples.log4j;
 
-import com.example.javaw.dom.DOM;
-import com.example.javaw.dom.Element;
+import dastec.one.javaw.dom.DOM;
+import dastec.one.javaw.dom.Element;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;

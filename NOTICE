@@ -1,0 +1,13 @@
+javaw (Java to WebAssembly Compiler)
+
+Project-owned code is licensed under the Apache License, Version 2.0.
+See LICENSE for the complete terms.
+
+Third-party material retains its original licenses:
+- javaw-bytecode/src/main/resources/exception-runtime/java/lang/FdLibm.java
+  is adapted from OpenJDK 21.0.2 and remains under GPLv2 with the Classpath
+  exception. Its original copyright header is preserved. The upstream
+  license, exception, source hash and adaptation notes are distributed in
+  javaw-bytecode/src/main/resources/exception-runtime/legal/fdlibm/.
+- External dependencies, including the pinned runtime-target libraries,
+  remain under their respective upstream licenses.

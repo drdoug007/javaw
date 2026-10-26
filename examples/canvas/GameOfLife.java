@@ -1,8 +1,8 @@
-package com.example.javaw.examples.canvas;
+package dastec.one.javaw.examples.canvas;
 
-import com.example.javaw.dom.CanvasRenderingContext2D;
-import com.example.javaw.dom.DOM;
-import com.example.javaw.dom.Element;
+import dastec.one.javaw.dom.CanvasRenderingContext2D;
+import dastec.one.javaw.dom.DOM;
+import dastec.one.javaw.dom.Element;
 
 public class GameOfLife {
     public static final int COLS = 40;

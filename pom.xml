@@ -4,10 +4,18 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.example</groupId>
+    <groupId>dastec.one</groupId>
     <artifactId>javaw</artifactId>
     <version>1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
+
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
 
     <modules>
         <module>javaw-core</module>
@@ -33,12 +41,12 @@
     <dependencyManagement>
         <dependencies>
             <dependency>
-                <groupId>com.example</groupId>
+                <groupId>dastec.one</groupId>
                 <artifactId>javaw-core</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.example</groupId>
+                <groupId>dastec.one</groupId>
                 <artifactId>javaw-bytecode</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -125,7 +133,7 @@
                     <version>${maven.plugin.tools.version}</version>
                 </plugin>
                 <plugin>
-                    <groupId>com.example</groupId>
+                    <groupId>dastec.one</groupId>
                     <artifactId>javaw-maven-plugin</artifactId>
                     <version>${project.version}</version>
                 </plugin>

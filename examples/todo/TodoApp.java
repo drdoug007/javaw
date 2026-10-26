@@ -1,8 +1,8 @@
-package com.example.javaw.examples.todo;
+package dastec.one.javaw.examples.todo;
 
-import com.example.javaw.dom.DOM;
-import com.example.javaw.dom.Element;
-import com.example.javaw.util.StringBuilder;
+import dastec.one.javaw.dom.DOM;
+import dastec.one.javaw.dom.Element;
+import dastec.one.javaw.util.StringBuilder;
 
 public class TodoApp {
     public static int nextId = 1;

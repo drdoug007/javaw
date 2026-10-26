@@ -1,9 +1,9 @@
-package com.example.javaw.examples.simd;
+package dastec.one.javaw.examples.simd;
 
-import com.example.javaw.dom.CanvasRenderingContext2D;
-import com.example.javaw.dom.DOM;
-import com.example.javaw.dom.Element;
-import com.example.javaw.simd.Float32x4;
+import dastec.one.javaw.dom.CanvasRenderingContext2D;
+import dastec.one.javaw.dom.DOM;
+import dastec.one.javaw.dom.Element;
+import dastec.one.javaw.simd.Float32x4;
 
 public class SimdParticles {
     // 4 particles processed in parallel per Float32x4 lane

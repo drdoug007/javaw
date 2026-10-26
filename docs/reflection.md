@@ -5,7 +5,7 @@ the source module. It does not delegate Java execution to the host JVM or load
 bytecode at runtime. The bytecode backend has a separate compatibility contract.
 
 The executable contract is covered by
-[ReflectionSupportTest](../javaw-core/src/test/java/com/example/javaw/ReflectionSupportTest.java).
+[ReflectionSupportTest](../javaw-core/src/test/java/dastec/one/javaw/ReflectionSupportTest.java).
 The broad reflection roadmap item remains open for the limitations below.
 
 ## Available operations
@@ -65,7 +65,7 @@ type-use rules remain part of the source conformance follow-up.
 
 Type-use annotations, generic Type metadata, and annotation processing remain
 outside this contract. Repeatable behavior is executed by
-[RepeatableReflectionTest](../javaw-core/src/test/java/com/example/javaw/RepeatableReflectionTest.java).
+[RepeatableReflectionTest](../javaw-core/src/test/java/dastec/one/javaw/RepeatableReflectionTest.java).
 
 ## Class lookup and boundaries
 
@@ -158,6 +158,6 @@ parameters are not marked implicit or synthetic; final and varargs source
 properties are retained. Generic and annotated Type APIs and a full JVM
 MethodParameters/class-file metadata contract remain pending.
 
-[ParameterReflectionTest](../javaw-core/src/test/java/com/example/javaw/ParameterReflectionTest.java)
+[ParameterReflectionTest](../javaw-core/src/test/java/dastec/one/javaw/ParameterReflectionTest.java)
 executes this contract in WebAssembly, including inherited versus overridden
 method declarations and record component annotation propagation.

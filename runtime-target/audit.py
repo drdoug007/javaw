@@ -32,7 +32,7 @@ def main():
     output = module / 'target' / 'audit'
     subprocess.run(['java', '-Xmx1g', '-cp', str(root / 'javaw-bytecode' / 'target' / 'classes')
                     + os.pathsep + classpath.read_text().strip(),
-                    'com.example.javaw.bytecode.DependencyAudit', str(module / 'target' / 'audit-manifest.tsv'),
+                    'dastec.one.javaw.bytecode.DependencyAudit', str(module / 'target' / 'audit-manifest.tsv'),
                     str(output), '17', 'org/h2/Driver', 'org/springframework/boot/SpringApplication',
                     'org/hibernate/cfg/Configuration'], cwd=root, check=True)
     def counts(filename, key, category=None):
