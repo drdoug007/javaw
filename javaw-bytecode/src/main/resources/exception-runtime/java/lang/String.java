@@ -15,11 +15,26 @@ public final class String implements CharSequence,Comparable<String>,java.io.Ser
         for(int i=0;i<length();){
             int cp=codePointAt(i);i+=Character.charCount(cp);
             changed|=cp>=0x10000 || (cp>=0xd800 && cp<=0xdfff);
-            if(cp==0x3a3)throw new UnsupportedOperationException("Contextual final sigma");
+            if(cp==0x3a3){out.append((char)(lowerFinalSigma(i-1,language)?0x3c2:0x3c3));changed=true;continue;}
             if(cp==0x130){out.append('i').append((char)0x307);changed=true;}
             else{int lower=Character.toLowerCase(cp);out.appendCodePoint(lower);changed|=lower!=cp;}
         }
         return changed?out.toString():this;
+    }
+    private boolean lowerFinalSigma(int index,String language){
+        if(language.equals("th"))throw new UnsupportedOperationException("Thai dictionary segmentation for lowercase sigma");
+        javaw.runtime.WordBreaks cursor=new javaw.runtime.WordBreaks(this);
+        for(int before=index;before>0 && !cursor.isBoundary(before);){
+            int cp=codePointBefore(before);before-=Character.charCount(cp);
+            if(javaw.runtime.StringLowerData.cased(cp)){
+                for(int after=index+1;after<length() && !cursor.isBoundary(after);){
+                    int next=codePointAt(after);if(javaw.runtime.StringLowerData.cased(next))return false;
+                    after+=Character.charCount(next);
+                }
+                return true;
+            }
+        }
+        return false;
     }
     public String toUpperCase(){return toUpperCase(java.util.Locale.getDefault());}
     public String toUpperCase(java.util.Locale locale) {

@@ -19,3 +19,7 @@ packing changes their representation. The runtime uses an adapted boundary curso
 are not implemented. No change is made to the original upstream rules.
 
 RuleBasedBreakIterator source SHA-256: 9b01b18dcf9b2e7abc85d69f21a32d1ef05de6d1dc2186fb018926a8290b72af
+
+ConditionalSpecialCasing.java.txt preserves the upstream lowercase-context
+source and notices. Its private Java 17 isCased predicate supplies the
+generated CASED ranges. Source SHA-256: cdd17b115087d7528301b807693dfd9ce9cd4d1de82b9a8c6f0caf69b42f03aa

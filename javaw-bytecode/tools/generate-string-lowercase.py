@@ -19,6 +19,9 @@ public class LowerData {
    BreakIterator other=BreakIterator.getWordInstance(new Locale(lang));
    if(other.getClass()!=b.getClass() || !field(other,"checksum").equals(field(b,"checksum")))throw new IllegalArgumentException("Different word data: "+lang);
   }
+  Method cased=Class.forName("java.lang.ConditionalSpecialCasing").getDeclaredMethod("isCased",int.class);cased.setAccessible(true);
+  int caseStart=-1;
+  for(int cp=0;cp<=0x110000;cp++){boolean yes=cp<0x110000 && (boolean)cased.invoke(null,cp);if(yes && caseStart<0)caseStart=cp;else if(!yes && caseStart>=0){System.out.println("P,"+caseStart+","+(cp-1));caseStart=-1;}}
   int start=0,previous=(int)category.invoke(b,0);
   for(int cp=1;cp<=0x110000;cp++){
    int next=cp==0x110000?-2:(int)category.invoke(b,cp);
@@ -28,14 +31,15 @@ public class LowerData {
 with tempfile.TemporaryDirectory() as d:
  f=Path(d)/'LowerData.java';f.write_text(source)
  subprocess.run([str(a.java_home/'bin/javac'),str(f)],check=True)
- data=subprocess.check_output([str(a.java_home/'bin/java'),'--add-opens','java.base/sun.text=ALL-UNNAMED','-Djava.locale.providers=CLDR','-cp',d,'LowerData'],text=True)
-rows=[];states=[];flags=[];back=[]
+ data=subprocess.check_output([str(a.java_home/'bin/java'),'--add-opens','java.base/sun.text=ALL-UNNAMED','--add-opens','java.base/java.lang=ALL-UNNAMED','-Djava.locale.providers=CLDR','-cp',d,'LowerData'],text=True)
+rows=[];states=[];flags=[];back=[];cased=[]
 for line in data.splitlines():
  kind,*v=line.split(',');v=list(map(int,v))
  if kind=='N':categories=v[0]
  elif kind=='S':states+=v
  elif kind=='F':flags+=v
  elif kind=='B':back+=v
+ elif kind=='P':cased.append(v)
  else:rows.append(v)
 with zipfile.ZipFile(a.java_home/'lib/src.zip') as z:rules=z.read('java.base/sun/text/resources/BreakIteratorRules.java').decode()
 header=rules[:rules.index('package ')]
@@ -49,6 +53,7 @@ out=header+'''package javaw.runtime;
 public final class StringLowerData {
  private StringLowerData(){}
 '''
+out+=' private static final String CASED="'+packed(v for row in cased for v in row)+'";\n'
 out+=' private static final String STATES="'+''.join(unit(v) for v in states)+'";\n'
 out+=' private static final String BACK="'+''.join(unit(v) for v in back)+'";\n'
 out+=' private static final String FLAGS="'+''.join(unit(v) for v in flags)+'";\n'
@@ -56,6 +61,7 @@ out+=' private static final String[] RANGES={\n'
 for i in range(0,len(rows),128):out+='  "'+packed(v for row in rows[i:i+128] for v in row)+'",\n'
 out+=''' };
  private static int number(int row,int column){String s=RANGES[row>>>7];int i=(row&127)*6+column*2;return(s.charAt(i)<<16)|s.charAt(i+1);}
+ public static boolean cased(int cp){int low=0,high=CASED.length()/4-1;while(low<=high){int m=(low+high)>>>1,i=m*4;int start=(CASED.charAt(i)<<16)|CASED.charAt(i+1),end=(CASED.charAt(i+2)<<16)|CASED.charAt(i+3);if(cp<start)high=m-1;else if(cp>end)low=m+1;else return true;}return false;}
  public static int category(int cp){int low=0,high=COUNT-1;while(low<=high){int m=(low+high)>>>1;if(cp<number(m,0))high=m-1;else if(cp>number(m,1))low=m+1;else return number(m,2);}return -1;}
  public static int state(int state,int category){return STATES.charAt(state*CATEGORIES+category);}
  public static int backward(int state,int category){return BACK.charAt(state*CATEGORIES+category);}

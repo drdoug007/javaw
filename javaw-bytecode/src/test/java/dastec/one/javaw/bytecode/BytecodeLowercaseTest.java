@@ -50,6 +50,17 @@ class BytecodeLowercaseTest implements Opcodes {
             """);compare(1088);
     }
 
+    @Test void finalSigmaContexts() throws Exception {
+        fixture("""
+            import java.util.*;
+            public class Metadata {static int hash(String s){String lower=s.toLowerCase(Locale.ROOT);return 31*lower.hashCode()+(s==lower?1:0);}
+             public static int run(int group){int h=1;
+             for(String s:new String[]{"Σ","ΟΣ","ΣΟΣ","ΟΣΣ","ΣΣ","ΑΣ'Α","ΑΣ-Α","ΑΣ1Α","ΑΣ_Α","ΑΣ.Α","ΑΣ:Α","ΑΣ\\u0301Α","ΑΣ\\u200dΑ","a\\uffffΣ","aΣ\\uffffb","aΣ𐐀","𐐀Σ","אΣא","กΣก","中文Σ中文"})h=31*h+hash(s);
+             for(int cp=group*1024;cp<group*1024+1024 && cp<=0x10ffff;cp+=31){String c=new String(Character.toChars(cp));for(String s:new String[]{"aΣ"+c,"aΣ"+c+"b","a"+c+"Σ",c+"Σa",c+"Σ"})h=31*h+hash(s);}
+             return h;}}
+            """);compare(1088);
+    }
+
     private byte[] fixture(String source) throws Exception {
         Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
         List<String> options=new ArrayList<>(List.of("-g","-parameters","--release",release,"-d",directory.toString()));

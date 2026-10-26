@@ -18,3 +18,4 @@ Completed subsets:
 
 - v170: Reproducible Java 17 ROOT word-boundary data and an internal boundary cursor for final-sigma contexts, retaining upstream notices and license.
 - v171: ROOT Unicode lowercase with full dotted-I expansion, supplementary mappings, surrogate preservation, unchanged-result identity and null-locale failures; final sigma and Turkic/Lithuanian contexts are staged separately.
+- v172: Final-sigma lowercase using Java 17 boundary-query and cased-character semantics; word punctuation, combining marks, supplementary contexts and surrogate cuts are compared with the JVM. Thai dictionary-dependent sigma contexts are explicitly excluded.
