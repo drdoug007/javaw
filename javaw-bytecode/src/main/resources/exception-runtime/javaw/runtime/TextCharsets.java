@@ -19,6 +19,7 @@ public final class TextCharsets {
         if(name.equalsIgnoreCase("US-ASCII") || name.equalsIgnoreCase("iso_646.irv:1983") || name.equalsIgnoreCase("ASCII") || name.equalsIgnoreCase("iso-ir-6") || name.equalsIgnoreCase("cp367") || name.equalsIgnoreCase("ANSI_X3.4-1986") || name.equalsIgnoreCase("us") || name.equalsIgnoreCase("646") || name.equalsIgnoreCase("ISO646-US") || name.equalsIgnoreCase("ISO_646.irv:1991") || name.equalsIgnoreCase("csASCII") || name.equalsIgnoreCase("IBM367") || name.equalsIgnoreCase("ascii7") || name.equalsIgnoreCase("ANSI_X3.4-1968"))return 2;
         if(name.equalsIgnoreCase("UTF-16BE") || name.equalsIgnoreCase("ISO-10646-UCS-2") || name.equalsIgnoreCase("UTF_16BE") || name.equalsIgnoreCase("UnicodeBigUnmarked") || name.equalsIgnoreCase("X-UTF-16BE"))return 3;
         if(name.equalsIgnoreCase("UTF-16LE") || name.equalsIgnoreCase("UnicodeLittleUnmarked") || name.equalsIgnoreCase("UTF_16LE") || name.equalsIgnoreCase("X-UTF-16LE"))return 4;
+        if(name.equalsIgnoreCase("UTF-16") || name.equalsIgnoreCase("UTF_16") || name.equalsIgnoreCase("unicode") || name.equalsIgnoreCase("UnicodeBig") || name.equalsIgnoreCase("utf16"))return 5;
         throw new java.io.UnsupportedEncodingException(name);
     }
     public static byte[] encode(String text,String name) throws java.io.UnsupportedEncodingException {
@@ -46,6 +47,7 @@ public final class TextCharsets {
         }
         if(charset==3)return encode16(text,false,false);
         if(charset==4)return encode16(text,true,false);
+        if(charset==5)return encode16(text,false,true);
         throw new UnsupportedOperationException();
     }
     private static byte[] encode16(String text,boolean little,boolean bom){
@@ -90,6 +92,7 @@ public final class TextCharsets {
         if(charset==0)return new String(bytes,offset,count);
         if(charset==3)return decode16(bytes,offset,count,false,false);
         if(charset==4)return decode16(bytes,offset,count,true,false);
+        if(charset==5)return decode16(bytes,offset,count,false,true);
         if(charset==2){char[] chars=new char[count];
             for(int j=0;j<count;j++){int b=bytes[offset+j]&255;chars[j]=(char)(b<128?b:0xfffd);}
             return new String(chars);

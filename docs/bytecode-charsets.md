@@ -35,3 +35,7 @@ UTF-16BE preserves byte order and literal BOM units, replaces malformed input wi
 ## Little-endian UTF-16 String conversion (`utf16le-codec-v127`)
 
 UTF-16LE applies little-endian conversion, literal BOM handling and replacement semantics for truncated bytes and malformed surrogate sequences. Focused tests exercise exact output and typed failures with JVM/Wasm comparisons.
+
+## BOM-aware UTF-16 String conversion (`utf16-bom-codec-v128`)
+
+UTF-16 detects a leading byte-order mark, defaults to big endian, emits a big-endian BOM for nonempty encoding and preserves subsequent BOM units. Focused tests exercise exact output and typed failures with JVM/Wasm comparisons.
