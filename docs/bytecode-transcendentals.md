@@ -61,3 +61,7 @@ The ten audited declarations reduce missing members from 57 to 47 (978 to 988 de
 ## Validation
 
 Combined v100–v109 validation: all 384 tests pass in the required offline bytecode suite (four test forks), with zero failures, errors or skips. All 12 new numerical/admission tests, the pinned ANTLR method-body comparison and the source reproduction check pass. The reviewed 63-JAR audit has unchanged dependency inventory totals; selected signature coverage is 988 declared, 47 missing members and 302 missing owners.
+
+## Two-argument inverse tangent (`fdlibm-atan2-v110`)
+
+Math.atan2: Quadrants, signed-zero axes, infinities and extreme ratios use the portable fdlibm atan2 algorithm. Canonical-bit JVM StrictMath comparisons cover both JAR orders, direct calls, method references and fresh Wasm instances. Malformed float descriptors are rejected. No new pinned-library execution claim is made.

@@ -24,7 +24,7 @@
  */
 
 // Javaw adaptation, 2026-10-26: selected algorithms; inline unavailable Double
-// constants and route the internal decimal logarithm through Math.log.
+// constants; route internal StrictMath calls through portable Math adapters.
 // The original GPLv2 with Classpath exception continues to apply.
 package java.lang;
 
@@ -1509,6 +1509,86 @@ final class FdLibm {
             } else {
                 z = atanhi[id] - ((x*(s1+s2) - atanlo[id]) - x);
                 return (hx < 0) ? -z: z;
+            }
+        }
+    }
+    static final class Atan2 {
+        private Atan2() {throw new UnsupportedOperationException();}
+
+        private static final double
+            tiny    = 1.0e-300,
+            pi_o_4  = 0x1.921fb54442d18p-1,  // 7.8539816339744827900E-01
+            pi_o_2  = 0x1.921fb54442d18p0,   // 1.5707963267948965580E+00
+            pi_lo   = 0x1.1a62633145c07p-53; // 1.2246467991473531772E-16
+
+        static double compute(double y, double x) {
+            double z;
+            int k, m, hx, hy, ix, iy;
+            /*unsigned*/ int lx, ly;
+
+            hx = __HI(x);
+            ix = hx & EXP_SIGNIF_BITS;
+            lx = __LO(x);
+            hy = __HI(y);
+            iy = hy & EXP_SIGNIF_BITS;
+            ly = __LO(y);
+            if (Double.isNaN(x) || Double.isNaN(y))
+                return x + y;
+            if (((hx - 0x3ff0_0000) | lx) == 0) // x = 1.0
+                return Math.atan(y);
+            m = ((hy >> 31) & 1)|((hx >> 30) & 2);  // 2*sign(x) + sign(y)
+
+            // when y = 0
+            if ((iy | ly) == 0) {
+                switch(m) {
+                case 0:
+                case 1: return y;               // atan(+/-0, +anything)  = +/-0
+                case 2: return  Math.PI + tiny; // atan(+0,   -anything)  =  pi
+                case 3: return -Math.PI - tiny; // atan(-0,   -anything)  = -pi
+                }
+            }
+            // when x = 0
+            if ((ix | lx) == 0) {
+                return (hy < 0)?  -pi_o_2 - tiny : pi_o_2 + tiny;
+            }
+
+            // when x is INF
+            if (ix == EXP_BITS) {
+                if (iy == EXP_BITS) {
+                    switch(m) {
+                    case 0: return  pi_o_4 + tiny;      // atan(+INF, +INF)
+                    case 1: return -pi_o_4 - tiny;      // atan(-INF, +INF)
+                    case 2: return  3.0*pi_o_4 + tiny;  // atan(+INF, -INF)
+                    case 3: return -3.0*pi_o_4 - tiny;  // atan(-INF, -INF)
+                    }
+                } else {
+                    switch(m) {
+                    case 0: return  0.0;                // atan(+..., +INF)
+                    case 1: return -0.0;                // atan(-..., +INF)
+                    case 2: return  Math.PI + tiny;     // atan(+..., -INF)
+                    case 3: return -Math.PI - tiny;     // atan(-..., -INF)
+                    }
+                }
+            }
+            // when y is INF
+            if (iy == EXP_BITS) {
+                return (hy < 0)? -pi_o_2 - tiny : pi_o_2 + tiny;
+            }
+
+            // compute y/x
+            k = (iy - ix) >> 20;
+            if (k > 60) {   // |y/x| >  2**60
+                z = pi_o_2+0.5*pi_lo;
+            } else if (hx < 0 && k < -60) { // |y|/x < -2**60
+                z = 0.0;
+            } else { // safe to do y/x
+                z = Math.atan(Math.abs(y/x));
+            }
+            switch (m) {
+            case 0:  return  z;                     // atan(+, +)
+            case 1:  return -z;                     // atan(-, +)
+            case 2:  return  Math.PI - (z - pi_lo); // atan(+, -)
+            default: return (z - pi_lo) - Math.PI;  // atan(-, -), case 3
             }
         }
     }
