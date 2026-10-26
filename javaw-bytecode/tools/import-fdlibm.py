@@ -31,7 +31,7 @@ def main():
         '// Hypot omits its internal assertion and uses exact scalb for powerOfTwoD.\n'
         '// The original GPLv2 with Classpath exception continues to apply.\n'
         'package java.lang;')
-    for name in ['Exp', 'Log', 'Log10', 'Pow', 'Sin', 'Cos', 'RemPio2', 'KernelRemPio2', 'Tan', 'Asin', 'Acos', 'Atan', 'Atan2', 'Expm1', 'Log1p', 'Sinh', 'Cosh', 'Tanh', 'Cbrt', 'Hypot']:
+    for name in ['Exp', 'Log', 'Log10', 'Pow', 'Sin', 'Cos', 'RemPio2', 'KernelRemPio2', 'Tan', 'Asin', 'Acos', 'Atan', 'Atan2', 'Expm1', 'Log1p', 'Sinh', 'Cosh', 'Tanh', 'Cbrt', 'Hypot', 'IEEEremainder']:
         start = source.index('    static final class ' + name + ' ')
         cursor = masked.index('{', start) + 1
         depth = 1

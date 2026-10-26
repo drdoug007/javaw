@@ -93,3 +93,7 @@ Math.cbrt: Exponent scaling and corrected iteration cover negative inputs, subno
 ## Scaled Euclidean norm (`fdlibm-hypot-v117`)
 
 Math.hypot: Scaling and compensated square roots avoid premature overflow and underflow; infinity dominates NaN. Canonical-bit JVM StrictMath comparisons cover both JAR orders, direct calls, method references and fresh Wasm instances. Malformed float descriptors are rejected. No new pinned-library execution claim is made.
+
+## IEEE nearest-even remainder (`fdlibm-ieeeremainder-v118`)
+
+Math.IEEEremainder: Portable bitwise reduction implements nearest-even quotient ties, signed zeros and invalid nonfinite domains. Canonical-bit JVM StrictMath comparisons cover both JAR orders, direct calls, method references and fresh Wasm instances. Malformed float descriptors are rejected. No new pinned-library execution claim is made.

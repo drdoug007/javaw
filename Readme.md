@@ -1970,3 +1970,5 @@ Bytecode numeric progress (v115): Math.tanh. Expm1 transforms preserve tiny sign
 Bytecode numeric progress (v116): Math.cbrt. Exponent scaling and corrected iteration cover negative inputs, subnormals and signed zeros. JVM/Wasm numerical and malformed-descriptor checks pass; see [the numerical contract](docs/bytecode-transcendentals.md). Broader text/numeric and framework support remains open.
 
 Bytecode numeric progress (v117): Math.hypot. Scaling and compensated square roots avoid premature overflow and underflow; infinity dominates NaN. JVM/Wasm numerical and malformed-descriptor checks pass; see [the numerical contract](docs/bytecode-transcendentals.md). Broader text/numeric and framework support remains open.
+
+Bytecode numeric progress (v118): Math.IEEEremainder. Portable bitwise reduction implements nearest-even quotient ties, signed zeros and invalid nonfinite domains. JVM/Wasm numerical and malformed-descriptor checks pass; see [the numerical contract](docs/bytecode-transcendentals.md). Broader text/numeric and framework support remains open.
