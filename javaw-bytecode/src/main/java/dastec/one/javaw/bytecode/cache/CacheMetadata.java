@@ -3,7 +3,7 @@ package dastec.one.javaw.bytecode.cache;
 import java.util.*;
 
 public class CacheMetadata {
-    public static final String COMPILER_VERSION = "1.0-SNAPSHOT-contextual-final-sigma-v172";
+    public static final String COMPILER_VERSION = "1.0-SNAPSHOT-turkic-lowercase-v173";
     private String groupId;
     private String artifactId;
     private String version;

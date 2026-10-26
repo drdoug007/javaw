@@ -61,6 +61,17 @@ class BytecodeLowercaseTest implements Opcodes {
             """);compare(1088);
     }
 
+    @Test void turkicLowercase() throws Exception {
+        fixture("""
+            import java.util.*;
+            public class Metadata {public static int run(int group){int h=1;
+             for(String language:new String[]{"tr","az","TR"}){Locale l=new Locale(language,"TR");
+              for(String s:new String[]{"","Iİiı","I\\u0307","I\\u0323\\u0307","I\\u0301\\u0307","I\\u034f\\u0307","I\\u0307\\u0307","I\\u0323I\\u0307","ΟΣI","𐐀I","i"}){String lower=s.toLowerCase(l);h=31*h+lower.hashCode();h=31*h+(s==lower?1:0);}
+              for(int cp=group*256;cp<group*256+256;cp+=13){String c=new String(Character.toChars(cp));for(String s:new String[]{"I"+c+"\\u0307", "İ"+c,"I"+c+"\\u0307\\u0307",c+"I"})h=31*h+s.toLowerCase(l).hashCode();}
+             }return h;}}
+            """);compare(256);
+    }
+
     private byte[] fixture(String source) throws Exception {
         Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
         List<String> options=new ArrayList<>(List.of("-g","-parameters","--release",release,"-d",directory.toString()));

@@ -10,16 +10,32 @@ public final class String implements CharSequence,Comparable<String>,java.io.Ser
     public static String format(String format,Object... args){return javaw.runtime.TextFormats.format(java.util.Locale.getDefault(),format,args);}
     public String toLowerCase(java.util.Locale locale){
         String language=locale.getLanguage();
-        if(language.equals("tr") || language.equals("az") || language.equals("lt"))throw new UnsupportedOperationException("Contextual lowercase locale");
+        boolean turkic=language.equals("tr") || language.equals("az");
+        if(language.equals("lt"))throw new UnsupportedOperationException("Contextual lowercase locale");
         StringBuilder out=new StringBuilder();boolean changed=false;
         for(int i=0;i<length();){
             int cp=codePointAt(i);i+=Character.charCount(cp);
             changed|=cp>=0x10000 || (cp>=0xd800 && cp<=0xdfff);
             if(cp==0x3a3){out.append((char)(lowerFinalSigma(i-1,language)?0x3c2:0x3c3));changed=true;continue;}
-            if(cp==0x130){out.append('i').append((char)0x307);changed=true;}
+            if(turkic && cp=='I'){out.append(lowerBeforeDot(i)?'i':(char)0x131);changed=true;continue;}
+            if(turkic && cp==0x307 && lowerAfterI(i-1)){changed=true;continue;}
+            if(cp==0x130){out.append('i');if(!turkic)out.append((char)0x307);changed=true;}
             else{int lower=Character.toLowerCase(cp);out.appendCodePoint(lower);changed|=lower!=cp;}
         }
         return changed?out.toString():this;
+    }
+    private boolean lowerBeforeDot(int index){
+        while(index<length()){
+            int cp=codePointAt(index);if(cp==0x307)return true;
+            int cc=javaw.runtime.StringUpperData.combining(cp);if(cc==0 || cc==230)return false;
+            index+=Character.charCount(cp);
+        }return false;
+    }
+    private boolean lowerAfterI(int index){
+        while(index>0){
+            int cp=codePointBefore(index);index-=Character.charCount(cp);if(cp=='I')return true;
+            int cc=javaw.runtime.StringUpperData.combining(cp);if(cc==0 || cc==230)return false;
+        }return false;
     }
     private boolean lowerFinalSigma(int index,String language){
         if(language.equals("th"))throw new UnsupportedOperationException("Thai dictionary segmentation for lowercase sigma");
