@@ -5,6 +5,8 @@ public final class Math {
     private Math() {}
     public static final double E=2.718281828459045;
     public static final double PI=3.141592653589793;
+    public static double fma(double a,double b,double c){return javaw.runtime.FusedMath.fma(a,b,c);}
+    public static float fma(float a,float b,float c){return javaw.runtime.FusedMath.fma(a,b,c);}
     public static double sqrt(double value){return javaw.runtime.ExceptionSupport.doubleSqrt(value);}
     public static double toRadians(double degrees){return degrees*0.017453292519943295;}
     public static double toDegrees(double radians){return radians*57.29577951308232;}

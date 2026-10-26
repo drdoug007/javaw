@@ -23,7 +23,7 @@ Executable cases use both JAR orders, two independent Wasm instances and the def
 
 ## Remaining scope
 
-Trigonometric, logarithmic, exponential, general powers and fused multiply-add APIs remain unsupported. Jackson's FFT multiplier and H2 SQL math dispatch require other APIs and are not established by these tests. Broader text/numeric coverage, context decimal arithmetic, concurrency, full core-JDK closure and framework startup remain open.
+Trigonometric, logarithmic, exponential and general power APIs remain unsupported. Float/double fused multiply-add is supported by the later [fused arithmetic subset](bytecode-fused-math.md). Jackson's FFT multiplier and H2 SQL math dispatch require other APIs and are not established by these tests. Broader text/numeric coverage, context decimal arithmetic, concurrency, full core-JDK closure and framework startup remain open.
 
 ## Validation
 
