@@ -17,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class BytecodeTextFormatTest implements Opcodes {
     @TempDir Path directory;
     private String release="17";
+    private byte[] pinnedCarrier;
     private String fixtureClasspath;
     private String fixtureClassName="Metadata";
 
@@ -183,6 +184,92 @@ class BytecodeTextFormatTest implements Opcodes {
             """);compare(12);
     }
 
+    @Test void localeAndInstanceFormatting() throws Exception {
+        fixture("""
+            import java.util.*;
+            public class Metadata {public static int run(int group){int h=1;
+             for(Locale l:new Locale[]{null,Locale.ROOT,Locale.ENGLISH,Locale.US,Locale.UK})
+              for(String f:new String[]{"%s %S %b %H", "%+,025d %#025x %c", "%n%5% %3$s %<S"})h=31*h+String.format(l,f,1234567,1234567,105,255).hashCode();
+             for(String lang:new String[]{"tr","az","lt","de","ja"})h=31*h+String.format(new Locale(lang),"%S/%C","iıİß",105).hashCode();
+             for(String f:new String[]{"%s","%1$d:%1$#x:%1$c","%s %% %n %<S"})h=31*h+f.formatted(65).hashCode();
+             return h;
+            }}
+            """);compare(1);
+    }
+
+    @Test void pinnedJacksonInjectFormatting() throws Exception {
+        Path artifact=Path.of(System.getProperty("maven.repo.local",Path.of(System.getProperty("user.home"),".m2","repository").toString()))
+            .resolve("com/fasterxml/jackson/core/jackson-annotations/2.15.4/jackson-annotations-2.15.4.jar");
+        assertEquals("f204ebbd552614a22b8531ffe350d47f8fd42c45bb60517c07974dc27a5a1dd3",
+            HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(artifact))));
+        try(JarFile jar=new JarFile(artifact.toFile())){
+            for(String name:List.of("JacksonInject","JacksonInject$Value","JacksonAnnotationValue","JacksonAnnotation","OptBoolean")) {
+                String entry="com/fasterxml/jackson/annotation/"+name+".class";Path file=directory.resolve(entry);
+                Files.createDirectories(file.getParent());Files.write(file,jar.getInputStream(jar.getJarEntry(entry)).readAllBytes());
+            }
+        }
+        fixtureClasspath=directory.toString();
+        fixture("""
+            import com.fasterxml.jackson.annotation.JacksonInject.Value;
+            public class Metadata {
+             public static class Item extends Value {public Item(Object id,Boolean use){super(id,use);}}
+             public static int run(int group){int h=1;
+              for(Object id:new Object[]{null,"","name","Straße",123})for(Boolean use:new Boolean[]{null,false,true})
+               h=31*h+new Item(id,use).toString().hashCode();
+              return h;}}
+            """);
+        // Only Wasm uses the carrier; the external JVM oracle executes the original complete classes.
+        ClassNode original=new ClassNode();new ClassReader(Files.readAllBytes(directory.resolve("com/fasterxml/jackson/annotation/JacksonInject$Value.class"))).accept(original,0);
+        ClassWriter carrier=new ClassWriter(0);carrier.visit(V17,ACC_PUBLIC,original.name,null,"java/lang/Object",null);
+        for(FieldNode field:original.fields)if(field.name.equals("_id") || field.name.equals("_useInput"))field.accept(carrier);
+        for(MethodNode method:original.methods)if(method.name.equals("<init>") || method.name.equals("toString"))method.accept(carrier);
+        carrier.visitEnd();pinnedCarrier=carrier.toByteArray();compare(1);
+    }
+
+    @Test void unsupportedFormattingIsExplicit() throws Exception {
+        fixture("""
+            import java.util.*;
+            import java.math.BigInteger;
+            public class Metadata {public static int run(int group){int h=0;
+             for(String f:new String[]{"%f","%e","%g","%a","%tY"})try{String.format(f,1.0);throw new Error();}catch(UnsupportedOperationException expected){h++;}
+             try{String.format(Locale.GERMANY,"%d",1000);throw new Error();}catch(UnsupportedOperationException expected){h++;}
+             try{String.format("%d",BigInteger.ONE);throw new Error();}catch(UnsupportedOperationException expected){h++;}
+             return h;}}
+            """);
+        // Excluded valid forms deliberately differ from the JDK formatter; verify the diagnostic contract.
+        for(boolean reverse:new boolean[]{false,true})execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),"[7]");
+    }
+
+    @Test void formattingDiagnostics() throws Exception {
+        fixture("""
+            import java.util.*;
+            public class Metadata {public static int run(int group){
+             String[] formats={"%0$s","%2147483648$s","%2$<s","%1$-s","%0-5d","% +5d","%+B","%#C","%#H","%Q","%01$s","%1$<s","%2$-s","%3$-10s","%-#s","%0-c","%.2c","%-0d","%#-s","%+0x","%.s","%1$","%1$2","%--5s","%--5q","%1$s %q","%3$s %q"};
+             try{return String.format(formats[group],1).hashCode();}
+             catch(IllegalFormatException e){int h=e.getClass().getName().hashCode();
+              if(e instanceof MissingFormatArgumentException)h=31*h+((MissingFormatArgumentException)e).getFormatSpecifier().hashCode();
+              if(e instanceof MissingFormatWidthException)h=31*h+((MissingFormatWidthException)e).getFormatSpecifier().hashCode();
+              if(e instanceof IllegalFormatFlagsException)h=31*h+((IllegalFormatFlagsException)e).getFlags().hashCode();
+              if(e instanceof FormatFlagsConversionMismatchException){h=31*h+((FormatFlagsConversionMismatchException)e).getFlags().hashCode();h=31*h+((FormatFlagsConversionMismatchException)e).getConversion();}
+              if(e instanceof UnknownFormatConversionException)h=31*h+((UnknownFormatConversionException)e).getConversion().hashCode();
+              return h;
+             }
+            }}
+            """);compare(27);
+    }
+
+    @Test void malformedTextDescriptors() {
+        for(int fixture=0;fixture<3;fixture++){
+            ClassWriter writer=new ClassWriter(0);writer.visit(V17,ACC_PUBLIC,"BadText",null,"java/lang/Object",null);
+            MethodVisitor m=writer.visitMethod(ACC_PUBLIC|ACC_STATIC,"run","()Ljava/lang/Object;",null,null);m.visitCode();
+            if(fixture==0){m.visitLdcInsn("x");m.visitInsn(ACONST_NULL);m.visitMethodInsn(INVOKEVIRTUAL,"java/lang/String","toUpperCase","(Ljava/lang/Object;)Ljava/lang/String;",false);}
+            else if(fixture==1){m.visitLdcInsn("x");m.visitInsn(ACONST_NULL);m.visitMethodInsn(INVOKESTATIC,"java/lang/String","format","(Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/String;",false);}
+            else m.visitFieldInsn(GETSTATIC,"java/util/Locale","ROOT","Ljava/lang/String;");
+            m.visitInsn(ARETURN);m.visitMaxs(2,0);m.visitEnd();writer.visitEnd();
+            assertThrows(IllegalArgumentException.class,()->BytecodeCompiler.compileClassWithExceptionRuntime(writer.toByteArray()));
+        }
+    }
+
     private byte[] fixture(String source) throws Exception {
         Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
         List<String> options=new ArrayList<>(List.of("-g","-parameters","--release",release,"-d",directory.toString()));
@@ -201,7 +288,10 @@ class BytecodeTextFormatTest implements Opcodes {
         if(reverse)Collections.reverse(files);
         ByteArrayOutputStream bytes=new ByteArrayOutputStream();
         try(JarOutputStream jar=new JarOutputStream(bytes)) {
-            for(Path file:files){jar.putNextEntry(new JarEntry(directory.relativize(file).toString()));jar.write(Files.readAllBytes(file));jar.closeEntry();}
+            for(Path file:files){
+                String entry=directory.relativize(file).toString();
+                if(pinnedCarrier!=null && entry.startsWith("com/fasterxml/") && !entry.endsWith("JacksonInject$Value.class"))continue;
+                jar.putNextEntry(new JarEntry(directory.relativize(file).toString()));jar.write(pinnedCarrier!=null && entry.endsWith("JacksonInject$Value.class")?pinnedCarrier:Files.readAllBytes(file));jar.closeEntry();}
         }
         return bytes.toByteArray();
     }

@@ -22,24 +22,25 @@ public final class TextFormats {
    n=at;while(at<length && digit(format.charAt(at)))at++;if(at>n)s.width=number(format,n,at,1);
    if(at<length && format.charAt(at)=='.'){n=++at;while(at<length && digit(format.charAt(at)))at++;if(n==at)throw new UnknownFormatConversionException(".");s.precision=number(format,n,at,2);}
    if(at==length)throw new UnknownFormatConversionException(String.valueOf(format.charAt(start+1<length?start+1:start)));
-   s.conversion=format.charAt(at++);s.raw=format.substring(start,at);
+   s.conversion=format.charAt(at++);s.raw=specifier(s);
    if("sSbBhHcCdoxXeEfgGaAtT%n".indexOf(s.conversion)<0)throw new UnknownFormatConversionException(String.valueOf(s.conversion));
    validate(s);specs.add(s);literal=at;
   }
   if(literal<length){Spec s=new Spec();s.literal=format.substring(literal);specs.add(s);}return specs;
  }
  private static boolean flag(Spec s,char f){return s.flags.indexOf(f)>=0;}
+ private static String specifier(Spec s){String text="%";for(int i=0;i<FLAGS.length();i++)if(flag(s,FLAGS.charAt(i)))text+=FLAGS.charAt(i);if(s.index>0 && !flag(s,'<'))text+=s.index+"$";if(s.width>=0)text+=s.width;if(s.precision>=0)text+="."+s.precision;return text+s.conversion;}
  private static char conversion(Spec s){char c=s.conversion;return c>='A' && c<='Z'?(char)(c+32):c;}
  private static String flagsText(Spec s){String text=s.conversion>='A' && s.conversion<='Z'?"^":"";for(int i=0;i<FLAGS.length();i++)if(flag(s,FLAGS.charAt(i)))text+=FLAGS.charAt(i);return text;}
- private static void allowed(Spec s,String allowed){String bad="";for(int i=0;i<s.flags.length();i++){char c=s.flags.charAt(i);if(allowed.indexOf(c)<0)bad+=c;}if(!bad.isEmpty())throw new FormatFlagsConversionMismatchException(bad,conversion(s));}
+ private static void allowed(Spec s,String allowed){String bad="";for(int i=0;i<FLAGS.length();i++){char c=FLAGS.charAt(i);if(flag(s,c) && allowed.indexOf(c)<0)bad+=c;}if(!bad.isEmpty())throw new FormatFlagsConversionMismatchException(bad,conversion(s));}
  private static void validate(Spec s){
   char c=s.conversion;
   if(c=='n'){if(s.precision>=0)throw new IllegalFormatPrecisionException(s.precision);if(s.width>=0)throw new IllegalFormatWidthException(s.width);if(!s.flags.isEmpty())throw new IllegalFormatFlagsException(flagsText(s));return;}
   if(c=='%'){if(s.precision>=0)throw new IllegalFormatPrecisionException(s.precision);if(!s.flags.isEmpty() && !s.flags.equals("-"))throw new IllegalFormatFlagsException(flagsText(s));if(flag(s,'-') && s.width<0)throw new MissingFormatWidthException(s.raw);return;}
+  if(c=='c' || c=='C'){if(s.precision>=0)throw new IllegalFormatPrecisionException(s.precision);allowed(s,"-<");if(flag(s,'-') && s.width<0)throw new MissingFormatWidthException(s.raw);return;}
   if(flag(s,'-') && s.width<0)throw new MissingFormatWidthException(s.raw);
   if(c=='s' || c=='S'){allowed(s,"-#<");return;}
   if(c=='b' || c=='B' || c=='h' || c=='H'){allowed(s,"-<");return;}
-  if(c=='c' || c=='C'){if(s.precision>=0)throw new IllegalFormatPrecisionException(s.precision);allowed(s,"-<");return;}
   if(c=='d' || c=='o' || c=='x' || c=='X'){
    if(s.precision>=0)throw new IllegalFormatPrecisionException(s.precision);
    if(flag(s,'0') && s.width<0)throw new MissingFormatWidthException(s.raw);
@@ -57,7 +58,7 @@ public final class TextFormats {
    int index;if(flag(s,'<')){index=last;}else if(s.index>0)index=s.index-1;else index=ordinary++;
    if(index<0 || (args!=null && index>=args.length))throw new MissingFormatArgumentException(s.raw);last=index;
    Object value=args==null?null:args[index];String text;
-   if((c=='s' || c=='S') && flag(s,'#'))throw new FormatFlagsConversionMismatchException("#",c);
+   if((c=='s' || c=='S') && flag(s,'#'))throw new FormatFlagsConversionMismatchException("#",conversion(s));
    if(c=='o' || c=='x' || c=='X')text=radix(value,s);
    else if(c=='d')text=decimal(value,s,locale);
    else if(c=='b' || c=='B')text=value==null?"false":value instanceof Boolean?value.toString():"true";
@@ -89,8 +90,7 @@ public final class TextFormats {
   if(value==null)return "null";
   if(value instanceof java.math.BigInteger)throw new UnsupportedOperationException("BigInteger formatting");
   if(!(value instanceof Byte || value instanceof Short || value instanceof Integer || value instanceof Long))throw new IllegalFormatConversionException(conversion(s),value.getClass());
-  String language=locale.getLanguage(),country=locale.getCountry();
-  if(!language.isEmpty() && !(language.equals("en") && (country.isEmpty() || country.equals("US") || country.equals("GB"))))throw new UnsupportedOperationException("Numeric format locale");
+  if(!(locale.equals(Locale.ROOT) || locale.equals(Locale.ENGLISH) || locale.equals(Locale.US) || locale.equals(Locale.UK)))throw new UnsupportedOperationException("Numeric format locale");
   long n=((Number)value).longValue();String digits=Long.toString(n);boolean negative=n<0;
   if(negative)digits=digits.substring(1);
   if(flag(s,',')){StringBuilder grouped=new StringBuilder();for(int i=0;i<digits.length();i++){if(i>0 && (digits.length()-i)%3==0)grouped.append(',');grouped.append(digits.charAt(i));}digits=grouped.toString();}
