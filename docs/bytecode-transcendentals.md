@@ -29,3 +29,7 @@ Math.pow handles negative-base parity, signed zero, nonintegral domains, extreme
 ## Portable sine and shared argument reduction (`fdlibm-sine-v104`)
 
 Math.sin uses split-remainder reduction for moderate inputs and multiprecision reduction for huge finite arguments, with shared sine/cosine kernels. Signed zeros are preserved and nonfinite arguments produce NaN.
+
+## Portable cosine (`fdlibm-cosine-v105`)
+
+Math.cos uses compensated cosine evaluation and the shared large-argument reducer, returns one for both zeros and produces NaN for nonfinite arguments.
