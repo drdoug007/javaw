@@ -18,6 +18,7 @@ public final class TextCharsets {
         if(name.equalsIgnoreCase("ISO-8859-1") || name.equalsIgnoreCase("cp819") || name.equalsIgnoreCase("ISO_8859_1") || name.equalsIgnoreCase("csISOLatin1") || name.equalsIgnoreCase("IBM819") || name.equalsIgnoreCase("latin1") || name.equalsIgnoreCase("ISO8859-1") || name.equalsIgnoreCase("iso-ir-100") || name.equalsIgnoreCase("ISO_8859-1:1987") || name.equalsIgnoreCase("ISO8859_1") || name.equalsIgnoreCase("819") || name.equalsIgnoreCase("l1") || name.equalsIgnoreCase("ISO_8859-1") || name.equalsIgnoreCase("8859_1") || name.equalsIgnoreCase("IBM-819"))return 1;
         if(name.equalsIgnoreCase("US-ASCII") || name.equalsIgnoreCase("iso_646.irv:1983") || name.equalsIgnoreCase("ASCII") || name.equalsIgnoreCase("iso-ir-6") || name.equalsIgnoreCase("cp367") || name.equalsIgnoreCase("ANSI_X3.4-1986") || name.equalsIgnoreCase("us") || name.equalsIgnoreCase("646") || name.equalsIgnoreCase("ISO646-US") || name.equalsIgnoreCase("ISO_646.irv:1991") || name.equalsIgnoreCase("csASCII") || name.equalsIgnoreCase("IBM367") || name.equalsIgnoreCase("ascii7") || name.equalsIgnoreCase("ANSI_X3.4-1968"))return 2;
         if(name.equalsIgnoreCase("UTF-16BE") || name.equalsIgnoreCase("ISO-10646-UCS-2") || name.equalsIgnoreCase("UTF_16BE") || name.equalsIgnoreCase("UnicodeBigUnmarked") || name.equalsIgnoreCase("X-UTF-16BE"))return 3;
+        if(name.equalsIgnoreCase("UTF-16LE") || name.equalsIgnoreCase("UnicodeLittleUnmarked") || name.equalsIgnoreCase("UTF_16LE") || name.equalsIgnoreCase("X-UTF-16LE"))return 4;
         throw new java.io.UnsupportedEncodingException(name);
     }
     public static byte[] encode(String text,String name) throws java.io.UnsupportedEncodingException {
@@ -44,6 +45,7 @@ public final class TextCharsets {
             }return result;
         }
         if(charset==3)return encode16(text,false,false);
+        if(charset==4)return encode16(text,true,false);
         throw new UnsupportedOperationException();
     }
     private static byte[] encode16(String text,boolean little,boolean bom){
@@ -87,6 +89,7 @@ public final class TextCharsets {
         if(offset<0 || count<0 || offset>length-count)throw new StringIndexOutOfBoundsException();
         if(charset==0)return new String(bytes,offset,count);
         if(charset==3)return decode16(bytes,offset,count,false,false);
+        if(charset==4)return decode16(bytes,offset,count,true,false);
         if(charset==2){char[] chars=new char[count];
             for(int j=0;j<count;j++){int b=bytes[offset+j]&255;chars[j]=(char)(b<128?b:0xfffd);}
             return new String(chars);

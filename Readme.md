@@ -1970,3 +1970,5 @@ Bytecode charset progress (v124): US-ASCII aliases decode ASCII bytes exactly an
 Bytecode charset progress (v125): ASCII encoding replaces unmappable characters and malformed surrogates, consuming valid surrogate pairs as one replacement. JVM/Wasm comparisons and the reviewed dependency audit pass. See [the charset contract](docs/bytecode-charsets.md); broader text/charset and framework support remains open.
 
 Bytecode charset progress (v126): UTF-16BE preserves byte order and literal BOM units, replaces malformed input with the JVM consumption rules and encodes malformed surrogates as U+FFFD. JVM/Wasm comparisons and the reviewed dependency audit pass. See [the charset contract](docs/bytecode-charsets.md); broader text/charset and framework support remains open.
+
+Bytecode charset progress (v127): UTF-16LE applies little-endian conversion, literal BOM handling and replacement semantics for truncated bytes and malformed surrogate sequences. JVM/Wasm comparisons and the reviewed dependency audit pass. See [the charset contract](docs/bytecode-charsets.md); broader text/charset and framework support remains open.

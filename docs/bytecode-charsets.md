@@ -31,3 +31,7 @@ Named lookups validate the ASCII charset-name grammar before case-insensitive al
 ## Big-endian UTF-16 String conversion (`utf16be-codec-v126`)
 
 UTF-16BE preserves byte order and literal BOM units, replaces malformed input with the JVM consumption rules and encodes malformed surrogates as U+FFFD. Focused tests exercise exact output and typed failures with JVM/Wasm comparisons.
+
+## Little-endian UTF-16 String conversion (`utf16le-codec-v127`)
+
+UTF-16LE applies little-endian conversion, literal BOM handling and replacement semantics for truncated bytes and malformed surrogate sequences. Focused tests exercise exact output and typed failures with JVM/Wasm comparisons.
