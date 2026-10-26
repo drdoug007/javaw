@@ -21,3 +21,7 @@ Lithuanian uppercase removes combining dot above after soft-dotted letters with 
 ## Default String uppercase (default-uppercase-v134)
 
 String.toUpperCase() uses the isolated ROOT locale. Direct calls and method references match a Java 17 ROOT-default oracle for expansions, supplementary and malformed-surrogate text, unchanged identity and mixed combining marks. Configurable defaults and lowercase remain unsupported.
+
+## String text formatting (text-formatting-v135)
+
+String.format(String,Object...) supports s/S, percent and LF newline, explicit/ordinary indexes and reuse, UTF-16 precision and width, null arrays, and typed syntax/flag/argument failures. Parsing validates the complete format before rendering. JVM/Wasm comparisons pass with exception getter payloads. Boolean, hash, character and numeric conversions are staged follow-ups; floating/date conversions, Formattable and public Formatter/provider APIs remain unsupported, with explicit diagnostics.

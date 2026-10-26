@@ -3,7 +3,7 @@ package com.example.javaw.bytecode.cache;
 import java.util.*;
 
 public class CacheMetadata {
-    public static final String COMPILER_VERSION = "1.0-SNAPSHOT-default-uppercase-v134";
+    public static final String COMPILER_VERSION = "1.0-SNAPSHOT-text-formatting-v135";
     private String groupId;
     private String artifactId;
     private String version;

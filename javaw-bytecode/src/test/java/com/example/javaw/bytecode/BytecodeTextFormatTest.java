@@ -98,6 +98,29 @@ class BytecodeTextFormatTest implements Opcodes {
             """);compare(1);
     }
 
+    @Test void textFormatting() throws Exception {
+        fixture("""
+            import java.util.*;
+            public class Metadata {
+              static int failure(String s){try{String.format(s,"x");return 0;}
+               catch(DuplicateFormatFlagsException e){return 1+e.getFlags().hashCode();}
+               catch(MissingFormatWidthException e){return 2+e.getFormatSpecifier().hashCode();}
+               catch(UnknownFormatConversionException e){return 3+e.getConversion().hashCode();}
+               catch(IllegalFormatPrecisionException e){return 4+e.getPrecision();}
+               catch(IllegalFormatFlagsException e){return 5+e.getFlags().hashCode();}
+               catch(MissingFormatArgumentException e){return 6+e.getFormatSpecifier().hashCode();}
+               catch(IllegalFormatWidthException e){return 7+e.getWidth();}
+               catch(FormatFlagsConversionMismatchException e){return 8+e.getFlags().hashCode()+e.getConversion();}}
+              public static int run(int group){int h=1;
+               for(String f:new String[]{"literal","%s","%S","%10.3s","%-10.3S","%2$s %s %<S %1$s","%s%% %n%5%", "%1$s %1$S"})
+                for(Object v:new Object[]{null,"Straße","iıİ","𐐨",123})h=31*h+String.format(f,v,"other").hashCode();
+               h=31*h+String.format("%100$s %s",(Object[])null).hashCode();
+               for(String f:new String[]{"%--s","%-s","%q","%","%.s","%.2%","%0%","%<s","%2$s","%#s","%+s","%5n","%-n","%00s","%2147483648s","%.2147483648s"})h=31*h+failure(f);
+               try{String.format((String)null,"x");return 0;}catch(NullPointerException expected){return h;}
+              }}
+            """);compare(1);
+    }
+
     private byte[] fixture(String source) throws Exception {
         Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
         List<String> options=new ArrayList<>(List.of("-g","-parameters","--release",release,"-d",directory.toString()));
