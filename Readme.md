@@ -2000,3 +2000,5 @@ Lowercase/text subset 5/10 (`lithuanian-lowercase-v174`): Lithuanian dot retenti
 Lowercase/text subset 6/10 (`default-lowercase-v175`): String.toLowerCase() uses the isolated ROOT default, with direct calls, both overload method references, contextual sigma and Java 17 identity/Unicode behavior. See [the runtime contract](docs/bytecode-lowercase.md) and `BytecodeLowercaseTest`. Broader JDK/framework execution remains open.
 
 Lowercase/text subset 7/10 (`pinned-lowercase-execution-v176`): Unchanged pinned Spring boolean-conversion and Jackson lowercase-strategy instructions execute in selected carriers against original-class JVM oracles; verify Thai exclusions and malformed lowercase descriptors. See [the runtime contract](docs/bytecode-lowercase.md) and `BytecodeLowercaseTest`. Broader JDK/framework execution remains open.
+
+Lowercase/text subset 8/10 (`string-transform-v177`): Generic String.transform callback invocation, method references, identity/null results, captured state and unchanged exception propagation. See [the runtime contract](docs/bytecode-lowercase.md) and `BytecodeLowercaseTest`. Broader JDK/framework execution remains open.

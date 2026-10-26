@@ -158,6 +158,25 @@ class BytecodeLowercaseTest implements Opcodes {
         }
     }
 
+    @Test void stringTransform() throws Exception {
+        fixture("""
+            import java.util.*;import java.util.function.*;
+            public class Metadata {public static int run(int group){int h=1;int[] calls={0};
+             for(String s:new String[]{"","abc","AΣ","𐐀",new String(new char[]{(char)0xd800,120})}){
+              h=31*h+s.transform(String::length);
+              String same=s.transform(Function.identity());h=31*h+(same==s?1:0);
+              Object captured=s.transform(v->{calls[0]++;if(v!=s)throw new Error();return v;});h=31*h+(captured==s?1:0);
+              h=31*h+s.transform(v->v.toLowerCase(Locale.ROOT)).hashCode();
+              int[] a=s.transform(v->new int[]{v.length(),v.hashCode()});h=31*h+a[0]+a[1];
+              h=31*h+(s.transform(v->null)==null?1:0);
+             }
+             IllegalStateException sentinel=new IllegalStateException("sentinel");
+             try{"x".transform(v->{throw sentinel;});throw new Error();}catch(IllegalStateException e){h=31*h+(e==sentinel?1:0);}
+             try{"".transform(null);throw new Error();}catch(NullPointerException e){h++;}
+             return 31*h+calls[0];}}
+            """);compare(1);
+    }
+
     private byte[] fixture(String source) throws Exception {
         Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
         List<String> options=new ArrayList<>(List.of("-g","-parameters","--release",release,"-d",directory.toString()));

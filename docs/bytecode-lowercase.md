@@ -23,3 +23,4 @@ Completed subsets:
 - v174: Lithuanian dot retention before above accents, I/J/ogonek contexts, precomposed grave/acute/tilde expansions and combining-class barriers.
 - v175: String.toLowerCase() uses the isolated ROOT default, with direct calls, both overload method references, contextual sigma and Java 17 identity/Unicode behavior.
 - v176: Unchanged pinned Spring boolean-conversion and Jackson lowercase-strategy instructions execute in selected carriers against original-class JVM oracles; verify Thai exclusions and malformed lowercase descriptors.
+- v177: Generic String.transform callback invocation, method references, identity/null results, captured state and unchanged exception propagation.
