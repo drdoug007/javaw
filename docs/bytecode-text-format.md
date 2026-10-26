@@ -29,3 +29,7 @@ String.format(String,Object...) supports s/S, percent and LF newline, explicit/o
 ## Boolean hash and character formatting (general-formatting-v136)
 
 String.format supports b/B, h/H and c/C, including nulls, UTF-16 precision for general conversions, supplementary code points and boxed byte/short/int/char validation. JVM/Wasm comparisons pass for formatting and typed conversion/code-point/precision/flag failures with getter payloads. Hash formatting uses the object hash contract; stable hash values are required for cross-host output comparisons.
+
+## Decimal integral formatting (decimal-formatting-v137)
+
+String.format d supports boxed byte/short/int/long, exact minimum/maximum values, signs, grouping, parentheses, alignment and zeros after signs. JVM/Wasm comparisons pass for values, nulls and typed flag/precision/type failures. Numeric localization is restricted to ROOT and selected English identities; BigInteger formatting is explicitly unsupported.

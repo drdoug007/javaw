@@ -38,6 +38,12 @@ public final class TextFormats {
   if(c=='s' || c=='S'){allowed(s,"-#<");return;}
   if(c=='b' || c=='B' || c=='h' || c=='H'){allowed(s,"-<");return;}
   if(c=='c' || c=='C'){if(s.precision>=0)throw new IllegalFormatPrecisionException(s.precision);allowed(s,"-<");return;}
+  if(c=='d'){
+   if(s.precision>=0)throw new IllegalFormatPrecisionException(s.precision);
+   if(flag(s,'0') && s.width<0)throw new MissingFormatWidthException(s.raw);
+   if((flag(s,'+') && flag(s,' ')) || (flag(s,'-') && flag(s,'0')))throw new IllegalFormatFlagsException(s.flags);
+   allowed(s,"-+ 0,(<");return;
+  }
   throw new UnsupportedOperationException("Formatting conversion: "+c);
  }
  public static String format(Locale locale,String format,Object[] args){
@@ -50,7 +56,8 @@ public final class TextFormats {
    if(index<0 || (args!=null && index>=args.length))throw new MissingFormatArgumentException(s.raw);last=index;
    Object value=args==null?null:args[index];String text;
    if(flag(s,'#'))throw new FormatFlagsConversionMismatchException("#",c);
-   if(c=='b' || c=='B')text=value==null?"false":value instanceof Boolean?value.toString():"true";
+   if(c=='d')text=decimal(value,s,locale);
+   else if(c=='b' || c=='B')text=value==null?"false":value instanceof Boolean?value.toString():"true";
    else if(c=='h' || c=='H')text=value==null?"null":Integer.toHexString(value.hashCode());
    else if(c=='c' || c=='C') {
     if(value==null)text="null";
@@ -63,6 +70,21 @@ public final class TextFormats {
    out.append(pad(text,s));
   }
   return out.toString();
+ }
+ private static String decimal(Object value,Spec s,Locale locale){
+  if(value==null)return "null";
+  if(value instanceof java.math.BigInteger)throw new UnsupportedOperationException("BigInteger formatting");
+  if(!(value instanceof Byte || value instanceof Short || value instanceof Integer || value instanceof Long))throw new IllegalFormatConversionException(s.conversion,value.getClass());
+  String language=locale.getLanguage(),country=locale.getCountry();
+  if(!language.isEmpty() && !(language.equals("en") && (country.isEmpty() || country.equals("US") || country.equals("GB"))))throw new UnsupportedOperationException("Numeric format locale");
+  long n=((Number)value).longValue();String digits=Long.toString(n);boolean negative=n<0;
+  if(negative)digits=digits.substring(1);
+  if(flag(s,',')){StringBuilder grouped=new StringBuilder();for(int i=0;i<digits.length();i++){if(i>0 && (digits.length()-i)%3==0)grouped.append(',');grouped.append(digits.charAt(i));}digits=grouped.toString();}
+  String prefix=negative?(flag(s,'(')?"(":"-"):flag(s,'+')?"+":flag(s,' ')?" ":"";
+  String suffix=negative && flag(s,'(')?")":"";
+  int zeros=s.width-prefix.length()-digits.length()-suffix.length();
+  if(flag(s,'0') && zeros>0)digits="0".repeat(zeros)+digits;
+  return prefix+digits+suffix;
  }
  private static String pad(String text,Spec s){int n=s.width-text.length();if(n<=0)return text;String spaces=" ".repeat(n);return flag(s,'-')?text+spaces:spaces+text;}
 }

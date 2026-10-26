@@ -142,6 +142,27 @@ class BytecodeTextFormatTest implements Opcodes {
             """);compare(1);
     }
 
+    @Test void decimalFormatting() throws Exception {
+        fixture("""
+            import java.util.*;
+            public class Metadata {
+             static int fail(String f,Object value){try{String.format(f,value);return 0;}
+              catch(IllegalFormatConversionException e){return e.getConversion()+e.getArgumentClass().getName().hashCode();}
+              catch(IllegalFormatPrecisionException e){return e.getPrecision()+19;}
+              catch(MissingFormatWidthException e){return e.getFormatSpecifier().hashCode();}
+              catch(IllegalFormatFlagsException e){return e.getFlags().hashCode();}
+              catch(FormatFlagsConversionMismatchException e){return e.getFlags().hashCode()+e.getConversion();}}
+             public static int run(int group){int h=1;
+              Object[] values={null,(byte)-128,(short)-32768,Integer.MIN_VALUE,Long.MIN_VALUE,Long.MAX_VALUE,-1234567890123L,0,123,1234567};
+              String[] formats={"%d","%25d","%-25d","%025d","%+025d","% 25d","%(25d","%(025d","%,d","%+,025d","% (25d","%+(25d"};
+              for(String f:formats)h=31*h+String.format(f,values[group]).hashCode();
+              for(String f:new String[]{"%#d","%.1d","%0d","%-0d","%+ d","%-05d","%+ 5d"})h=31*h+fail(f,1);
+              for(Object v:new Object[]{1.5,"1",true,(char)65})h=31*h+fail("%d",v);
+              return h;
+             }}
+            """);compare(10);
+    }
+
     private byte[] fixture(String source) throws Exception {
         Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
         List<String> options=new ArrayList<>(List.of("-g","-parameters","--release",release,"-d",directory.toString()));
