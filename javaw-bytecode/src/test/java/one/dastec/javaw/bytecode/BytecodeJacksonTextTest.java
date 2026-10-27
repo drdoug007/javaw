@@ -83,6 +83,30 @@ class BytecodeJacksonTextTest {
 
     // CharTypes and JsonStringEncoder differential cases.
 
+    @Test void encodeUtf8() throws Exception {
+        fixture("""
+            import com.fasterxml.jackson.core.io.JsonStringEncoder;
+            public class Metadata {public static int run(){
+                int hash=1;JsonStringEncoder encoder=JsonStringEncoder.getInstance();SAMPLES
+        for(String text:samples){hash=31*hash+java.util.Arrays.hashCode(encoder.encodeAsUTF8(text));hash=31*hash+java.util.Arrays.hashCode(encoder.encodeAsUTF8(new StringBuilder(text)));}
+        for(String text:new String[]{"\\ud800","\\udc00","a\\ud800b","\\ud83d\\ud83d","\\ude00\\ud83d"})try{encoder.encodeAsUTF8(text);throw new Error();}catch(IllegalArgumentException expected){hash=31*hash+expected.getMessage().hashCode();}
+        try{encoder.encodeAsUTF8((String)null);throw new Error();}catch(NullPointerException expected){hash++;}return hash;
+            }}
+            """.replace("SAMPLES",SAMPLES));compare(List.of("run"));
+    }
+
+    @Test void quoteUtf8() throws Exception {
+        fixture("""
+            import com.fasterxml.jackson.core.io.JsonStringEncoder;
+            public class Metadata {public static int run(){
+                int hash=1;JsonStringEncoder encoder=JsonStringEncoder.getInstance();SAMPLES
+        for(String text:samples)hash=31*hash+java.util.Arrays.hashCode(encoder.quoteAsUTF8(text));
+        for(String text:new String[]{"\\ud800","\\udc00","a\\ud800b","\\ud83d\\ud83d"})try{encoder.quoteAsUTF8(text);throw new Error();}catch(IllegalArgumentException expected){hash=31*hash+expected.getMessage().hashCode();}
+        try{encoder.quoteAsUTF8(null);throw new Error();}catch(NullPointerException expected){hash++;}return hash;
+            }}
+            """.replace("SAMPLES",SAMPLES));compare(List.of("run"));
+    }
+
     @Test void quoteBuilder() throws Exception {
         fixture("""
             import com.fasterxml.jackson.core.io.JsonStringEncoder;
