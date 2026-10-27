@@ -2046,3 +2046,5 @@ Pinned Jackson `ByteArrayBuilder` also links whole, with segment/append/recyclin
 Pinned Jackson Base64: original `Base64Variant`/`Base64Variants` link whole; see [the Base64 contract](docs/bytecode-jackson-base64.md) and `BytecodeJacksonBase64Test`.
 
 Pinned Jackson Base64 decoding and failure messages also match the JVM (`BytecodeJacksonBase64Test`).
+
+Pinned Jackson Base64 variant configuration also matches the JVM (`BytecodeJacksonBase64Test`).

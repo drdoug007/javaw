@@ -60,6 +60,35 @@ class BytecodeJacksonBase64Test {
 
     // Base64Variant differential cases.
 
+    @Test void configuration() throws Exception {
+        fixture("""
+            import com.fasterxml.jackson.core.*;
+            import com.fasterxml.jackson.core.Base64Variant.PaddingReadBehaviour;
+            public class Metadata {
+                static String describe(Base64Variant v){return v.getName()+":"+v.usesPadding()+v.requiresPaddingOnRead()+v.acceptsPaddingOnRead()+v.paddingReadBehaviour()+":"+(int)v.getPaddingChar()+","+v.getPaddingByte()+","+v.getMaxLineLength()+":"+v.usesPaddingChar('=')+v.usesPaddingChar((int)'=')+v.usesPaddingChar('*')+":"+v+":"+v.hashCode();}
+                public static String run(){
+                    VARIANTS StringBuilder text=new StringBuilder();
+                    for(Base64Variant v:variants){text.append(describe(v)).append('|');
+                        Base64Variant allowed=v.withPaddingAllowed(),required=v.withPaddingRequired(),forbidden=v.withPaddingForbidden();
+                        text.append(allowed==v).append(required==v).append(forbidden==v).append(v.withReadPadding(v.paddingReadBehaviour())==v).append(v.withWritePadding(v.usesPadding())==v);
+                        text.append(describe(required)).append(describe(forbidden)).append(describe(v.withWritePadding(!v.usesPadding())));
+                        text.append(v.equals(allowed)).append(v.equals(forbidden)).append(forbidden.equals(v.withPaddingForbidden())).append(v.equals(null)).append(v.equals("x")).append('|');
+                    }
+                    Base64Variant custom=new Base64Variant("custom","ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_",true,'*',8);
+                    Base64Variant renamed=new Base64Variant(Base64Variants.MIME,"renamed",12),changed=new Base64Variant(Base64Variants.PEM,"changed",false,'$',Integer.MAX_VALUE);
+                    text.append(describe(custom)).append(describe(renamed)).append(describe(changed)).append(custom.encode(new byte[]{-1,-2,-3,-4,-5,-6,-7,-8})).append('|');
+                    text.append(Base64Variants.getDefaultVariant()==Base64Variants.MIME_NO_LINEFEEDS);
+                    for(String name:new String[]{"MIME","MIME-NO-LINEFEEDS","PEM","MODIFIED-FOR-URL"})text.append(Base64Variants.valueOf(name).getName()).append(Base64Variants.valueOf(name)==Base64Variants.valueOf(name));
+                    for(String name:new String[]{"mime","unknown",""})try{Base64Variants.valueOf(name);text.append("no");}catch(IllegalArgumentException expected){text.append(expected.getMessage());}
+                    try{Base64Variants.valueOf(null);text.append("no");}catch(IllegalArgumentException expected){text.append(expected.getMessage());}
+                    for(PaddingReadBehaviour behaviour:PaddingReadBehaviour.values())text.append(behaviour.ordinal()).append(behaviour.name()).append(PaddingReadBehaviour.valueOf(behaviour.name())==behaviour);
+                    try{new Base64Variant("short","ABC",true,'=',76);text.append("no");}catch(IllegalArgumentException expected){text.append(expected.getMessage());}
+                    return text.toString();
+                }
+            }
+            """.replace("VARIANTS",VARIANTS));compareText(List.of("run"));
+    }
+
     @Test void decodingFailures() throws Exception {
         fixture("""
             import com.fasterxml.jackson.core.*;
