@@ -2050,3 +2050,5 @@ Pinned Jackson Base64 decoding and failure messages also match the JVM (`Bytecod
 Pinned Jackson Base64 variant configuration also matches the JVM (`BytecodeJacksonBase64Test`).
 
 Pinned Jackson `Version`/`Separators`: see [the value-type contract](docs/bytecode-jackson-value-types.md) and `BytecodeJacksonValueTypesTest`.
+
+Pinned Jackson `Separators` also matches the JVM (`BytecodeJacksonValueTypesTest`).

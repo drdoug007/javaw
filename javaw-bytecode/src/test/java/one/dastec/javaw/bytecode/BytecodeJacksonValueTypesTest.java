@@ -58,6 +58,24 @@ class BytecodeJacksonValueTypesTest {
 
     // Version and Separators differential cases.
 
+    @Test void separators() throws Exception {
+        fixture("""
+            import com.fasterxml.jackson.core.util.Separators;
+            public class Metadata {
+                static String describe(Separators s){return ""+s.getObjectFieldValueSeparator()+s.getObjectEntrySeparator()+s.getArrayValueSeparator();}
+                public static String run(){
+                    Separators defaults=Separators.createDefaultInstance(),plain=new Separators(),custom=new Separators('=',';','|');
+                    String text=describe(defaults)+describe(plain)+describe(custom)+(defaults==Separators.createDefaultInstance())+(defaults instanceof java.io.Serializable)+"|";
+                    text+=(custom.withObjectFieldValueSeparator('=')==custom)+""+(custom.withObjectEntrySeparator(';')==custom)+(custom.withArrayValueSeparator('|')==custom)+"|";
+                    Separators field=custom.withObjectFieldValueSeparator('-'),entry=custom.withObjectEntrySeparator('&'),array=custom.withArrayValueSeparator('\\u0000');
+                    text+=describe(field)+describe(entry)+(int)array.getArrayValueSeparator()+describe(custom)+(field!=custom)+(entry!=custom)+(array!=custom)+"|";
+                    Separators chained=plain.withObjectFieldValueSeparator('a').withObjectEntrySeparator('b').withArrayValueSeparator('c').withArrayValueSeparator('c');
+                    return text+describe(chained)+describe(plain)+describe(new Separators('\\uffff','\\ud800','x'))+plain.equals(new Separators())+(plain.hashCode()==plain.hashCode());
+                }
+            }
+            """);compareText(List.of("run"));
+    }
+
     @Test void versions() throws Exception {
         fixture("""
             import com.fasterxml.jackson.core.Version;

@@ -6,5 +6,6 @@ Fixtures link unmodified class files from Jackson Core 2.15.4, SHA-256 `8dc9210d
 
 `BytecodeJacksonValueTypesTest` covers:
 - `versions`: both constructors, `unknownVersion` identity, snapshot and unknown predicates (including the legacy `isUknownVersion`), accessors, `toString`/`toFullString`/`hashCode` with null, empty and snapshot fields, and the full `compareTo`/`equals` matrix across 14 versions (sign-normalized), plus null comparison failures.
+- `separators`: `createDefaultInstance`, both constructors, `with*` identity for unchanged values and fresh instances for changed ones, chained updates, getters, and the inherited `Object` equality.
 
 `VersionUtil` (resources, `Properties`, regex and reflection) and pretty-printer integration are not linked.
