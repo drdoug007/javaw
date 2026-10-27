@@ -165,6 +165,19 @@ public class BigInteger extends Number implements Comparable<BigInteger>,java.io
         BigInteger[] qr=abs().divideAndRemainder(valueOf(2).pow(distance));
         return sign<0?(qr[1].sign==0?qr[0]:qr[0].add(ONE)).negate():qr[0];
     }
+    // Operands are aligned at their least significant bytes and sign-extended.
+    private BigInteger bitwise(BigInteger other,int operation){
+        if(other==null)throw new NullPointerException();
+        byte[] a=toByteArray(),b=other.toByteArray();
+        int length=Math.max(a.length,b.length);byte[] result=new byte[length];
+        for(int i=0;i<length;i++){
+            int ai=a.length-length+i,bi=b.length-length+i;
+            int x=ai<0?(sign<0?-1:0):a[ai],y=bi<0?(other.sign<0?-1:0):b[bi];
+            result[i]=(byte)(operation==0?x&y:operation==1?x|y:operation==2?x^y:x&~y);
+        }
+        return new BigInteger(result);
+    }
+    public BigInteger and(BigInteger other){return bitwise(other,0);}
     public BigInteger min(BigInteger other){return compareTo(other)<=0?this:other;}
     public BigInteger max(BigInteger other){return compareTo(other)>=0?this:other;}
     public BigInteger mod(BigInteger modulus){if(modulus.sign<=0)throw new ArithmeticException();BigInteger result=remainder(modulus);return result.sign<0?result.add(modulus):result;}
