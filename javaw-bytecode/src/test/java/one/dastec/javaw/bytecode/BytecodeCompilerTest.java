@@ -12,7 +12,7 @@ public class BytecodeCompilerTest {
     @Test
     public void testCompileSimpleCalculatorClass() {
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
-        cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "dastec/one/calc/Calculator", null, "java/lang/Object", null);
+        cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "one/dastec/calc/Calculator", null, "java/lang/Object", null);
 
         // Public static int add(int a, int b) { return a + b; }
         MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "add", "(II)I", null, null);
@@ -39,18 +39,18 @@ public class BytecodeCompilerTest {
 
         String wat = BytecodeCompiler.compileClass(classBytes);
         assertNotNull(wat);
-        assertTrue(wat.contains("(func " + TypeHelper.getMethodFunctionName("dastec/one/calc/Calculator", "add", "(II)I")));
-        assertTrue(wat.contains("(func " + TypeHelper.getMethodFunctionName("dastec/one/calc/Calculator", "multiply", "(II)I")));
+        assertTrue(wat.contains("(func " + TypeHelper.getMethodFunctionName("one/dastec/calc/Calculator", "add", "(II)I")));
+        assertTrue(wat.contains("(func " + TypeHelper.getMethodFunctionName("one/dastec/calc/Calculator", "multiply", "(II)I")));
         assertTrue(wat.contains("i32.add"));
         assertTrue(wat.contains("i32.mul"));
-        assertTrue(wat.contains("export \"dastec.one.calc.Calculator.add\""));
-        assertTrue(wat.contains("export \"dastec.one.calc.Calculator.multiply\""));
+        assertTrue(wat.contains("export \"one.dastec.calc.Calculator.add\""));
+        assertTrue(wat.contains("export \"one.dastec.calc.Calculator.multiply\""));
     }
 
     @Test
     public void testCompileLoopAndBranching() {
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
-        cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "dastec/one/calc/LoopMath", null, "java/lang/Object", null);
+        cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "one/dastec/calc/LoopMath", null, "java/lang/Object", null);
 
         // Public static int sumTo(int n) { int sum = 0; for(int i = 1; i <= n; i++) sum += i; return sum; }
         MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "sumTo", "(I)I", null, null);
@@ -87,7 +87,7 @@ public class BytecodeCompilerTest {
 
         String wat = BytecodeCompiler.compileClass(classBytes);
         assertNotNull(wat);
-        assertTrue(wat.contains(TypeHelper.getMethodFunctionName("dastec/one/calc/LoopMath", "sumTo", "(I)I")));
+        assertTrue(wat.contains(TypeHelper.getMethodFunctionName("one/dastec/calc/LoopMath", "sumTo", "(I)I")));
         assertTrue(wat.contains("loop"));
         assertTrue(wat.contains("br $loop"));
     }

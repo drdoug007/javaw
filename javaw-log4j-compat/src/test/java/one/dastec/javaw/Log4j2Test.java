@@ -81,7 +81,7 @@ public class Log4j2Test {
     @Test
     public void testWasmCompilationOfLog4j2Usage() {
         String source = """
-            package dastec.one.test;
+            package one.dastec.test;
             import org.apache.logging.log4j.LogManager;
             import org.apache.logging.log4j.Logger;
             import org.apache.logging.log4j.Level;

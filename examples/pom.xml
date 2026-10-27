@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>dastec.one</groupId>
+        <groupId>one.dastec</groupId>
         <artifactId>javaw</artifactId>
         <version>1.0-SNAPSHOT</version>
     </parent>
@@ -14,12 +14,12 @@
 
     <dependencies>
         <dependency>
-            <groupId>dastec.one</groupId>
+            <groupId>one.dastec</groupId>
             <artifactId>javaw-core</artifactId>
         </dependency>
         <!-- Compile-time facades for the logging demo; source lowering supplies Wasm output. -->
         <dependency>
-            <groupId>dastec.one</groupId>
+            <groupId>one.dastec</groupId>
             <artifactId>javaw-log4j-compat</artifactId>
             <scope>provided</scope>
         </dependency>
@@ -42,7 +42,7 @@
                 <artifactId>maven-compiler-plugin</artifactId>
             </plugin>
             <plugin>
-                <groupId>dastec.one</groupId>
+                <groupId>one.dastec</groupId>
                 <artifactId>javaw-maven-plugin</artifactId>
                 <version>${project.version}</version>
                 <executions>

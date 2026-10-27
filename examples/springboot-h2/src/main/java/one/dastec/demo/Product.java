@@ -1,4 +1,4 @@
-package dastec.one.demo;
+package one.dastec.demo;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;

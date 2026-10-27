@@ -9,6 +9,8 @@
     <file url="file://$PROJECT_DIR$/javaw-bytecode/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/javaw-core/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/javaw-core/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/javaw-log4j-compat/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/javaw-log4j-compat/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/javaw-maven-plugin/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/javaw-maven-plugin/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/runtime-target/src/main/java" charset="UTF-8" />

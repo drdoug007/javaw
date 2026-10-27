@@ -7,11 +7,12 @@
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
         <module name="javaw-core" />
-        <module name="javaw-bytecode" />
         <module name="examples" />
         <module name="javaw-maven-plugin" />
         <module name="springboot-h2-demo" />
         <module name="javaw-runtime-target" />
+        <module name="javaw-bytecode" />
+        <module name="javaw-log4j-compat" />
       </profile>
     </annotationProcessing>
   </component>

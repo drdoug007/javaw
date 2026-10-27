@@ -25,7 +25,7 @@ public class LocalM2CacheManagerTest {
 
     private File createSampleJar(File jarFile, int constantValue) throws IOException {
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
-        cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "dastec/one/util/Helper", null, "java/lang/Object", null);
+        cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "one/dastec/util/Helper", null, "java/lang/Object", null);
 
         MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "getValue", "()I", null, null);
         mv.visitCode();
@@ -38,7 +38,7 @@ public class LocalM2CacheManagerTest {
         byte[] classBytes = cw.toByteArray();
 
         try (JarOutputStream jos = new JarOutputStream(new FileOutputStream(jarFile))) {
-            JarEntry entry = new JarEntry("dastec/one/util/Helper.class");
+            JarEntry entry = new JarEntry("one/dastec/util/Helper.class");
             jos.putNextEntry(entry);
             jos.write(classBytes);
             jos.closeEntry();
@@ -55,7 +55,7 @@ public class LocalM2CacheManagerTest {
         File jarFile = tempDir.resolve("helper-1.0.0.jar").toFile();
         createSampleJar(jarFile, 42);
 
-        String groupId = "dastec.one.util";
+        String groupId = "one.dastec.util";
         String artifactId = "helper";
         String version = "1.0.0";
 

@@ -1,4 +1,4 @@
-package dastec.one.demo;
+package one.dastec.demo;
 
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.stereotype.Repository;

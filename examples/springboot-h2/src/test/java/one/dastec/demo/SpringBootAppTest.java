@@ -1,4 +1,4 @@
-package dastec.one.demo;
+package one.dastec.demo;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

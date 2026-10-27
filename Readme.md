@@ -5,10 +5,10 @@ A lightweight, high-performance Java-to-WebAssembly compiler that parses Java so
 ## Namespace and license
 
 Java packages use `one.dastec.javaw` (for example,
-`one.dastec.javaw.JavacToWasm`). Maven group IDs remain `dastec.one`
-(for example, `dastec.one:javaw-core:1.0-SNAPSHOT`).
+`one.dastec.javaw.JavacToWasm`). Maven group IDs use `one.dastec`
+(for example, `one.dastec:javaw-core:1.0-SNAPSHOT`).
 Consumers of the previous package name must update Java imports and entry-point
-names; this package correction does not change dependency/plugin coordinates.
+names and use the `one.dastec` dependency/plugin coordinates.
 
 Project-owned code is licensed under the [Apache License, Version 2.0](LICENSE).
 Bundled OpenJDK fdlibm material retains GPLv2 with the Classpath exception;
@@ -437,7 +437,7 @@ The `javaw-maven-plugin` enables zero-friction, automated compilation of Java so
     <dependencies>
         <!-- Dependency for Java DOM, JS interop, WASI, and SIMD facades -->
         <dependency>
-            <groupId>dastec.one</groupId>
+            <groupId>one.dastec</groupId>
             <artifactId>javaw-core</artifactId>
             <version>1.0-SNAPSHOT</version>
         </dependency>
@@ -446,7 +446,7 @@ The `javaw-maven-plugin` enables zero-friction, automated compilation of Java so
     <build>
         <plugins>
             <plugin>
-                <groupId>dastec.one</groupId>
+                <groupId>one.dastec</groupId>
                 <artifactId>javaw-maven-plugin</artifactId>
                 <version>1.0-SNAPSHOT</version>
                 <executions>
@@ -521,7 +521,7 @@ Compile multiple Java source files or an entire directory into a unified WebAsse
 java -jar javaw-core/target/javaw-core-1.0-SNAPSHOT.jar ServiceA.java ServiceB.java App.java
 
 # Entire source directory
-java -jar javaw-core/target/javaw-core-1.0-SNAPSHOT.jar src/main/java/dastec/one/app
+java -jar javaw-core/target/javaw-core-1.0-SNAPSHOT.jar src/main/java/one/dastec/app
 ```
 
 #### Disabling Optimization
@@ -965,7 +965,7 @@ import one.dastec.javaw.JavacToWasm;
 
 public class CompilerHost {
     public static void main(String[] args) {
-        String javaSource = "package dastec.one;\n" +
+        String javaSource = "package one.dastec;\n" +
                 "public class MathLib {\n" +
                 "    public int square(int x) { return x * x; }\n" +
                 "}";
@@ -1066,7 +1066,7 @@ import one.dastec.javaw.sourcemap.MappingEntry;
 public class SourceMapDemo {
     public static void main(String[] args) {
         String javaSource = """
-            package dastec.one.app;
+            package one.dastec.app;
             public class App {
                 public static int calculate(int x) {
                     int factor = 5;
@@ -1523,7 +1523,7 @@ public class StandardLibraryDemo {
 
 #### Example X: Optional Log4j-style logging facade (`org.apache.logging.log4j`)
 
-The demo uses the optional project-owned logging facade. Add `dastec.one:javaw-log4j-compat:1.0-SNAPSHOT` with `provided` scope when compiling its Java source. JVM facade behavior and Wasm lowering differ; see [the supported behavior and limits](docs/logging-compatibility.md):
+The demo uses the optional project-owned logging facade. Add `one.dastec:javaw-log4j-compat:1.0-SNAPSHOT` with `provided` scope when compiling its Java source. JVM facade behavior and Wasm lowering differ; see [the supported behavior and limits](docs/logging-compatibility.md):
 
 ```java
 package one.dastec.javaw;
@@ -1988,8 +1988,10 @@ Bytecode decimal floating progress (v160–v169): Float/Double f/e/E/g/G convers
 
 Bytecode lowercase/text progress (v170–v179): String lowercase supports Java 17 ROOT, Turkish/Azeri and Lithuanian contexts, including dotted-I expansion, final sigma, supplementary characters, surrogate preservation and result identity. The default overload uses ROOT. String.transform, stripIndent and legacy low-byte getBytes copying are also supported. JVM/Wasm comparisons include selected pinned Spring and Jackson carrier instructions against original-class JVM oracles. See [the contract, licensing and evidence limits](docs/bytecode-lowercase.md). Thai dictionary-dependent sigma, configurable defaults/providers, broader text APIs, allocation stability and complete framework execution remain open. Combined v170–v179 validation: all 470 tests pass in the required offline bytecode suite (four forks), with zero failures, errors or skips, including all 13 new lowercase/text regressions. The pinned Java 17 data generator check and reviewed 63-JAR audit pass. Inventory remains 26,625 classes and 734 resources; selected linkage totals are 1,005 declared signatures, 30 missing members and 302 missing owners. Only the compiler revision changes in the audit baseline.
 
-Java package correction: compiler, bytecode, runtime support and Maven plugin classes now use `one.dastec.javaw` and matching source paths. Imports, CLI entry points, fixtures and scripts use the corrected name. Maven artifact coordinates are unchanged.
+Java package correction: compiler, bytecode, runtime support and Maven plugin classes now use `one.dastec.javaw` and matching source paths. Imports, CLI entry points, fixtures and scripts use the corrected name. Maven artifact coordinates now also use `one.dastec`.
 
 Validation: the clean required bytecode suite passes all 470 tests (four forks), with zero failures, errors or skips; the unchanged audit baseline passes. All 13 browser assertions and both Maven plugin tests pass with local-server/cache access. The broader core run passes all 43 compiler-generation tests but retains two reflection failures (object-backed records and inherited/nested/array annotations); both reproduce with identical table-index errors on the preceding commit. The initial sandbox-only browser setup error is resolved by the successful browser retry.
 
 Logging facade isolation: `javaw-log4j-compat` is now opt-in; core consumers receive no `org.apache.logging.log4j` classes. Validation: the clean offline package build passes all four relocated logging tests with zero failures, errors or skips. JAR inspection confirms zero Log4j-package classes in both regular and shaded core artifacts and six class files in the compatibility artifact (five facades and the listener interface). The logging demo also compiles with javac against core plus the explicit compatibility JAR. See [the contract](docs/logging-compatibility.md) for JVM/Wasm differences.
+
+Namespace cleanup is complete: all project Maven coordinates use `one.dastec`, Spring example packages/paths use `one.dastec.demo`, and fixtures, maps and documentation use the corrected domain order. Validation: all 470 tests pass in the required offline bytecode suite (four forks), with zero failures, errors or skips. Eight focused logging, Maven plugin and pinned-runtime reference tests pass. The Spring example clean-build compiles Java and Wasm under the corrected package; its existing test class is empty. Corrected reactor artifacts install successfully. The audit baseline check passes unchanged. A raw-content and path scan of every tracked file, including binaries and source maps, finds zero legacy namespace references. See [migration details](docs/namespace.md).

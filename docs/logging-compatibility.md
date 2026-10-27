@@ -14,7 +14,7 @@ For source applications that deliberately use this subset, add:
 
 ```xml
 <dependency>
-    <groupId>dastec.one</groupId>
+    <groupId>one.dastec</groupId>
     <artifactId>javaw-log4j-compat</artifactId>
     <version>1.0-SNAPSHOT</version>
     <scope>provided</scope>

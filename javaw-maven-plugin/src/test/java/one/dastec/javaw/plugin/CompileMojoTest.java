@@ -18,7 +18,7 @@ public class CompileMojoTest {
         Path tempOut = Files.createTempDirectory("javaw_mojo_out");
 
         Path sampleJava = tempSrc.resolve("SampleMojoApp.java");
-        Files.writeString(sampleJava, "package dastec.one.sample;\n" +
+        Files.writeString(sampleJava, "package one.dastec.sample;\n" +
                 "public class SampleMojoApp {\n" +
                 "    public static int add(int a, int b) { return a + b; }\n" +
                 "}\n");
@@ -56,7 +56,7 @@ public class CompileMojoTest {
 
         // Create dependency JAR with calculator class
         org.objectweb.asm.ClassWriter cw = new org.objectweb.asm.ClassWriter(org.objectweb.asm.ClassWriter.COMPUTE_FRAMES | org.objectweb.asm.ClassWriter.COMPUTE_MAXS);
-        cw.visit(org.objectweb.asm.Opcodes.V17, org.objectweb.asm.Opcodes.ACC_PUBLIC, "dastec/one/math/Calculator", null, "java/lang/Object", null);
+        cw.visit(org.objectweb.asm.Opcodes.V17, org.objectweb.asm.Opcodes.ACC_PUBLIC, "one/dastec/math/Calculator", null, "java/lang/Object", null);
         org.objectweb.asm.MethodVisitor mv = cw.visitMethod(org.objectweb.asm.Opcodes.ACC_PUBLIC | org.objectweb.asm.Opcodes.ACC_STATIC, "square", "(I)I", null, null);
         mv.visitCode();
         mv.visitVarInsn(org.objectweb.asm.Opcodes.ILOAD, 0);
@@ -68,13 +68,13 @@ public class CompileMojoTest {
         cw.visitEnd();
 
         try (java.util.jar.JarOutputStream jos = new java.util.jar.JarOutputStream(Files.newOutputStream(tempDepJar))) {
-            jos.putNextEntry(new java.util.jar.JarEntry("dastec/one/math/Calculator.class"));
+            jos.putNextEntry(new java.util.jar.JarEntry("one/dastec/math/Calculator.class"));
             jos.write(cw.toByteArray());
             jos.closeEntry();
         }
 
         Path sampleJava = tempSrc.resolve("MainApp.java");
-        Files.writeString(sampleJava, "package dastec.one.app;\n" +
+        Files.writeString(sampleJava, "package one.dastec.app;\n" +
                 "public class MainApp {\n" +
                 "    public static int run(int x) { return x + 1; }\n" +
                 "}\n");
@@ -84,7 +84,7 @@ public class CompileMojoTest {
         mockProject.setArtifactId("demo-app");
 
         org.apache.maven.artifact.DefaultArtifact depArtifact = new org.apache.maven.artifact.DefaultArtifact(
-                "dastec.one.math", "math-calc", "1.0.0", "compile", "jar", null,
+                "one.dastec.math", "math-calc", "1.0.0", "compile", "jar", null,
                 new org.apache.maven.artifact.handler.DefaultArtifactHandler("jar")
         );
         depArtifact.setFile(tempDepJar.toFile());
@@ -105,7 +105,7 @@ public class CompileMojoTest {
         Path watFile = tempOut.resolve("MainApp.wat");
         assertTrue(Files.exists(watFile), "MainApp.wat should be generated");
         String watContent = Files.readString(watFile);
-        assertTrue(watContent.contains("(export \"dastec.one.math.Calculator.square\")"), "Linked WAT must contain dependency function");
+        assertTrue(watContent.contains("(export \"one.dastec.math.Calculator.square\")"), "Linked WAT must contain dependency function");
         assertTrue(watContent.contains("$run"), "Linked WAT must contain application function");
     }
 

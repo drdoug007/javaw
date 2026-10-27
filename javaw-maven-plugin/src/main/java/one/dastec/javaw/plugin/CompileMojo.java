@@ -278,7 +278,7 @@ public class CompileMojo extends AbstractMojo {
             if ("test".equals(artifact.getScope()) || "provided".equals(artifact.getScope()) || "system".equals(artifact.getScope())) {
                 continue;
             }
-            if ("dastec.one".equals(artifact.getGroupId()) && ("javaw-core".equals(artifact.getArtifactId()) || "javaw-bytecode".equals(artifact.getArtifactId()))) {
+            if ("one.dastec".equals(artifact.getGroupId()) && ("javaw-core".equals(artifact.getArtifactId()) || "javaw-bytecode".equals(artifact.getArtifactId()))) {
                 continue;
             }
 
