@@ -12,3 +12,4 @@ Completed subsets:
 - v191: Boolean.getBoolean case-insensitive true parsing and false fallback for absent values and invalid keys.
 - v192: Integer.getInteger nullable lookup with decimal/hexadecimal/octal decoding and malformed/overflow fallback.
 - v193: Integer.getInteger primitive default overload and small-value cache identity.
+- v194: Integer.getInteger boxed default overload preserving fallback identity and null.
