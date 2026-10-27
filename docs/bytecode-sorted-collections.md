@@ -4,3 +4,4 @@ Sequential sorted-array storage establishes tested ordering behavior, not balanc
 
 - v221: Ordered TreeMap construction, comparator identity, key equivalence and typed failures.
 - v222: Navigable map neighbors and immutable entry snapshots.
+- v223: Live sorted map range views and nested bound checks.

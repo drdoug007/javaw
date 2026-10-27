@@ -23,6 +23,9 @@ public class Metadata {public static int run(int group){int h=1;for(Comparator<S
  @Test void mapNavigation() throws Exception {fixture("""
 import java.util.*;public class Metadata {public static int run(int g){int h=1;for(Comparator<Integer> order:Arrays.<Comparator<Integer>>asList(null,Comparator.reverseOrder())){NavigableMap<Integer,String> m=new TreeMap<>(order);for(int k:new int[]{1,3,5})m.put(k,"v"+k);for(int k=0;k<=6;k++){h=31*h+Objects.hash(m.lowerKey(k),m.floorKey(k),m.ceilingKey(k),m.higherKey(k));h=31*h+Objects.hash(m.lowerEntry(k),m.floorEntry(k),m.ceilingEntry(k),m.higherEntry(k));}Map.Entry<Integer,String> old=m.firstEntry();m.put(old.getKey(),"changed");h=31*h+old.hashCode();try{old.setValue("bad");throw new Error();}catch(UnsupportedOperationException e){h++;}while(!m.isEmpty()){h=31*h+m.pollLastEntry().hashCode();}h=31*h+Objects.hash(m.firstEntry(),m.lastEntry(),m.pollFirstEntry(),m.pollLastEntry());}return h;}}
 """);compare(1);}
+ @Test void sortedRanges() throws Exception {fixture("""
+import java.util.*;public class Metadata {public static int run(int g){int h=1;TreeMap<Integer,String> root=new TreeMap<>();for(int i=0;i<8;i++)root.put(i,"v"+i);SortedMap<Integer,String> v=root.subMap(2,6);h=31*h+v.toString().hashCode();root.put(3,"new");h=31*h+v.get(3).hashCode();v.put(4,"view");v.remove(2);h=31*h+root.toString().hashCode();h=31*h+v.headMap(5).toString().hashCode();h=31*h+v.tailMap(4).toString().hashCode();h=31*h+v.subMap(4,4).size();for(int i=0;i<4;i++)try{if(i==0)v.put(6,"bad");if(i==1)v.subMap(1,5);if(i==2)v.tailMap(6);if(i==3)root.subMap(5,3);throw new Error();}catch(IllegalArgumentException e){h++;}v.clear();h=31*h+root.toString().hashCode();return h;}}
+""");compare(1);}
     private String classpath(){return directory+(fixtureClasspath.isEmpty()?"":File.pathSeparator+fixtureClasspath);}
 
     /** Preserve selected original method instructions; omit unrelated library state and initialization. */

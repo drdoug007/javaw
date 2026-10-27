@@ -2012,3 +2012,5 @@ Validation (v220): all 510 bytecode tests pass with the prescribed offline selec
 Sorted bytecode collections subset 1/10 (v221): Ordered TreeMap construction, comparator identity, key equivalence and typed failures. Focused checks pass; see [the selected contract](docs/bytecode-sorted-collections.md). Broad collections, concurrency and framework execution remain open.
 
 Sorted bytecode collections subset 2/10 (v222): Navigable map neighbors and immutable entry snapshots. Focused checks pass; see [the selected contract](docs/bytecode-sorted-collections.md). Broad collections, concurrency and framework execution remain open.
+
+Sorted bytecode collections subset 3/10 (v223): Live sorted map range views and nested bound checks. Focused checks pass; see [the selected contract](docs/bytecode-sorted-collections.md). Broad collections, concurrency and framework execution remain open.
