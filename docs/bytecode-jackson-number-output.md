@@ -12,3 +12,4 @@ Completed focused cases (each passes):
 - `longBytes`
 - `intStrings`
 - `longStrings`
+- `doubleStrings`
