@@ -6,3 +6,4 @@ This sequential reference subset does not establish primitive or parallel traver
 - v232: Reference Spliterator defaults and empty traversal.
 - v233: Reference array spliterators, range validation and ordered splitting.
 - v234: Sized/unknown iterator spliterators and iterator adapter.
+- v235: AbstractSpliterator subclass batching and callback state.

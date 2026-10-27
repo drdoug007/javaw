@@ -33,4 +33,12 @@ public final class Spliterators{
  final Spliterator<? extends T> source;boolean ready;T value;Adapter(Spliterator<? extends T> source){this.source=source;}
  public void accept(T value){ready=true;this.value=value;}public boolean hasNext(){if(!ready)source.tryAdvance(this);return ready;}public T next(){if(!hasNext())throw new NoSuchElementException();ready=false;T result=value;value=null;return result;}
  }
+
+ public abstract static class AbstractSpliterator<T> implements Spliterator<T>{
+ private long estimate;private final int flags;private int batch;
+ protected AbstractSpliterator(long estimate,int flags){this.estimate=estimate;this.flags=(flags&Spliterator.SIZED)!=0?flags|Spliterator.SUBSIZED:flags;}
+ public long estimateSize(){return estimate;}public int characteristics(){return flags;}
+ public Spliterator<T> trySplit(){Holder<T> holder=new Holder<T>();if(estimate<=1||!tryAdvance(holder))return null;int n=batch+1024;if(n>estimate)n=(int)estimate;if(n>33554432)n=33554432;Object[] values=new Object[n];int count=0;do{values[count++]=holder.value;}while(count<n&&tryAdvance(holder));batch=count;if(estimate!=Long.MAX_VALUE)estimate-=count;return new ArrayCursor<T>(values,0,count,flags);}
+ }
+ private static final class Holder<T> implements Consumer<T>{T value;public void accept(T value){this.value=value;}}
 }
