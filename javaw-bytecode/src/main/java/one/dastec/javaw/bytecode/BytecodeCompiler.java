@@ -33,6 +33,14 @@ public class BytecodeCompiler {
         return compileJar(input,true,proxyShapes);
     }
 
+    /**
+     * Retains the named WAT functions (e.g. {@code $method_...}) through dead-code pruning, for hosts that add
+     * exports to the returned module text. Linked-class exports and host hooks are always retained.
+     */
+    public static String compileJarWithExceptionRuntime(InputStream input,Set<String> retainedFunctions) throws IOException {
+        return compileJar(input,true,List.of(),retainedFunctions);
+    }
+
     public static String compileClassWithExceptionRuntime(byte[] bytes) throws IOException {
         return compileClasses(new ArrayList<>(List.of(BytecodeInput.read(bytes))), true);
     }
@@ -45,6 +53,9 @@ public class BytecodeCompiler {
 
     private static String compileJar(InputStream jarInputStream, boolean exceptionRuntime) throws IOException {return compileJar(jarInputStream,exceptionRuntime,List.of());}
     private static String compileJar(InputStream jarInputStream, boolean exceptionRuntime,List<List<String>> proxyShapes) throws IOException {
+        return compileJar(jarInputStream,exceptionRuntime,proxyShapes,Set.of());
+    }
+    private static String compileJar(InputStream jarInputStream, boolean exceptionRuntime,List<List<String>> proxyShapes,Set<String> retainedFunctions) throws IOException {
         JarInputStream jis = new JarInputStream(jarInputStream);
         JarEntry entry;
         List<ClassNode> classes = new ArrayList<>();
@@ -62,11 +73,17 @@ public class BytecodeCompiler {
             }
         }
 
-        return compileClasses(classes, exceptionRuntime,proxyShapes);
+        return compileClasses(classes, exceptionRuntime,proxyShapes,retainedFunctions);
     }
 
     private static String compileClasses(List<ClassNode> classes, boolean exceptionRuntime) throws IOException {return compileClasses(classes,exceptionRuntime,List.of());}
     private static String compileClasses(List<ClassNode> classes, boolean exceptionRuntime,List<List<String>> proxyShapes) throws IOException {
+        return compileClasses(classes,exceptionRuntime,proxyShapes,Set.of());
+    }
+    private static String compileClasses(List<ClassNode> classes, boolean exceptionRuntime,List<List<String>> proxyShapes,Set<String> retainedFunctions) throws IOException {
+        Set<String> roots = new HashSet<>();
+        // Export names are emitted as escaped WAT strings; compare roots in the same form.
+        for (ClassNode type : classes) roots.add(TypeHelper.watString(type.name.replace('/', '.') + "."));
         if (exceptionRuntime) {
             Map<String, ClassNode> runtime = BytecodeExceptionRuntime.definitions();
             for (ClassNode type : classes)
@@ -99,9 +116,13 @@ public class BytecodeCompiler {
                 throw BytecodeCompatibility.failure(cn, null, null, "duplicate class declaration",
                         "provide exactly one definition of " + cn.name + " in the linked JAR");
         }
+        String wat;
         try (BytecodeAnalysisCache ignored = BytecodeAnalysisCache.open(linked)) {
-            return compileLinked(classes, linked, exceptionRuntime, combinedWat);
+            wat = compileLinked(classes, linked, exceptionRuntime, combinedWat);
         }
+        // Bundled runtime code is kept only when reachable from linked-class exports, host hooks or Throwable inspection.
+        return exceptionRuntime ? BytecodeDeadCode.prune(wat, export -> export.startsWith("__")
+                || export.startsWith("java.lang.Throwable.") || roots.stream().anyMatch(export::startsWith), retainedFunctions) : wat;
     }
 
     private static String compileLinked(List<ClassNode> classes, Map<String, ClassNode> linked, boolean exceptionRuntime,

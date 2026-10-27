@@ -535,8 +535,10 @@ class BytecodeDynamicTest implements Opcodes {
             var deserialize=jvm.getDeclaredMethod("$deserializeLambda$",java.lang.invoke.SerializedLambda.class);deserialize.setAccessible(true);
             Object copy=deserialize.invoke(null,form);expectedResult=(long)jvm.getMethod("apply",Object.class,long.class).invoke(null,copy,7L);
         }
-        String wat=BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar));
         // Export the private serialization hooks only in this test artifact; production visibility stays private.
+        String wat=BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar),Set.of(
+            TypeHelper.getMethodFunctionName("Metadata$$javaw$dynamic$0$lambda","writeReplace","()Ljava/lang/Object;"),
+            TypeHelper.getMethodFunctionName("Metadata","$deserializeLambda$","(Ljava/lang/invoke/SerializedLambda;)Ljava/lang/Object;")));
         wat=exportHook(wat,"serialize","Metadata$$javaw$dynamic$0$lambda","writeReplace","()Ljava/lang/Object;");
         wat=exportHook(wat,"deserialize","Metadata","$deserializeLambda$","(Ljava/lang/invoke/SerializedLambda;)Ljava/lang/Object;");
         execute(wat,"""

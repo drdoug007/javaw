@@ -300,7 +300,7 @@ Checkboxes describe the documented scope of each item. Completed child tasks may
 
 - [ ] **Phase 7: Scalable compile cost and output size** (prerequisite for further runtime/library milestones; see [the scaling notes](docs/bytecode-compile-scaling.md))
   - [x] Reuse whole-program analyses within one compilation (`BytecodeAnalysisCache`): layouts, dispatch metadata, subtype answers, trace IDs and whole-program validation. A trivial exception-runtime compile drops from 11.8 s to 2.2 s with byte-identical WAT; all 592 bytecode tests pass.
-  - [ ] Remove module functions unreachable from linked-class exports and host hooks.
+  - [x] Remove module functions unreachable from linked-class exports, host hooks and `Throwable` inspection exports (v255, `BytecodeDeadCode`). Trivial-program `.wasm` drops from 11.8 MB to 654 KB; a Jackson fixture drops from 12.1 MB to 1.0 MB. All 594 bytecode tests pass, and the audit changes only the revision. Bundled-runtime methods are exported only when reachable. Virtual/interface dispatch still keeps every linked implementation.
   - [ ] Instantiation-aware (rapid type analysis) reachability before lowering, so unreachable runtime code is neither lowered nor emitted, while admission still validates every linked declaration.
   - [ ] Replace the 20-page (1.25 MB) memory maximum and non-freeing test allocator assumptions with a configurable/growable memory and a reclaiming allocator; add tests above the old limit.
   - [ ] Keep the prescribed validation run fast: document the fork/JVM settings in the build, and track per-test compile time in CI.
