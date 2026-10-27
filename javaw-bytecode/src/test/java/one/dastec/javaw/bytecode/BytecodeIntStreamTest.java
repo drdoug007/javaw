@@ -74,6 +74,23 @@ public class Metadata {public static int run(int group){int h=1;int[] calls={0};
             """);compare(1);
     }
 
+    @Test void orderingAndShortCircuit() throws Exception {
+        fixture("""
+import java.util.*;import java.util.stream.*;
+public class Metadata {public static int run(int group){int h=1;
+ h=31*h+Arrays.hashCode(IntStream.of(3,-1,3,2,-1,Integer.MIN_VALUE,Integer.MAX_VALUE).distinct().sorted().skip(1).limit(3).toArray());
+ h=31*h+Arrays.hashCode(IntStream.of(1,2,3,1).takeWhile(v->v<3).toArray());h=31*h+Arrays.hashCode(IntStream.of(1,2,3,1).dropWhile(v->v<3).toArray());
+ h=31*h+Arrays.hashCode(IntStream.of(1,2).skip(Long.MAX_VALUE).limit(Long.MAX_VALUE).toArray());
+ for(int mode=0;mode<3;mode++){int[] calls={0};IntStream s=IntStream.range(0,10).peek(v->calls[0]++);boolean result=mode==0?s.anyMatch(v->v==3):mode==1?s.allMatch(v->v<3):s.noneMatch(v->v==3);h=31*h+(result?1:0);h=31*h+calls[0];}
+ int[] calls={0};h=31*h+IntStream.of(7,8).peek(v->calls[0]++).findFirst().hashCode();h=31*h+calls[0];
+ h=31*h+IntStream.empty().findAny().hashCode();h=31*h+(IntStream.empty().allMatch(v->false)?1:0);h=31*h+(IntStream.empty().noneMatch(v->true)?1:0);
+ for(int mode=0;mode<2;mode++){IntStream s=IntStream.of(5);try{if(mode==0)s.limit(-1);else s.skip(-1);throw new Error();}catch(IllegalArgumentException e){h++;}h=31*h+s.sum();}
+ for(int mode=0;mode<5;mode++){IntStream s=IntStream.of(6);try{if(mode==0)s.takeWhile(null);if(mode==1)s.dropWhile(null);if(mode==2)s.anyMatch(null);if(mode==3)s.allMatch(null);if(mode==4)s.noneMatch(null);throw new Error();}catch(NullPointerException e){h++;}h=31*h+s.sum();}
+ return h;
+}}
+            """);compare(1);
+    }
+
     private byte[] fixture(String source) throws Exception {
         Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
         List<String> options=new ArrayList<>(List.of("-g","-parameters","--release","17","-d",directory.toString()));

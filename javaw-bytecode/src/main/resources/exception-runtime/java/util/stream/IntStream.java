@@ -22,4 +22,10 @@ public interface IntStream extends BaseStream<Integer,IntStream> {
     IntStream filter(IntPredicate predicate);IntStream map(IntUnaryOperator mapper);IntStream peek(IntConsumer action);
     <U> Stream<U> mapToObj(IntFunction<? extends U> mapper);Stream<Integer> boxed();
 
+
+    IntStream distinct();IntStream sorted();IntStream limit(long count);IntStream skip(long count);
+    IntStream takeWhile(IntPredicate predicate);IntStream dropWhile(IntPredicate predicate);
+    boolean anyMatch(IntPredicate predicate);boolean allMatch(IntPredicate predicate);boolean noneMatch(IntPredicate predicate);
+    OptionalInt findFirst();OptionalInt findAny();
+
 }

@@ -52,4 +52,14 @@ public final class IntPipeline implements IntStream {
     public <U> Stream<U> mapToObj(IntFunction<? extends U> mapper){Objects.requireNonNull(mapper);return values.map(v->mapper.apply(v.intValue()));}
     public Stream<Integer> boxed(){return values.map(v->v);}
 
+
+    public IntStream distinct(){return from(values.distinct());}public IntStream sorted(){return from(values.sorted());}
+    public IntStream limit(long count){return from(values.limit(count));}public IntStream skip(long count){return from(values.skip(count));}
+    public IntStream takeWhile(IntPredicate predicate){Objects.requireNonNull(predicate);return from(values.takeWhile(v->predicate.test(v.intValue())));}
+    public IntStream dropWhile(IntPredicate predicate){Objects.requireNonNull(predicate);return from(values.dropWhile(v->predicate.test(v.intValue())));}
+    public boolean anyMatch(IntPredicate predicate){Objects.requireNonNull(predicate);return values.anyMatch(v->predicate.test(v.intValue()));}
+    public boolean allMatch(IntPredicate predicate){Objects.requireNonNull(predicate);return values.allMatch(v->predicate.test(v.intValue()));}
+    public boolean noneMatch(IntPredicate predicate){Objects.requireNonNull(predicate);return values.noneMatch(v->predicate.test(v.intValue()));}
+    public OptionalInt findFirst(){return optional(values.findFirst());}public OptionalInt findAny(){return optional(values.findAny());}
+
 }
