@@ -198,6 +198,7 @@ public class BigInteger extends Number implements Comparable<BigInteger>,java.io
         return new BigInteger(result);
     }
     public BigInteger setBit(int index){return changeBit(index,0);}
+    public BigInteger clearBit(int index){return changeBit(index,1);}
     public BigInteger min(BigInteger other){return compareTo(other)<=0?this:other;}
     public BigInteger max(BigInteger other){return compareTo(other)>=0?this:other;}
     public BigInteger mod(BigInteger modulus){if(modulus.sign<=0)throw new ArithmeticException();BigInteger result=remainder(modulus);return result.sign<0?result.add(modulus):result;}
