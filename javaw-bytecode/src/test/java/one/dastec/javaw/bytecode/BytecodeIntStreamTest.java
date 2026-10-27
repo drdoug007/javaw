@@ -145,6 +145,37 @@ public class Metadata {public static int run(int group){int h=1;Function<String,
             """);compare(32);h2Trim();
     }
 
+    private void springEscape() throws Exception {
+        ClassNode selected=selectedLibrary("org/springframework/aot/nativex/BasicJsonWriter.class",
+            "org/springframework/spring-core/6.1.5/spring-core-6.1.5.jar",
+            "476dac28509b3f47d0b5e895a639fa75ac2218f074ce214e44832a836c469f7e",
+            name->name.equals("escape")||name.equals("lambda$escape$2"));
+        MethodVisitor shim=selected.visitMethod(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"javawEscape","(Ljava/lang/CharSequence;)Ljava/lang/String;",null,null);
+        shim.visitCode();shim.visitVarInsn(Opcodes.ALOAD,0);shim.visitMethodInsn(Opcodes.INVOKESTATIC,selected.name,"escape","(Ljava/lang/CharSequence;)Ljava/lang/String;",false);
+        shim.visitInsn(Opcodes.ARETURN);shim.visitMaxs(1,1);shim.visitEnd();carrier(selected);
+        Path bridge=directory.resolve("org/springframework/aot/nativex/EscapeBridge.java");
+        Files.writeString(bridge,"""
+            package org.springframework.aot.nativex;
+            public class EscapeBridge {public static String run(CharSequence text){try{
+              var m=Class.forName("org.springframework.aot.nativex.BasicJsonWriter").getDeclaredMethod("escape",CharSequence.class);
+              m.setAccessible(true);return (String)m.invoke(null,text);
+            }catch(java.lang.reflect.InvocationTargetException e){Throwable cause=e.getCause();if(cause instanceof RuntimeException)throw (RuntimeException)cause;throw (Error)cause;
+            }catch(ReflectiveOperationException e){throw new Error(e);}}}
+            """);
+        assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,"--release","17","-d",directory.toString(),bridge.toString()));
+        ClassNode direct=new ClassNode();direct.visit(Opcodes.V17,Opcodes.ACC_PUBLIC,"org/springframework/aot/nativex/EscapeBridge",null,"java/lang/Object",null);
+        MethodVisitor call=direct.visitMethod(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"run","(Ljava/lang/CharSequence;)Ljava/lang/String;",null,null);
+        call.visitCode();call.visitVarInsn(Opcodes.ALOAD,0);call.visitMethodInsn(Opcodes.INVOKESTATIC,selected.name,"javawEscape","(Ljava/lang/CharSequence;)Ljava/lang/String;",false);call.visitInsn(Opcodes.ARETURN);call.visitMaxs(1,1);call.visitEnd();carrier(direct);
+        fixture("""
+            import org.springframework.aot.nativex.EscapeBridge;
+            public class Metadata {public static int run(int group){int h=1;char[] control=new char[32];for(int i=0;i<32;i++)control[i]=(char)i;
+             for(CharSequence text:new CharSequence[]{"",new String(control),"quote"+(char)34+"slash/"+(char)92,"𐐀😀é",new String(new char[]{(char)0xd800,65,(char)0xdc00}),new StringBuilder("builder"),new StringBuffer("buffer"),
+              new CharSequence(){public int length(){return 3;}public char charAt(int i){return (char)('a'+i);}public CharSequence subSequence(int a,int b){throw new Error();}public String toString(){return "different";}}})h=31*h+EscapeBridge.run(text).hashCode();
+             try{EscapeBridge.run(null);throw new Error();}catch(NullPointerException e){h++;}return h;
+            }}
+            """);compare(1);
+    }
+
     private void h2Trim() throws Exception {
         carrier(selectedLibrary("org/h2/util/StringUtils.class","com/h2database/h2/2.2.224/h2-2.2.224.jar",
             "b9d8f19358ada82a4f6eb5b174c6cfe320a375b5a9cb5a4fe456d623e6e55497",
@@ -182,6 +213,23 @@ public class Metadata {public static int run(int group){int h=1;Function<String,
         return carrier;
     }
     private void carrier(ClassNode node){ClassWriter writer=new ClassWriter(0);node.accept(writer);carriers.put(node.name+".class",writer.toByteArray());}
+
+    @Test void sequenceDefaults() throws Exception {
+        fixture("""
+import java.util.*;import java.util.stream.*;import java.util.function.*;
+public class Metadata {static class Text implements CharSequence {StringBuilder value=new StringBuilder("a𐐀");int calls;
+ public int length(){return value.length();}public char charAt(int i){calls++;return value.charAt(i);}public CharSequence subSequence(int a,int b){return value.subSequence(a,b);}public String toString(){return "different";}}
+ public static int run(int group){int h=1;Text text=new Text();IntStream units=text.chars(),points=text.codePoints();text.value.append("😀z");h=31*h+text.calls;h=31*h+Arrays.hashCode(units.toArray());h=31*h+Arrays.hashCode(points.toArray());
+ text.calls=0;h=31*h+text.codePoints().filter(v->v>65535).findFirst().orElse(-1);h=31*h+text.calls;
+ Function<CharSequence,IntStream> chars=CharSequence::chars,cps=CharSequence::codePoints;
+ for(CharSequence v:new CharSequence[]{"x😀",new StringBuilder("y𐐀"),new StringBuffer("z😀"),text}){h=31*h+Arrays.hashCode(chars.apply(v).toArray());h=31*h+Arrays.hashCode(cps.apply(v).toArray());}
+ StringBuilder mutable=new StringBuilder("ab");IntStream stream=mutable.chars();mutable.setCharAt(0,'z');mutable.append('c');h=31*h+Arrays.hashCode(stream.toArray());
+ RuntimeException failure=new IllegalStateException("access");CharSequence throwing=new CharSequence(){public int length(){return 2;}public char charAt(int i){throw failure;}public CharSequence subSequence(int a,int b){throw new UnsupportedOperationException();}};
+ IntStream late=throwing.chars();try{late.toArray();throw new Error();}catch(RuntimeException e){h=31*h+(e==failure?1:0);}
+ return h;
+ }}
+            """);compare(1);springEscape();
+    }
 
     private byte[] fixture(String source) throws Exception {
         try(var old=Files.list(directory)){for(Path path:old.filter(v->v.getFileName().toString().matches("Metadata.*\\.class")).toList())Files.delete(path);}
