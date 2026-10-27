@@ -2005,3 +2005,5 @@ Bytecode integer/character streams (v200–v210) now support selected sequential
 Validation: 500 bytecode tests pass; the pinned runtime audit baseline passes with unchanged inventory. Audited JDK linkage now records 1,025 declared signatures, 23 missing members and 289 missing owners. These are declaration counts, not proof of full framework execution.
 
 Bytecode regex subset 1/10 (v211): Literal Pattern/Matcher compilation, quoting, flags and PatternSyntaxException accessors. Focused Java 17 differential/admission checks pass; inventory unchanged. See [the selected regex contract](docs/bytecode-regex.md); full regex and framework support remain open.
+
+Bytecode regex subset 2/10 (v212): Regex code-point atoms, escaped literals and quoted spans. Focused Java 17 differential/admission checks pass; inventory unchanged. See [the selected regex contract](docs/bytecode-regex.md); full regex and framework support remain open.

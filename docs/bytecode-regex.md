@@ -5,3 +5,4 @@ This staged sequential engine establishes selected linked-bytecode behavior, not
 Completed subsets:
 
 - v211: Literal Pattern/Matcher compilation, quoting, flags and PatternSyntaxException accessors.
+- v212: Regex code-point atoms, escaped literals and quoted spans.

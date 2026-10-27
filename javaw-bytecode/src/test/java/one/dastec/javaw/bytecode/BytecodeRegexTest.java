@@ -27,6 +27,17 @@ public class Metadata {public static int run(int group){int h=1;
 }}
 """);compare(1);
  }
+ @Test void atomsAndEscapes() throws Exception {
+ fixture("""
+import java.util.regex.*;
+public class Metadata {public static int run(int group){int h=1;
+ for(String regex:new String[]{".","a.b","\\\\.","\\\\n","\\\\x41","\\\\u0041","\\\\Q.*\\\\E","\\\\Qa\\\\E.b","a\\\\+b"})
+  for(String text:new String[]{"","a","A","a.b","a😀b",".",".*","a+b","\\n","😀",new String(new char[]{(char)0xd800})})h=31*h+(Pattern.matches(regex,text)?1:0);
+ for(String regex:new String[]{"*a","\\\\","\\\\xzz"}){try{Pattern.compile(regex);throw new Error();}catch(PatternSyntaxException e){h=31*h+e.getDescription().hashCode();h=31*h+e.getIndex();}}
+ return h;
+}}
+""");compare(1);
+ }
     private String classpath(){return directory+(fixtureClasspath.isEmpty()?"":File.pathSeparator+fixtureClasspath);}
 
     /** Preserve selected original method instructions; omit unrelated library state and initialization. */
