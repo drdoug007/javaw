@@ -76,6 +76,18 @@ class BytecodeJacksonNumberInputTest implements Opcodes {
             """);compare(List.of("run"));
     }
 
+    @Test void intString() throws Exception {
+        fixture("""
+            import java.math.*;
+            import com.fasterxml.jackson.core.io.NumberInput;
+            public class Metadata {public static int run(){
+                int hash=1;for(String text:new String[]{"0","-0","+1","1","9","10","123456789","2147483647","-2147483648","000000000000001","\u0661\u0662"})hash=31*hash+NumberInput.parseInt(text);
+ for(String text:new String[]{"","+","-","2147483648","-2147483649","1.0"," 1","1 ","1e3","--1"})try{NumberInput.parseInt(text);throw new Error();}catch(RuntimeException e){hash=31*hash+e.getClass().getName().hashCode();}
+ try{NumberInput.parseInt(null);throw new Error();}catch(NullPointerException e){hash++;}return hash;
+            }}
+            """);compare(List.of("run"));
+    }
+
     private void compare(List<String> names) throws Exception {
         StringBuilder assertions=new StringBuilder();
         try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL(),artifact().toUri().toURL()},null)){
