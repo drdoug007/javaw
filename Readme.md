@@ -2052,3 +2052,5 @@ Pinned Jackson Base64 variant configuration also matches the JVM (`BytecodeJacks
 Pinned Jackson `Version`/`Separators`: see [the value-type contract](docs/bytecode-jackson-value-types.md) and `BytecodeJacksonValueTypesTest`.
 
 Pinned Jackson `Separators` also matches the JVM (`BytecodeJacksonValueTypesTest`).
+
+Pinned Jackson character escapes and `SerializedString`: see [the escape contract](docs/bytecode-jackson-character-escapes.md) and `BytecodeJacksonCharacterEscapesTest`. `ByteBuffer` members are not linked.
