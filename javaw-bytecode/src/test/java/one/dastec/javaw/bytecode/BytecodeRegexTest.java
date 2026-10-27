@@ -81,6 +81,20 @@ public class Metadata {public static int run(int group){int h=1;int flags=new in
 }}
 """);compare(8);
  }
+ @Test void findAndReset() throws Exception {
+ fixture("""
+import java.util.regex.*;
+public class Metadata {public static int excludedState(){Matcher m=Pattern.compile("a").matcher("b");try{m.matches();m.find();return 0;}catch(UnsupportedOperationException e){m.reset();return m.find()?0:1;}}static int result(Matcher m){int h=1;try{h=31*h+m.start();h=31*h+m.end();for(int i=0;i<=m.groupCount();i++){String s=m.group(i);h=31*h+(s==null?17:s.hashCode());h=31*h+m.start(i);h=31*h+m.end(i);}}catch(IllegalStateException e){h+=7;}return h;}
+ public static int run(int group){int h=1;String regex=new String[]{"","(a+)(b?)","^a","a$","\\\\A|\\\\z",".","a*?","(a|ab)"}[group];Pattern p=Pattern.compile(regex,Pattern.MULTILINE);
+ for(String text:new String[]{"","ab aa\\nab","😀a","a\\r\\nb","aa"}){Matcher m=p.matcher(text);int count=0;while(m.find()){h=31*h+result(m);if(++count>30)throw new Error();}h=31*h+count;h=31*h+result(m);h=31*h+(m.find()?1:0);h=31*h+result(m);
+  h=31*h+(m.reset()==m?1:0);h=31*h+(m.lookingAt()?1:0);h=31*h+result(m);h=31*h+(m.matches()?1:0);h=31*h+result(m);m.reset();h=31*h+(m.find()?1:0);h=31*h+result(m);
+  h=31*h+(m.find(text.length())?1:0);h=31*h+result(m);for(int start:new int[]{-1,text.length()+1})try{m.find(start);throw new Error();}catch(IndexOutOfBoundsException e){h++;}
+  m.reset(new StringBuilder(text));h=31*h+(m.find()?1:0);try{m.reset(null);throw new Error();}catch(NullPointerException e){h++;}h=31*h+result(m);
+ }
+ h=31*h+("aaa".matches("a+")?1:0);return h;
+}}
+""");compare(8);
+ }
     private String classpath(){return directory+(fixtureClasspath.isEmpty()?"":File.pathSeparator+fixtureClasspath);}
 
     /** Preserve selected original method instructions; omit unrelated library state and initialization. */
@@ -154,7 +168,7 @@ public class Metadata {public static int run(int group){int h=1;int flags=new in
                     new Uint8Array(memory.buffer,address,size).fill(0x7f);return address;
                 }}}).exports;
                 assert.equal(allocations,0);heap=Math.max(heap,e.__exception_heap_base?.value??0);
-            """.replace("EXPECTED",expected)+"if(e['Metadata.unsupportedParallel'])assert.equal(e['Metadata.unsupportedParallel'](),1);\nassert.equal(e['"+fixtureClassName+".run'](group),expected[group],'batch '+group);\n}");
+            """.replace("EXPECTED",expected)+"if(e['Metadata.excludedState'])assert.equal(e['Metadata.excludedState'](),1);\nif(e['Metadata.unsupportedParallel'])assert.equal(e['Metadata.unsupportedParallel'](),1);\nassert.equal(e['"+fixtureClassName+".run'](group),expected[group],'batch '+group);\n}");
         run("node",script.toString(),output.toString());
     }
 }

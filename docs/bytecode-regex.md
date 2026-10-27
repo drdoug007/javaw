@@ -12,3 +12,6 @@ Completed subsets:
 
 Matching uses an explicit instruction/backtracking stack with saved capture and repetition state. This replaces the initial recursive continuation traversal, which exhausted Wasm call frames on a small nested-capture repetition fixture. Parser/program construction still uses recursive traversal; large-pattern compilation and bounded allocation under sustained workloads are not established.
 - v216: Anchors and selected matching flags with explicit unsupported-feature diagnostics.
+- v217: Matcher find/lookingAt/reset, capture access and String.matches.
+
+Matcher search starts require reset after a failed `matches()` or `lookingAt()`; `find()` diagnoses that unsupported reuse state explicitly. `find(int)` resets by definition. Ordinary repeated find, successful anchored reuse, reset, capture access, and Java 17 zero-width exhaustion state are differential tested. After `reset(null)`, restore non-null input before further traversal; only failure type and invalidation of the prior match are covered.

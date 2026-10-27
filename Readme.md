@@ -2015,3 +2015,5 @@ Bytecode regex subset 4/10 (v214): Greedy/reluctant bounded and unbounded repeti
 Bytecode regex subset 5/10 (v215): Capturing/noncapturing groups and ordered alternatives with backtracking. Focused Java 17 differential/admission checks pass; inventory unchanged. See [the selected regex contract](docs/bytecode-regex.md); full regex and framework support remain open.
 
 Bytecode regex subset 6/10 (v216): Anchors and selected matching flags with explicit unsupported-feature diagnostics. Focused Java 17 differential/admission checks pass; inventory unchanged. See [the selected regex contract](docs/bytecode-regex.md); full regex and framework support remain open.
+
+Bytecode regex subset 7/10 (v217): Matcher find/lookingAt/reset, capture access and String.matches. Focused Java 17 differential/admission checks pass; inventory unchanged. See [the selected regex contract](docs/bytecode-regex.md); full regex and framework support remain open.

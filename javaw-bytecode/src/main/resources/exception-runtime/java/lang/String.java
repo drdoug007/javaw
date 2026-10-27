@@ -444,4 +444,5 @@ public final class String implements CharSequence,Comparable<String>,java.io.Ser
     }
     public java.util.stream.IntStream chars(){return javaw.runtime.CharacterStreams.chars(this);}
     public java.util.stream.IntStream codePoints(){return javaw.runtime.CharacterStreams.codePoints(this);}
+    public boolean matches(String regex){return java.util.regex.Pattern.matches(regex,this);}
 }
