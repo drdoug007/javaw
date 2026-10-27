@@ -15,3 +15,10 @@ Supported additions:
 - v186: `Array` insertion overload (`insertArray` regression).
 - v187: `ArrayRange` insertion overload (`insertArrayRange` regression).
 - v188: `Sequence` insertion overload (`insertSequence` regression).
+- v189: `SequenceRange` insertion overload (`insertSequenceRange` regression).
+
+The two array and two sequence overloads are also available on StringBuilder. Primitive/Object StringBuffer overloads use the existing string insertion path after Java value conversion. Array slices check destination offset, then dereference the source, then check slice bounds. Null sequences mean the four characters `null`; null arrays fail. Sequence insertion preserves live receiver aliasing and increments the destination length before invoking `charAt`, including partial mutation when that callback throws. Sequence slice errors use IndexOutOfBoundsException; array slice errors and invalid destination offsets use StringIndexOutOfBoundsException.
+
+The fixture with a custom CharSequence whose text differs from `toString()` proves character reads, and a throwing sequence observes updated length and verifies failure-time content. These are API conformance fixtures, not new pinned-library carriers. Allocation stability and concurrent access remain unproven.
+
+Validation at v189: all ten focused differential tests and all 480 tests in the required offline bytecode suite pass (four forks; zero failures, errors or skips). `python3 runtime-target/audit.py --check-baseline` passes after reviewing each revision-only baseline update: 63 JARs, 26,625 classes, 734 resources, and unchanged selected signature counts.
