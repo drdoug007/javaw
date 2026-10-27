@@ -63,6 +63,25 @@ class BytecodeJacksonNumberOutputTest implements Opcodes {
 
     // NumberOutput differential cases.
 
+    @Test void longChars() throws Exception {
+        fixture("""
+            import com.fasterxml.jackson.core.io.NumberOutput;
+            public class Metadata {public static int run(){
+                int hash=1;
+        for(long value:new long[]{0,1,-1,9,-9,10,-10,99,100,999,1000,999999,1000000,999999999,1000000000,Integer.MAX_VALUE,Integer.MIN_VALUE,2147483648L,-2147483649L,999999999999999999L,1000000000000000000L,Long.MAX_VALUE,Long.MIN_VALUE})for(int offset:new int[]{0,3}){
+            char[] buffer=new char[32];java.util.Arrays.fill(buffer,(char)'#');
+            int end=NumberOutput.outputLong(value,buffer,offset);
+            hash=31*hash+end;
+            for(int i=0;i<buffer.length;i++)hash=31*hash+buffer[i];
+            if(end-offset!=String.valueOf(value).length())throw new Error();
+        }
+        try{NumberOutput.outputLong(1,(char[])null,0);throw new Error();}catch(NullPointerException expected){hash++;}
+        for(int offset:new int[]{-1,0,Integer.MAX_VALUE})try{NumberOutput.outputLong(Long.MIN_VALUE,new char[1],offset);throw new Error();}catch(IndexOutOfBoundsException expected){hash++;}
+        return hash;
+            }}
+            """);compare(List.of("run"));
+    }
+
     @Test void intBytes() throws Exception {
         fixture("""
             import com.fasterxml.jackson.core.io.NumberOutput;
