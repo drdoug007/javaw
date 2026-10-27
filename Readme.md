@@ -2048,3 +2048,5 @@ Pinned Jackson Base64: original `Base64Variant`/`Base64Variants` link whole; see
 Pinned Jackson Base64 decoding and failure messages also match the JVM (`BytecodeJacksonBase64Test`).
 
 Pinned Jackson Base64 variant configuration also matches the JVM (`BytecodeJacksonBase64Test`).
+
+Pinned Jackson `Version`/`Separators`: see [the value-type contract](docs/bytecode-jackson-value-types.md) and `BytecodeJacksonValueTypesTest`.
