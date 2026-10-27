@@ -8,3 +8,4 @@ This sequential reference subset does not establish primitive or parallel traver
 - v234: Sized/unknown iterator spliterators and iterator adapter.
 - v235: AbstractSpliterator subclass batching and callback state.
 - v236: Iterable and collection late-binding spliterators.
+- v237: Sequential StreamSupport direct and supplier sources.

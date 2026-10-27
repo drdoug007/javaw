@@ -31,6 +31,9 @@ import java.util.*;import java.util.function.*;public class Metadata {static cla
  @Test void collectionBinding() throws Exception {fixture("""
 import java.util.*;public class Metadata {public static int run(int g){int h=1;int[] created={0};Iterable<Integer> iterable=()->{created[0]++;return Arrays.asList(1,2).iterator();};Spliterator<Integer> unknown=iterable.spliterator();h=31*h+created[0];h=31*h+unknown.characteristics();h=31*h+(int)unknown.getExactSizeIfKnown();List<Integer> values=new ArrayList<>(Arrays.asList(1,2));Spliterator<Integer> s=values.spliterator();values.add(3);h=31*h+s.characteristics();h=31*h+(int)s.estimateSize();int[] sum={0};s.forEachRemaining(x->sum[0]+=x);h=31*h+sum[0];Collection<Integer> c=new AbstractCollection<Integer>(){public int size(){return values.size();}public Iterator<Integer> iterator(){return values.iterator();}};s=c.spliterator();values.add(4);h=31*h+(int)s.getExactSizeIfKnown();Spliterator<Integer> all=s.trySplit();h=31*h+(int)all.estimateSize();h=31*h+(int)s.estimateSize();all.forEachRemaining(x->sum[0]+=x);h=31*h+sum[0];s=Spliterators.spliterator(c,Spliterator.CONCURRENT);h=31*h+s.characteristics();try{s.tryAdvance(null);throw new Error();}catch(NullPointerException e){h++;}return h;}}
 """);compare(1);}
+ @Test void sequentialSupport() throws Exception {fixture("""
+import java.util.*;import java.util.stream.*;import java.util.function.*;public class Metadata {public static int exclusions(){try{StreamSupport.stream(Spliterators.emptySpliterator(),true);return 0;}catch(UnsupportedOperationException e){return 1;}}public static int run(int g){int h=1;int[] calls={0},closed={0};Supplier<Spliterator<Integer>> source=()->{calls[0]++;return Spliterators.spliterator(new Integer[]{1,2,3,4},Spliterator.ORDERED);};Stream<Integer> stream=StreamSupport.stream(source,Spliterator.ORDERED|Spliterator.SIZED,false).onClose(()->closed[0]++);h=31*h+calls[0];h=31*h+stream.filter(x->x%2==0).map(x->x*3).toList().hashCode();h=31*h+calls[0];stream.close();stream.close();h=31*h+closed[0];Stream<Integer> fresh=StreamSupport.stream(source,Spliterator.ORDERED,false);Iterator<Integer> it=fresh.iterator();h=31*h+calls[0];h=31*h+it.next();h=31*h+calls[0];fresh.close();h=31*h+StreamSupport.stream(Spliterators.spliterator(new Integer[]{9,8},0),false).toList().hashCode();try{StreamSupport.stream((Spliterator<Object>)null,false);throw new Error();}catch(NullPointerException e){h++;}try{StreamSupport.stream((Supplier<Spliterator<Object>>)null,0,false);throw new Error();}catch(NullPointerException e){h++;}return h;}}
+""");compare(1);}
     private String classpath(){return directory+(fixtureClasspath.isEmpty()?"":File.pathSeparator+fixtureClasspath);}
 
     /** Preserve selected original method instructions; omit unrelated library state and initialization. */
@@ -104,7 +107,7 @@ import java.util.*;public class Metadata {public static int run(int g){int h=1;i
                     new Uint8Array(memory.buffer,address,size).fill(0x7f);return address;
                 }}}).exports;
                 assert.equal(allocations,0);heap=Math.max(heap,e.__exception_heap_base?.value??0);
-            """.replace("EXPECTED",expected)+"assert.equal(e['"+fixtureClassName+".run'](group),expected[group],'batch '+group);\n}");
+            """.replace("EXPECTED",expected)+"if(e['Metadata.exclusions'])assert.equal(e['Metadata.exclusions'](),1);\nassert.equal(e['"+fixtureClassName+".run'](group),expected[group],'batch '+group);\n}");
         run("node",script.toString(),output.toString());
     }
 }

@@ -2025,3 +2025,5 @@ Reference traversal subset 4/10 (v234): Sized/unknown iterator spliterators and 
 Reference traversal subset 5/10 (v235): AbstractSpliterator subclass batching and callback state. Focused checks pass; see [the reference traversal contract](docs/bytecode-spliterators.md). Primitive/parallel and framework milestones remain open.
 
 Reference traversal subset 6/10 (v236): Iterable and collection late-binding spliterators. Focused checks pass; see [the reference traversal contract](docs/bytecode-spliterators.md). Primitive/parallel and framework milestones remain open.
+
+Reference traversal subset 7/10 (v237): Sequential StreamSupport direct and supplier sources. Focused checks pass; see [the reference traversal contract](docs/bytecode-spliterators.md). Primitive/parallel and framework milestones remain open.
