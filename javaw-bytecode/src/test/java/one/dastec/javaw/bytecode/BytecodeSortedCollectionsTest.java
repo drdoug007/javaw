@@ -44,6 +44,65 @@ import java.util.*;public class Metadata {public static int run(int g){int h=1;T
  @Test void unmodifiableNavigable() throws Exception {fixture("""
 import java.util.*;public class Metadata {public static int run(int g){int h=1;TreeMap<Integer,String> root=new TreeMap<>();for(int i=1;i<5;i++)root.put(i,"v"+i);NavigableMap<Integer,String> m=Collections.unmodifiableNavigableMap(root);for(int k=0;k<6;k++)h=31*h+Objects.hash(m.lowerEntry(k),m.floorEntry(k),m.ceilingEntry(k),m.higherEntry(k));h=31*h+m.descendingMap().toString().hashCode();h=31*h+m.subMap(1,false,4,true).toString().hashCode();root.put(2,"new");h=31*h+m.headMap(3,true).toString().hashCode();NavigableSet<Integer> s=Collections.unmodifiableNavigableSet(new TreeSet<>(root.keySet()));h=31*h+s.descendingSet().toString().hashCode();h=31*h+s.tailSet(2,false).toString().hashCode();for(int i=0;i<8;i++)try{if(i==0)m.firstEntry().setValue("bad");if(i==1)m.pollFirstEntry();if(i==2)m.descendingMap().pollLastEntry();if(i==3)m.navigableKeySet().pollLast();if(i==4)s.descendingIterator().remove();if(i==5)s.subSet(1,true,3,true).pollFirst();if(i==6)Collections.emptyNavigableMap().pollFirstEntry();if(i==7)Collections.emptyNavigableSet().pollLast();throw new Error();}catch(UnsupportedOperationException e){h++;}h=31*h+Collections.emptySortedMap().size();h=31*h+Collections.emptySortedSet().size();h=31*h+(Collections.emptyNavigableMap()==Collections.emptySortedMap()?1:0);h=31*h+(Collections.emptyNavigableSet()==Collections.emptySortedSet()?1:0);return h;}}
 """);compare(1);}
+ @Test void libraryAndAdmission() throws Exception {fixture("""
+import java.util.*;public class Metadata {public static int run(int g){int h=1;TreeMap<String,List<Integer>> root=new TreeMap<>(String.CASE_INSENSITIVE_ORDER);List<Integer> values=new ArrayList<>();root.put("a",values);TreeMap<String,List<Integer>> copy=(TreeMap<String,List<Integer>>)root.clone();copy.put("b",values);h=31*h+root.size();h=31*h+(copy.comparator()==root.comparator()?1:0);h=31*h+(copy.get("A")==values?1:0);values.add(3);h=31*h+copy.get("a").get(0);NavigableMap<Integer,Integer> empty=new TreeMap<>();h=31*h+Objects.hash(empty.lowerKey(null),empty.floorKey(null),empty.ceilingKey(null),empty.higherKey(null));return h;}}
+""");compare(1);springOrdering();sortedAdmission();}
+    private void sortedAdmission(){
+        String[][] signatures={
+          {"java/util/TreeMap","put","(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;","virtual"},
+          {"java/util/TreeMap","floorEntry","(Ljava/lang/Object;)Ljava/util/Map$Entry;","virtual"},
+          {"java/util/TreeMap","descendingMap","()Ljava/util/NavigableMap;","virtual"},
+          {"java/util/SortedMap","subMap","(Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/SortedMap;","interface"},
+          {"java/util/NavigableMap","pollFirstEntry","()Ljava/util/Map$Entry;","interface"},
+          {"java/util/NavigableSet","floor","(Ljava/lang/Object;)Ljava/lang/Object;","interface"},
+          {"java/util/TreeSet","add","(Ljava/lang/Object;)Z","virtual"},
+          {"java/util/Collections","unmodifiableNavigableMap","(Ljava/util/NavigableMap;)Ljava/util/NavigableMap;","static"}
+        };
+        for(String[] call:signatures)for(int variant=0;variant<4;variant++){
+            boolean iface=call[3].equals("interface"),statik=call[3].equals("static");
+            String descriptor=variant%2==0?"(J)Ljava/lang/Object;":call[2];
+            ClassWriter writer=new ClassWriter(0);writer.visit(Opcodes.V17,Opcodes.ACC_PUBLIC,"BadSortedCall",null,"java/lang/Object",null);writer.visitSource("SortedCalls.java",null);
+            MethodVisitor m=writer.visitMethod(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"unused","()Ljava/lang/Object;",null,null);
+            m.visitCode();Label line=new Label();m.visitLabel(line);m.visitLineNumber(61,line);
+            if(variant<2){m.visitInsn(Opcodes.ACONST_NULL);m.visitInsn(Opcodes.ACONST_NULL);m.visitInsn(Opcodes.ACONST_NULL);
+                int opcode=variant==1?(statik?Opcodes.INVOKEINTERFACE:Opcodes.INVOKESTATIC):(statik?Opcodes.INVOKESTATIC:iface?Opcodes.INVOKEINTERFACE:Opcodes.INVOKEVIRTUAL);
+                m.visitMethodInsn(opcode,call[0],call[1],descriptor,iface);
+            }else{int tag=variant==3?(statik?Opcodes.H_INVOKEINTERFACE:Opcodes.H_INVOKESTATIC):(statik?Opcodes.H_INVOKESTATIC:iface?Opcodes.H_INVOKEINTERFACE:Opcodes.H_INVOKEVIRTUAL);
+                m.visitLdcInsn(new Handle(tag,call[0],call[1],descriptor,iface));}
+            m.visitInsn(Opcodes.ARETURN);m.visitMaxs(4,0);m.visitEnd();writer.visitEnd();
+            var failure=assertThrows(IllegalArgumentException.class,()->BytecodeCompiler.compileClassWithExceptionRuntime(writer.toByteArray()));
+            assertTrue(failure.getMessage().contains("unused"),failure.getMessage());
+            assertTrue(failure.getMessage().contains("SortedCalls.java:61"),failure.getMessage());
+        }
+        for(String[] api:new String[][]{{"java/util/TreeSet","spliterator","()Ljava/util/Spliterator;"},{"java/util/Collections","synchronizedSortedMap","(Ljava/util/SortedMap;)Ljava/util/SortedMap;"},{"java/util/Collections","synchronizedNavigableSet","(Ljava/util/NavigableSet;)Ljava/util/NavigableSet;"}}){
+            ClassWriter w=new ClassWriter(0);w.visit(Opcodes.V17,Opcodes.ACC_PUBLIC,"UnsupportedSortedApi",null,"java/lang/Object",null);w.visitSource("SortedCalls.java",null);MethodVisitor m=w.visitMethod(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"unused","()Ljava/lang/Object;",null,null);m.visitCode();Label line=new Label();m.visitLabel(line);m.visitLineNumber(61,line);m.visitInsn(Opcodes.ACONST_NULL);m.visitMethodInsn(api[0].endsWith("Collections")?Opcodes.INVOKESTATIC:Opcodes.INVOKEVIRTUAL,api[0],api[1],api[2],false);m.visitInsn(Opcodes.ARETURN);m.visitMaxs(2,0);m.visitEnd();w.visitEnd();
+            var failure=assertThrows(IllegalArgumentException.class,()->BytecodeCompiler.compileClassWithExceptionRuntime(w.toByteArray()));assertTrue(failure.getMessage().contains("unused"),failure.getMessage());assertTrue(failure.getMessage().contains("SortedCalls.java:61"),failure.getMessage());
+        }
+    }
+    private void springOrdering() throws Exception {
+        for(String kind:new String[]{"Map","Set"}){
+            String name="org/springframework/aot/generate/ValueCodeGeneratorDelegates$"+kind+"Delegate";
+            ClassNode selected=selectedLibrary(name+".class","org/springframework/spring-core/6.1.5/spring-core-6.1.5.jar","476dac28509b3f47d0b5e895a639fa75ac2218f074ce214e44832a836c469f7e",method->method.equals("orderForCodeConsistency"));selected.superName="java/lang/Object";
+            MethodVisitor ctor=selected.visitMethod(Opcodes.ACC_PUBLIC,"<init>","()V",null,null);ctor.visitCode();ctor.visitVarInsn(Opcodes.ALOAD,0);ctor.visitMethodInsn(Opcodes.INVOKESPECIAL,"java/lang/Object","<init>","()V",false);ctor.visitInsn(Opcodes.RETURN);ctor.visitMaxs(1,1);ctor.visitEnd();
+            String descriptor="(Ljava/util/"+kind+";)Ljava/util/"+kind+";";
+            MethodVisitor shim=selected.visitMethod(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"javawOrder",descriptor,null,null);shim.visitCode();shim.visitTypeInsn(Opcodes.NEW,name);shim.visitInsn(Opcodes.DUP);shim.visitMethodInsn(Opcodes.INVOKESPECIAL,name,"<init>","()V",false);shim.visitVarInsn(Opcodes.ALOAD,0);shim.visitMethodInsn(Opcodes.INVOKESPECIAL,name,"orderForCodeConsistency",descriptor,false);shim.visitInsn(Opcodes.ARETURN);shim.visitMaxs(2,1);shim.visitEnd();carrier(selected);
+        }
+        Path bridge=directory.resolve("SortedBridge.java");Files.writeString(bridge,"""
+            package org.springframework.aot.generate;
+            public class SortedBridge {public static Object order(int kind,Object value){try{
+             Class<?> type=Class.forName("org.springframework.aot.generate.ValueCodeGeneratorDelegates$"+(kind==0?"Map":"Set")+"Delegate");var ctor=type.getDeclaredConstructor();ctor.setAccessible(true);var method=type.getDeclaredMethod("orderForCodeConsistency",kind==0?java.util.Map.class:java.util.Set.class);method.setAccessible(true);return method.invoke(ctor.newInstance(),value);
+            }catch(java.lang.reflect.InvocationTargetException e){Throwable cause=e.getCause();if(cause instanceof RuntimeException)throw (RuntimeException)cause;throw (Error)cause;}catch(ReflectiveOperationException e){throw new Error(e);}}}
+            """);assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,"--release","17","-d",directory.toString(),bridge.toString()));
+        ClassNode direct=new ClassNode();direct.visit(Opcodes.V17,Opcodes.ACC_PUBLIC,"org/springframework/aot/generate/SortedBridge",null,"java/lang/Object",null);MethodVisitor m=direct.visitMethod(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"order","(ILjava/lang/Object;)Ljava/lang/Object;",null,null);m.visitCode();Label set=new Label();m.visitVarInsn(Opcodes.ILOAD,0);m.visitJumpInsn(Opcodes.IFNE,set);
+        for(String kind:new String[]{"Map","Set"}){if(kind.equals("Set")){m.visitLabel(set);m.visitFrame(Opcodes.F_SAME,0,null,0,null);}m.visitVarInsn(Opcodes.ALOAD,1);m.visitTypeInsn(Opcodes.CHECKCAST,"java/util/"+kind);m.visitMethodInsn(Opcodes.INVOKESTATIC,"org/springframework/aot/generate/ValueCodeGeneratorDelegates$"+kind+"Delegate","javawOrder","(Ljava/util/"+kind+";)Ljava/util/"+kind+";",false);m.visitInsn(Opcodes.ARETURN);}m.visitMaxs(1,2);m.visitEnd();carrier(direct);
+        fixture("""
+            import java.util.*;import org.springframework.aot.generate.SortedBridge;
+            public class Metadata {public static int run(int group){int h=1;for(boolean comparable:new boolean[]{true,false}){
+             Map<Object,String> map=new LinkedHashMap<>();map.put("z","last");map.put(comparable?"a":Integer.valueOf(1),"first");Object ordered=SortedBridge.order(0,map);h=31*h+ordered.toString().hashCode();h=31*h+(ordered==map?1:0);
+             Set<Object> set=new LinkedHashSet<>(map.keySet());ordered=SortedBridge.order(1,set);h=31*h+ordered.toString().hashCode();h=31*h+(ordered==set?1:0);
+            }return h;}}
+            """);compare(1);
+    }
     private String classpath(){return directory+(fixtureClasspath.isEmpty()?"":File.pathSeparator+fixtureClasspath);}
 
     /** Preserve selected original method instructions; omit unrelated library state and initialization. */
@@ -117,7 +176,7 @@ import java.util.*;public class Metadata {public static int run(int g){int h=1;T
                     new Uint8Array(memory.buffer,address,size).fill(0x7f);return address;
                 }}}).exports;
                 assert.equal(allocations,0);heap=Math.max(heap,e.__exception_heap_base?.value??0);
-            """.replace("EXPECTED",expected)+"if(e['Metadata.excludedState'])assert.equal(e['Metadata.excludedState'](),1);\nif(e['Metadata.exclusions'])assert.equal(e['Metadata.exclusions'](),1);\nassert.equal(e['"+fixtureClassName+".run'](group),expected[group],'batch '+group);\n}");
+            """.replace("EXPECTED",expected)+"assert.equal(e['"+fixtureClassName+".run'](group),expected[group],'batch '+group);\n}");
         run("node",script.toString(),output.toString());
     }
 }

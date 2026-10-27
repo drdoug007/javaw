@@ -1,6 +1,6 @@
 package java.util;
 /** Sequential sorted-array map. Ordering semantics, not balanced-tree complexity. */
-public class TreeMap<K,V> extends AbstractMap<K,V> implements NavigableMap<K,V>,java.io.Serializable {
+public class TreeMap<K,V> extends AbstractMap<K,V> implements NavigableMap<K,V>,Cloneable,java.io.Serializable {
  final ArrayList<SimpleEntry<K,V>> entries;final Comparator<? super K> order;final TreeMap<K,V> owner;K low,high;boolean hasLow,hasHigh,lowInclusive,highInclusive,descending;int modifications;
  public TreeMap(){this((Comparator<? super K>)null);}public TreeMap(Comparator<? super K> order){this.order=order;entries=new ArrayList<>();owner=this;}
  public TreeMap(Map<? extends K,? extends V> source){this();putAll(source);}public TreeMap(SortedMap<K,? extends V> source){this(source.comparator());putAll(source);}
@@ -24,9 +24,8 @@ public class TreeMap<K,V> extends AbstractMap<K,V> implements NavigableMap<K,V>,
  public boolean hasNext(){while(index>=0&&index<entries.size()&&!inRange(entries.get(index).getKey()))index+=descending?-1:1;return index>=0&&index<entries.size();}
  public Map.Entry<K,V> next(){check();if(!hasNext())throw new NoSuchElementException();last=index;index+=descending?-1:1;return entries.get(last);}
  public void remove(){if(last<0)throw new IllegalStateException();check();entries.remove(last);owner.modifications++;expected=owner.modifications;index=descending?last-1:last;last=-1;}};}};}
- Entry<K,V> snapshot(int index){return index<0||index>=entries.size()?null:new SimpleImmutableEntry<K,V>(entries.get(index));}
  K key(Entry<K,V> entry){return entry==null?null:entry.getKey();}
- Entry<K,V> neighbor(K key,boolean up,boolean inclusive){compare(key,key);Entry<K,V> best=null;for(Entry<K,V> e:entrySet()){int c=descending?compare(key,e.getKey()):compare(e.getKey(),key);if((up?(c>0||c==0&&inclusive):(c<0||c==0&&inclusive))&&(best==null||(up?(descending?compare(best.getKey(),e.getKey()):compare(e.getKey(),best.getKey()))<0:(descending?compare(best.getKey(),e.getKey()):compare(e.getKey(),best.getKey()))>0)))best=e;}return best==null?null:new SimpleImmutableEntry<K,V>(best);}
+ Entry<K,V> neighbor(K key,boolean up,boolean inclusive){Entry<K,V> best=null;for(Entry<K,V> e:entrySet()){int c=descending?compare(key,e.getKey()):compare(e.getKey(),key);if((up?(c>0||c==0&&inclusive):(c<0||c==0&&inclusive))&&(best==null||(up?(descending?compare(best.getKey(),e.getKey()):compare(e.getKey(),best.getKey()))<0:(descending?compare(best.getKey(),e.getKey()):compare(e.getKey(),best.getKey()))>0)))best=e;}return best==null?null:new SimpleImmutableEntry<K,V>(best);}
  public Entry<K,V> lowerEntry(K key){return neighbor(key,false,false);}public K lowerKey(K key){return key(lowerEntry(key));}
  public Entry<K,V> floorEntry(K key){return neighbor(key,false,true);}public K floorKey(K key){return key(floorEntry(key));}
  public Entry<K,V> ceilingEntry(K key){return neighbor(key,true,true);}public K ceilingKey(K key){return key(ceilingEntry(key));}
@@ -38,4 +37,5 @@ public class TreeMap<K,V> extends AbstractMap<K,V> implements NavigableMap<K,V>,
  public NavigableMap<K,V> subMap(K from,boolean fi,K to,boolean ti){endpoint(from,fi);endpoint(to,ti);if((descending?compare(to,from):compare(from,to))>0)throw new IllegalArgumentException();return descending?new TreeMap<K,V>(this,to,true,ti,from,true,fi):new TreeMap<K,V>(this,from,true,fi,to,true,ti);}
  public NavigableMap<K,V> headMap(K to,boolean inclusive){endpoint(to,inclusive);return descending?new TreeMap<K,V>(this,to,true,inclusive,high,hasHigh,highInclusive):new TreeMap<K,V>(this,low,hasLow,lowInclusive,to,true,inclusive);}
  public NavigableMap<K,V> tailMap(K from,boolean inclusive){endpoint(from,inclusive);return descending?new TreeMap<K,V>(this,low,hasLow,lowInclusive,from,true,inclusive):new TreeMap<K,V>(this,from,true,inclusive,high,hasHigh,highInclusive);}
+ public Object clone(){return new TreeMap<K,V>((SortedMap<K,V>)this);}
 }

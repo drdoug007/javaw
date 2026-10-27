@@ -2009,20 +2009,7 @@ Bytecode regular expressions (v211–v220) support selected code-point literals,
 
 Validation (v220): all 510 bytecode tests pass with the prescribed offline selection (four forks, JVMCI compilation disabled); all 15 combined regex/object-identity tests pass. The pinned runtime audit passes with 63 JARs, 26,625 classes and 734 resources unchanged. Audited JDK linkage reports 1,030 declared signatures, 18 missing members and 289 missing owners; these counts do not establish full framework execution.
 
-Sorted bytecode collections subset 1/10 (v221): Ordered TreeMap construction, comparator identity, key equivalence and typed failures. Focused checks pass; see [the selected contract](docs/bytecode-sorted-collections.md). Broad collections, concurrency and framework execution remain open.
 
-Sorted bytecode collections subset 2/10 (v222): Navigable map neighbors and immutable entry snapshots. Focused checks pass; see [the selected contract](docs/bytecode-sorted-collections.md). Broad collections, concurrency and framework execution remain open.
+Bytecode sorted collections (v221–v230) support selected TreeMap/TreeSet construction, comparator ordering, navigation, live inclusive/descending ranges and backed fail-fast traversal. Collections exposes unmodifiable sorted/navigable wrappers and empty sorted factories with protected entries and nested views. Java 17 differential tests execute selected original pinned Spring ordering/fallback helpers; malformed unused calls and handles fail admission. Storage uses sorted arrays, without balanced-tree complexity guarantees. See [the runtime contract and evidence limits](docs/bytecode-sorted-collections.md). Synchronized wrappers, spliterators, serialization and broad framework execution remain open.
 
-Sorted bytecode collections subset 3/10 (v223): Live sorted map range views and nested bound checks. Focused checks pass; see [the selected contract](docs/bytecode-sorted-collections.md). Broad collections, concurrency and framework execution remain open.
-
-Sorted bytecode collections subset 4/10 (v224): Inclusive/exclusive and descending map views. Focused checks pass; see [the selected contract](docs/bytecode-sorted-collections.md). Broad collections, concurrency and framework execution remain open.
-
-Sorted bytecode collections subset 5/10 (v225): Fail-fast sorted traversal and backed key/value/entry mutation. Focused checks pass; see [the selected contract](docs/bytecode-sorted-collections.md). Broad collections, concurrency and framework execution remain open.
-
-Sorted bytecode collections subset 6/10 (v226): TreeSet construction, ordering and navigation. Focused checks pass; see [the selected contract](docs/bytecode-sorted-collections.md). Broad collections, concurrency and framework execution remain open.
-
-Sorted bytecode collections subset 7/10 (v227): Live navigable set ranges and descending traversal. Focused checks pass; see [the selected contract](docs/bytecode-sorted-collections.md). Broad collections, concurrency and framework execution remain open.
-
-Sorted bytecode collections subset 8/10 (v228): Unmodifiable sorted map/set wrappers and nested view protection. Focused checks pass; see [the selected contract](docs/bytecode-sorted-collections.md). Broad collections, concurrency and framework execution remain open.
-
-Sorted bytecode collections subset 9/10 (v229): Unmodifiable navigable families and empty sorted/navigable factories. Focused checks pass; see [the selected contract](docs/bytecode-sorted-collections.md). Broad collections, concurrency and framework execution remain open.
+Validation (v230): all 520 bytecode tests pass with the prescribed offline selection (four forks, JVMCI compilation disabled), including all ten sorted-collection tests; the separate combined sorted/object-identity run passes all 15 tests. The runtime audit passes with unchanged 63-JAR / 26,625-class / 734-resource inventory. Selected JDK linkage reports 1,097 declared signatures, 18 missing members and 222 missing owners; these are declaration counts, not framework execution evidence.
