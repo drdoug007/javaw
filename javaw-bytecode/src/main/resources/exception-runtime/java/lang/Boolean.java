@@ -21,4 +21,8 @@ public final class Boolean implements Comparable<Boolean>,java.io.Serializable {
     public int hashCode(){return value?1231:1237;}
     public static int hashCode(boolean value){return value?1231:1237;}
     public int compareTo(Boolean other){return compare(value,other.value);}
+    public static boolean getBoolean(String name){
+        try{return parseBoolean(javaw.runtime.SystemProperties.getProperty(name));}
+        catch(IllegalArgumentException failure){return false;}catch(NullPointerException failure){return false;}
+    }
 }

@@ -9,3 +9,4 @@ BytecodePropertyLookupTest compares Java 17 JVM results with Wasm in both JAR or
 Completed subsets:
 
 - v190: Explicit per-instance System string property reads, defaults, writes and removal, exact static calls and handles, key/null failures and fresh-instance isolation.
+- v191: Boolean.getBoolean case-insensitive true parsing and false fallback for absent values and invalid keys.

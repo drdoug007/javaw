@@ -45,6 +45,19 @@ class BytecodePropertyLookupTest {
             """);compare(1);
     }
 
+    @Test void booleanProperty() throws Exception {
+        fixture("""
+            import java.util.function.*;
+            public class Metadata {public static int run(int group){int h=1;String key="javaw.test.boolean";
+             Predicate<String> read=Boolean::getBoolean;
+             for(String value:new String[]{null,"","true","TRUE","TrUe","false"," true","true ","1","yes","TRUE\u0000"}){
+              System.clearProperty(key);if(value!=null)System.setProperty(key,value);
+              h=31*h+(Boolean.getBoolean(key)?1:0);h=31*h+(read.test(key)?1:0);
+             }
+             h=31*h+(read.test(null)?1:0);h=31*h+(read.test("")?1:0);System.clearProperty(key);return h;}}
+            """);compare(1);
+    }
+
     private byte[] fixture(String source) throws Exception {
         Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
         List<String> options=new ArrayList<>(List.of("-g","-parameters","--release","17","-d",directory.toString()));
