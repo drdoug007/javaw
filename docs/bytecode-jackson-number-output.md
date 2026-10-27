@@ -10,3 +10,4 @@ Completed focused cases (each passes):
 - `intBytes`
 - `longChars`
 - `longBytes`
+- `intStrings`

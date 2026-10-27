@@ -63,6 +63,16 @@ class BytecodeJacksonNumberOutputTest implements Opcodes {
 
     // NumberOutput differential cases.
 
+    @Test void intStrings() throws Exception {
+        fixture("""
+            import com.fasterxml.jackson.core.io.NumberOutput;
+            public class Metadata {public static int run(){
+                int hash=1;for(int value:new int[]{0,1,-1,9,-9,10,-10,99,100,999,1000,999999,1000000,999999999,1000000000,Integer.MAX_VALUE,Integer.MIN_VALUE})hash=31*hash+NumberOutput.toString(value).hashCode();
+        for(int value=-12;value<=12;value++)hash=31*hash+NumberOutput.toString((int)value).hashCode();return hash;
+            }}
+            """);compare(List.of("run"));
+    }
+
     @Test void longBytes() throws Exception {
         fixture("""
             import com.fasterxml.jackson.core.io.NumberOutput;
