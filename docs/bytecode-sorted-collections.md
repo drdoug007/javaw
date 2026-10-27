@@ -6,3 +6,4 @@ Sequential sorted-array storage establishes tested ordering behavior, not balanc
 - v222: Navigable map neighbors and immutable entry snapshots.
 - v223: Live sorted map range views and nested bound checks.
 - v224: Inclusive/exclusive and descending map views.
+- v225: Fail-fast sorted traversal and backed key/value/entry mutation.
