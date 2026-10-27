@@ -1,0 +1,93 @@
+package one.dastec.javaw.bytecode;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.objectweb.asm.*;
+import org.objectweb.asm.tree.*;
+import javax.tools.ToolProvider;
+import java.io.*;import java.nio.file.*;import java.util.*;import java.util.concurrent.TimeUnit;import java.util.jar.*;
+import static org.junit.jupiter.api.Assertions.*;
+class BytecodeSpliteratorTest {
+ @TempDir Path directory;
+ private final String fixtureClassName="Metadata";
+ private String fixtureClasspath="";
+ private final Map<String,byte[]> carriers=new HashMap<>();
+ @Test void generatedArrays() throws Exception {fixture("""
+import java.util.*;import java.util.function.*;public class Metadata {public static int run(int g){int h=1;for(Collection<String> c:Arrays.<Collection<String>>asList(new ArrayList<>(Arrays.asList("b",null,"a")),new TreeSet<>(Arrays.asList("c","a")),Collections.unmodifiableList(Arrays.asList("x","y")),Collections.emptyList())){int[] calls={0};String[] a=c.toArray(n->{calls[0]++;if(n!=0)throw new Error();return new String[n];});h=31*h+Arrays.hashCode(a);h=31*h+calls[0];h=31*h+(a instanceof String[]?1:0);try{c.toArray((IntFunction<String[]>)null);throw new Error();}catch(NullPointerException e){h++;}}Collection<Object> wrong=new ArrayList<>();wrong.add(1);try{wrong.toArray(String[]::new);throw new Error();}catch(ArrayStoreException e){h++;}try{wrong.toArray(n->{throw new IllegalArgumentException();});throw new Error();}catch(IllegalArgumentException e){h++;}return h;}}
+""");compare(1);}
+    private String classpath(){return directory+(fixtureClasspath.isEmpty()?"":File.pathSeparator+fixtureClasspath);}
+
+    /** Preserve selected original method instructions; omit unrelated library state and initialization. */
+    private ClassNode selectedLibrary(String relative,String artifact,String hash,java.util.function.Predicate<String> select) throws Exception {
+        Path jar=Path.of(System.getProperty("user.home"),".m2/repository",artifact);
+        assertTrue(Files.isRegularFile(jar),"Pinned artifact required: "+jar);
+        assertEquals(hash,HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(jar))));
+        fixtureClasspath=jar.toString();byte[] original;
+        try(JarFile input=new JarFile(jar.toFile())){original=input.getInputStream(input.getJarEntry(relative)).readAllBytes();}
+        Path target=directory.resolve(relative);Files.createDirectories(target.getParent());Files.write(target,original);
+        ClassNode full=new ClassNode();new ClassReader(original).accept(full,0);
+        ClassNode carrier=new ClassNode();carrier.visit(full.version,full.access,full.name,null,full.superName,null);
+        carrier.methods.addAll(full.methods.stream().filter(m->select.test(m.name)).toList());
+        return carrier;
+    }
+    private void carrier(ClassNode node){ClassWriter writer=new ClassWriter(0);node.accept(writer);carriers.put(node.name+".class",writer.toByteArray());}
+
+    private byte[] fixture(String source) throws Exception {
+        try(var old=Files.list(directory)){for(Path path:old.filter(v->v.getFileName().toString().matches("Metadata.*\\.class")).toList())Files.delete(path);}
+        Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
+        List<String> options=new ArrayList<>(List.of("-g","-parameters","--release","17","-d",directory.toString()));
+        options.add("-classpath");options.add(classpath());
+        Path oracle=directory.resolve("CaseOracle.java");Files.writeString(oracle,"public class CaseOracle {public static void main(String[] args)throws Exception{if(Runtime.version().feature()!=17)throw new Error();var method=Class.forName(args[0]).getMethod(\"run\",int.class);System.out.print(\"[\");for(int i=0;i<Integer.parseInt(args[1]);i++){if(i>0)System.out.print(\",\");System.out.print(method.invoke(null,i));}System.out.print(\"]\");}}");
+        options.add(file.toString());options.add(oracle.toString());
+        assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,options.toArray(String[]::new)));
+        return jar(false);
+    }
+
+    private byte[] jar(boolean reverse) throws Exception {
+        List<Path> files;
+        try(var paths=Files.walk(directory)) {
+            files=new ArrayList<>(paths.filter(path->path.toString().endsWith(".class") && !path.getFileName().toString().equals("CaseOracle.class")).sorted().toList());
+        }
+        if(reverse)Collections.reverse(files);
+        ByteArrayOutputStream bytes=new ByteArrayOutputStream();
+        try(JarOutputStream jar=new JarOutputStream(bytes)) {
+            for(Path file:files){
+                String entry=directory.relativize(file).toString();
+                jar.putNextEntry(new JarEntry(directory.relativize(file).toString()));jar.write(carriers.containsKey(entry)?carriers.get(entry):Files.readAllBytes(file));jar.closeEntry();}
+        }
+        return bytes.toByteArray();
+    }
+
+    private void compare(int groups) throws Exception {
+        Path java=Path.of(System.getProperty("javaw.jdk17.home",System.getProperty("user.home")+"/Library/Java/JavaVirtualMachines/graalvm-ce-17.0.9/Contents/Home"),"bin/java");
+        assertTrue(Files.isExecutable(java),"A JDK 17 oracle is required (javaw.jdk17.home)");
+        run(java.toString(),"-Djava.locale.providers=CLDR","-Duser.language=","-Duser.country=","-Duser.variant=","-cp",classpath(),"CaseOracle",fixtureClassName,Integer.toString(groups));
+        String expected=Files.readString(directory.resolve("command.log")).trim();
+        for(boolean reverse:new boolean[]{false,true})
+            execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),expected);
+    }
+
+    private void run(String... arguments) throws Exception {
+        Path log=directory.resolve("command.log");Process process=new ProcessBuilder(arguments).redirectErrorStream(true).redirectOutput(log.toFile()).start();
+        if(!process.waitFor(60,TimeUnit.SECONDS)){process.destroyForcibly();fail("Command timed out");}
+        assertEquals(0,process.exitValue(),Files.readString(log));
+    }
+    private void execute(String wat,String expected) throws Exception {
+        Path input=directory.resolve("metadata.wat"),output=directory.resolve("metadata.wasm"),script=directory.resolve("run.cjs");
+        Files.writeString(input,wat);run("wat2wasm","--enable-exceptions","--debug-names",input.toString(),"-o",output.toString());
+        Files.writeString(script,"""
+            const fs=require('node:fs'),assert=require('node:assert/strict');
+            const compiled=new WebAssembly.Module(fs.readFileSync(process.argv[2]));
+            const expected=EXPECTED;
+            for(let group=0;group<expected.length;group++)for(let instance=0;instance<2;instance++) {
+                const memory=new WebAssembly.Memory({initial:2,maximum:20});let heap=1024,allocations=0;
+                const e=new WebAssembly.Instance(compiled,{env:{memory,__heap_alloc:size=>{
+                    allocations++;
+                    const address=heap;heap+=size;
+                    while(heap>memory.buffer.byteLength)memory.grow(1);
+                    new Uint8Array(memory.buffer,address,size).fill(0x7f);return address;
+                }}}).exports;
+                assert.equal(allocations,0);heap=Math.max(heap,e.__exception_heap_base?.value??0);
+            """.replace("EXPECTED",expected)+"assert.equal(e['"+fixtureClassName+".run'](group),expected[group],'batch '+group);\n}");
+        run("node",script.toString(),output.toString());
+    }
+}
