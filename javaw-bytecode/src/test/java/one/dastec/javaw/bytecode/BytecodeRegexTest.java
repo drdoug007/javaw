@@ -71,6 +71,16 @@ public class Metadata {public static int run(int group){int h=1;
 }}
 """);compare(11);
  }
+ @Test void anchorsAndFlags() throws Exception {
+ fixture("""
+import java.util.regex.*;
+public class Metadata {public static int run(int group){int h=1;int flags=new int[]{0,2,66,32,8,1,9,18}[group];
+ for(String regex:new String[]{"a","A","é","É","[A-Z]","[^A]","[K]","[ſ]","[İ]","𐐀",".","^a$","\\\\Aa\\\\z","a$\\\\n","a\\\\Z\\\\r\\\\n"}){Pattern p=Pattern.compile(regex,flags);h=31*h+p.flags();
+  for(String text:new String[]{"a","A","é","É","K","k","K","S","s","ſ","I","i","İ","ı","𐐨","😀","\\n","a\\n","a\\r\\n","\\u0085","^a$"})h=31*h+(p.matcher(text).matches()?1:0);}
+ return h;
+}}
+""");compare(8);
+ }
     private String classpath(){return directory+(fixtureClasspath.isEmpty()?"":File.pathSeparator+fixtureClasspath);}
 
     /** Preserve selected original method instructions; omit unrelated library state and initialization. */

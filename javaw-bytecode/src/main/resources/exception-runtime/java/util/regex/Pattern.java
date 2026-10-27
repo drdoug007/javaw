@@ -17,7 +17,7 @@ public final class Pattern {
     static final class State {final CharSequence text;final int end,flags;final int[] starts,ends;
         State(CharSequence text,int flags,int count){this.text=text;this.end=text.length();this.flags=flags;starts=new int[count+1];ends=new int[count+1];Arrays.fill(starts,-1);Arrays.fill(ends,-1);}
     }
-    private Pattern(String source,int flags){this.source=Objects.requireNonNull(source);if((flags&~511)!=0)throw new IllegalArgumentException("Unknown flag 0x"+Integer.toHexString(flags));if((flags&~LITERAL)!=0)throw unsupported("flags");this.flags=flags;root=parse();}
+    private Pattern(String source,int flags){this.source=Objects.requireNonNull(source);if((flags&~511)!=0)throw new IllegalArgumentException("Unknown flag 0x"+Integer.toHexString(flags));if((flags&~(LITERAL|CASE_INSENSITIVE|UNICODE_CASE|DOTALL|MULTILINE|UNIX_LINES))!=0)throw unsupported("flags");this.flags=flags;root=parse();}
     public static Pattern compile(String regex){return compile(regex,0);}public static Pattern compile(String regex,int flags){return new Pattern(regex,flags);}
     public String pattern(){return source;}public String toString(){return source;}public int flags(){return flags;}
     public Matcher matcher(CharSequence text){return new Matcher(this,Objects.requireNonNull(text));}
@@ -46,15 +46,17 @@ public final class Pattern {
         Node baseTerm(){quotes();int offset=position;int c=codePoint(source,position,source.length());position+=Character.charCount(c);
             if(quoted)return literal(new String(Character.toChars(c)));
             if(c=='\\')return escaped();
-            if(c=='.')return atom(v->v!='\n' && v!='\r' && v!=0x85 && v!=0x2028 && v!=0x2029);
+            if(c=='.')return atom(v->(flags&DOTALL)!=0 || !line(v,flags));
             if(c=='[')return characterClass();
             if(c=='('){boolean capture=true;if(position<source.length()&&source.charAt(position)=='?'){position++;if(position<source.length()&&source.charAt(position)==':'){capture=false;position++;}else throw unsupported("special group at index "+offset);}int number=capture?++groups:0;Node child=expression();if(position==source.length()||source.charAt(position)!=')')throw error("Unclosed group",position);position++;return capture?group(child,number):child;}
-            if(c=='|' || c=='^' || c=='$')throw unsupported("construct at index "+offset);
+            if(c=='^'||c=='$')return anchor(c);
+            if(c=='|')throw unsupported("construct at index "+offset);
             if(c=='*'||c=='+'||c=='?')throw error("Dangling meta character '"+(char)c+"'",offset);
             if(c=='{')throw error("Illegal repetition",position);
             return literal(new String(Character.toChars(c)));
         }
         Node escaped(){if(position==source.length())throw error("Unexpected internal error",position);int offset=position;char c=source.charAt(position++);
+            if(c=='A'||c=='z'||c=='Z')return anchor(c);
             java.util.function.IntPredicate predefined=predefined(c);if(predefined!=null)return atom(predefined);
             switch(c){case 't':return literal("\t");case 'n':return literal("\n");case 'r':return literal("\r");case 'f':return literal("\f");case 'a':return literal(String.valueOf((char)7));case 'e':return literal(String.valueOf((char)27));
                 case 'u':return literal(String.valueOf((char)hex(4)));case 'x':return literal(String.valueOf((char)hex(2)));default:
@@ -63,7 +65,7 @@ public final class Pattern {
         Node characterClass(){boolean negative=false;if(position<source.length() && source.charAt(position)=='^'){negative=true;position++;}
             List<java.util.function.IntPredicate> parts=new ArrayList<>();boolean first=true;
             while(position<source.length()){
-                if(source.charAt(position)==']' && !first){position++;final boolean negate=negative;return atom(v->{boolean found=false;for(java.util.function.IntPredicate part:parts)if(part.test(v)){found=true;break;}return found!=negate;});}
+                if(source.charAt(position)==']' && !first){position++;final boolean negate=negative;return atom(v->{boolean found=false;for(java.util.function.IntPredicate part:parts)if(classTest(part,v,flags)){found=true;break;}return found!=negate;});}
                 first=false;ClassPart left=classPart();
                 if(position<source.length()-1 && source.charAt(position)=='-' && source.charAt(position+1)!=']'){
                     position++;ClassPart right=classPart();if(left.value<0||right.value<0)throw error("Illegal character range",position-1);if(left.value>right.value)throw error("Illegal character range",position-1);
@@ -78,7 +80,7 @@ public final class Pattern {
                 if(position==source.length())throw error("Unclosed character class",position-1);char escaped=source.charAt(position++);java.util.function.IntPredicate pre=predefined(escaped);if(pre!=null)return new ClassPart(-1,pre);
                 switch(escaped){case 't':c=9;break;case 'n':c=10;break;case 'r':c=13;break;case 'f':c=12;break;case 'a':c=7;break;case 'e':c=27;break;case 'u':c=hex(4);break;case 'x':c=hex(2);break;default:if(Character.isLetterOrDigit(escaped))throw unsupported("class escape "+escaped);c=escaped;}
             }
-            final int point=c;return new ClassPart(c,v->v==point);
+            final int point=c;return new ClassPart(c,v->same(point,v,flags));
         }
         int hex(int length){int value=0;for(int i=0;i<length;i++){if(position==source.length())throw error("Illegal hexadecimal escape sequence",position);int digit=Character.digit(source.charAt(position++),16);if(digit<0)throw error("Illegal hexadecimal escape sequence",position-1);value=(value<<4)|digit;}return value;}
     }
@@ -107,15 +109,30 @@ public final class Pattern {
                 case 5:{Node node=instruction.node;int count=counts[instruction.id];boolean exit=count>=node.min,body=count<node.max&&!(count>0&&positions[instruction.id]==p&&exit);positions[instruction.id]=p;
                     if(body&&exit){stack.add(new Frame(node.greedy?instruction.y:instruction.x,p,state,counts,positions));pc=node.greedy?instruction.x:instruction.y;}
                     else if(body)pc=instruction.x;else if(exit)pc=instruction.y;else failed=true;break;}
+                case 11:if(anchorAt(instruction.node.number,state,p))pc++;else failed=true;break;
                 default:throw new IllegalStateException("Invalid regex instruction");
             }
             if(failed){if(stack.isEmpty())return false;Frame frame=stack.remove(stack.size()-1);pc=frame.pc;p=frame.position;System.arraycopy(frame.starts,0,state.starts,0,state.starts.length);System.arraycopy(frame.ends,0,state.ends,0,state.ends.length);counts=frame.counts;positions=frame.positions;}
         }
     }
-    static int literalEnd(String value,State state,int p){if(value.length()>state.end-p)return -1;for(int i=0;i<value.length();i++)if(state.text.charAt(p+i)!=value.charAt(i))return -1;return p+value.length();}
+    static int literalEnd(String value,State state,int p){int index=0,q=p;while(index<value.length()){if(q==state.end)return -1;int wanted=codePoint(value,index,value.length()),actual=codePoint(state.text,q,state.end);if(!same(wanted,actual,state.flags))return -1;index+=Character.charCount(wanted);q+=Character.charCount(actual);}return q;}
     static final class ClassPart {final int value;final java.util.function.IntPredicate predicate;ClassPart(int value,java.util.function.IntPredicate predicate){this.value=value;this.predicate=predicate;}}
     static java.util.function.IntPredicate predefined(char code){
         switch(code){case 'd':return v->v>='0'&&v<='9';case 'D':return v->!(v>='0'&&v<='9');case 'w':return v->v>='a'&&v<='z'||v>='A'&&v<='Z'||v>='0'&&v<='9'||v=='_';case 'W':return v->!(v>='a'&&v<='z'||v>='A'&&v<='Z'||v>='0'&&v<='9'||v=='_');case 's':return v->v==' '||v>=9&&v<=13;case 'S':return v->!(v==' '||v>=9&&v<=13);default:return null;}
     }
     static Node literal(String value){Node node=new Node(2);node.text=value;return node;}
+    static boolean line(int code,int flags){return code==10 || (flags&UNIX_LINES)==0 && (code==13||code==0x85||code==0x2028||code==0x2029);}
+    static boolean finalBreak(State s,int p){if(p==s.end)return true;if(p==s.end-1&&line(s.text.charAt(p),s.flags)){return s.text.charAt(p)!=10||p==0||s.text.charAt(p-1)!=13||(s.flags&UNIX_LINES)!=0;}return (s.flags&UNIX_LINES)==0&&p==s.end-2&&s.text.charAt(p)==13&&s.text.charAt(p+1)==10;}
+    static Node anchor(int kind){Node node=new Node(11);node.number=kind;return node;}
+    static boolean anchorAt(int kind,State s,int p){
+        if(kind=='A')return p==0;if(kind=='z')return p==s.end;if(kind=='Z')return finalBreak(s,p);
+        if(kind=='^')return p==0 || (s.flags&MULTILINE)!=0&&p<s.end&&line(s.text.charAt(p-1),s.flags)&&!((s.flags&UNIX_LINES)==0&&s.text.charAt(p-1)==13&&s.text.charAt(p)==10);
+        return (s.flags&MULTILINE)==0?finalBreak(s,p):p==s.end||line(s.text.charAt(p),s.flags)&&!((s.flags&UNIX_LINES)==0&&s.text.charAt(p)==10&&p>0&&s.text.charAt(p-1)==13);
+    }
+    static int lower(int value,int flags){if((flags&UNICODE_CASE)!=0)return Character.toLowerCase(Character.toUpperCase(value));return value>='A'&&value<='Z'?value+32:value;}
+    static boolean same(int left,int right,int flags){return left==right||(flags&CASE_INSENSITIVE)!=0&&lower(left,flags)==lower(right,flags);}
+    static boolean classTest(java.util.function.IntPredicate predicate,int value,int flags){if(predicate.test(value))return true;if((flags&CASE_INSENSITIVE)==0)return false;
+        if((flags&UNICODE_CASE)!=0){int upper=Character.toUpperCase(value);return predicate.test(upper)||predicate.test(Character.toLowerCase(upper))||predicate.test(Character.toLowerCase(value));}
+        return value>='A'&&value<='Z'&&predicate.test(value+32)||value>='a'&&value<='z'&&predicate.test(value-32);
+    }
 }

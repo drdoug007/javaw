@@ -2013,3 +2013,5 @@ Bytecode regex subset 3/10 (v213): Positive/negative character classes, ranges a
 Bytecode regex subset 4/10 (v214): Greedy/reluctant bounded and unbounded repetition with zero-width progress. Focused Java 17 differential/admission checks pass; inventory unchanged. See [the selected regex contract](docs/bytecode-regex.md); full regex and framework support remain open.
 
 Bytecode regex subset 5/10 (v215): Capturing/noncapturing groups and ordered alternatives with backtracking. Focused Java 17 differential/admission checks pass; inventory unchanged. See [the selected regex contract](docs/bytecode-regex.md); full regex and framework support remain open.
+
+Bytecode regex subset 6/10 (v216): Anchors and selected matching flags with explicit unsupported-feature diagnostics. Focused Java 17 differential/admission checks pass; inventory unchanged. See [the selected regex contract](docs/bytecode-regex.md); full regex and framework support remain open.
