@@ -15,5 +15,6 @@ Completed focused cases (each passes):
 - `appendQuoted`
 - `quoteString`
 - `quoteSequence`
+- `quoteBuilder`
 
 Complete serializer/generator execution, `IOContext`/buffer-recycling paths, whole-JAR admission, sustained allocation stability and the broader text/JDK/framework milestones remain open.

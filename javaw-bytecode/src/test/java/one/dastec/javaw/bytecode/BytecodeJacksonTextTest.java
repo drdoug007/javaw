@@ -83,6 +83,19 @@ class BytecodeJacksonTextTest {
 
     // CharTypes and JsonStringEncoder differential cases.
 
+    @Test void quoteBuilder() throws Exception {
+        fixture("""
+            import com.fasterxml.jackson.core.io.JsonStringEncoder;
+            public class Metadata {public static int run(){
+                int hash=1;JsonStringEncoder encoder=JsonStringEncoder.getInstance();SAMPLES
+        StringBuilder all=new StringBuilder("<");for(String text:samples){StringBuilder out=new StringBuilder("[");encoder.quoteAsString(text,out);encoder.quoteAsString(new StringBuilder(text),all);hash=31*hash+out.toString().hashCode();}
+        hash=31*hash+all.toString().hashCode();
+        try{encoder.quoteAsString("x",null);throw new Error();}catch(NullPointerException expected){hash++;}
+        try{encoder.quoteAsString(null,new StringBuilder());throw new Error();}catch(NullPointerException expected){hash++;}return hash;
+            }}
+            """.replace("SAMPLES",SAMPLES));compare(List.of("run"));
+    }
+
     @Test void quoteSequence() throws Exception {
         fixture("""
             import com.fasterxml.jackson.core.io.JsonStringEncoder;
