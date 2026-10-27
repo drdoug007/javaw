@@ -38,6 +38,9 @@ public final class ReferenceStream<T> implements Stream<T> {
     private static <E> Cursor<E> wrap(final Iterator<? extends E> iterator){return new Cursor<E>(){
         boolean advance(){if(!iterator.hasNext())return false;value=iterator.next();return true;}
     };}
+    public static <E> Stream<E> fromIterator(final Supplier<? extends Iterator<E>> factory){
+        Objects.requireNonNull(factory);return new ReferenceStream<E>(()->wrap(Objects.requireNonNull(factory.get())),new State());
+    }
     public static <E> Stream<E> collection(final Collection<E> values){
         Objects.requireNonNull(values);return new ReferenceStream<E>(()->wrap(values.iterator()),new State());
     }
