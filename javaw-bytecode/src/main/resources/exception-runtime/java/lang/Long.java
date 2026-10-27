@@ -95,4 +95,5 @@ public final class Long extends Number implements Comparable<Long>,java.io.Seria
         if(value!=null)try{return decode(value);}catch(NumberFormatException failure){}
         return null;
     }
+    public static Long getLong(String name,long fallback){Long value=getLong(name);return value==null?valueOf(fallback):value;}
 }
