@@ -2034,3 +2034,5 @@ Jackson output batch validation: all 561 tests pass in the prescribed offline by
 Byte/character sink bases (v251): `Appendable`, `Closeable`, `Flushable`, `OutputStream` and single-threaded `Writer` are linked so library subclasses admit. `BytecodeIoSinkTest` compares JVM/Wasm behavior and rejects unused unlinked sink members; see [the sink contract](docs/bytecode-io-sinks.md). Concrete JDK streams/writers and host I/O remain unsupported.
 
 LinkedList (v252): `AbstractSequentialList` and `LinkedList` are linked, with JVM/Wasm evidence in `BytecodeLinkedListTest`; see [the LinkedList contract](docs/bytecode-linked-list.md). `Deque`/`Queue` interfaces are not linked yet. Core-JDK linkage is now 1,141 declared / 9 missing-member / 187 missing-owner signatures.
+
+Pinned Jackson text escaping execution: `charToHex`. See [the text contract](docs/bytecode-jackson-text.md) and `BytecodeJacksonTextTest`. Original CharTypes/JsonStringEncoder classes run with reachable-closure helper carriers; serializer and whole-JAR compatibility remain open.
