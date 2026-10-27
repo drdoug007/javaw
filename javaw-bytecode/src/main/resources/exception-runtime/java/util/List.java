@@ -1,5 +1,7 @@
 package java.util;
 public interface List<E> extends Collection<E>{
+ default Spliterator<E> spliterator(){return Spliterators.spliterator(this,Spliterator.ORDERED);}
+
  static <E>List<E> of(){return ImmutableCollections.<E>list((E[])new Object[]{});}
  static <E>List<E> of(E e0){return ImmutableCollections.<E>list((E[])new Object[]{e0});}
  static <E>List<E> of(E e0,E e1){return ImmutableCollections.<E>list((E[])new Object[]{e0,e1});}

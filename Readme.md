@@ -2023,3 +2023,5 @@ Reference traversal subset 3/10 (v233): Reference array spliterators, range vali
 Reference traversal subset 4/10 (v234): Sized/unknown iterator spliterators and iterator adapter. Focused checks pass; see [the reference traversal contract](docs/bytecode-spliterators.md). Primitive/parallel and framework milestones remain open.
 
 Reference traversal subset 5/10 (v235): AbstractSpliterator subclass batching and callback state. Focused checks pass; see [the reference traversal contract](docs/bytecode-spliterators.md). Primitive/parallel and framework milestones remain open.
+
+Reference traversal subset 6/10 (v236): Iterable and collection late-binding spliterators. Focused checks pass; see [the reference traversal contract](docs/bytecode-spliterators.md). Primitive/parallel and framework milestones remain open.

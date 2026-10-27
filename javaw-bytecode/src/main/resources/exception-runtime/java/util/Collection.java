@@ -1,5 +1,7 @@
 package java.util;
 public interface Collection<E> extends Iterable<E>{
+ default Spliterator<E> spliterator(){return Spliterators.spliterator(this,0);}
+
  default boolean removeIf(java.util.function.Predicate<? super E> predicate){Objects.requireNonNull(predicate);boolean changed=false;Iterator<E> cursor=iterator();while(cursor.hasNext())if(predicate.test(cursor.next())){cursor.remove();changed=true;}return changed;}
  default java.util.stream.Stream<E> stream(){return java.util.stream.ReferenceStream.collection(this);}
  default <T>T[] toArray(java.util.function.IntFunction<T[]> generator){return toArray(generator.apply(0));}

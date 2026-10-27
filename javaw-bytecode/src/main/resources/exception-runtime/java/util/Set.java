@@ -1,5 +1,7 @@
 package java.util;import java.util.function.*;
 public interface Set<E> extends Collection<E>{
+ default Spliterator<E> spliterator(){return Spliterators.spliterator(this,Spliterator.DISTINCT);}
+
  static <E>Set<E> of(){return ImmutableCollections.<E>set((E[])new Object[]{},true);}
  static <E>Set<E> of(E e0){return ImmutableCollections.<E>set((E[])new Object[]{e0},true);}
  static <E>Set<E> of(E e0,E e1){return ImmutableCollections.<E>set((E[])new Object[]{e0,e1},true);}

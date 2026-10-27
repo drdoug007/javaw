@@ -20,13 +20,15 @@ public final class Spliterators{
 
  public static <T>Spliterator<T> spliterator(Iterator<? extends T> iterator,long size,int flags){return new IteratorCursor<T>(Objects.requireNonNull(iterator),size,(flags&Spliterator.CONCURRENT)==0?flags|Spliterator.SIZED|Spliterator.SUBSIZED:flags);}
  public static <T>Spliterator<T> spliteratorUnknownSize(Iterator<? extends T> iterator,int flags){return new IteratorCursor<T>(Objects.requireNonNull(iterator),Long.MAX_VALUE,flags&~(Spliterator.SIZED|Spliterator.SUBSIZED));}
- static final class IteratorCursor<T> implements Spliterator<T>{
- Iterator<? extends T> iterator;long estimate;final int flags;int batch;
+ static class IteratorCursor<T> implements Spliterator<T>{
+ Collection<? extends T> collection;Iterator<? extends T> iterator;long estimate;final int flags;int batch;
  IteratorCursor(Iterator<? extends T> iterator,long size,int flags){this.iterator=iterator;estimate=size;this.flags=flags;}
- public boolean tryAdvance(Consumer<? super T> action){Objects.requireNonNull(action);if(!iterator.hasNext())return false;action.accept(iterator.next());return true;}
- public void forEachRemaining(Consumer<? super T> action){iterator.forEachRemaining(action);}
- public Spliterator<T> trySplit(){if(estimate<=1||!iterator.hasNext())return null;int n=batch+1024;if(n>estimate)n=(int)estimate;if(n>33554432)n=33554432;Object[] values=new Object[n];int count=0;do{values[count++]=iterator.next();}while(count<n&&iterator.hasNext());batch=count;if(estimate!=Long.MAX_VALUE)estimate-=count;return new ArrayCursor<T>(values,0,count,flags);}
- public long estimateSize(){return estimate;}public int characteristics(){return flags;}public Comparator<? super T> getComparator(){if((flags&Spliterator.SORTED)==0)throw new IllegalStateException();return null;}
+ IteratorCursor(Collection<? extends T> source,int flags){this(null,0,(flags&Spliterator.CONCURRENT)==0?flags|Spliterator.SIZED|Spliterator.SUBSIZED:flags);collection=Objects.requireNonNull(source);}
+ void bind(){if(iterator==null){iterator=collection.iterator();estimate=collection.size();}}
+ public boolean tryAdvance(Consumer<? super T> action){Objects.requireNonNull(action);bind();if(!iterator.hasNext())return false;action.accept(iterator.next());return true;}
+ public void forEachRemaining(Consumer<? super T> action){Objects.requireNonNull(action);bind();iterator.forEachRemaining(action);}
+ public Spliterator<T> trySplit(){bind();if(estimate<=1||!iterator.hasNext())return null;int n=batch+1024;if(n>estimate)n=(int)estimate;if(n>33554432)n=33554432;Object[] values=new Object[n];int count=0;do{values[count++]=iterator.next();}while(count<n&&iterator.hasNext());batch=count;if(estimate!=Long.MAX_VALUE)estimate-=count;return new ArrayCursor<T>(values,0,count,flags);}
+ public long estimateSize(){bind();return estimate;}public int characteristics(){return flags;}public Comparator<? super T> getComparator(){if((flags&Spliterator.SORTED)==0)throw new IllegalStateException();return null;}
  }
  public static <T>Iterator<T> iterator(Spliterator<? extends T> source){Objects.requireNonNull(source);return new Adapter<T>(source);}
  private static final class Adapter<T> implements Iterator<T>,Consumer<T>{
@@ -41,4 +43,5 @@ public final class Spliterators{
  public Spliterator<T> trySplit(){Holder<T> holder=new Holder<T>();if(estimate<=1||!tryAdvance(holder))return null;int n=batch+1024;if(n>estimate)n=(int)estimate;if(n>33554432)n=33554432;Object[] values=new Object[n];int count=0;do{values[count++]=holder.value;}while(count<n&&tryAdvance(holder));batch=count;if(estimate!=Long.MAX_VALUE)estimate-=count;return new ArrayCursor<T>(values,0,count,flags);}
  }
  private static final class Holder<T> implements Consumer<T>{T value;public void accept(T value){this.value=value;}}
+ public static <T>Spliterator<T> spliterator(Collection<? extends T> values,int flags){return new IteratorCursor<T>(values,flags);}
 }
