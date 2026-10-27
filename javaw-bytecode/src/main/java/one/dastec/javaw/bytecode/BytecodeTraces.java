@@ -24,6 +24,10 @@ final class BytecodeTraces {
     }
 
     private static List<Site> sites(Map<String,ClassNode> linked) {
+        return BytecodeAnalysisCache.get(linked,"trace-sites",()->collectSites(linked));
+    }
+
+    private static List<Site> collectSites(Map<String,ClassNode> linked) {
         List<Site> sites=new ArrayList<>();
         for(String name:new TreeSet<>(linked.keySet())) {
             ClassNode owner=linked.get(name);
@@ -34,25 +38,30 @@ final class BytecodeTraces {
     }
 
     static int id(ClassNode owner,MethodNode method,Map<String,ClassNode> linked) {
-        List<Site> sites=sites(linked);
-        for(int i=0;i<sites.size();i++)if(sites.get(i).owner==owner && sites.get(i).method==method)return i;
-        throw new IllegalArgumentException("Unregistered trace method");
+        Map<MethodNode,Integer> ids=BytecodeAnalysisCache.get(linked,"trace-ids",()->{
+            Map<MethodNode,Integer> result=new IdentityHashMap<>();List<Site> sites=sites(linked);
+            for(int i=0;i<sites.size();i++)result.putIfAbsent(sites.get(i).method,i);
+            return result;
+        });
+        Integer id=ids.get(method);
+        if(id==null || sites(linked).get(id).owner!=owner)throw new IllegalArgumentException("Unregistered trace method");
+        return id;
     }
 
     static int emergencyAddress(BytecodeExceptions.Implicit kind,Map<String,ClassNode> linked) {
         if(kind==BytecodeExceptions.Implicit.OUT_OF_MEMORY)return 8;
-        return 8+new BytecodeObjectLayouts(linked).sizes().getOrDefault("java/lang/OutOfMemoryError",0);
+        return 8+BytecodeObjectLayouts.of(linked).sizes().getOrDefault("java/lang/OutOfMemoryError",0);
     }
 
     static int stackBase(Map<String,ClassNode> linked) {
-        var sizes=new BytecodeObjectLayouts(linked).sizes();
+        var sizes=BytecodeObjectLayouts.of(linked).sizes();
         int end=8+sizes.getOrDefault("java/lang/OutOfMemoryError",0)+sizes.getOrDefault("java/lang/StackOverflowError",0);
         return (end+7)&~7;
     }
 
     static String runtimeWat(Map<String,ClassNode> linked,BytecodeDispatch dispatch) {
         if(!BytecodeExceptionRuntime.enabled(linked))return "";
-        int base=stackBase(linked),size=new BytecodeObjectLayouts(linked).sizes().get("java/lang/StackTraceElement");
+        int base=stackBase(linked),size=BytecodeObjectLayouts.of(linked).sizes().get("java/lang/StackTraceElement");
         StringBuilder wat=new StringBuilder();
         wat.append("(global $__trace_depth (mut i32) (i32.const 0))\n")
            .append("(func (export \"__reset_exception_trace\") i32.const 0 global.set $__trace_depth)\n")

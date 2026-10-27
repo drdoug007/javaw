@@ -63,7 +63,7 @@ final class BytecodeObjects {
             out.append("local.get $this i32.load i32.const ").append(id).append(" i32.eq i32.or\n");
         out.append("i32.eqz if call ").append(TypeHelper.getMethodFunctionName("javaw/runtime/ExceptionSupport","cloneFailure","()V"))
                 .append(" unreachable end\n");
-        for(var entry:new BytecodeObjectLayouts(linked).sizes().entrySet())
+        for(var entry:BytecodeObjectLayouts.of(linked).sizes().entrySet())
             out.append("local.get $this i32.load i32.const ").append(dispatch.classId(entry.getKey()))
                     .append(" i32.eq if i32.const ").append(entry.getValue()).append(" local.set $size end\n");
         out.append("local.get $size call $__heap_alloc local.tee $copy i32.eqz if ")

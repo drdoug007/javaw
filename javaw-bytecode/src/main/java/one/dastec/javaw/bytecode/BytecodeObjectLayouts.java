@@ -12,8 +12,14 @@ final class BytecodeObjectLayouts {
     private record Layout(int size, Map<FieldKey, Integer> fields) {}
     private final Map<String, Layout> layouts = new HashMap<>();
     private final Map<String, ClassNode> linked;
+    private Map<String, Integer> sizes, offsets;
 
-    BytecodeObjectLayouts(Map<String, ClassNode> linked) {
+    /** Layouts are shared within one compilation; see {@link BytecodeAnalysisCache}. */
+    static BytecodeObjectLayouts of(Map<String, ClassNode> linked) {
+        return BytecodeAnalysisCache.get(linked, "layouts", () -> new BytecodeObjectLayouts(linked));
+    }
+
+    private BytecodeObjectLayouts(Map<String, ClassNode> linked) {
         this.linked = linked;
         if (BytecodeExceptionRuntime.enabled(linked)) layouts.put("java/lang/Object", new Layout(4, Map.of()));
         for (String name : linked.keySet()) build(name, new HashSet<>());
@@ -48,15 +54,17 @@ final class BytecodeObjectLayouts {
     boolean contains(String name) { return layouts.containsKey(name); }
 
     Map<String, Integer> sizes() {
+        if (sizes != null) return sizes;
         Map<String, Integer> result = new LinkedHashMap<>();
         layouts.forEach((name, layout) -> result.put(name, layout.size()));
-        return result;
+        return sizes = Collections.unmodifiableMap(result);
     }
 
     Map<String, Integer> offsets() {
+        if (offsets != null) return offsets;
         Map<String, Integer> result = new LinkedHashMap<>();
         layouts.forEach((name, layout) -> layout.fields().forEach((field, offset) ->
                 result.put(TypeHelper.getGlobalFieldName(name, field.name, field.descriptor), offset)));
-        return result;
+        return offsets = Collections.unmodifiableMap(result);
     }
 }

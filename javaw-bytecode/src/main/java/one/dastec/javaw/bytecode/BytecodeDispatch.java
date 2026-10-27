@@ -13,6 +13,7 @@ public final class BytecodeDispatch {
     private final Map<String, ClassNode> linked;
     private final String caller;
     private final BytecodeObjectLayouts layouts;
+    private final Map<String, Boolean> subtypes;
     private final Map<String, Integer> classIds = new LinkedHashMap<>();
     private final Map<String, Integer> referenceArrayIds = new LinkedHashMap<>();
     private record Declaration(String owner, MethodNode method) {}
@@ -30,14 +31,29 @@ public final class BytecodeDispatch {
         this(linked, null);
     }
 
+    /** Caller-independent closed-world metadata, shared within one compilation. */
+    private record Program(Map<String, ClassNode> linked, BytecodeObjectLayouts layouts,
+                           Map<String, Integer> classIds, Map<String, Integer> referenceArrayIds,
+                           Map<String, Boolean> subtypes) {}
+
     public BytecodeDispatch(Map<String, ClassNode> linked, String caller) {
         this.caller = caller;
+        Map<String, ClassNode> input = linked;
+        Program program = BytecodeAnalysisCache.get(input, "dispatch", () -> program(input));
+        this.linked = program.linked();
+        this.layouts = program.layouts();
+        this.subtypes = program.subtypes();
+        classIds.putAll(program.classIds());
+        referenceArrayIds.putAll(program.referenceArrayIds());
+    }
+
+    private static Program program(Map<String, ClassNode> linked) {
         if (BytecodeExceptionRuntime.enabled(linked)) {
             linked = new LinkedHashMap<>(linked);
             linked.putIfAbsent(BytecodeObjects.OBJECT, BytecodeObjects.declaration());
         }
-        this.linked = linked;
-        this.layouts = new BytecodeObjectLayouts(linked);
+        Map<String, Integer> classIds = new LinkedHashMap<>(), referenceArrayIds = new LinkedHashMap<>();
+        BytecodeObjectLayouts layouts = BytecodeObjectLayouts.of(linked);
         int id = 1;
         for (String name : new TreeSet<>(linked.keySet())) classIds.put(name, id++);
         TreeSet<String> components = new TreeSet<>(linked.keySet());
@@ -75,6 +91,7 @@ public final class BytecodeDispatch {
             if(component.startsWith("L")) component = component.substring(1,component.length()-1);
             if(!referenceArrayIds.containsKey(component)) referenceArrayIds.put(component, arrayId--);
         }
+        return new Program(Collections.unmodifiableMap(linked), layouts, classIds, referenceArrayIds, new HashMap<>());
     }
 
     private static void collectArrays(Set<String> arrays, String descriptor) {
@@ -233,7 +250,7 @@ public final class BytecodeDispatch {
             ClassNode root = linked.get("java/lang/Throwable");
             if (root == null || (root.access & Opcodes.ACC_INTERFACE) != 0
                     || (type.access & (Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT | Opcodes.ACC_INTERFACE)) != Opcodes.ACC_PUBLIC
-                    || !subtype(name, "java/lang/Throwable", new HashSet<>()))
+                    || !isSubtype(name, "java/lang/Throwable"))
                 throw new IllegalArgumentException("link a public concrete " + simpleName + " class extending linked Throwable");
             Declaration init = ownMethod(name, "<init>", "()V");
             if (init == null || (init.method.access & (Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC | Opcodes.ACC_ABSTRACT | Opcodes.ACC_NATIVE)) != Opcodes.ACC_PUBLIC)
@@ -300,7 +317,7 @@ public final class BytecodeDispatch {
             ClassNode type = linked.get(entry.getKey());
             validateTypeHierarchy(type.name, new HashSet<>(), new HashSet<>());
             if ((type.access & (Opcodes.ACC_INTERFACE | Opcodes.ACC_ABSTRACT)) == 0
-                    && layouts.contains(type.name) && subtype(type.name, target, new HashSet<>()))
+                    && layouts.contains(type.name) && isSubtype(type.name, target))
                 result.add(entry.getValue());
         }
         ClassNode marker = linked.get(target);
@@ -447,7 +464,7 @@ public final class BytecodeDispatch {
         if ((flags & Opcodes.ACC_PUBLIC) == 0) {
             if ((flags & Opcodes.ACC_PRIVATE) != 0) checkPrivateAccess(resolved.owner);
             else if (!packageName(resolved.owner).equals(packageName(caller))
-                    && ((flags & Opcodes.ACC_PROTECTED) == 0 || !subtype(caller, resolved.owner, new HashSet<>())))
+                    && ((flags & Opcodes.ACC_PROTECTED) == 0 || !isSubtype(caller, resolved.owner)))
                 throw new IllegalArgumentException("inaccessible protected/package field " + resolved.owner);
         }
         return resolved;
@@ -487,6 +504,11 @@ public final class BytecodeDispatch {
         return declaration(type.superName, method, descriptor, visited);
     }
 
+    /** The linked hierarchy is immutable during lowering, so answers are shared per program. */
+    private boolean isSubtype(String name, String target) {
+        return subtypes.computeIfAbsent(name + "\u0000" + target, key -> subtype(name, target, new HashSet<>()));
+    }
+
     private boolean subtype(String name, String target, Set<String> visited) {
         if (Objects.equals(name, target)) return true;
         if (!visited.add(name)) return false;
@@ -517,7 +539,7 @@ public final class BytecodeDispatch {
         interfaceDeclarations(receiver, method, descriptor, new HashSet<>(), declarations);
         // An abstract redeclaration also suppresses an ancestor default (re-abstraction).
         List<Declaration> maximal = declarations.stream().filter(candidate -> declarations.stream().noneMatch(other ->
-                !candidate.owner.equals(other.owner) && subtype(other.owner, candidate.owner, new HashSet<>())))
+                !candidate.owner.equals(other.owner) && isSubtype(other.owner, candidate.owner)))
                 .toList();
         List<Declaration> defaults = maximal.stream()
                 .filter(candidate -> (candidate.method.access & Opcodes.ACC_ABSTRACT) == 0).toList();
@@ -594,7 +616,7 @@ public final class BytecodeDispatch {
         if ((resolved.method.access & Opcodes.ACC_STATIC) != 0)
             throw new IllegalArgumentException("special call cannot resolve to a static declaration");
         if (!constructor) {
-            boolean superclass = !caller.equals(call.owner) && subtype(from.superName, call.owner, new HashSet<>());
+            boolean superclass = !caller.equals(call.owner) && isSubtype(from.superName, call.owner);
             if (!caller.equals(call.owner) && !superclass)
                 throw new IllegalArgumentException("non-constructor class special calls require the caller or a superclass owner");
             if (superclass && ((from.access & Opcodes.ACC_SUPER) != 0 || (from.version & 0xffff) >= Opcodes.V1_8))
@@ -643,7 +665,7 @@ public final class BytecodeDispatch {
             return;
         }
         if (caller != null && packageName(caller).equals(packageName(method.owner))) return;
-        if (crossPackageProtected(method) && subtype(caller, method.owner, new HashSet<>())) return;
+        if (crossPackageProtected(method) && isSubtype(caller, method.owner)) return;
         throw new IllegalArgumentException("inaccessible protected/package method " + method.owner
                 + "; call from the declaring package or an eligible protected subclass");
     }
@@ -766,9 +788,9 @@ public final class BytecodeDispatch {
         for (var entry : classIds.entrySet()) {
             ClassNode type = linked.get(entry.getKey());
             if (arrayOwner || (type.access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_INTERFACE)) != 0
-                    || !subtype(type.name, symbolicOwner, new HashSet<>())) continue;
+                    || !isSubtype(type.name, symbolicOwner)) continue;
             // The JVM protected receiver rule applies outside the declaring package.
-            if (crossPackageProtected(declared) && !subtype(type.name, caller, new HashSet<>())) continue;
+            if (crossPackageProtected(declared) && !isSubtype(type.name, caller)) continue;
             // Private methods never participate in overriding, even on a subclass receiver.
             Declaration implementation;
             try { implementation = privateCall ? declared : virtualImplementation(type.name, declared); }

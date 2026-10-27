@@ -40,19 +40,26 @@ final class BytecodeCompatibility {
     static boolean admittedOpcode(int opcode) { return OPCODES.contains(opcode); }
 
     static void validate(ClassNode owner, Map<String, ClassNode> linked) {
-        for (var entry : linked.entrySet()) {
-            if (!entry.getKey().equals(entry.getValue().name))
-                throw failure(entry.getValue(), null, null, "class identity", "link metadata by its declared internal name");
-            BytecodeDeclarations.validate(entry.getValue());
-            if (entry.getKey().equals("java/lang/Object"))
-                throw failure(entry.getValue(), null, null, "intrinsic class redefinition",
-                        "java/lang/Object is supplied by the bytecode runtime; linking a replacement is unsupported");
-        }
+        // Whole-program checks are caller-independent; each runs once per compilation at its original position.
+        BytecodeAnalysisCache.get(linked, "validated-declarations", () -> {
+            for (var entry : linked.entrySet()) {
+                if (!entry.getKey().equals(entry.getValue().name))
+                    throw failure(entry.getValue(), null, null, "class identity", "link metadata by its declared internal name");
+                BytecodeDeclarations.validate(entry.getValue());
+                if (entry.getKey().equals("java/lang/Object"))
+                    throw failure(entry.getValue(), null, null, "intrinsic class redefinition",
+                            "java/lang/Object is supplied by the bytecode runtime; linking a replacement is unsupported");
+            }
+            return Boolean.TRUE;
+        });
         BytecodeHierarchy.validate(owner, linked);
-        BytecodeObjectLayouts layouts = new BytecodeObjectLayouts(linked);
+        BytecodeObjectLayouts layouts = BytecodeObjectLayouts.of(linked);
         BytecodeDispatch dispatch = new BytecodeDispatch(linked, owner.name);
-        for (ClassNode declaration : linked.values())
-            dispatch.validateOverrides(declaration);
+        BytecodeAnalysisCache.get(linked, "validated-overrides", () -> {
+            for (ClassNode declaration : linked.values())
+                dispatch.validateOverrides(declaration);
+            return Boolean.TRUE;
+        });
         Map<String, Integer> offsets = layouts.offsets();
         for (FieldNode field : owner.fields) {
             if (field.value != null && !numericConstant(field.value)
@@ -63,7 +70,10 @@ final class BytecodeCompatibility {
                 throw failure(owner, null, null, "field " + field.name + field.desc,
                         "volatile fields require a concurrent runtime; fields must have a JVM value type");
         }
-        BytecodeLinkage.validateDescriptors(linked);
+        BytecodeAnalysisCache.get(linked, "validated-descriptors", () -> {
+            BytecodeLinkage.validateDescriptors(linked);
+            return Boolean.TRUE;
+        });
         Set<String> exports = new HashSet<>();
         for (MethodNode method : owner.methods) {
             if (method.name.equals("<clinit>") && !method.desc.equals("()V"))

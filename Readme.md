@@ -2056,3 +2056,5 @@ Pinned Jackson `Separators` also matches the JVM (`BytecodeJacksonValueTypesTest
 Pinned Jackson character escapes and `SerializedString`: see [the escape contract](docs/bytecode-jackson-character-escapes.md) and `BytecodeJacksonCharacterEscapesTest`. `ByteBuffer` members are not linked.
 
 Implicit array failure messages (v254): bounds and negative-size failures carry JVM detail messages; see [the message contract](docs/bytecode-implicit-exception-messages.md) and `BytecodeArrayBoundsMessageTest`. `System.arraycopy` messages are not matched yet.
+
+Compile scaling: whole-program analyses are reused within one compilation, so a trivial exception-runtime compile drops from 11.8 s to 2.2 s with identical output; see [the scaling notes](docs/bytecode-compile-scaling.md).

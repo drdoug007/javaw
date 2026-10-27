@@ -99,6 +99,13 @@ public class BytecodeCompiler {
                 throw BytecodeCompatibility.failure(cn, null, null, "duplicate class declaration",
                         "provide exactly one definition of " + cn.name + " in the linked JAR");
         }
+        try (BytecodeAnalysisCache ignored = BytecodeAnalysisCache.open(linked)) {
+            return compileLinked(classes, linked, exceptionRuntime, combinedWat);
+        }
+    }
+
+    private static String compileLinked(List<ClassNode> classes, Map<String, ClassNode> linked, boolean exceptionRuntime,
+                                        StringBuilder combinedWat) {
         BytecodeDispatch runtimeDispatch = new BytecodeDispatch(linked);
         if (classes.stream().anyMatch(BytecodeArrays::usesRuntime)) combinedWat.append(BytecodeArrays.runtimeWat(runtimeDispatch));
         Set<BytecodeExceptions.Implicit> implicit = EnumSet.noneOf(BytecodeExceptions.Implicit.class);

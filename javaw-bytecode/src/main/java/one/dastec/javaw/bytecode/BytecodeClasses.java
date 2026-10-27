@@ -87,7 +87,7 @@ public final class BytecodeClasses {
 
     static String runtimeWat(Map<String,ClassNode> linked,BytecodeDispatch dispatch) {
         Map<String,Integer> types=dispatch.runtimeTypes();
-        var layouts=new BytecodeObjectLayouts(linked);
+        var layouts=BytecodeObjectLayouts.of(linked);
         int size=layouts.sizes().get("java/lang/Class");
         int tokenOffset=layouts.offsets().get(TypeHelper.getGlobalFieldName("java/lang/Class","token","I"));
         StringBuilder out=new StringBuilder();

@@ -298,6 +298,13 @@ Checkboxes describe the documented scope of each item. Completed child tasks may
   - Create integration test suite and example application consuming external third-party JAR dependencies.
   - Verify seamless compilation, local `.m2` caching round-trips, and runtime execution in Node.js and browser environments.
 
+- [ ] **Phase 7: Scalable compile cost and output size** (prerequisite for further runtime/library milestones; see [the scaling notes](docs/bytecode-compile-scaling.md))
+  - [x] Reuse whole-program analyses within one compilation (`BytecodeAnalysisCache`): layouts, dispatch metadata, subtype answers, trace IDs and whole-program validation. A trivial exception-runtime compile drops from 11.8 s to 2.2 s with byte-identical WAT; all 592 bytecode tests pass.
+  - [ ] Remove module functions unreachable from linked-class exports and host hooks.
+  - [ ] Instantiation-aware (rapid type analysis) reachability before lowering, so unreachable runtime code is neither lowered nor emitted, while admission still validates every linked declaration.
+  - [ ] Replace the 20-page (1.25 MB) memory maximum and non-freeing test allocator assumptions with a configurable/growable memory and a reclaiming allocator; add tests above the old limit.
+  - [ ] Keep the prescribed validation run fast: document the fork/JVM settings in the build, and track per-test compile time in CI.
+
 
 ---
 

@@ -47,7 +47,7 @@ public class ClassBytecodeCompiler {
         BytecodeCompatibility.validate(classNode, linked);
         this.linked = linked;
         dispatch = new BytecodeDispatch(linked, classNode.name);
-        BytecodeObjectLayouts layouts = new BytecodeObjectLayouts(linked);
+        BytecodeObjectLayouts layouts = BytecodeObjectLayouts.of(linked);
         fieldOffsets.putAll(layouts.offsets());
         objectSizes.putAll(layouts.sizes());
         StringBuilder wat = new StringBuilder();

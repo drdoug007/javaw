@@ -28,7 +28,7 @@ public final class BytecodeStrings {
             }
         }
         StringBuilder wat=new StringBuilder();
-        int size=new BytecodeObjectLayouts(linked).sizes().get("java/lang/String");
+        int size=BytecodeObjectLayouts.of(linked).sizes().get("java/lang/String");
         for(String value:constants) {
             String function=symbol(value),global=function+"_cached";
             wat.append("(global ").append(global).append(" (mut i32) (i32.const 0))\n");
