@@ -83,6 +83,20 @@ class BytecodeJacksonTextTest {
 
     // CharTypes and JsonStringEncoder differential cases.
 
+    @Test void outputEscapes() throws Exception {
+        fixture("""
+            import com.fasterxml.jackson.core.io.CharTypes;
+            public class Metadata {public static int run(){
+                int hash=1;int[] standard=CharTypes.get7BitOutputEscapes();hash=31*hash+java.util.Arrays.hashCode(standard);hash=31*hash+standard.length;
+        hash=31*hash+(standard==CharTypes.get7BitOutputEscapes()?1:0);
+        for(int quote:new int[]{0,'"','\\'','`','\\\\',127}){int[] alternate=CharTypes.get7BitOutputEscapes(quote);
+            hash=31*hash+java.util.Arrays.hashCode(alternate);hash=31*hash+(alternate==standard?1:0);hash=31*hash+(alternate==CharTypes.get7BitOutputEscapes(quote)?1:0);}
+        for(int quote:new int[]{128,Integer.MAX_VALUE,-1})try{CharTypes.get7BitOutputEscapes(quote);throw new Error();}catch(ArrayIndexOutOfBoundsException expected){hash++;}
+        return hash;
+            }}
+            """);compare(List.of("run"));
+    }
+
     @Test void inputCodes() throws Exception {
         fixture("""
             import com.fasterxml.jackson.core.io.CharTypes;
