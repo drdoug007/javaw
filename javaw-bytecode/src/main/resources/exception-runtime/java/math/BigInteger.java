@@ -185,6 +185,19 @@ public class BigInteger extends Number implements Comparable<BigInteger>,java.io
         byte[] result=toByteArray();for(int i=0;i<result.length;i++)result[i]=(byte)~result[i];
         return new BigInteger(result);
     }
+    private BigInteger changeBit(int index,int operation){
+        if(index<0)throw new ArithmeticException();
+        boolean present=testBit(index);
+        if(operation==0 && present || operation==1 && !present)return this;
+        // Keep an extra sign byte when a high bit of a positive value is set.
+        byte[] bytes=toByteArray();int length=Math.max(bytes.length,index/8+2);
+        byte[] result=new byte[length];int extension=sign<0?-1:0;
+        for(int i=0;i<length;i++){int source=bytes.length-length+i;result[i]=source<0?(byte)extension:bytes[source];}
+        int position=length-1-index/8,mask=1<<(index&7);
+        result[position]=(byte)(operation==0?result[position]|mask:operation==1?result[position]&~mask:result[position]^mask);
+        return new BigInteger(result);
+    }
+    public BigInteger setBit(int index){return changeBit(index,0);}
     public BigInteger min(BigInteger other){return compareTo(other)<=0?this:other;}
     public BigInteger max(BigInteger other){return compareTo(other)>=0?this:other;}
     public BigInteger mod(BigInteger modulus){if(modulus.sign<=0)throw new ArithmeticException();BigInteger result=remainder(modulus);return result.sign<0?result.add(modulus):result;}
