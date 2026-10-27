@@ -2019,5 +2019,5 @@ Bytecode reference traversal (v231–v240) supports generated collection arrays,
 
 Validation (v240): all 530 bytecode tests pass with the prescribed offline selection (four forks, JVMCI compilation disabled), with zero failures, errors or skips. The combined focused traversal/sorted-admission/object-identity run passes all 16 tests; the final pinned-library/admission rerun also passes. The reviewed runtime audit passes with unchanged 63-JAR / 26,625-class / 734-resource inventory. Selected JDK linkage reports 1,121 declared signatures, 9 missing members and 207 missing owners; these are declaration counts, not framework execution evidence.
 
-Linked bytecode `BigInteger` bit operations: `and`, `or`, `xor`, `andNot`, `not`, `setBit`, `clearBit`. JVM/Wasm evidence: `BytecodeBigIntegerBitsTest`; see [the bit-operation contract](docs/bytecode-biginteger-bits.md). Full JDK and framework execution remain open.
+Linked bytecode `BigInteger` bit operations: `and`, `or`, `xor`, `andNot`, `not`, `setBit`, `clearBit`, `flipBit`. JVM/Wasm evidence: `BytecodeBigIntegerBitsTest`; see [the bit-operation contract](docs/bytecode-biginteger-bits.md). Full JDK and framework execution remain open.
 

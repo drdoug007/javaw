@@ -138,6 +138,20 @@ class BytecodeBigIntegerBitsTest implements Opcodes {
             """);compare(List.of("run0","run1","run2","run3","run4","run5","run6","run7","run8","run9","run10","run11","run12","run13"));
     }
 
+    @Test void flipBit() throws Exception {
+        fixture("""
+            import java.math.BigInteger;
+            public class Metadata {public static int run0(){return sample("0");}public static int run1(){return sample("1");}public static int run2(){return sample("-1");}public static int run3(){return sample("127");}public static int run4(){return sample("128");}public static int run5(){return sample("255");}public static int run6(){return sample("256");}public static int run7(){return sample("-128");}public static int run8(){return sample("-129");}public static int run9(){return sample("-256");}public static int run10(){return sample("9223372036854775808");}public static int run11(){return sample("-9223372036854775809");}public static int run12(){return sample("123456789012345678901234567890");}public static int run13(){return sample("-123456789012345678901234567890");}private static int sample(String input){int hash=1;
+                String[] values={input};
+                java.util.function.BiFunction<BigInteger,Integer,BigInteger> op=BigInteger::flipBit;
+                for(String x:values)for(int bit:new int[]{0,1,7,8,15,31,32,63,64,95,127,255,513}){BigInteger a=new BigInteger(x);
+                    BigInteger result=a.flipBit(bit);if(!result.equals(op.apply(a,bit)))throw new Error();
+                    hash=31*hash+result.toString().hashCode();hash=31*hash+a.toString().hashCode();}
+                for(int bit:new int[]{-1,Integer.MIN_VALUE})try{BigInteger.ONE.flipBit(bit);throw new Error();}catch(ArithmeticException expected){hash++;}
+                return hash;}}
+            """);compare(List.of("run0","run1","run2","run3","run4","run5","run6","run7","run8","run9","run10","run11","run12","run13"));
+    }
+
     private void compare(List<String> names) throws Exception {
         StringBuilder assertions=new StringBuilder();
         try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)){
