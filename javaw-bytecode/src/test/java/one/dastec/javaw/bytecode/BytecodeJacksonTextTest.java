@@ -83,6 +83,30 @@ class BytecodeJacksonTextTest {
 
     // CharTypes and JsonStringEncoder differential cases.
 
+    @Test void quoteSequence() throws Exception {
+        fixture("""
+            import com.fasterxml.jackson.core.io.JsonStringEncoder;
+            public class Metadata {public static int run(){
+                int hash=1;JsonStringEncoder encoder=JsonStringEncoder.getInstance();SAMPLES
+        for(String text:samples){hash=31*hash+new String(encoder.quoteAsString((CharSequence)new StringBuilder(text))).hashCode();hash=31*hash+new String(encoder.quoteAsString((CharSequence)text)).hashCode();}
+        try{encoder.quoteAsString((CharSequence)null);throw new Error();}catch(NullPointerException expected){hash++;}return hash;
+            }}
+            """.replace("SAMPLES",SAMPLES));compare(List.of("run"));
+    }
+
+    @Test void quoteString() throws Exception {
+        fixture("""
+            import com.fasterxml.jackson.core.io.JsonStringEncoder;
+            public class Metadata {public static int run(){
+                int hash=1;JsonStringEncoder encoder=JsonStringEncoder.getInstance();SAMPLES
+        hash=31*hash+(encoder==JsonStringEncoder.getInstance()?1:0);
+        for(String text:samples){char[] quoted=encoder.quoteAsString(text);hash=31*hash+new String(quoted).hashCode();hash=31*hash+quoted.length;}
+        hash=31*hash+new String(new JsonStringEncoder().quoteAsString("\\u0001")).hashCode();
+        try{encoder.quoteAsString((String)null);throw new Error();}catch(NullPointerException expected){hash++;}return hash;
+            }}
+            """.replace("SAMPLES",SAMPLES));compare(List.of("run"));
+    }
+
     @Test void appendQuoted() throws Exception {
         fixture("""
             import com.fasterxml.jackson.core.io.CharTypes;

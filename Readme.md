@@ -2035,4 +2035,4 @@ Byte/character sink bases (v251): `Appendable`, `Closeable`, `Flushable`, `Outpu
 
 LinkedList (v252): `AbstractSequentialList` and `LinkedList` are linked, with JVM/Wasm evidence in `BytecodeLinkedListTest`; see [the LinkedList contract](docs/bytecode-linked-list.md). `Deque`/`Queue` interfaces are not linked yet. Core-JDK linkage is now 1,141 declared / 9 missing-member / 187 missing-owner signatures.
 
-Pinned Jackson text escaping execution: `charToHex`, `hexDigits`, `inputCodes`, `outputEscapes`, `appendQuoted`. See [the text contract](docs/bytecode-jackson-text.md) and `BytecodeJacksonTextTest`. Original CharTypes/JsonStringEncoder classes run with reachable-closure helper carriers; serializer and whole-JAR compatibility remain open.
+Pinned Jackson text escaping execution: `charToHex`, `hexDigits`, `inputCodes`, `outputEscapes`, `appendQuoted`, `quoteString`, `quoteSequence`. See [the text contract](docs/bytecode-jackson-text.md) and `BytecodeJacksonTextTest`. Original CharTypes/JsonStringEncoder classes run with reachable-closure helper carriers; serializer and whole-JAR compatibility remain open.
