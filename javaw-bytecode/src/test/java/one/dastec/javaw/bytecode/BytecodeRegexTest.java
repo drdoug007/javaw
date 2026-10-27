@@ -49,6 +49,17 @@ public class Metadata {public static int run(int group){int h=1;
 }}
 """);compare(1);
  }
+ @Test void repetition() throws Exception {
+ fixture("""
+import java.util.regex.*;
+public class Metadata {public static int run(int group){int h=1;
+ String regex=new String[]{"a*","a+","a?","a{2}","a{1,3}","a{2,}","a*?a","a+?a",".*a",".{0,2}","\\\\Qab\\\\E+","[ab]*a","a?a?aa"}[group];Pattern pattern=Pattern.compile(regex);
+ for(String text:new String[]{"","a","aa","aaa","aaaa","ab","abb","aba","ba","😀","😀a"})h=31*h+(pattern.matcher(text).matches()?1:0);
+ for(String bad:new String[]{"a{3,2}","a{2","a{}","*"})try{Pattern.compile(bad);throw new Error();}catch(PatternSyntaxException e){h=31*h+e.getDescription().hashCode();h=31*h+e.getIndex();}
+ return h;
+}}
+""");compare(13);
+ }
     private String classpath(){return directory+(fixtureClasspath.isEmpty()?"":File.pathSeparator+fixtureClasspath);}
 
     /** Preserve selected original method instructions; omit unrelated library state and initialization. */

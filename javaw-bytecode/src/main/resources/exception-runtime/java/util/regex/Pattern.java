@@ -25,7 +25,15 @@ public final class Pattern {
         PatternSyntaxException error(String message,int index){return new PatternSyntaxException(message,source,index);}
         void quotes(){while(position+1<source.length() && source.charAt(position)=='\\' && ((!quoted && source.charAt(position+1)=='Q') || (quoted && source.charAt(position+1)=='E'))){quoted=!quoted;position+=2;}}
         Node sequence(){Node result=literal("");while(true){quotes();if(position==source.length())return result;char c=source.charAt(position);if(!quoted && (c==')'||c=='|'))return result;result=Pattern.sequence(result,term());}}
-        Node term(){quotes();int offset=position;int c=codePoint(source,position,source.length());position+=Character.charCount(c);
+        Node term(){Node body=baseTerm();quotes();if(quoted||position==source.length())return body;char c=source.charAt(position);int min,max;
+            if(c=='*'){min=0;max=Integer.MAX_VALUE;position++;}else if(c=='+'){min=1;max=Integer.MAX_VALUE;position++;}else if(c=='?'){min=0;max=1;position++;}
+            else if(c=='{'){position++;min=number();max=min;if(position<source.length()&&source.charAt(position)==','){position++;max=position<source.length()&&source.charAt(position)=='}'?Integer.MAX_VALUE:number();}if(position==source.length()||source.charAt(position)!='}')throw error("Unclosed counted closure",position);position++;if(max<min)throw error("Illegal repetition range",position-1);}
+            else return body;
+            boolean greedy=true;if(position<source.length()&&source.charAt(position)=='?'){greedy=false;position++;}else if(position<source.length()&&source.charAt(position)=='+')throw unsupported("possessive quantifier at index "+position);
+            return repeat(body,min,max,greedy);
+        }
+        int number(){int start=position;long value=0;while(position<source.length()&&source.charAt(position)>='0'&&source.charAt(position)<='9'){value=value*10+source.charAt(position++)-'0';if(value>Integer.MAX_VALUE)throw error("Illegal repetition range",position-1);}if(start==position)throw error("Illegal repetition",position);return (int)value;}
+        Node baseTerm(){quotes();int offset=position;int c=codePoint(source,position,source.length());position+=Character.charCount(c);
             if(quoted)return literal(new String(Character.toChars(c)));
             if(c=='\\')return escaped();
             if(c=='.')return atom(v->v!='\n' && v!='\r' && v!=0x85 && v!=0x2028 && v!=0x2029);
@@ -62,6 +70,12 @@ public final class Pattern {
             final int point=c;return new ClassPart(c,v->v==point);
         }
         int hex(int length){int value=0;for(int i=0;i<length;i++){if(position==source.length())throw error("Illegal hexadecimal escape sequence",position);int digit=Character.digit(source.charAt(position++),16);if(digit<0)throw error("Illegal hexadecimal escape sequence",position-1);value=(value<<4)|digit;}return value;}
+    }
+    static Node repeat(Node body,int min,int max,boolean greedy){return (s,p,n)->repetitions(body,s,p,n,min,max,greedy,0);}
+    static boolean repetitions(Node body,State s,int p,Next next,int min,int max,boolean greedy,int count){
+        if(!greedy && count>=min && next.at(p))return true;
+        if(count<max && body.match(s,p,q->{if(q==p)return count+1<min?repetitions(body,s,q,next,min,max,greedy,count+1):next.at(q);return repetitions(body,s,q,next,min,max,greedy,count+1);}))return true;
+        return greedy && count>=min && next.at(p);
     }
     static final class ClassPart {final int value;final java.util.function.IntPredicate predicate;ClassPart(int value,java.util.function.IntPredicate predicate){this.value=value;this.predicate=predicate;}}
     static java.util.function.IntPredicate predefined(char code){
