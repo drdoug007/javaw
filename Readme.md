@@ -2042,3 +2042,5 @@ AtomicReferenceArray (v253): linked for the single-threaded contract only; every
 Pinned Jackson buffers: original `BufferRecycler` links whole and runs allocation/reuse/hook paths; see [the buffer contract](docs/bytecode-jackson-buffers.md) and `BytecodeJacksonBufferTest`.
 
 Pinned Jackson `ByteArrayBuilder` also links whole, with segment/append/recycling evidence in `BytecodeJacksonBufferTest`. Compiled modules declare a 20-page (1.25 MB) memory maximum, which bounds these workloads.
+
+Pinned Jackson Base64: original `Base64Variant`/`Base64Variants` link whole; see [the Base64 contract](docs/bytecode-jackson-base64.md) and `BytecodeJacksonBase64Test`.
