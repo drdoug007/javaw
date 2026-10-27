@@ -63,6 +63,16 @@ class BytecodeJacksonNumberOutputTest implements Opcodes {
 
     // NumberOutput differential cases.
 
+    @Test void finiteDouble() throws Exception {
+        fixture("""
+            import com.fasterxml.jackson.core.io.NumberOutput;
+            public class Metadata {public static int run(){
+                int hash=1;for(long bits:new long[]{0,Long.MIN_VALUE,1,-1,0x7fefffffffffffffL,0x7ff0000000000000L,0xfff0000000000000L,0x7ff0000000000001L,0xfff8000000000001L}){double value=Double.longBitsToDouble(bits);hash=31*hash+(NumberOutput.notFinite(value)?1:0);}
+        long bits=17;for(int i=0;i<256;i++){bits=bits*1664525+1013904223;hash=31*hash+(NumberOutput.notFinite(Double.longBitsToDouble(bits))?1:0);}return hash;
+            }}
+            """);compare(List.of("run"));
+    }
+
     @Test void floatStrings() throws Exception {
         fixture("""
             import com.fasterxml.jackson.core.io.NumberOutput;

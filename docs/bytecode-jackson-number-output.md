@@ -14,3 +14,4 @@ Completed focused cases (each passes):
 - `longStrings`
 - `doubleStrings`
 - `floatStrings`
+- `finiteDouble`
