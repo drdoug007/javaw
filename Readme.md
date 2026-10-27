@@ -2020,3 +2020,5 @@ Sorted bytecode collections subset 4/10 (v224): Inclusive/exclusive and descendi
 Sorted bytecode collections subset 5/10 (v225): Fail-fast sorted traversal and backed key/value/entry mutation. Focused checks pass; see [the selected contract](docs/bytecode-sorted-collections.md). Broad collections, concurrency and framework execution remain open.
 
 Sorted bytecode collections subset 6/10 (v226): TreeSet construction, ordering and navigation. Focused checks pass; see [the selected contract](docs/bytecode-sorted-collections.md). Broad collections, concurrency and framework execution remain open.
+
+Sorted bytecode collections subset 7/10 (v227): Live navigable set ranges and descending traversal. Focused checks pass; see [the selected contract](docs/bytecode-sorted-collections.md). Broad collections, concurrency and framework execution remain open.
