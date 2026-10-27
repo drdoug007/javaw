@@ -69,7 +69,7 @@
     <script>
         async function init() {
             try {
-                const response = await fetch('../src/test/java/dastec/one/javaw/App.wasm');
+                const response = await fetch('../src/test/java/one/dastec/javaw/App.wasm');
                 const wasmBytes = await response.arrayBuffer();
                 const runtime = new Javaw.JavawRuntime(document);
                 const term = runtime.createTerminal('#terminal-container', {

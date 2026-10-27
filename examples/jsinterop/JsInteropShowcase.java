@@ -1,15 +1,15 @@
-package dastec.one.javaw.examples.jsinterop;
+package one.dastec.javaw.examples.jsinterop;
 
-import dastec.one.javaw.dom.DOM;
-import dastec.one.javaw.dom.Element;
-import dastec.one.javaw.dom.JSObject;
-import dastec.one.javaw.js.JS;
-import dastec.one.javaw.js.JSConsole;
-import dastec.one.javaw.js.JSDate;
-import dastec.one.javaw.js.JSJSON;
-import dastec.one.javaw.js.JSMath;
-import dastec.one.javaw.js.JSResource;
-import dastec.one.javaw.js.JSStorage;
+import one.dastec.javaw.dom.DOM;
+import one.dastec.javaw.dom.Element;
+import one.dastec.javaw.dom.JSObject;
+import one.dastec.javaw.js.JS;
+import one.dastec.javaw.js.JSConsole;
+import one.dastec.javaw.js.JSDate;
+import one.dastec.javaw.js.JSJSON;
+import one.dastec.javaw.js.JSMath;
+import one.dastec.javaw.js.JSResource;
+import one.dastec.javaw.js.JSStorage;
 
 @JS.Export("JavaCalculator")
 public class JsInteropShowcase {

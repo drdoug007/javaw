@@ -1,7 +1,7 @@
-package dastec.one.javaw.examples.terminal;
+package one.dastec.javaw.examples.terminal;
 
-import dastec.one.javaw.terminal.Terminal;
-import dastec.one.javaw.wasi.WASIFile;
+import one.dastec.javaw.terminal.Terminal;
+import one.dastec.javaw.wasi.WASIFile;
 
 public class WasiShellDemo {
 

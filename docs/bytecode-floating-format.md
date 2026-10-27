@@ -63,6 +63,6 @@ Validation: all 457 tests pass in the required offline bytecode suite (four fork
 Reproduce with:
 
 ```sh
-mvn -o -pl javaw-bytecode -am -Dtest='dastec.one.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false -DforkCount=4 test
+mvn -o -pl javaw-bytecode -am -Dtest='one.dastec.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false -DforkCount=4 test
 python3 runtime-target/audit.py --check-baseline
 ```

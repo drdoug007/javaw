@@ -34,17 +34,17 @@ const POSSIBLE_JAR_PATHS = [
     path.resolve(__dirname, '../../../../javaw-core/target/javaw-core-1.0-SNAPSHOT.jar')
 ];
 let JAR_PATH = POSSIBLE_JAR_PATHS.find(p => fs.existsSync(p)) || POSSIBLE_JAR_PATHS[0];
-const TESTCLASS_JAVA = path.resolve(__dirname, '../java/dastec/one/javaw/TestClass.java');
-const TESTCLASS_WAT = path.resolve(__dirname, '../java/dastec/one/javaw/TestClass.wat');
-const TESTCLASS_WASM = path.resolve(__dirname, '../java/dastec/one/javaw/TestClass.wasm');
-const TESTCLASS_WAT_MAP = path.resolve(__dirname, '../java/dastec/one/javaw/TestClass.wat.map');
-const TESTCLASS_WASM_MAP = path.resolve(__dirname, '../java/dastec/one/javaw/TestClass.wasm.map');
+const TESTCLASS_JAVA = path.resolve(__dirname, '../java/one/dastec/javaw/TestClass.java');
+const TESTCLASS_WAT = path.resolve(__dirname, '../java/one/dastec/javaw/TestClass.wat');
+const TESTCLASS_WASM = path.resolve(__dirname, '../java/one/dastec/javaw/TestClass.wasm');
+const TESTCLASS_WAT_MAP = path.resolve(__dirname, '../java/one/dastec/javaw/TestClass.wat.map');
+const TESTCLASS_WASM_MAP = path.resolve(__dirname, '../java/one/dastec/javaw/TestClass.wasm.map');
 
-const APP_JAVA = path.resolve(__dirname, '../java/dastec/one/javaw/App.java');
-const APP_WAT = path.resolve(__dirname, '../java/dastec/one/javaw/App.wat');
-const APP_WASM = path.resolve(__dirname, '../java/dastec/one/javaw/App.wasm');
-const APP_WAT_MAP = path.resolve(__dirname, '../java/dastec/one/javaw/App.wat.map');
-const APP_WASM_MAP = path.resolve(__dirname, '../java/dastec/one/javaw/App.wasm.map');
+const APP_JAVA = path.resolve(__dirname, '../java/one/dastec/javaw/App.java');
+const APP_WAT = path.resolve(__dirname, '../java/one/dastec/javaw/App.wat');
+const APP_WASM = path.resolve(__dirname, '../java/one/dastec/javaw/App.wasm');
+const APP_WAT_MAP = path.resolve(__dirname, '../java/one/dastec/javaw/App.wat.map');
+const APP_WASM_MAP = path.resolve(__dirname, '../java/one/dastec/javaw/App.wasm.map');
 
 // Lightweight DOM Mock for Node.js testing
 class MockCanvasContext2D {

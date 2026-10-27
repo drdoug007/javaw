@@ -1,7 +1,7 @@
-package dastec.one.javaw.examples.bytecode;
+package one.dastec.javaw.examples.bytecode;
 
-import dastec.one.javaw.dom.DOM;
-import dastec.one.javaw.dom.Element;
+import one.dastec.javaw.dom.DOM;
+import one.dastec.javaw.dom.Element;
 
 /**
  * Demonstrates complex algorithmic routines structured for bytecode-to-WebAssembly

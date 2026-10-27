@@ -4,10 +4,11 @@ A lightweight, high-performance Java-to-WebAssembly compiler that parses Java so
 
 ## Namespace and license
 
-Java packages and Maven group IDs use `dastec.one` (for example,
-`dastec.one.javaw.JavacToWasm` and `dastec.one:javaw-core:1.0-SNAPSHOT`).
-Consumers must update imports, dependency/plugin coordinates, and entry-point
-names when migrating from earlier versions.
+Java packages use `one.dastec.javaw` (for example,
+`one.dastec.javaw.JavacToWasm`). Maven group IDs remain `dastec.one`
+(for example, `dastec.one:javaw-core:1.0-SNAPSHOT`).
+Consumers of the previous package name must update Java imports and entry-point
+names; this package correction does not change dependency/plugin coordinates.
 
 Project-owned code is licensed under the [Apache License, Version 2.0](LICENSE).
 Bundled OpenJDK fdlibm material retains GPLv2 with the Classpath exception;
@@ -61,7 +62,7 @@ Nullable primitive wrappers use linear-memory objects with small-value caches, v
 
 Source generic inference covers method/class variables, explicit and diamond arguments, bounds, inherited substitutions, simple wildcard reads/writes, generic varargs, and virtual overrides. Invalid bounds and parameterized assignments receive source diagnostics. Empty/null generic factories use declaration, assignment, return, and conditional target contexts; wildcard functional-interface lambda targets are grounded before closure generation. Full intersection/capture and nested or overload-sensitive target-typed poly-expression inference remain pending; inferred intersections require an explicit common type argument.
 
-Source-resolution regressions execute compiled Wasm in Node; see `javaw-core/src/test/java/dastec/one/javaw/SourceResolutionTest.java`. Qualified references to source classes work across batch files; multiple classes with the same simple name in one module are explicitly rejected.
+Source-resolution regressions execute compiled Wasm in Node; see `javaw-core/src/test/java/one/dastec/javaw/SourceResolutionTest.java`. Qualified references to source classes work across batch files; multiple classes with the same simple name in one module are explicitly rejected.
 
 Generic, wrapper, and varargs regressions execute Wasm in `GenericInferenceTest`, `BoxingSupportTest`, and `VarargsTest`.
 
@@ -98,10 +99,10 @@ Phase 1 source-resolution foundations and source-backed Optional/closures are im
   - **Expanded `String`, `CharSequence` & Standard `StringBuilder`**: Standard package resolution for `java.lang.StringBuilder` (with `insert`, `delete`, `deleteCharAt`, `reverse`, `replace`, `substring`, `indexOf`) and `java.lang.CharSequence`. Expanded `String` methods: `trim()`, `strip()`, `toLowerCase()`, `toUpperCase()`, `replace(target, rep)`, `contains(seq)`, `startsWith(prefix)`, `endsWith(suffix)`, `toCharArray()`, `getBytes()`, `compareTo(other)`, `equalsIgnoreCase(other)`, `repeat(n)`, and `String.valueOf(...)`.
   - **Standard `System`, High-Resolution Clock & Environment**: High-precision timers `System.currentTimeMillis()` and `System.nanoTime()` connected to WASI/browser performance timers, `System.identityHashCode(obj)`, `System.lineSeparator()`, and environment/property lookups (`System.getenv(key)`, `System.getProperty(key)`).
   - **Resource Management & Core Interfaces (`AutoCloseable`, `Comparable`, `Iterable`)**: Standard interfaces `java.lang.AutoCloseable`, `java.lang.Comparable<T>`, `java.lang.Iterable<T>`, and `java.util.Iterator<E>` with universal vtable slots (slots 3–7) and polymorphic dispatch. Full `try-with-resources` (`try (AutoCloseable res = ...) { ... }`) lowering to nested WebAssembly `try-catch_all` blocks with guaranteed `.close()` cleanup.
-  - **Linked source reflection**: Generated constructor/field/method descriptors support invocation, primitive widening, access overrides, and runtime annotation inspection. [ReflectionSupportTest](javaw-core/src/test/java/dastec/one/javaw/ReflectionSupportTest.java) executes the supported operations and boundaries in WebAssembly. See [reflection limitations](docs/reflection.md), including library member metadata, enum constant-specific bodies, untyped host buffers, and dynamic loading.
+  - **Linked source reflection**: Generated constructor/field/method descriptors support invocation, primitive widening, access overrides, and runtime annotation inspection. [ReflectionSupportTest](javaw-core/src/test/java/one/dastec/javaw/ReflectionSupportTest.java) executes the supported operations and boundaries in WebAssembly. See [reflection limitations](docs/reflection.md), including library member metadata, enum constant-specific bodies, untyped host buffers, and dynamic loading.
   - **Standard Thread/Runnable & Static Class Reflection Tables (`Thread`, `Runnable`, `Class<T>`)**: Standard `java.lang.Thread` and `java.lang.Runnable` wrapping WebAssembly thread primitives (`start()`, `run()`, `sleep(ms)`, `currentThread()`, `getId()`, `getName()`, `setName()`, `isAlive()`, `yield()`, `onSpinWait()`, `activeCount()`). Universal vtable slots (slot 8: `run()`, slot 9: `getClass()`), class literal expressions (`MyClass.class`), and static linear memory `java.lang.Class` descriptor tables supporting `obj.getClass()`, `Class.getName()`, `Class.getSimpleName()`, `Class.isInterface()`, `Class.isEnum()`, `Class.isArray()`, `Class.isInstance()`, and `Class.forName()`.
 - **Interactive In-Browser WASI Terminal & REPL Integration (WASI & ANSI)**:
-  - Strongly-typed Java facades `dastec.one.javaw.wasi.WASITerminal` and `dastec.one.javaw.terminal.Terminal` providing standard ANSI color palette constants (`BLACK`, `RED`, `GREEN`, `YELLOW`, `BLUE`, `MAGENTA`, `CYAN`, `WHITE`, and `BRIGHT_*` variants), text attributes (`BOLD`, `DIM`, `ITALIC`, `UNDERLINE`, `REVERSE`), cursor positioning (`setCursor`), screen clearing (`clear`), and dimensions (`getColumns`, `getRows`).
+  - Strongly-typed Java facades `one.dastec.javaw.wasi.WASITerminal` and `one.dastec.javaw.terminal.Terminal` providing standard ANSI color palette constants (`BLACK`, `RED`, `GREEN`, `YELLOW`, `BLUE`, `MAGENTA`, `CYAN`, `WHITE`, and `BRIGHT_*` variants), text attributes (`BOLD`, `DIM`, `ITALIC`, `UNDERLINE`, `REVERSE`), cursor positioning (`setCursor`), screen clearing (`clear`), and dimensions (`getColumns`, `getRows`).
   - Interactive line and character reading (`readLine()`, `readLine(prompt)`, `readChar()`) wired directly to WASI standard input (`fd 0` stdin queue) with linear memory string decoding.
   - Runtime terminal component `JavawTerminal` in `javaw-runtime.js` supporting both xterm.js and a zero-dependency DOM terminal with full ANSI escape rendering, customizable prompt (`javaw> `), command history (Up/Down arrow navigation), keyboard shortcuts (Ctrl+L clear, Ctrl+C interrupt), and custom command dispatch (`help`, `clear`, `history`, `ls`, `js`, `run <wasmExport>`).
 - **Exporting Java Classes to JavaScript Scope (`@JS.Export`)**:
@@ -113,7 +114,7 @@ Phase 1 source-resolution foundations and source-backed Optional/closures are im
   - Embed arbitrary JavaScript script blocks directly into Java classes using `@JS.Code("...")` or bundle external JavaScript files using `@JS.Code.Include({"script1.js", "script2.js"})`.
   - Embed static web assets (CSS stylesheets, JSON configurations, HTML templates, text files) using `@JS.Resource(value = "...", path = "...")` serialized into custom WebAssembly sections `javaw_js_code` and `javaw_js_resources`.
   - The runtime bridge (`javaw-runtime.js`) automatically executes bundled JavaScript scripts upon module instantiation in the global scope and registers embedded resources into memory and VFS.
-  - Strongly-typed `JSResource` facade (`dastec.one.javaw.js.JSResource`) provides methods to query assets (`getAsString`, `hasResource`, `getLength`, `listResources`), inject styles into `<head>` (`injectStyle`, `injectStyleSheet`), execute script snippets (`injectScript`, `injectScriptTag`), and mount resources into WASI VFS (`mountAll`).
+  - Strongly-typed `JSResource` facade (`one.dastec.javaw.js.JSResource`) provides methods to query assets (`getAsString`, `hasResource`, `getLength`, `listResources`), inject styles into `<head>` (`injectStyle`, `injectStyleSheet`), execute script snippets (`injectScript`, `injectScriptTag`), and mount resources into WASI VFS (`mountAll`).
 - **`@JS` Inline JavaScript Annotations & Host Code Generation**:
   - Allows Java methods (declared `native`) to define inline JavaScript logic directly using `@JS("return Math.hypot(a, b);")`, `@JS("console.log(message);")`, or `@JS("return 'Hello ' + name;")`.
   - Automatic type marshalling and coercion via `@JS.Coerce` for Java primitives, strings, and arrays (`int[]`, `double[]`, `String[]` &harr; JavaScript `Array`) and automatic JSON serialization for JavaScript objects.
@@ -122,7 +123,7 @@ Phase 1 source-resolution foundations and source-backed Optional/closures are im
 - **Global JavaScript Class & Object Binding (`@JS.Import`)**:
   - Annotate Java classes or interfaces with `@JS.Import("Date")`, `@JS.Import("Math")`, `@JS.Import("JSON")`, `@JS.Import("console")`, `@JS.Import("localStorage")` to bind standard browser APIs directly to typed Java facades.
   - Automatically synthesizes host bridge snippets for constructor instantiations (`new GlobalName(...)`), direct static method invocations (`GlobalName.method(...)`), constants (`Math.PI`), and instance methods (`this.method(...)`).
-  - Includes pre-built standard facades in `dastec.one.javaw.js`: `JSDate`, `JSMath`, `JSJSON`, `JSConsole`, and `JSStorage`.
+  - Includes pre-built standard facades in `one.dastec.javaw.js`: `JSDate`, `JSMath`, `JSJSON`, `JSConsole`, and `JSStorage`.
 - **JavaScript Value Hierarchy Facades (`JSValue`, `JSNumber`, `JSBoolean`, `JSString`, `JSBigInt`, `JSSymbol`, `JSUndefined`, `JSError`, `JSNull`)**:
   - Provides a complete, strongly-typed object-oriented hierarchy representing JavaScript runtime values with zero overhead.
   - Base class `JSValue` exposes type reflection methods (`getTypeof()`, `isNumber()`, `isString()`, `isBoolean()`, `isBigInt()`, `isSymbol()`, `isUndefined()`, `isNull()`, `isObject()`, `isFunction()`, `isError()`), prototype testing (`instanceOf(className)`), and strict identity checks (`strictEquals(other)`).
@@ -145,19 +146,19 @@ Phase 1 source-resolution foundations and source-backed Optional/closures are im
   - Multi-value stack packing for record instantiations (`new Point(x, y)`), returns (`return new Point(...)`), and multi-value local variable unpacking (`Point p = makePoint(...)`).
 - **Bulk Memory Operations & Fast Array Utilities (`memory.copy`, `memory.fill`)**:
   - Direct translation of `System.arraycopy(...)` and `Arrays.fill(...)` to WebAssembly `memory.copy` and `memory.fill` instructions for high-throughput block data movement and initialization.
-  - Strongly-typed array utility facade (`dastec.one.javaw.util.Arrays`) supporting `fill`, `copyOf`, `copyOfRange`, and `equals` for both `int[]` and `double[]`.
+  - Strongly-typed array utility facade (`one.dastec.javaw.util.Arrays`) supporting `fill`, `copyOf`, `copyOfRange`, and `equals` for both `int[]` and `double[]`.
   - Accelerated dynamic heap zeroing (`$__heap_alloc`), dynamic string concatenation (`$__str_concat`), substring slicing (`$__str_substring`), and `StringBuilder` buffer expansion using zero-overhead memory copies.
 - **Binaryen Optimization Pipeline (`wasm-opt`)**:
   - Integrates automated `wasm-opt -O3 --enable-multimemory --enable-simd --enable-threads --enable-exception-handling --enable-multivalue --enable-bulk-memory` optimization passes directly into the build pipeline for dead-code elimination, inlining, and binary size reduction.
   - Supports `--no-opt` / `-O0` flags to bypass optimization passes during development.
 - **WebAssembly Multi-Memory Segregation & Isolation (`Memory`)**:
   - Leverages the WebAssembly Multi-Memory proposal to segregate memory into discrete spaces: read-only static string pool (`$strings`), dynamic heap allocation space (`$heap`), and execution thread stack (`$stack`).
-  - Strongly-typed `Memory` facade (`dastec.one.javaw.memory.Memory`) supporting `Memory.HEAP`, `Memory.STRINGS`, `Memory.STACK`, `Memory.DEFAULT`, and `Memory.of(name)`.
+  - Strongly-typed `Memory` facade (`one.dastec.javaw.memory.Memory`) supporting `Memory.HEAP`, `Memory.STRINGS`, `Memory.STACK`, `Memory.DEFAULT`, and `Memory.of(name)`.
   - Full AST lowering for memory instructions: typed loads and stores (`loadI32`, `storeI32`, `loadI64`, `storeI64`, `loadF32`, `storeF32`, `loadF64`, `storeF64`, `loadI8`, `storeI8`, `loadI16`, `storeI16`), memory sizing (`size()`), memory growth (`grow(pages)`), block filling (`fill`), and bulk copying across discrete memories (`copy`, `copyFrom`).
   - Automatically configures toolchain flags (`wat2wasm --enable-multi-memory` and `wasm-opt --enable-multimemory`).
   - JavaScript host runtime support in `javaw-runtime.js` (`getMemory`, `getHeapMemory`, `getStringsMemory`, `getStackMemory`) for multi-memory buffer access and UTF-8 string decoding across memories.
 - **Fixed-Width SIMD (`v128`) Vectorization Facades**:
-  - Strongly typed 128-bit vector facades (`dastec.one.javaw.simd.Float32x4`, `Int32x4`, `Vector128`) mapping directly to native WebAssembly `v128` vector value types without heap allocation overhead.
+  - Strongly typed 128-bit vector facades (`one.dastec.javaw.simd.Float32x4`, `Int32x4`, `Vector128`) mapping directly to native WebAssembly `v128` vector value types without heap allocation overhead.
   - Full support for vector math (`add`, `sub`, `mul`, `div`, `min`, `max`, `sqrt`, `abs`, `neg`), bitwise operations (`and`, `or`, `xor`, `not`, `shl`, `shr`), and scalar reductions (`dot`, `sum`).
   - Lane extraction and replacement (`getX`..`getW`, `withX`..`withW`, `extractLane`, `replaceLane`), vector splatting (`Float32x4.splat`, `Int32x4.splat`), and bulk vector memory operations (`load`, `store`).
   - Native lowering to WebAssembly instructions (`f32x4.add`, `f32x4.mul`, `f32x4.sqrt`, `i32x4.add`, `i32x4.shl`, `v128.and`, `v128.load`, `v128.store`).
@@ -169,27 +170,27 @@ Phase 1 source-resolution foundations and source-backed Optional/closures are im
   - Guaranteed `finally` block execution for normal returns, caught exceptions, and rethrown errors.
 - **WebAssembly Threads, Shared Memory & Atomic Operations**:
   - Automatically emits WebAssembly shared memory declarations `(memory (export "memory") 2 20 shared)` and enables thread extensions in `wat2wasm`.
-  - **`AtomicInteger`** (`dastec.one.javaw.concurrent.AtomicInteger`): High-level atomic integer operations (`get`, `set`, `getAndSet`, `compareAndSet`, `getAndAdd`, `addAndGet`, `incrementAndGet`, `decrementAndGet`, and bitwise atomics `getAndAnd`, `getAndOr`, `getAndXor`) lowered to `i32.atomic.load`, `i32.atomic.store`, and `i32.atomic.rmw.*`.
-  - **`Atomics`** (`dastec.one.javaw.concurrent.Atomics`): Low-level array atomic primitives (`load`, `store`, `add`, `sub`, `and`, `or`, `xor`, `exchange`, `compareExchange`, `wait` via `memory.atomic.wait32`, and `notify` via `memory.atomic.notify`).
-  - **`WasmThread`** (`dastec.one.javaw.concurrent.WasmThread`): Web Worker thread management, entry point dispatching (`spawn`), thread sleep (`sleep`), thread ID discovery (`currentThreadId`), and CPU core detection (`hardwareConcurrency`).
+  - **`AtomicInteger`** (`one.dastec.javaw.concurrent.AtomicInteger`): High-level atomic integer operations (`get`, `set`, `getAndSet`, `compareAndSet`, `getAndAdd`, `addAndGet`, `incrementAndGet`, `decrementAndGet`, and bitwise atomics `getAndAnd`, `getAndOr`, `getAndXor`) lowered to `i32.atomic.load`, `i32.atomic.store`, and `i32.atomic.rmw.*`.
+  - **`Atomics`** (`one.dastec.javaw.concurrent.Atomics`): Low-level array atomic primitives (`load`, `store`, `add`, `sub`, `and`, `or`, `xor`, `exchange`, `compareExchange`, `wait` via `memory.atomic.wait32`, and `notify` via `memory.atomic.notify`).
+  - **`WasmThread`** (`one.dastec.javaw.concurrent.WasmThread`): Web Worker thread management, entry point dispatching (`spawn`), thread sleep (`sleep`), thread ID discovery (`currentThreadId`), and CPU core detection (`hardwareConcurrency`).
 - **WASI Target Support & Virtual File System (VFS)**:
   - Standard Java I/O stream lowering: `System.out.println`, `System.out.print`, `System.err.println`, `System.err.print`, and `System.exit(code)` lowered to WASI `fd_write` and `proc_exit`.
   - Automated linear memory string buffering and typed output conversion for strings, integers, floats, doubles, booleans, and characters.
-  - Strongly typed `WASI` facade (`dastec.one.javaw.wasi.WASI`) with `print`, `println`, `eprint`, `eprintln`, `exit`, `fdWrite`, `procExit`, `readString`, `writeString`, `appendString`, `fileExists`, `fileLength`, `deleteFile`, `createDirectory`, `open`, `close`, `seek`, `currentTimeMillis`, and `randomInt`.
-  - Object-oriented file abstraction (`dastec.one.javaw.wasi.WASIFile`) supporting `readString()`, `writeString(content)`, `appendString(content)`, `exists()`, `length()`, `delete()`, and `mkdir()`.
+  - Strongly typed `WASI` facade (`one.dastec.javaw.wasi.WASI`) with `print`, `println`, `eprint`, `eprintln`, `exit`, `fdWrite`, `procExit`, `readString`, `writeString`, `appendString`, `fileExists`, `fileLength`, `deleteFile`, `createDirectory`, `open`, `close`, `seek`, `currentTimeMillis`, and `randomInt`.
+  - Object-oriented file abstraction (`one.dastec.javaw.wasi.WASIFile`) supporting `readString()`, `writeString(content)`, `appendString(content)`, `exists()`, `length()`, `delete()`, and `mkdir()`.
   - Built-in Virtual File System (VFS) in `javaw-runtime.js` supporting file descriptor tables, in-memory mounting (`runtime.mount`), virtual sandboxing, file queries, clocks, and random sources across browser and Node.js environments.
 - **In-Memory Java Compiler API & Embedded REPL**:
   - Programmatic in-memory compilation via `JavacToWasm.compile(String javaSource)` returning compiled WAT strings and executable WASM byte arrays (`byte[]`) without requiring disk I/O.
   - Enables embedding Java compilation directly inside web IDEs, REPLs, and automated test runners.
 - **Generic JavaScript Dynamic Interop (`JSObject`)**:
-  - `dastec.one.javaw.dom.JSObject`: Dynamic evaluation and interaction with arbitrary browser JavaScript objects without pre-declared static imports.
+  - `one.dastec.javaw.dom.JSObject`: Dynamic evaluation and interaction with arbitrary browser JavaScript objects without pre-declared static imports.
   - Global scope access (`JSObject.global()`, `JSObject.getWindow()`) and dynamic expression execution (`JSObject.eval(code)`).
   - Object & array instantiation (`createObject()`, `createArray()`).
   - Typed property accessors & mutators (`get`, `getString`, `getInt`, `getDouble`, `getBoolean`, `set`).
   - Dynamic method invocations (`call`, `callString`, `callInt`, `callDouble`, `callBoolean`).
   - Type conversions (`asString`, `asInt`, `asDouble`, `asBoolean`) and array indexing operations (`isArray`, `length`, `getIndex`, `setIndex`, `push`).
 - **Asynchronous Browser Interop & Window APIs (`Window`)**:
-  - `dastec.one.javaw.dom.Window`: Browser window facade for timers and asynchronous browser events.
+  - `one.dastec.javaw.dom.Window`: Browser window facade for timers and asynchronous browser events.
   - Timers: `Window.setTimeout(handler, ms)`, `Window.clearTimeout(id)`, `Window.setInterval(handler, ms)`, `Window.clearInterval(id)`.
   - Animation loop scheduling: `Window.requestAnimationFrame(handler)`, `Window.cancelAnimationFrame(id)`.
   - Asynchronous HTTP Fetch: `Window.fetch(url, callbackHandler)` with automated response string decoding.
@@ -213,19 +214,19 @@ Phase 1 source-resolution foundations and source-backed Optional/closures are im
 - **Dynamic Strings & StringBuilder**:
   - Runtime string concatenation via `+` and `+=` operators (supporting strings, integers, characters, and booleans).
   - Built-in string methods: `length()`, `charAt(index)`, `substring(start, end)`, `equals(other)`, `indexOf(str)`, `concat(str)`, and `isEmpty()`.
-  - Dynamic `StringBuilder` (`dastec.one.javaw.util.StringBuilder`) with chained `append(...)`, `setCharAt(...)`, and `toString()`.
+  - Dynamic `StringBuilder` (`one.dastec.javaw.util.StringBuilder`) with chained `append(...)`, `setCharAt(...)`, and `toString()`.
 - **Comprehensive Control Flow**:
   - `if-then-else` conditional branching.
   - `while` loops, standard `for` loops, and enhanced `for-each` loops over arrays.
   - `switch` statements and `switch` expressions (with `yield`, case matching, and fallthrough).
   - Labeled `break` and `continue` statements for targeted outer loop/block exits.
 - **Rich DOM & UI Manipulation Facades**:
-  - `dastec.one.javaw.dom.DOM`: Static methods such as `getElementById`, `createElement`, `getBody`, `querySelector`, `querySelectorAll`, and `getCanvasContext2D`.
-  - `dastec.one.javaw.dom.Element`: DOM tree mutations (`appendChild`, `removeChild`, `remove`, `getParent`), attribute & style controls (`setAttribute`, `getAttribute`, `setStyle`, `getStyle`), text & form values (`setInnerText`, `getInnerText`, `getValue`, `setValue`, `isChecked`, `setChecked`), and event handling (`addEventListener`).
-  - `dastec.one.javaw.dom.ClassList`: Dynamic CSS class token list management (`addClass`, `removeClass`, `hasClass`, `toggleClass`, `getClassList`).
+  - `one.dastec.javaw.dom.DOM`: Static methods such as `getElementById`, `createElement`, `getBody`, `querySelector`, `querySelectorAll`, and `getCanvasContext2D`.
+  - `one.dastec.javaw.dom.Element`: DOM tree mutations (`appendChild`, `removeChild`, `remove`, `getParent`), attribute & style controls (`setAttribute`, `getAttribute`, `setStyle`, `getStyle`), text & form values (`setInnerText`, `getInnerText`, `getValue`, `setValue`, `isChecked`, `setChecked`), and event handling (`addEventListener`).
+  - `one.dastec.javaw.dom.ClassList`: Dynamic CSS class token list management (`addClass`, `removeClass`, `hasClass`, `toggleClass`, `getClassList`).
 - **HTML5 Canvas 2D & WebGL Graphics**:
-  - `dastec.one.javaw.dom.CanvasRenderingContext2D`: Full 2D drawing pipeline including path creation (`beginPath`, `closePath`, `moveTo`, `lineTo`, `arc`, `rect`, `ellipse`), shape drawing (`fillRect`, `strokeRect`, `clearRect`, `fill`, `stroke`), text rendering (`fillText`, `strokeText`), image/canvas blitting (`drawImage`), styling (`fillStyle`, `strokeStyle`, `lineWidth`, `font`, `textAlign`, `globalAlpha`), and matrix transforms (`save`, `restore`, `translate`, `rotate`, `scale`, `resetTransform`).
-  - `dastec.one.javaw.dom.WebGLRenderingContext`: Hardware-accelerated 3D graphics context (`clearColor`, `clear`, `viewport`, `enable`, `disable`, and buffer mask / capability constants).
+  - `one.dastec.javaw.dom.CanvasRenderingContext2D`: Full 2D drawing pipeline including path creation (`beginPath`, `closePath`, `moveTo`, `lineTo`, `arc`, `rect`, `ellipse`), shape drawing (`fillRect`, `strokeRect`, `clearRect`, `fill`, `stroke`), text rendering (`fillText`, `strokeText`), image/canvas blitting (`drawImage`), styling (`fillStyle`, `strokeStyle`, `lineWidth`, `font`, `textAlign`, `globalAlpha`), and matrix transforms (`save`, `restore`, `translate`, `rotate`, `scale`, `resetTransform`).
+  - `one.dastec.javaw.dom.WebGLRenderingContext`: Hardware-accelerated 3D graphics context (`clearColor`, `clear`, `viewport`, `enable`, `disable`, and buffer mask / capability constants).
   - Canvas dimension controls on `Element` (`getWidth`, `setWidth`, `getHeight`, `setHeight`) and direct context accessors (`element.getContext2D()`, `element.getWebGLContext()`).
 - **Automatic Host Import Generation**: Automatically detects DOM, Canvas 2D, WebGL, Window, Atomics, and WASI method invocations and emits corresponding `(import "dom" ...)` and `(import "wasi_snapshot_preview1" ...)` declarations.
 - **Lightweight Browser Runtime Bridge (`javaw-runtime.js`)**:
@@ -257,7 +258,7 @@ Phase 1 source-resolution foundations and source-backed Optional/closures are im
 │   ├── pom.xml                            # Core module POM (shaded standalone CLI executable)
 │   ├── src
 │   │   ├── main
-│   │   │   ├── java/dastec/one/javaw
+│   │   │   ├── java/one/dastec/javaw
 │   │   │   │   ├── JavacToWasm.java       # Compiler coordinator & programmatic compilation API
 │   │   │   │   ├── WasmGeneratorVisitor.java # AST visitor lowering Java statements & expressions
 │   │   │   │   ├── WasmRuntime.java       # WebAssembly linear memory runtime routines (heap, strings, arrays)
@@ -336,7 +337,7 @@ Phase 1 source-resolution foundations and source-backed Optional/closures are im
 │   │   │   └── resources
 │   │   │       └── javaw-runtime.js       # JavaScript WebAssembly host runtime bridge
 │   │   └── test
-│   │       ├── java/dastec/one/javaw
+│   │       ├── java/one/dastec/javaw
 │   │       │   ├── App.java               # Java DOM & interactive event demo application
 │   │       │   ├── AppBrowserTest.java    # Playwright headless browser integration test suite
 │   │       │   ├── JavacToWasmTest.java   # JUnit 5 compiler unit test suite
@@ -347,7 +348,7 @@ Phase 1 source-resolution foundations and source-backed Optional/closures are im
 ├── javaw-bytecode                     # Bytecode compiler & local repository cache module
 │   ├── pom.xml                        # ASM dependencies (asm, asm-tree, asm-analysis, asm-commons)
 │   └── src
-│       ├── main/java/dastec/one/javaw/bytecode
+│       ├── main/java/one/dastec/javaw/bytecode
 │       │   ├── BytecodeCompiler.java       # Bytecode and JAR compilation orchestrator
 │       │   ├── ClassBytecodeCompiler.java  # Individual .class file bytecode translator
 │       │   ├── TypeHelper.java             # JVM descriptor to WebAssembly type mapper
@@ -364,16 +365,16 @@ Phase 1 source-resolution foundations and source-backed Optional/closures are im
 │       │   └── lowering
 │       │       ├── BytecodeInstructionVisitor.java # JVM bytecode to WebAssembly instruction lowering
 │       │       └── StackToLocalMapper.java # JVM operand stack to WebAssembly local variable mapper
-│       └── test/java/dastec/one/javaw/bytecode
+│       └── test/java/one/dastec/javaw/bytecode
 │           ├── BytecodeCompilerTest.java   # Synthetic class compilation and execution tests
 │           ├── LocalM2CacheManagerTest.java # Cache hit/miss and SHA-256 invalidation tests
 │           └── RelooperTest.java           # Relooper control flow structuring unit tests
 ├── javaw-maven-plugin                     # Maven Plugin module automating Java-to-WASM compilation
 │   ├── pom.xml                            # Plugin packaging and maven-plugin-tools descriptor configuration
 │   └── src
-│       ├── main/java/dastec/one/javaw/plugin
+│       ├── main/java/one/dastec/javaw/plugin
 │       │   └── CompileMojo.java           # Mojo for goal javaw:compile (process-classes phase)
-│       └── test/java/dastec/one/javaw/plugin
+│       └── test/java/one/dastec/javaw/plugin
 │           └── CompileMojoTest.java       # Unit tests for Mojo configuration and defaults
 └── examples                               # Interactive demo child module built via javaw-maven-plugin
     ├── pom.xml                            # Examples POM consuming javaw-core and running javaw-maven-plugin
@@ -529,14 +530,14 @@ java -jar javaw-core/target/javaw-core-1.0-SNAPSHOT.jar src/main/java/dastec/one
 To skip the `wasm-opt` optimization pass during development:
 
 ```bash
-java -jar javaw-core/target/javaw-core-1.0-SNAPSHOT.jar --no-opt src/test/java/dastec/one/javaw/App.java
+java -jar javaw-core/target/javaw-core-1.0-SNAPSHOT.jar --no-opt src/test/java/one/dastec/javaw/App.java
 ```
 
 #### Generating Source Maps
 To generate standard Source Map v3 files (`.wat.map` and `.wasm.map`) with embedded source locations for DevTools step-through debugging:
 
 ```bash
-java -jar javaw-core/target/javaw-core-1.0-SNAPSHOT.jar --source-map src/test/java/dastec/one/javaw/App.java
+java -jar javaw-core/target/javaw-core-1.0-SNAPSHOT.jar --source-map src/test/java/one/dastec/javaw/App.java
 ```
 
 This generates:
@@ -552,7 +553,7 @@ This generates:
 #### Example A: Pure Computation (`TestClass.java`)
 
 ```java
-package dastec.one.javaw;
+package one.dastec.javaw;
 
 public class TestClass {
     public int addNumbers(int a, int b) {
@@ -567,7 +568,7 @@ public class TestClass {
 
 Compile the file:
 ```bash
-java -jar target/javaw-1.0-SNAPSHOT.jar src/test/java/dastec/one/javaw/TestClass.java
+java -jar target/javaw-1.0-SNAPSHOT.jar src/test/java/one/dastec/javaw/TestClass.java
 ```
 
 ---
@@ -575,9 +576,9 @@ java -jar target/javaw-1.0-SNAPSHOT.jar src/test/java/dastec/one/javaw/TestClass
 #### Example B: Dynamic Strings, Arrays & `StringBuilder`
 
 ```java
-package dastec.one.javaw;
+package one.dastec.javaw;
 
-import dastec.one.javaw.util.StringBuilder;
+import one.dastec.javaw.util.StringBuilder;
 
 public class StringArrayDemo {
     public String buildMessage(int[] values) {
@@ -598,7 +599,7 @@ public class StringArrayDemo {
 #### Example C: Object-Oriented Programming & Polymorphism
 
 ```java
-package dastec.one.javaw;
+package one.dastec.javaw;
 
 abstract class Shape {
     protected int x;
@@ -644,10 +645,10 @@ public class GeometryApp {
 #### Example D: Interactive DOM & Browser Event Handling (`App.java`)
 
 ```java
-package dastec.one.javaw;
+package one.dastec.javaw;
 
-import dastec.one.javaw.dom.DOM;
-import dastec.one.javaw.dom.Element;
+import one.dastec.javaw.dom.DOM;
+import one.dastec.javaw.dom.Element;
 
 public class App {
     private static int counter = 0;
@@ -683,11 +684,11 @@ public class App {
 #### Example E: HTML5 Canvas 2D Graphics
 
 ```java
-package dastec.one.javaw;
+package one.dastec.javaw;
 
-import dastec.one.javaw.dom.DOM;
-import dastec.one.javaw.dom.Element;
-import dastec.one.javaw.dom.CanvasRenderingContext2D;
+import one.dastec.javaw.dom.DOM;
+import one.dastec.javaw.dom.Element;
+import one.dastec.javaw.dom.CanvasRenderingContext2D;
 
 public class CanvasDemo {
     public void render() {
@@ -721,11 +722,11 @@ public class CanvasDemo {
 #### Example F: WebAssembly Threads & Atomic Operations
 
 ```java
-package dastec.one.javaw;
+package one.dastec.javaw;
 
-import dastec.one.javaw.concurrent.AtomicInteger;
-import dastec.one.javaw.concurrent.Atomics;
-import dastec.one.javaw.concurrent.WasmThread;
+import one.dastec.javaw.concurrent.AtomicInteger;
+import one.dastec.javaw.concurrent.Atomics;
+import one.dastec.javaw.concurrent.WasmThread;
 
 public class ThreadDemo {
     public static void runWorker() {
@@ -755,9 +756,9 @@ public class ThreadDemo {
 #### Example G: WASI Target & Standard I/O
 
 ```java
-package dastec.one.javaw;
+package one.dastec.javaw;
 
-import dastec.one.javaw.wasi.WASI;
+import one.dastec.javaw.wasi.WASI;
 
 public class WasiApp {
     public static void main(String[] args) {
@@ -778,10 +779,10 @@ public class WasiApp {
 #### Example H: Generic Dynamic JavaScript Interop & Async APIs
 
 ```java
-package dastec.one.javaw;
+package one.dastec.javaw;
 
-import dastec.one.javaw.dom.JSObject;
-import dastec.one.javaw.dom.Window;
+import one.dastec.javaw.dom.JSObject;
+import one.dastec.javaw.dom.Window;
 
 public class DynamicJsDemo {
     public void setup() {
@@ -814,7 +815,7 @@ public class DynamicJsDemo {
 #### Example I: WebAssembly Exception Handling (`try-catch-finally`, `throw`, `multi-catch`)
 
 ```java
-package dastec.one.javaw;
+package one.dastec.javaw;
 
 class ValidationException extends Exception {
     private int errorCode;
@@ -864,7 +865,7 @@ public class ExceptionDemo {
 #### Example J: WebAssembly Multi-Value Returns & Java Records
 
 ```java
-package dastec.one.javaw;
+package one.dastec.javaw;
 
 // Record definitions compiled to WebAssembly multi-value signatures
 record Point(int x, int y) {}
@@ -901,7 +902,7 @@ public class RecordDemo {
 #### Example K: Bulk Memory Operations & Fast Array Utilities (`System.arraycopy`, `Arrays.*`)
 
 ```java
-package dastec.one.javaw;
+package one.dastec.javaw;
 
 import java.util.Arrays;
 
@@ -933,10 +934,10 @@ public class BulkMemoryDemo {
 #### Example L: Extended WASI & Virtual File System (VFS)
 
 ```java
-package dastec.one.javaw;
+package one.dastec.javaw;
 
-import dastec.one.javaw.wasi.WASI;
-import dastec.one.javaw.wasi.WASIFile;
+import one.dastec.javaw.wasi.WASI;
+import one.dastec.javaw.wasi.WASIFile;
 
 public class VfsDemo {
     public static String handleFiles() {
@@ -962,7 +963,7 @@ public class VfsDemo {
 #### Example M: Programmatic In-Memory Compilation API
 
 ```java
-import dastec.one.javaw.JavacToWasm;
+import one.dastec.javaw.JavacToWasm;
 
 public class CompilerHost {
     public static void main(String[] args) {
@@ -985,10 +986,10 @@ public class CompilerHost {
 #### Example N: Fixed-Width SIMD Vectorization (128-bit)
 
 ```java
-package dastec.one.javaw;
+package one.dastec.javaw;
 
-import dastec.one.javaw.simd.Float32x4;
-import dastec.one.javaw.simd.Int32x4;
+import one.dastec.javaw.simd.Float32x4;
+import one.dastec.javaw.simd.Int32x4;
 
 public class SimdDemo {
     public static float calculateVectorMath() {
@@ -1024,9 +1025,9 @@ public class SimdDemo {
 #### Example O: WebAssembly Multi-Memory Segregation & Isolation (`Memory`)
 
 ```java
-package dastec.one.javaw;
+package one.dastec.javaw;
 
-import dastec.one.javaw.memory.Memory;
+import one.dastec.javaw.memory.Memory;
 
 public class MultiMemoryDemo {
     public static int processIsolatedMemories(int baseValue) {
@@ -1059,10 +1060,10 @@ public class MultiMemoryDemo {
 Generate Source Map v3 mappings programmatically or via CLI for step-through debugging inside browser Developer Tools:
 
 ```java
-package dastec.one.javaw;
+package one.dastec.javaw;
 
-import dastec.one.javaw.sourcemap.SourceMap;
-import dastec.one.javaw.sourcemap.MappingEntry;
+import one.dastec.javaw.sourcemap.SourceMap;
+import one.dastec.javaw.sourcemap.MappingEntry;
 
 public class SourceMapDemo {
     public static void main(String[] args) {
@@ -1105,9 +1106,9 @@ public class SourceMapDemo {
 Use `@JS` and `@JS.Coerce` annotations to execute inline JavaScript expressions directly from Java `native` methods across the WebAssembly-to-JavaScript boundary:
 
 ```java
-package dastec.one.javaw;
+package one.dastec.javaw;
 
-import dastec.one.javaw.js.JS;
+import one.dastec.javaw.js.JS;
 
 public class InlineJsDemo {
     // Mathematical and browser operations written in inline JavaScript
@@ -1159,18 +1160,18 @@ public class InlineJsDemo {
 Manipulate arbitrary JavaScript values with strong type safety, explicit runtime reflections, and error inspection:
 
 ```java
-package dastec.one.javaw;
+package one.dastec.javaw;
 
-import dastec.one.javaw.dom.JSBigInt;
-import dastec.one.javaw.dom.JSBoolean;
-import dastec.one.javaw.dom.JSError;
-import dastec.one.javaw.dom.JSNull;
-import dastec.one.javaw.dom.JSNumber;
-import dastec.one.javaw.dom.JSObject;
-import dastec.one.javaw.dom.JSString;
-import dastec.one.javaw.dom.JSSymbol;
-import dastec.one.javaw.dom.JSUndefined;
-import dastec.one.javaw.dom.JSValue;
+import one.dastec.javaw.dom.JSBigInt;
+import one.dastec.javaw.dom.JSBoolean;
+import one.dastec.javaw.dom.JSError;
+import one.dastec.javaw.dom.JSNull;
+import one.dastec.javaw.dom.JSNumber;
+import one.dastec.javaw.dom.JSObject;
+import one.dastec.javaw.dom.JSString;
+import one.dastec.javaw.dom.JSSymbol;
+import one.dastec.javaw.dom.JSUndefined;
+import one.dastec.javaw.dom.JSValue;
 
 public class JsValueHierarchyDemo {
     public static void run() {
@@ -1213,16 +1214,16 @@ public class JsValueHierarchyDemo {
 Bind standard browser and JavaScript global objects (`Date`, `Math`, `JSON`, `console`, `localStorage`) directly into strongly-typed Java facades:
 
 ```java
-package dastec.one.javaw;
+package one.dastec.javaw;
 
-import dastec.one.javaw.dom.JSObject;
-import dastec.one.javaw.dom.JSValue;
-import dastec.one.javaw.js.JS;
-import dastec.one.javaw.js.JSConsole;
-import dastec.one.javaw.js.JSDate;
-import dastec.one.javaw.js.JSJSON;
-import dastec.one.javaw.js.JSMath;
-import dastec.one.javaw.js.JSStorage;
+import one.dastec.javaw.dom.JSObject;
+import one.dastec.javaw.dom.JSValue;
+import one.dastec.javaw.js.JS;
+import one.dastec.javaw.js.JSConsole;
+import one.dastec.javaw.js.JSDate;
+import one.dastec.javaw.js.JSJSON;
+import one.dastec.javaw.js.JSMath;
+import one.dastec.javaw.js.JSStorage;
 
 // Custom browser API binding
 @JS.Import("WebSocket")
@@ -1268,9 +1269,9 @@ public class JsImportDemo {
 Annotate Java classes with `@JS.Export` to allow JavaScript code to instantiate Java classes natively, pass arguments to constructors, and invoke instance or static methods:
 
 ```java
-package dastec.one.javaw;
+package one.dastec.javaw;
 
-import dastec.one.javaw.js.JS;
+import one.dastec.javaw.js.JS;
 
 @JS.Export("Counter")
 public class ExportedCounter {
@@ -1329,10 +1330,10 @@ console.log(Counter.multiply(6, 7));  // 42
 Embed JavaScript helper functions, stylesheet assets, and JSON configurations into compiled WebAssembly modules and interact with them using `JSResource`:
 
 ```java
-package dastec.one.javaw;
+package one.dastec.javaw;
 
-import dastec.one.javaw.js.JS;
-import dastec.one.javaw.js.JSResource;
+import one.dastec.javaw.js.JS;
+import one.dastec.javaw.js.JSResource;
 
 // Bundle JavaScript script executed upon WebAssembly module initialization
 @JS.Code("function initChartLibrary() { console.log('Chart library initialized'); }")
@@ -1371,9 +1372,9 @@ public class AssetDemo {
 Build interactive command-line interfaces, diagnostic shells, or REPLs that run directly inside the browser using standard I/O streams and ANSI escape styling:
 
 ```java
-package dastec.one.javaw;
+package one.dastec.javaw;
 
-import dastec.one.javaw.terminal.Terminal;
+import one.dastec.javaw.terminal.Terminal;
 
 public class ShellApp {
 
@@ -1428,12 +1429,12 @@ runtime.instance.exports.runShell();
 Author idiomatic Java code using standard mathematical functions, wrapper utilities, enums with `switch` statements, `try-with-resources` automatic cleanup, multithreaded tasks, and static class reflection:
 
 ```java
-package dastec.one.javaw;
+package one.dastec.javaw;
 
-import dastec.one.javaw.lang.AutoCloseable;
-import dastec.one.javaw.lang.Class;
-import dastec.one.javaw.lang.Runnable;
-import dastec.one.javaw.lang.Thread;
+import one.dastec.javaw.lang.AutoCloseable;
+import one.dastec.javaw.lang.Class;
+import one.dastec.javaw.lang.Runnable;
+import one.dastec.javaw.lang.Thread;
 
 enum Status {
     PENDING,
@@ -1527,7 +1528,7 @@ public class StandardLibraryDemo {
 Use standard Apache Log4j2 APIs for category-based logging, dynamic severity thresholding, ThreadContext (MDC) tracing, and parameterized message formatting in WebAssembly:
 
 ```java
-package dastec.one.javaw;
+package one.dastec.javaw;
 
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
@@ -1664,7 +1665,7 @@ Include `javaw-runtime.js` and instantiate the WebAssembly module:
     <script src="javaw-core/src/main/resources/javaw-runtime.js"></script>
     <script>
         async function run() {
-            const response = await fetch('javaw-core/src/test/java/dastec/one/javaw/App.wasm');
+            const response = await fetch('javaw-core/src/test/java/one/dastec/javaw/App.wasm');
             const wasmBytes = await response.arrayBuffer();
             const { exports } = await Javaw.instantiateJavaw(wasmBytes);
             
@@ -1725,9 +1726,9 @@ A raw returned pointer is borrowed until the next collection. Hosts that store i
 
 Java assertions compile to Wasm and are disabled by default. Modules containing `assert` export `__javaw_set_assertions(boolean)`; hosts can call `instance.exports.__javaw_set_assertions(1)` before invoking application exports. Disabled assertions evaluate neither condition nor detail; enabled failures throw `AssertionError extends Error`, with a stringified detail. Typed catch dispatch preserves the Error/Exception distinction, including single and union catches. Per-class/package assertion policies and AssertionError cause chaining are not implemented.
 
-The compiler rejects synchronized blocks/methods, volatile fields, non-static inner/local/anonymous classes, and native methods without `@JS`/`@JS.Import` implementations with source locations and remediation. Move non-static inner implementations to top-level classes. Explicit atomic facades do not provide a general Java Memory Model or worker-safe heap. These boundaries are covered by [SourceRuntimeSupportTest](javaw-core/src/test/java/dastec/one/javaw/SourceRuntimeSupportTest.java).
+The compiler rejects synchronized blocks/methods, volatile fields, non-static inner/local/anonymous classes, and native methods without `@JS`/`@JS.Import` implementations with source locations and remediation. Move non-static inner implementations to top-level classes. Explicit atomic facades do not provide a general Java Memory Model or worker-safe heap. These boundaries are covered by [SourceRuntimeSupportTest](javaw-core/src/test/java/one/dastec/javaw/SourceRuntimeSupportTest.java).
 
-Host-independent `java.io` byte streams now include InputStream/OutputStream bulk operations and ByteArrayInputStream/ByteArrayOutputStream storage, growth, read/write, unsigned reads, skip, available, mark/reset, copy isolation, and no-op close. [IoSupportTest](javaw-core/src/test/java/dastec/one/javaw/IoSupportTest.java) executes this subset in Wasm. Charset conversion, file/socket streams, NIO, serialization, and concurrent stream access remain pending; the byte-stream implementation does not provide Java monitor semantics.
+Host-independent `java.io` byte streams now include InputStream/OutputStream bulk operations and ByteArrayInputStream/ByteArrayOutputStream storage, growth, read/write, unsigned reads, skip, available, mark/reset, copy isolation, and no-op close. [IoSupportTest](javaw-core/src/test/java/one/dastec/javaw/IoSupportTest.java) executes this subset in Wasm. Charset conversion, file/socket streams, NIO, serialization, and concurrent stream access remain pending; the byte-stream implementation does not provide Java monitor semantics.
 
 Host-independent character streams now include `Reader`/`Writer`, `StringReader`/`StringWriter`, `CharArrayReader`/`CharArrayWriter`, and `BufferedReader`/`BufferedWriter`, with `Closeable`, `Flushable`, and writer `Appendable` dispatch. `IoSupportTest` executes buffered CR/LF/CRLF line reading, repeated EOF and mark/reset, backward StringReader skipping, growth and copy isolation, close cleanup after write failures, and bounds/null errors in Wasm. The compiler also distinguishes ordinary object fields named `length` from array headers. String conversion is currently limited by the byte-oriented string runtime; full UTF-16 semantics, `StringBuffer`/`StringWriter.getBuffer()`, charset bridges, newer stream convenience APIs, and thread-safe stream operations remain pending. See [the character-stream contract](docs/character-streams.md).
 
@@ -1748,39 +1749,39 @@ The bytecode backend now executes `TABLESWITCH` and `LOOKUPSWITCH` through selec
 
 This completes a prerequisite of the next open Todo item. Actual H2 SQL and full Spring/Hibernate execution remain unimplemented: object/virtual dispatch, typed bytecode, exceptions, class initialization, and JDK/framework linkage still need substantial work. The Spring example continues to use its documented in-memory API subset. Validation: `mvn -o -pl javaw-bytecode -am -Dtest=BytecodeCompatibilityTest,BytecodeCompilerTest,RelooperTest -Dsurefire.failIfNoSpecifiedTests=false test` (10 tests passed).
 
-The next completed bytecode prerequisite adds linked `NEW`/`GETFIELD`/`PUTFIELD` for concrete classes extending `Object` directly. Allocation uses the actual field layout size and clears dirty host memory to Java defaults; constructor calls initialize fields, references preserve aliases/cycles, and null field access traps. Executable tests cover objects larger than the former provisional 64-byte allocation and consistent cross-class layouts in a JAR. Inherited layouts, virtual dispatch, catchable null exceptions, and actual H2/framework execution remain pending. See [the bytecode object contract](docs/compatibility.md#bytecode-object-allocation-contract). Validation: `mvn -o -pl javaw-bytecode -am -Dtest='dastec.one.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false test` (12 tests passed).
+The next completed bytecode prerequisite adds linked `NEW`/`GETFIELD`/`PUTFIELD` for concrete classes extending `Object` directly. Allocation uses the actual field layout size and clears dirty host memory to Java defaults; constructor calls initialize fields, references preserve aliases/cycles, and null field access traps. Executable tests cover objects larger than the former provisional 64-byte allocation and consistent cross-class layouts in a JAR. Inherited layouts, virtual dispatch, catchable null exceptions, and actual H2/framework execution remain pending. See [the bytecode object contract](docs/compatibility.md#bytecode-object-allocation-contract). Validation: `mvn -o -pl javaw-bytecode -am -Dtest='one.dastec.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false test` (12 tests passed).
 
-Inherited object layouts are now supported by the bytecode backend. A subclass retains its superclass payload as a prefix and appends its own fields, so superclass constructors and parent-typed aliases use consistent storage. Hidden fields resolve by symbolic owner, name, and descriptor, including inherited field references naming a subclass. Layout construction supports abstract intermediate classes and is independent of JAR entry order; missing/cyclic superclass chains fail with diagnostics. Virtual/interface dispatch, typed numeric bytecode, exceptions, class initialization, and full H2/Spring/Hibernate execution remain open. Validation: `mvn -o -pl javaw-bytecode -am -Dtest='dastec.one.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false test` (14 tests passed).
+Inherited object layouts are now supported by the bytecode backend. A subclass retains its superclass payload as a prefix and appends its own fields, so superclass constructors and parent-typed aliases use consistent storage. Hidden fields resolve by symbolic owner, name, and descriptor, including inherited field references naming a subclass. Layout construction supports abstract intermediate classes and is independent of JAR entry order; missing/cyclic superclass chains fail with diagnostics. Virtual/interface dispatch, typed numeric bytecode, exceptions, class initialization, and full H2/Spring/Hibernate execution remain open. Validation: `mvn -o -pl javaw-bytecode -am -Dtest='one.dastec.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false test` (14 tests passed).
 
-The next completed bytecode prerequisite adds closed-world public virtual/interface calls. Objects carry a module-local class ID; dispatch selects the most-derived linked class implementation, including inherited methods and calls through interface references. Wasm regressions cover constructor-time dispatch, direct super calls, nested arguments, void/reference results, and null/unrelated receiver traps. Non-public virtual calls receive diagnostics; public interface default support is described below. Full JVM dispatch semantics and H2/Spring/Hibernate execution remain open. See [the dispatch contract](docs/compatibility.md#bytecode-dynamic-dispatch-contract). Validation: `mvn -o -pl javaw-bytecode -am -Dtest='dastec.one.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false test` (16 tests passed).
+The next completed bytecode prerequisite adds closed-world public virtual/interface calls. Objects carry a module-local class ID; dispatch selects the most-derived linked class implementation, including inherited methods and calls through interface references. Wasm regressions cover constructor-time dispatch, direct super calls, nested arguments, void/reference results, and null/unrelated receiver traps. Non-public virtual calls receive diagnostics; public interface default support is described below. Full JVM dispatch semantics and H2/Spring/Hibernate execution remain open. See [the dispatch contract](docs/compatibility.md#bytecode-dynamic-dispatch-contract). Validation: `mvn -o -pl javaw-bytecode -am -Dtest='one.dastec.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false test` (16 tests passed).
 
-Public interface default methods now execute in the bytecode backend. Dispatch selects the most-specific default through interface diamonds, gives class declarations precedence, and honors abstract redeclarations. Direct and inherited `Interface.super` calls bind to their resolved default. Executable Wasm tests cover nested/default-to-abstract calls, void/reference results, superclass overrides, and call-site diagnostics for conflicting defaults or missing implementations. Non-public virtual calls and the remaining H2/runtime foundations stay open. See [the dispatch contract](docs/compatibility.md#bytecode-dynamic-dispatch-contract). Validation: `mvn -o -pl javaw-bytecode -am -Dtest='dastec.one.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false test` (18 tests passed).
+Public interface default methods now execute in the bytecode backend. Dispatch selects the most-specific default through interface diamonds, gives class declarations precedence, and honors abstract redeclarations. Direct and inherited `Interface.super` calls bind to their resolved default. Executable Wasm tests cover nested/default-to-abstract calls, void/reference results, superclass overrides, and call-site diagnostics for conflicting defaults or missing implementations. Non-public virtual calls and the remaining H2/runtime foundations stay open. See [the dispatch contract](docs/compatibility.md#bytecode-dynamic-dispatch-contract). Validation: `mvn -o -pl javaw-bytecode -am -Dtest='one.dastec.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false test` (18 tests passed).
 
-Private bytecode class/interface helpers now execute with their declaring-method binding, so same-named subclass methods cannot redirect them. Calls support private overloads, void/reference results, and validated nestmate access, including private constructors and static helpers. Same-class calls need no nest metadata; nestmate calls require a linked host, reciprocal same-package NestHost/NestMembers metadata, and receive call-site diagnostics when invalid. Wasm regressions also execute Java 8 private INVOKESPECIAL bytecode and verify null/argument behavior. Protected/package virtual calls and the remaining H2/runtime foundations stay open. See [the private-method contract](docs/compatibility.md#private-bytecode-methods-and-nests). Validation: `mvn -o -pl javaw-bytecode -am -Dtest='dastec.one.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false test` (23 tests passed).
+Private bytecode class/interface helpers now execute with their declaring-method binding, so same-named subclass methods cannot redirect them. Calls support private overloads, void/reference results, and validated nestmate access, including private constructors and static helpers. Same-class calls need no nest metadata; nestmate calls require a linked host, reciprocal same-package NestHost/NestMembers metadata, and receive call-site diagnostics when invalid. Wasm regressions also execute Java 8 private INVOKESPECIAL bytecode and verify null/argument behavior. Protected/package virtual calls and the remaining H2/runtime foundations stay open. See [the private-method contract](docs/compatibility.md#private-bytecode-methods-and-nests). Validation: `mvn -o -pl javaw-bytecode -am -Dtest='one.dastec.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false test` (23 tests passed).
 
-Protected and package-access virtual methods now execute in the bytecode backend with caller access checks. Package-private methods retain their own dispatch slots across package boundaries, while same-package overrides that widen access permit later cross-package overrides. Protected calls outside the declaring package restrict receivers to the caller class or subclasses. Multi-package Wasm regressions match JVM execution; additional tests reject inaccessible callers and trap base/sibling receivers. Full JVM linkage/access verification and the remaining H2/runtime foundations stay open. See [the access and override contract](docs/compatibility.md#protected-and-package-access-virtual-methods). Validation: `mvn -o -pl javaw-bytecode -am -Dtest='dastec.one.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false test` (26 tests passed).
+Protected and package-access virtual methods now execute in the bytecode backend with caller access checks. Package-private methods retain their own dispatch slots across package boundaries, while same-package overrides that widen access permit later cross-package overrides. Protected calls outside the declaring package restrict receivers to the caller class or subclasses. Multi-package Wasm regressions match JVM execution; additional tests reject inaccessible callers and trap base/sibling receivers. Full JVM linkage/access verification and the remaining H2/runtime foundations stay open. See [the access and override contract](docs/compatibility.md#protected-and-package-access-virtual-methods). Validation: `mvn -o -pl javaw-bytecode -am -Dtest='one.dastec.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false test` (26 tests passed).
 
-Long bytecode now executes with typed i64 locals and operand-stack values, mixed int/long parameter positions, inherited/hidden long fields, constants, arithmetic, shifts, comparisons, conversions, and category-two stack operations. Wasm regressions cover signed extremes, division overflow, branch joins, slot reuse, field increments, and long default/virtual calls; field/call results match JVM execution. The cache revision was bumped for the changed layout. Division by zero still traps; the remaining H2/runtime foundations stay open. See [the long-bytecode contract](docs/compatibility.md#long-bytecode-execution). Validation: `mvn -o -pl javaw-bytecode -am -Dtest='dastec.one.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false test` (29 tests passed).
+Long bytecode now executes with typed i64 locals and operand-stack values, mixed int/long parameter positions, inherited/hidden long fields, constants, arithmetic, shifts, comparisons, conversions, and category-two stack operations. Wasm regressions cover signed extremes, division overflow, branch joins, slot reuse, field increments, and long default/virtual calls; field/call results match JVM execution. The cache revision was bumped for the changed layout. Division by zero still traps; the remaining H2/runtime foundations stay open. See [the long-bytecode contract](docs/compatibility.md#long-bytecode-execution). Validation: `mvn -o -pl javaw-bytecode -am -Dtest='one.dastec.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false test` (29 tests passed).
 
-Core float/double bytecode now executes with typed locals/stack values, numeric constants/fields, IEEE arithmetic, NaN-aware comparisons, and all primitive numeric casts. Saturating casts implement Java overflow/NaN behavior; tests cover signed zero, infinities, subnormals, joins, slot reuse, and mixed-width calls. JVM comparisons verify inherited fields/default dispatch and a long-to-float double-rounding edge case. This step introduced cache revision `numeric-typed-v4`; floating remainder support and its newer revision are recorded below. The remaining H2/runtime foundations stay open. See [the floating-point contract](docs/compatibility.md#floating-point-bytecode-execution). Validation: `mvn -o -pl javaw-bytecode -am -Dtest='dastec.one.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false test` (32 tests passed).
+Core float/double bytecode now executes with typed locals/stack values, numeric constants/fields, IEEE arithmetic, NaN-aware comparisons, and all primitive numeric casts. Saturating casts implement Java overflow/NaN behavior; tests cover signed zero, infinities, subnormals, joins, slot reuse, and mixed-width calls. JVM comparisons verify inherited fields/default dispatch and a long-to-float double-rounding edge case. This step introduced cache revision `numeric-typed-v4`; floating remainder support and its newer revision are recorded below. The remaining H2/runtime foundations stay open. See [the floating-point contract](docs/compatibility.md#floating-point-bytecode-execution). Validation: `mvn -o -pl javaw-bytecode -am -Dtest='one.dastec.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false test` (32 tests passed).
 
-Floating remainder bytecode (`FREM`/`DREM`) now uses the same portable Wasm helper as the source backend, emitted once per linked module without a host math import. JVM comparisons cover 2,848 raw-bit vectors, including signed zero, NaNs, infinities, subnormals, and extreme exponent differences; regressions also execute conditional joins, nested remainders, and linked JAR calls. The cache revision is now `numeric-remainder-v5`. Full H2/Spring/Hibernate runtime support remains open. Validation: `mvn -o -pl javaw-bytecode -am -Dtest='NumericConformanceTest,dastec.one.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false test` passed (34 bytecode tests plus source numeric conformance tests).
+Floating remainder bytecode (`FREM`/`DREM`) now uses the same portable Wasm helper as the source backend, emitted once per linked module without a host math import. JVM comparisons cover 2,848 raw-bit vectors, including signed zero, NaNs, infinities, subnormals, and extreme exponent differences; regressions also execute conditional joins, nested remainders, and linked JAR calls. The cache revision is now `numeric-remainder-v5`. Full H2/Spring/Hibernate runtime support remains open. Validation: `mvn -o -pl javaw-bytecode -am -Dtest='NumericConformanceTest,one.dastec.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false test` passed (34 bytecode tests plus source numeric conformance tests).
 
-Bytecode `CHECKCAST` and `INSTANCEOF` now test linked class/interface hierarchies against module-local runtime class IDs, including inherited interfaces and targets without concrete implementations. Null casts preserve null; `instanceof null` returns false. Successful casts preserve the reference, and failed casts trap until bytecode exception mapping is implemented. Array targets, unlinked/inaccessible targets, and incomplete/cyclic hierarchies receive admission diagnostics. The cache revision is now `type-tests-v6`. Full H2/Spring/Hibernate runtime support remains open. Validation: `mvn -o -pl javaw-bytecode -am -Dtest='dastec.one.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false test` (36 tests passed).
+Bytecode `CHECKCAST` and `INSTANCEOF` now test linked class/interface hierarchies against module-local runtime class IDs, including inherited interfaces and targets without concrete implementations. Null casts preserve null; `instanceof null` returns false. Successful casts preserve the reference, and failed casts trap until bytecode exception mapping is implemented. Array targets, unlinked/inaccessible targets, and incomplete/cyclic hierarchies receive admission diagnostics. The cache revision is now `type-tests-v6`. Full H2/Spring/Hibernate runtime support remains open. Validation: `mvn -o -pl javaw-bytecode -am -Dtest='one.dastec.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false test` (36 tests passed).
 
-Bytecode field accesses now resolve declarations by name and descriptor through superinterfaces and superclasses, including inherited static fields backed by the declaring class’s global. Admission checks symbolic-owner accessibility, public/package/protected/private nest access, static/instance opcode kind, and final-write location. Cross-package protected instance reads/writes guard receiver class IDs; excluded receivers trap. Tests execute inherited long static storage, interface-first field resolution, hidden fields, private nestmates, and constructor final writes. The cache revision is now `field-linkage-v7`; full JVM verification, class initialization, and catchable linkage exceptions remain open. Validation: `mvn -o -pl javaw-bytecode -am -Dtest='dastec.one.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false test` (39 tests passed).
+Bytecode field accesses now resolve declarations by name and descriptor through superinterfaces and superclasses, including inherited static fields backed by the declaring class’s global. Admission checks symbolic-owner accessibility, public/package/protected/private nest access, static/instance opcode kind, and final-write location. Cross-package protected instance reads/writes guard receiver class IDs; excluded receivers trap. Tests execute inherited long static storage, interface-first field resolution, hidden fields, private nestmates, and constructor final writes. The cache revision is now `field-linkage-v7`; full JVM verification, class initialization, and catchable linkage exceptions remain open. Validation: `mvn -o -pl javaw-bytecode -am -Dtest='one.dastec.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false test` (39 tests passed).
 
-Bytecode `INVOKESTATIC` now resolves inherited class methods to their declaring Wasm function, preserving descriptor matching and static hiding. Shared admission/lowering checks enforce symbolic-owner accessibility, public/package/protected/private nest access, static declaration kind, and class/interface reference kind; interface static methods remain callable only through their declaring interface. Tests compare JVM results for inherited mixed-width calls, hiding, protected/package access, direct interface calls, and nested argument side effects, and diagnose invalid targets and missing/cyclic lookup paths. The cache revision is now `static-linkage-v8`. Automatic class initialization, general special-call resolution, exceptions, and the full H2 runtime remain open. Validation: `mvn -o -pl javaw-bytecode -am -Dtest='dastec.one.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false test` (41 tests passed).
+Bytecode `INVOKESTATIC` now resolves inherited class methods to their declaring Wasm function, preserving descriptor matching and static hiding. Shared admission/lowering checks enforce symbolic-owner accessibility, public/package/protected/private nest access, static declaration kind, and class/interface reference kind; interface static methods remain callable only through their declaring interface. Tests compare JVM results for inherited mixed-width calls, hiding, protected/package access, direct interface calls, and nested argument side effects, and diagnose invalid targets and missing/cyclic lookup paths. The cache revision is now `static-linkage-v8`. Automatic class initialization, general special-call resolution, exceptions, and the full H2 runtime remain open. Validation: `mvn -o -pl javaw-bytecode -am -Dtest='one.dastec.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false test` (41 tests passed).
 
-Class bytecode `INVOKESPECIAL` now shares declaration resolution between admission and lowering: constructors require an exact declaration, inherited methods/defaults resolve through superclass hierarchies, and ACC_SUPER calls select from the direct superclass even when the symbolic reference names a grandparent. Owner/member access checks reject invalid calls before WAT generation. JVM comparisons cover superclass selection, inherited mixed-width calls, and defaults inherited by a superclass; existing private/nestmate constructor and Java 8 private-helper regressions remain passing. The cache revision is now `special-linkage-v9`. Full receiver/uninitialized-object verification, class initialization, exceptions, and the full H2 runtime remain open; interface-special caller checks follow below. Validation: `mvn -o -pl javaw-bytecode -am -Dtest='dastec.one.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false test` (43 tests passed).
+Class bytecode `INVOKESPECIAL` now shares declaration resolution between admission and lowering: constructors require an exact declaration, inherited methods/defaults resolve through superclass hierarchies, and ACC_SUPER calls select from the direct superclass even when the symbolic reference names a grandparent. Owner/member access checks reject invalid calls before WAT generation. JVM comparisons cover superclass selection, inherited mixed-width calls, and defaults inherited by a superclass; existing private/nestmate constructor and Java 8 private-helper regressions remain passing. The cache revision is now `special-linkage-v9`. Full receiver/uninitialized-object verification, class initialization, exceptions, and the full H2 runtime remain open; interface-special caller checks follow below. Validation: `mvn -o -pl javaw-bytecode -am -Dtest='one.dastec.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false test` (43 tests passed).
 
-Interface bytecode `INVOKESPECIAL` now requires an accessible current-interface or direct-superinterface owner and a complete acyclic target hierarchy. Indirect/unrelated owners, wrong reference kinds, initializer names, and unsupported targets receive call-site diagnostics. JVM comparisons execute inherited defaults with mixed numeric arguments, void/reference results, same-interface private helpers, and validated private nest calls through a direct superinterface. The cache revision is now `interface-special-v10`. Full receiver verification, class initialization, exception mapping, and the full H2 runtime remain open. Validation: `mvn -o -pl javaw-bytecode -am -Dtest='dastec.one.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false test` (46 tests passed).
+Interface bytecode `INVOKESPECIAL` now requires an accessible current-interface or direct-superinterface owner and a complete acyclic target hierarchy. Indirect/unrelated owners, wrong reference kinds, initializer names, and unsupported targets receive call-site diagnostics. JVM comparisons execute inherited defaults with mixed numeric arguments, void/reference results, same-interface private helpers, and validated private nest calls through a direct superinterface. The cache revision is now `interface-special-v10`. Full receiver verification, class initialization, exception mapping, and the full H2 runtime remain open. Validation: `mvn -o -pl javaw-bytecode -am -Dtest='one.dastec.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false test` (46 tests passed).
 
-Bytecode symbolic-owner accessibility now uses one public/package check across allocation, fields, casts/type tests, and every invocation path. `NEW` and virtual/interface calls reject inaccessible owners; dynamic calls also reject mismatched class/interface reference flags and initializer names. JVM comparisons verify same-package access to hidden types and inherited public methods/defaults called through accessible symbolic owners, including resolution without javac’s accessibility bridge. The cache revision is now `class-access-v11`. Full receiver/uninitialized-object verification, class initialization, exception mapping, and the full H2 runtime remain open; hierarchy declaration checks follow below. Validation: `mvn -o -pl javaw-bytecode -am -Dtest='dastec.one.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false test` (49 tests passed).
+Bytecode symbolic-owner accessibility now uses one public/package check across allocation, fields, casts/type tests, and every invocation path. `NEW` and virtual/interface calls reject inaccessible owners; dynamic calls also reject mismatched class/interface reference flags and initializer names. JVM comparisons verify same-package access to hidden types and inherited public methods/defaults called through accessible symbolic owners, including resolution without javac’s accessibility bridge. The cache revision is now `class-access-v11`. Full receiver/uninitialized-object verification, class initialization, exception mapping, and the full H2 runtime remain open; hierarchy declaration checks follow below. Validation: `mvn -o -pl javaw-bytecode -am -Dtest='one.dastec.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false test` (49 tests passed).
 
-Bytecode hierarchy declarations are now validated before method lowering, including classes with no executable methods. Checks reject missing/cyclic parents, wrong class/interface parent kinds, invalid interface superclasses, duplicate direct interfaces, final superclasses, and inaccessible parents. Access is checked from each declaring child, preserving legal public parents with hidden same-package ancestors. Executable regressions cover shared interface diamonds, abstract parents, final leaves, and reversed JAR order; declaration diagnostics report the offending class and available source file. The cache revision is now `hierarchy-v12`. Complete override/reference/uninitialized-object/module verification, class initialization, exceptions, and the full H2 runtime remain open. Validation: `mvn -o -pl javaw-bytecode -am -Dtest='dastec.one.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false test` (52 tests passed).
+Bytecode hierarchy declarations are now validated before method lowering, including classes with no executable methods. Checks reject missing/cyclic parents, wrong class/interface parent kinds, invalid interface superclasses, duplicate direct interfaces, final superclasses, and inaccessible parents. Access is checked from each declaring child, preserving legal public parents with hidden same-package ancestors. Executable regressions cover shared interface diamonds, abstract parents, final leaves, and reversed JAR order; declaration diagnostics report the offending class and available source file. The cache revision is now `hierarchy-v12`. Complete override/reference/uninitialized-object/module verification, class initialization, exceptions, and the full H2 runtime remain open. Validation: `mvn -o -pl javaw-bytecode -am -Dtest='one.dastec.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false test` (52 tests passed).
 
-Bytecode non-private instance overrides are now checked before lowering, even when no virtual call reaches the method. Validation reuses dispatch’s package-aware override slots to reject final-method overrides and public/protected visibility reductions, including intermediate widening bridges. JVM comparisons preserve legal same-named methods in distinct package-private/private slots and final leaf dispatch in both JAR orders. The cache revision is now `overrides-v13`. Complete method/access-flag/interface/reference verification, class initialization, exception mapping, and the full H2 runtime remain open. Validation: `mvn -o -pl javaw-bytecode -am -Dtest='dastec.one.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false test` (54 tests passed).
+Bytecode non-private instance overrides are now checked before lowering, even when no virtual call reaches the method. Validation reuses dispatch’s package-aware override slots to reject final-method overrides and public/protected visibility reductions, including intermediate widening bridges. JVM comparisons preserve legal same-named methods in distinct package-private/private slots and final leaf dispatch in both JAR orders. The cache revision is now `overrides-v13`. Complete method/access-flag/interface/reference verification, class initialization, exception mapping, and the full H2 runtime remain open. Validation: `mvn -o -pl javaw-bytecode -am -Dtest='one.dastec.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false test` (54 tests passed).
 
 The actual H2/Spring/Hibernate task in [Todo.md](Todo.md#12-spring-api-subset-on-webassembly) now includes a consolidated remaining roadmap: target/version pinning and dependency audit; JVM verification, arrays, exceptions and initialization; runtime/JDK/reflection/dynamic linkage; host facilities, memory and concurrency; and real H2, Hibernate, Spring integration with an end-to-end compatibility gate. These are planned workstreams, not newly implemented runtime features. Library-specific blockers will be refined from the pinned dependency audit and execution results.
 
@@ -1988,3 +1989,7 @@ Bytecode StrictMath progress (v150–v159): ten subsets expose square root/angle
 Bytecode decimal floating progress (v160–v169): Float/Double f/e/E/g/G conversions now use a separate Java 17 formatter digit path, with HALF_UP decimal precision, notation selection, signed zeros, NaN/infinities, flags and padding. Italian, Japanese, Chinese and Korean numeric locale identities join the selected CLDR subset. Java 17 JVM/Wasm tests cover every finite double exponent field, rounding boundaries, deterministic patterns, both JAR orders, fresh instances and unchanged pinned Jackson helper instructions in a carrier. See [the contract and exact evidence limits](docs/bytecode-floating-format.md). Broader text/numeric APIs, lowercase/regex, general locales/providers, allocation stability and full framework execution remain open. Validation: all 457 tests pass in the required offline bytecode suite (four forks), with zero failures, errors or skips. All 12 new formatting regressions pass, including every finite double exponent field and the pinned carrier. The reviewed 63-JAR audit passes with unchanged inventory (26,625 classes, 734 resources) and selected signature counts (1,003 declared, 32 missing members, 302 missing owners); only the compiler revision changes in the baseline.
 
 Bytecode lowercase/text progress (v170–v179): String lowercase supports Java 17 ROOT, Turkish/Azeri and Lithuanian contexts, including dotted-I expansion, final sigma, supplementary characters, surrogate preservation and result identity. The default overload uses ROOT. String.transform, stripIndent and legacy low-byte getBytes copying are also supported. JVM/Wasm comparisons include selected pinned Spring and Jackson carrier instructions against original-class JVM oracles. See [the contract, licensing and evidence limits](docs/bytecode-lowercase.md). Thai dictionary-dependent sigma, configurable defaults/providers, broader text APIs, allocation stability and complete framework execution remain open. Combined v170–v179 validation: all 470 tests pass in the required offline bytecode suite (four forks), with zero failures, errors or skips, including all 13 new lowercase/text regressions. The pinned Java 17 data generator check and reviewed 63-JAR audit pass. Inventory remains 26,625 classes and 734 resources; selected linkage totals are 1,005 declared signatures, 30 missing members and 302 missing owners. Only the compiler revision changes in the audit baseline.
+
+Java package correction: compiler, bytecode, runtime support and Maven plugin classes now use `one.dastec.javaw` and matching source paths. Imports, CLI entry points, fixtures and scripts use the corrected name. Maven artifact coordinates are unchanged.
+
+Validation: the clean required bytecode suite passes all 470 tests (four forks), with zero failures, errors or skips; the unchanged audit baseline passes. All 13 browser assertions and both Maven plugin tests pass with local-server/cache access. The broader core run passes all 43 compiler-generation tests but retains two reflection failures (object-backed records and inherited/nested/array annotations); both reproduce with identical table-index errors on the preceding commit. The initial sandbox-only browser setup error is resolved by the successful browser retry.

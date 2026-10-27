@@ -60,11 +60,11 @@ Checkboxes describe the documented scope of each item. Completed child tasks may
   - Read array length directly from array header in linear memory.
 - [x] **Bulk Memory Operations (`memory.copy`, `memory.fill`)**
   - Lower `System.arraycopy(...)` and `Arrays.fill(...)` directly to WebAssembly `memory.copy` and `memory.fill` instructions for high-throughput block data transfers.
-  - Implemented strongly-typed array utilities facade (`dastec.one.javaw.util.Arrays`) with `fill`, `copyOf`, `copyOfRange`, and `equals`.
+  - Implemented strongly-typed array utilities facade (`one.dastec.javaw.util.Arrays`) with `fill`, `copyOf`, `copyOfRange`, and `equals`.
   - Accelerated dynamic linear memory allocation (`$__heap_alloc`), dynamic string concatenation (`$__str_concat`), substring extraction (`$__str_substring`), and `StringBuilder` buffer expansions with block memory copies and fills.
 - [x] **Multi-Memory Segregation & Isolation**
   - Leverage WebAssembly Multi-Memory proposal to segregate memory into discrete spaces: read-only static string pool (`$strings`), dynamic heap (`$heap`), and thread stack (`$stack`).
-  - Implemented strongly-typed WebAssembly memory facade (`dastec.one.javaw.memory.Memory`) supporting `Memory.HEAP`, `Memory.STRINGS`, `Memory.STACK`, `Memory.DEFAULT`, `Memory.of(name)`.
+  - Implemented strongly-typed WebAssembly memory facade (`one.dastec.javaw.memory.Memory`) supporting `Memory.HEAP`, `Memory.STRINGS`, `Memory.STACK`, `Memory.DEFAULT`, `Memory.of(name)`.
   - Full AST lowering for memory operations: typed loads and stores (`loadI32`, `storeI32`, `loadI64`, `storeI64`, `loadF32`, `storeF32`, `loadF64`, `storeF64`, `loadI8`, `storeI8`, `loadI16`, `storeI16`), memory growth (`grow`), memory sizing (`size`), block filling (`fill`), and cross-memory bulk copying (`copy`, `copyFrom`).
   - Updated assembler and optimizer flags (`wat2wasm --enable-multi-memory` and `wasm-opt --enable-multimemory`).
   - Extended browser/Node JavaScript runtime bridge (`javaw-runtime.js`) with multi-memory accessors (`getMemory`, `getHeapMemory`, `getStringsMemory`, `getStackMemory`) and multiple memory string decoding.
@@ -133,17 +133,17 @@ Checkboxes describe the documented scope of each item. Completed child tasks may
 - [x] **WASI Target (`wasi_snapshot_preview1`)**
   - Standard I/O output: `System.out.println`, `System.out.print`, `System.err.println`, `System.err.print`, and `System.exit(code)` lowered to WASI `fd_write` and `proc_exit`.
   - Typed output support for strings, integers, floating point (`f64`), booleans, and characters with automated memory buffering.
-  - Strongly-typed `WASI` facade (`dastec.one.javaw.wasi.WASI`) with `print`, `println`, `eprint`, `eprintln`, `exit`, `fdWrite`, and `procExit`.
+  - Strongly-typed `WASI` facade (`one.dastec.javaw.wasi.WASI`) with `print`, `println`, `eprint`, `eprintln`, `exit`, `fdWrite`, and `procExit`.
   - Built-in WASI runtime layer in `javaw-runtime.js` supporting `fd_write`, `fd_read`, `proc_exit`, `args_sizes_get`, `args_get`, `environ_sizes_get`, `environ_get`, `clock_time_get`, and `random_get`.
 - [x] **Extended WASI & Virtual File System (VFS)**
   - Expand `WASI` facade with file descriptor routines (`readString`, `writeString`, `appendString`, `fileExists`, `fileLength`, `deleteFile`, `createDirectory`, `open`, `close`, `seek`) and clock/random sources (`currentTimeMillis`, `randomInt`).
-  - Object-oriented file abstraction (`dastec.one.javaw.wasi.WASIFile`) supporting `readString()`, `writeString(content)`, `appendString(content)`, `exists()`, `length()`, `delete()`, `mkdir()`.
+  - Object-oriented file abstraction (`one.dastec.javaw.wasi.WASIFile`) supporting `readString()`, `writeString(content)`, `appendString(content)`, `exists()`, `length()`, `delete()`, `mkdir()`.
   - High-performance in-memory and sandboxed virtual file system within `javaw-runtime.js` for browser and Node.js file operations (`path_open`, `fd_read`, `fd_write`, `fd_close`, `fd_seek`, `fd_filestat_get`, `path_filestat_get`, `path_create_directory`, `path_unlink_file`).
 - [x] **WebAssembly Threads & Shared Memory**
   - WebAssembly shared memory declaration `(memory (export "memory") 2 20 shared)` for multithreaded runtime support.
-  - Strongly-typed `AtomicInteger` facade (`dastec.one.javaw.concurrent.AtomicInteger`) supporting `get`, `set`, `getAndSet`, `compareAndSet`, `getAndAdd`, `addAndGet`, `incrementAndGet`, `decrementAndGet`, and bitwise atomic operations (`i32.atomic.load`, `i32.atomic.store`, `i32.atomic.rmw.*`).
-  - Low-level array atomic primitives (`dastec.one.javaw.concurrent.Atomics`) supporting `load`, `store`, `add`, `sub`, `and`, `or`, `xor`, `exchange`, `compareExchange`, `wait` (`memory.atomic.wait32`), and `notify` (`memory.atomic.notify`).
-  - Web Worker and thread management facade (`dastec.one.javaw.concurrent.WasmThread`) supporting `spawn(entryPoint, arg)`, `sleep(ms)`, `currentThreadId()`, and `hardwareConcurrency()`.
+  - Strongly-typed `AtomicInteger` facade (`one.dastec.javaw.concurrent.AtomicInteger`) supporting `get`, `set`, `getAndSet`, `compareAndSet`, `getAndAdd`, `addAndGet`, `incrementAndGet`, `decrementAndGet`, and bitwise atomic operations (`i32.atomic.load`, `i32.atomic.store`, `i32.atomic.rmw.*`).
+  - Low-level array atomic primitives (`one.dastec.javaw.concurrent.Atomics`) supporting `load`, `store`, `add`, `sub`, `and`, `or`, `xor`, `exchange`, `compareExchange`, `wait` (`memory.atomic.wait32`), and `notify` (`memory.atomic.notify`).
+  - Web Worker and thread management facade (`one.dastec.javaw.concurrent.WasmThread`) supporting `spawn(entryPoint, arg)`, `sleep(ms)`, `currentThreadId()`, and `hardwareConcurrency()`.
   - Host runtime bridge in `javaw-runtime.js` for thread spawning, sleep via atomics, and concurrency detection.
 - [x] **Fixed-Width SIMD (`v128`) Vectorization Facades**
   - Implement strongly typed SIMD vector facades (`Float32x4`, `Int32x4`, `Vector128`) mapping to WebAssembly 128-bit vector instructions for hardware-accelerated math, physics, and graphics.
@@ -186,7 +186,7 @@ Checkboxes describe the documented scope of each item. Completed child tasks may
 - [x] **Global JavaScript Class & Object Binding (`@JS.Import`)**
   - Annotate Java classes/interfaces with `@JS.Import("Date")`, `@JS.Import("Math")`, `@JS.Import("JSON")`, `@JS.Import("console")`, `@JS.Import("localStorage")` to map standard browser and JavaScript APIs directly to typed Java facades.
   - Implemented automatic snippet synthesizer for static and instance methods in `@JS.Import` classes with constructor instantiations (`new Date(...)`), direct method calls (`Math.hypot(...)`), and instance invocations (`this.getTime()`).
-  - Added built-in standard facades `dastec.one.javaw.js.JSDate`, `JSMath`, `JSJSON`, `JSConsole`, `JSStorage`.
+  - Added built-in standard facades `one.dastec.javaw.js.JSDate`, `JSMath`, `JSJSON`, `JSConsole`, `JSStorage`.
   - Full AST lowering and host runtime code synthesis in `javaw-runtime.js` supporting argument conversions, string decoding, handle registration, and native return marshalling.
 - [x] **Exporting Java Classes to JavaScript Scope (`@JS.Export`)**
   - Annotate Java classes with `@JS.Export` (or `@JS.Export("CustomName")`) to register constructor functions and prototypes in JavaScript (`globalThis.MyJavaClass = ...`), allowing JavaScript to instantiate Java classes and call methods directly.
@@ -197,11 +197,11 @@ Checkboxes describe the documented scope of each item. Completed child tasks may
   - Embed external JavaScript scripts and static web resources directly into the compiled WebAssembly bundle or runtime harness.
   - Implemented `@JS.Code("...")` for inline script blocks and `@JS.Code.Include({"file1.js", "file2.js"})` for bundling external JavaScript files during compilation.
   - Implemented `@JS.Resource(value = "...", path = "...")` for embedding static assets (CSS, JSON, HTML, text) into custom WebAssembly sections (`javaw_js_code` and `javaw_js_resources`).
-  - Added strongly-typed Java facade `dastec.one.javaw.js.JSResource` supporting asset extraction (`getAsString`, `hasResource`, `getLength`, `listResources`), dynamic style/script injection (`injectStyle`, `injectStyleSheet`, `injectScript`, `injectScriptTag`), and automatic mounting into the WASI virtual file system (`mountAll`).
+  - Added strongly-typed Java facade `one.dastec.javaw.js.JSResource` supporting asset extraction (`getAsString`, `hasResource`, `getLength`, `listResources`), dynamic style/script injection (`injectStyle`, `injectStyleSheet`, `injectScript`, `injectScriptTag`), and automatic mounting into the WASI virtual file system (`mountAll`).
   - Extended `javaw-runtime.js` to automatically extract bundled scripts, execute them upon module instantiation, and register embedded assets in memory and VFS.
 - [x] **Interactive In-Browser Terminal & REPL Integration (WASI & xterm.js)**
   - Provide an out-of-the-box browser terminal runner harness (powered by xterm.js or ANSI terminal emulation) connected to WASI standard I/O streams (`stdin`, `stdout`, `stderr`), enabling interactive Java CLI applications (such as shells, interpreters, and compilers) to run interactively in the browser.
-  - Implemented strongly-typed Java facades `dastec.one.javaw.wasi.WASITerminal` and `dastec.one.javaw.terminal.Terminal` with full ANSI color palette constants (`BLACK`, `RED`, `GREEN`, `YELLOW`, `BLUE`, `MAGENTA`, `CYAN`, `WHITE`, `BRIGHT_*`), text attributes (`BOLD`, `DIM`, `ITALIC`, `UNDERLINE`, `REVERSE`), cursor positioning (`setCursor`), dimensions (`getColumns`, `getRows`), screen clearing (`clear`), and interactive line/char reading (`readLine`, `readChar`).
+  - Implemented strongly-typed Java facades `one.dastec.javaw.wasi.WASITerminal` and `one.dastec.javaw.terminal.Terminal` with full ANSI color palette constants (`BLACK`, `RED`, `GREEN`, `YELLOW`, `BLUE`, `MAGENTA`, `CYAN`, `WHITE`, `BRIGHT_*`), text attributes (`BOLD`, `DIM`, `ITALIC`, `UNDERLINE`, `REVERSE`), cursor positioning (`setCursor`), dimensions (`getColumns`, `getRows`), screen clearing (`clear`), and interactive line/char reading (`readLine`, `readChar`).
   - Implemented WebAssembly runtime routines (`$__wasi_read_char`, `$__wasi_read_line`) wired to WASI `fd_read` (`fd 0` stdin queue) with buffer memory management and dynamic string creation.
   - Built `JavawTerminal` in `javaw-runtime.js` supporting both xterm.js and a zero-dependency DOM terminal with full ANSI escape rendering, customizable prompt (`javaw> `), command history (Up/Down arrow navigation), Ctrl+L/Ctrl+C keyboard shortcuts, custom command dispatch (`help`, `clear`, `history`, `ls`, `js`, `run <wasmExport>`), and interactive REPL integration.
 
@@ -245,7 +245,7 @@ Checkboxes describe the documented scope of each item. Completed child tasks may
   - Support `switch` on enum instances lowered to branch tables (`br_table`) or conditional branching matching ordinal values.
 
 - [x] **Phase 3: Expanded `String`, `CharSequence`, and Standard `StringBuilder`**
-  - Promote `dastec.one.javaw.util.StringBuilder` to standard `java.lang.StringBuilder` in core package resolution with expanded methods (`insert`, `delete`, `deleteCharAt`, `reverse`, `replace`).
+  - Promote `one.dastec.javaw.util.StringBuilder` to standard `java.lang.StringBuilder` in core package resolution with expanded methods (`insert`, `delete`, `deleteCharAt`, `reverse`, `replace`).
   - Implement `java.lang.CharSequence` interface.
   - Expand `String` standard methods (`trim()`, `strip()`, `toLowerCase()`, `toUpperCase()`, `replace(target, replacement)`, `contains(seq)`, `startsWith(prefix)`, `endsWith(suffix)`, `toCharArray()`, `getBytes()`, `compareTo(other)`, `equalsIgnoreCase(other)`, `repeat(count)`).
 
@@ -644,3 +644,5 @@ Checked items elsewhere describe supported subsets, not complete Java/JDK/JVM co
 - [ ] Maintain an executable compatibility suite and link README claims to tested cases.
   - [x] Link supported assertion/byte-stream/bytecode claims to executable tests in README and the compatibility matrix. Broader framework/runtime coverage remains pending.
   - [ ] Audit the remaining published compatibility claims against current source/bytecode and end-to-end gates; add missing coverage and update evidence links as the runtime/framework milestones expand. Keep this maintenance gate open while those coverage gaps remain.
+
+- [x] Correct project Java packages from the reversed domain to `one.dastec.javaw`, including matching source directories, imports, entry points and tooling references. Maven coordinates remain unchanged. Validation: the clean required bytecode suite passes all 470 tests (four forks), with zero failures, errors or skips; the unchanged audit baseline passes. All 13 browser assertions and both Maven plugin tests pass with local-server/cache access. The broader core run passes all 43 compiler-generation tests but retains two reflection failures (object-backed records and inherited/nested/array annotations); both reproduce with identical table-index errors on the preceding commit. The initial sandbox-only browser setup error is resolved by the successful browser retry.

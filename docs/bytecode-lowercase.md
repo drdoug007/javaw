@@ -83,7 +83,7 @@ Generate/check the pinned data with:
 
 ```sh
 python3 javaw-bytecode/tools/generate-string-lowercase.py --java-home <jdk-17-home> --check
-mvn -o -pl javaw-bytecode -am -Dtest='dastec.one.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false -DforkCount=4 test
+mvn -o -pl javaw-bytecode -am -Dtest='one.dastec.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false -DforkCount=4 test
 python3 runtime-target/audit.py --check-baseline
 ```
 

@@ -1,8 +1,8 @@
-package dastec.one.javaw.examples.threads;
+package one.dastec.javaw.examples.threads;
 
-import dastec.one.javaw.concurrent.AtomicInteger;
-import dastec.one.javaw.concurrent.Atomics;
-import dastec.one.javaw.concurrent.WasmThread;
+import one.dastec.javaw.concurrent.AtomicInteger;
+import one.dastec.javaw.concurrent.Atomics;
+import one.dastec.javaw.concurrent.WasmThread;
 
 public class WorkerAtomicsDemo {
 

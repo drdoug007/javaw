@@ -26,7 +26,7 @@ String wat = BytecodeCompiler.compileJarWithExceptionRuntime(input,
 The equivalent CLI option is repeatable:
 
 ```sh
-java dastec.one.javaw.bytecode.BytecodeCompiler --exception-runtime \
+java one.dastec.javaw.bytecode.BytecodeCompiler --exception-runtime \
   --aot-proxy=example.Service,example.Marker application.jar application.wat
 ```
 

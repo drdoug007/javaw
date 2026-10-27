@@ -1,4 +1,4 @@
-package dastec.one.javaw.examples.records;
+package one.dastec.javaw.examples.records;
 
 public class RecordMathEngine {
 
