@@ -88,4 +88,11 @@ public final class Long extends Number implements Comparable<Long>,java.io.Seria
         return result;
     }
 
+    public static Long getLong(String name){
+        String value;
+        try{value=javaw.runtime.SystemProperties.getProperty(name);}
+        catch(IllegalArgumentException failure){return null;}catch(NullPointerException failure){return null;}
+        if(value!=null)try{return decode(value);}catch(NumberFormatException failure){}
+        return null;
+    }
 }

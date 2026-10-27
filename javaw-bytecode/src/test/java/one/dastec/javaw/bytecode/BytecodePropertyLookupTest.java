@@ -109,6 +109,23 @@ class BytecodePropertyLookupTest {
             """);compare(1);
     }
 
+    @Test void long_property() throws Exception {
+        fixture("""
+            import java.util.function.*;
+            public class Metadata {
+             static int hash(Long value){return value==null?17:31*value.hashCode()+(value==Long.valueOf(value.longValue())?1:0);}
+             public static int run(int group){int h=1;String key="javaw.test.long";Function<String,Long> read=Long::getLong;
+              for(String text:new String[]{null,"","0","-0","+17","-17","077","0x7f","0X7F","#ff","-#80","+0x11","09","0x","++1"," 1","1 ","1L","0x-1","\u0661\u0662","2147483647","-2147483648","2147483648","-2147483649","9223372036854775807","-9223372036854775808","9223372036854775808","-9223372036854775809","-0x8000000000000000","0x7fffffffffffffff"}){
+               System.clearProperty(key);if(text!=null)System.setProperty(key,text);
+               h=31*h+hash(Long.getLong(key));h=31*h+hash(read.apply(key));
+              }
+              for(String bad:new String[]{null,"","javaw.test.missing"," javaw.test.missing "})h=31*h+hash(read.apply(bad));
+              System.clearProperty(key);return h;
+             }
+            }
+            """);compare(1);
+    }
+
     private byte[] fixture(String source) throws Exception {
         Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
         List<String> options=new ArrayList<>(List.of("-g","-parameters","--release","17","-d",directory.toString()));

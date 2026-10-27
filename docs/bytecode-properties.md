@@ -13,3 +13,4 @@ Completed subsets:
 - v192: Integer.getInteger nullable lookup with decimal/hexadecimal/octal decoding and malformed/overflow fallback.
 - v193: Integer.getInteger primitive default overload and small-value cache identity.
 - v194: Integer.getInteger boxed default overload preserving fallback identity and null.
+- v195: Long.getLong nullable lookup with decimal/hexadecimal/octal decoding and malformed/overflow fallback.
