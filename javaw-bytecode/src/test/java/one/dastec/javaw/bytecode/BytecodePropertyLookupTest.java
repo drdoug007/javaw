@@ -2,6 +2,8 @@ package one.dastec.javaw.bytecode;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.objectweb.asm.*;
+import org.objectweb.asm.tree.*;
 import javax.tools.ToolProvider;
 import java.io.*;
 import java.nio.file.*;
@@ -11,7 +13,7 @@ import java.util.jar.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class BytecodePropertyLookupTest {
+class BytecodePropertyLookupTest implements Opcodes {
     @TempDir Path directory;
     private final String fixtureClassName="Metadata";
     @Test void isolatedProperties() throws Exception {
@@ -193,6 +195,55 @@ class BytecodePropertyLookupTest {
                 """.replace("STRESS",Boolean.toString(stress)).replace("CHANGED",Boolean.toString(!stress)));
             compare(1);
         }
+    }
+
+    @Test void malformedPropertyAdmission() throws Exception {
+        for(String name:List.of("getProperty","setProperty","clearProperty")) {
+            String valid=name.equals("setProperty")?"(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;":"(Ljava/lang/String;)Ljava/lang/String;";
+            for(int variant=0;variant<6;variant++) {
+                ClassWriter writer=new ClassWriter(0);writer.visit(V17,ACC_PUBLIC,"BadPropertyCalls",null,"java/lang/Object",null);
+                writer.visitSource("PropertyCalls.java",null);
+                MethodVisitor m=writer.visitMethod(ACC_PUBLIC|ACC_STATIC,"unused","()Ljava/lang/Object;",null,null);
+                m.visitCode();Label line=new Label();m.visitLabel(line);m.visitLineNumber(41,line);
+                if(variant<3) {
+                    m.visitInsn(ACONST_NULL);m.visitInsn(ACONST_NULL);m.visitInsn(ACONST_NULL);
+                    m.visitMethodInsn(variant==1?INVOKEVIRTUAL:INVOKESTATIC,"java/lang/System",name,variant==0?"(I)Ljava/lang/String;":valid,variant==2);
+                } else {
+                    Handle bad=new Handle(variant==3?H_INVOKEVIRTUAL:H_INVOKESTATIC,"java/lang/System",name,variant==4?"(I)Ljava/lang/String;":valid,variant==5);
+                    m.visitLdcInsn(bad);
+                }
+                m.visitInsn(ARETURN);m.visitMaxs(4,0);m.visitEnd();writer.visitEnd();
+                var failure=assertThrows(IllegalArgumentException.class,()->BytecodeCompiler.compileClassWithExceptionRuntime(writer.toByteArray()));
+                assertTrue(failure.getMessage().contains("PropertyCalls.java:41"),failure.getMessage());
+                assertTrue(failure.getMessage().contains("unused"),failure.getMessage());
+                assertTrue(failure.getMessage().contains("exact standard static System."+name),failure.getMessage());
+            }
+        }
+        Handle malformed=new Handle(H_INVOKESTATIC,"java/lang/System","getProperty","(I)Ljava/lang/String;",false);
+        ClassNode nested=new ClassNode();nested.version=V17;nested.access=ACC_PUBLIC;nested.name="BadNestedProperty";nested.superName="java/lang/Object";
+        MethodNode method=new MethodNode(ACC_PUBLIC|ACC_STATIC,"unused","()V",null,null);
+        Handle bootstrap=new Handle(H_INVOKESTATIC,"java/lang/invoke/ConstantBootstraps","nullConstant","(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/Class;)Ljava/lang/Object;",false);
+        method.instructions.add(new LdcInsnNode(new ConstantDynamic("bad","Ljava/lang/Object;",bootstrap,malformed)));
+        method.instructions.add(new InsnNode(POP));method.instructions.add(new InsnNode(RETURN));method.maxStack=1;nested.methods.add(method);
+        var nestedFailure=assertThrows(IllegalArgumentException.class,()->BytecodeSystemProperties.normalize(new ArrayList<>(List.of(nested))));
+        assertTrue(nestedFailure.getMessage().contains("exact standard static System.getProperty"));
+        MethodNode indy=new MethodNode(ACC_PUBLIC|ACC_STATIC,"dynamic","()V",null,null);
+        indy.instructions.add(new InvokeDynamicInsnNode("bad","()Ljava/lang/Object;",bootstrap,malformed));nested.methods.clear();nested.methods.add(indy);
+        assertThrows(IllegalArgumentException.class,()->BytecodeSystemProperties.normalize(new ArrayList<>(List.of(nested))));
+
+        for(String owner:List.of("java/lang/Boolean","java/lang/Integer","java/lang/Long")) {
+            String name=owner.endsWith("Boolean")?"getBoolean":owner.endsWith("Integer")?"getInteger":"getLong";
+            ClassWriter writer=new ClassWriter(0);writer.visit(V17,ACC_PUBLIC,"BadWrapperProperty",null,"java/lang/Object",null);
+            MethodVisitor m=writer.visitMethod(ACC_PUBLIC|ACC_STATIC,"unused","()Ljava/lang/Object;",null,null);m.visitCode();m.visitInsn(ACONST_NULL);
+            m.visitMethodInsn(INVOKESTATIC,owner,name,"(Ljava/lang/String;)Ljava/lang/Object;",false);m.visitInsn(ARETURN);m.visitMaxs(1,0);m.visitEnd();writer.visitEnd();
+            var failure=assertThrows(IllegalArgumentException.class,()->BytecodeCompiler.compileClassWithExceptionRuntime(writer.toByteArray()));
+            assertTrue(failure.getMessage().contains(name),failure.getMessage());
+        }
+        ClassWriter reserved=new ClassWriter(0);reserved.visit(V17,ACC_PUBLIC,"javaw/runtime/SystemProperties",null,"java/lang/Object",null);reserved.visitEnd();
+        var collision=assertThrows(IllegalArgumentException.class,()->BytecodeCompiler.compileClassWithExceptionRuntime(reserved.toByteArray()));
+        assertTrue(collision.getMessage().contains("runtime redefinition"),collision.getMessage());
+        fixture("public class Metadata {public static int run(int group){return System.getProperties().size();}}");
+        assertThrows(IllegalArgumentException.class,()->BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(false))));
     }
 
     private byte[] fixture(String source) throws Exception {
