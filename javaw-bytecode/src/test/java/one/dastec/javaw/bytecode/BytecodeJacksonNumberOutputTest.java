@@ -2,8 +2,6 @@ package one.dastec.javaw.bytecode;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.objectweb.asm.*;
-import org.objectweb.asm.tree.*;
 import javax.tools.ToolProvider;
 import java.io.*;
 import java.net.*;
@@ -14,7 +12,7 @@ import java.util.jar.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class BytecodeJacksonNumberOutputTest implements Opcodes {
+class BytecodeJacksonNumberOutputTest {
     @TempDir Path directory;
     private String release="17";
     private String fixtureClassName="Metadata";
@@ -62,6 +60,16 @@ class BytecodeJacksonNumberOutputTest implements Opcodes {
     }
 
     // NumberOutput differential cases.
+
+    @Test void finiteFloat() throws Exception {
+        fixture("""
+            import com.fasterxml.jackson.core.io.NumberOutput;
+            public class Metadata {public static int run(){
+                int hash=1;for(int bits:new int[]{0,Integer.MIN_VALUE,1,-1,0x7f7fffff,0x7f800000,0xff800000,0x7f800001,0xffc00001}){float value=Float.intBitsToFloat(bits);hash=31*hash+(NumberOutput.notFinite(value)?1:0);}
+        int bits=17;for(int i=0;i<256;i++){bits=bits*1664525+1013904223;hash=31*hash+(NumberOutput.notFinite(Float.intBitsToFloat(bits))?1:0);}return hash;
+            }}
+            """);compare(List.of("run"));
+    }
 
     @Test void finiteDouble() throws Exception {
         fixture("""
