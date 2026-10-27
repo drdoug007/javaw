@@ -60,4 +60,5 @@ public final class StringBuilder implements CharSequence,Comparable<StringBuilde
     public int indexOf(String text){return toString().indexOf(text);}public int indexOf(String text,int from){return toString().indexOf(text,from);}
     public String toString(){return new String(value,0,count);}
     public StringBuilder insert(int offset,char[] text){if(offset<0 || offset>count)throw new StringIndexOutOfBoundsException(offset);return insert(offset,new String(text));}
+    public StringBuilder insert(int offset,char[] text,int start,int size){if(offset<0 || offset>count)throw new StringIndexOutOfBoundsException(offset);int sourceLength=text.length;if(start<0 || size<0 || start>sourceLength-size)throw new StringIndexOutOfBoundsException();grow(size);System.arraycopy(value,offset,value,offset+size,count-offset);System.arraycopy(text,start,value,offset,size);count+=size;return this;}
 }

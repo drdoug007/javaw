@@ -13,3 +13,4 @@ Supported additions:
 - v184: `Float` insertion overload (`insertFloat` regression).
 - v185: `Double` insertion overload (`insertDouble` regression).
 - v186: `Array` insertion overload (`insertArray` regression).
+- v187: `ArrayRange` insertion overload (`insertArrayRange` regression).

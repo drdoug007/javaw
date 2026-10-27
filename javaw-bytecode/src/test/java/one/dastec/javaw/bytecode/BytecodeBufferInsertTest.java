@@ -110,6 +110,19 @@ public class Metadata {
 return h;}}
             """);compare(1);
     }
+    @Test void insertArrayRange() throws Exception {
+        fixture("""
+public class Metadata {
+ static class Value {public String toString(){return "object";}}
+ public static int run(int group){int h=1;
+ for(int offset:new int[]{Integer.MIN_VALUE,-1,0,1,3,4,Integer.MAX_VALUE})for(char[] text:new char[][]{null,new char[0],new char[]{65,0,(char)0xd800,(char)0xdc00,90}})for(int start:new int[]{-1,0,1,5,Integer.MAX_VALUE})for(int size:new int[]{-1,0,2,5,Integer.MAX_VALUE}){
+ StringBuffer b=new StringBuffer("abc");int result=0;
+ try{result=b.insert(offset,text,start,size)==b?7:9;}catch(StringIndexOutOfBoundsException e){result=11;}catch(IndexOutOfBoundsException e){result=13;}catch(NullPointerException e){result=17;}
+ h=31*h+result;h=31*h+b.toString().hashCode();h=31*h+b.length();
+ }
+return h;}}
+            """);compare(1);
+    }
     private byte[] fixture(String source) throws Exception {
         Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
         List<String> options=new ArrayList<>(List.of("-g","-parameters","--release",release,"-d",directory.toString()));
