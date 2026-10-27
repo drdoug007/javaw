@@ -9,5 +9,6 @@ The encoder also references `TextBuffer`, `ByteArrayBuilder`, `BufferRecycler` a
 Completed focused cases (each passes):
 
 - `charToHex`
+- `hexDigits`
 
 Complete serializer/generator execution, `IOContext`/buffer-recycling paths, whole-JAR admission, sustained allocation stability and the broader text/JDK/framework milestones remain open.

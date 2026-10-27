@@ -83,6 +83,21 @@ class BytecodeJacksonTextTest {
 
     // CharTypes and JsonStringEncoder differential cases.
 
+    @Test void hexDigits() throws Exception {
+        fixture("""
+            import com.fasterxml.jackson.core.io.CharTypes;
+            public class Metadata {public static int run(){
+                int hash=1;for(int digit=0;digit<16;digit++)hash=31*hash+CharTypes.hexToChar(digit);
+        for(int digit:new int[]{16,-1,Integer.MAX_VALUE})try{CharTypes.hexToChar(digit);throw new Error();}catch(ArrayIndexOutOfBoundsException expected){hash++;}
+        char[] chars=CharTypes.copyHexChars();hash=31*hash+new String(chars).hashCode();chars[0]='x';hash=31*hash+new String(CharTypes.copyHexChars()).hashCode();
+        hash=31*hash+new String(CharTypes.copyHexChars(true)).hashCode();hash=31*hash+new String(CharTypes.copyHexChars(false)).hashCode();
+        byte[] bytes=CharTypes.copyHexBytes();hash=31*hash+java.util.Arrays.hashCode(bytes);bytes[0]=0;hash=31*hash+java.util.Arrays.hashCode(CharTypes.copyHexBytes());
+        hash=31*hash+java.util.Arrays.hashCode(CharTypes.copyHexBytes(true));hash=31*hash+java.util.Arrays.hashCode(CharTypes.copyHexBytes(false));
+        hash=31*hash+(CharTypes.copyHexChars()!=CharTypes.copyHexChars()?1:0);return hash;
+            }}
+            """);compare(List.of("run"));
+    }
+
     @Test void charToHex() throws Exception {
         fixture("""
             import com.fasterxml.jackson.core.io.CharTypes;
