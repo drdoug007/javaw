@@ -2024,3 +2024,5 @@ Sorted bytecode collections subset 6/10 (v226): TreeSet construction, ordering a
 Sorted bytecode collections subset 7/10 (v227): Live navigable set ranges and descending traversal. Focused checks pass; see [the selected contract](docs/bytecode-sorted-collections.md). Broad collections, concurrency and framework execution remain open.
 
 Sorted bytecode collections subset 8/10 (v228): Unmodifiable sorted map/set wrappers and nested view protection. Focused checks pass; see [the selected contract](docs/bytecode-sorted-collections.md). Broad collections, concurrency and framework execution remain open.
+
+Sorted bytecode collections subset 9/10 (v229): Unmodifiable navigable families and empty sorted/navigable factories. Focused checks pass; see [the selected contract](docs/bytecode-sorted-collections.md). Broad collections, concurrency and framework execution remain open.

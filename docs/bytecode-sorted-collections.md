@@ -10,3 +10,4 @@ Sequential sorted-array storage establishes tested ordering behavior, not balanc
 - v226: TreeSet construction, ordering and navigation.
 - v227: Live navigable set ranges and descending traversal.
 - v228: Unmodifiable sorted map/set wrappers and nested view protection.
+- v229: Unmodifiable navigable families and empty sorted/navigable factories.

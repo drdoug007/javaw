@@ -1,5 +1,12 @@
 package java.util;
 public final class Collections{
+ private static final NavigableMap<?,?> EMPTY_SORTED_MAP=new SortedViews.NavigableMapView<Object,Object>(new TreeMap<Object,Object>());
+ private static final NavigableSet<?> EMPTY_SORTED_SET=new SortedViews.NavigableSetView<Object>(new TreeSet<Object>());
+ public static <K,V>NavigableMap<K,V> emptyNavigableMap(){return (NavigableMap<K,V>)EMPTY_SORTED_MAP;}public static <K,V>SortedMap<K,V> emptySortedMap(){return emptyNavigableMap();}
+ public static <E>NavigableSet<E> emptyNavigableSet(){return (NavigableSet<E>)EMPTY_SORTED_SET;}public static <E>SortedSet<E> emptySortedSet(){return emptyNavigableSet();}
+ public static <E>NavigableSet<E> unmodifiableNavigableSet(NavigableSet<E> source){return new SortedViews.NavigableSetView<E>(source);}
+ public static <K,V>NavigableMap<K,V> unmodifiableNavigableMap(NavigableMap<K,? extends V> source){return new SortedViews.NavigableMapView<K,V>(source);}
+
  public static <T>SortedSet<T> unmodifiableSortedSet(SortedSet<T> source){return new SortedViews.SetView<T>(source);}
  public static <K,V>SortedMap<K,V> unmodifiableSortedMap(SortedMap<K,? extends V> source){return new SortedViews.MapView<K,V>(source);}
 
