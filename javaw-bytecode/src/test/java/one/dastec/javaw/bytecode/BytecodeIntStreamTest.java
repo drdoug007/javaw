@@ -91,6 +91,27 @@ public class Metadata {public static int run(int group){int h=1;
             """);compare(1);
     }
 
+    @Test void lifecycleAndFlattening() throws Exception {
+        fixture("""
+import java.util.*;import java.util.stream.*;
+public class Metadata {public static int unsupportedParallel(){try{IntStream.of(1).parallel();return 0;}catch(UnsupportedOperationException e){return 1;}}
+ public static int run(int group){int h=1;int[] generated={0};h=31*h+Arrays.hashCode(IntStream.generate(()->++generated[0]).limit(4).toArray());h=31*h+generated[0];
+ h=31*h+Arrays.hashCode(IntStream.iterate(1,v->v*2).limit(5).toArray());h=31*h+Arrays.hashCode(IntStream.iterate(1,v->v<8,v->v+2).toArray());
+ int[] closed={0};IntStream pipeline=IntStream.of(1,2,3).flatMap(v->v==2?null:IntStream.of(v,v+10).onClose(()->closed[0]++));h=31*h+Arrays.hashCode(pipeline.limit(1).toArray());h=31*h+closed[0];pipeline.close();h=31*h+closed[0];
+ IntStream exhausted=IntStream.of(1,2).flatMap(v->IntStream.of(v).onClose(()->closed[0]++));h=31*h+exhausted.sum();h=31*h+closed[0];
+ IntStream iterated=IntStream.of(1).flatMap(v->IntStream.of(8,9).onClose(()->closed[0]++));PrimitiveIterator.OfInt it=iterated.iterator();h=31*h+it.nextInt();iterated.close();h=31*h+closed[0];
+ StringBuilder events=new StringBuilder();IntStream joined=IntStream.concat(IntStream.of(3).onClose(()->events.append('a')),IntStream.of(4).onClose(()->events.append('b'))).onClose(()->events.append('c'));h=31*h+joined.sum();joined.close();joined.close();h=31*h+events.toString().hashCode();
+ RuntimeException first=new IllegalStateException("first"),second=new IllegalArgumentException("second");IntStream throwing=IntStream.empty().onClose(()->{throw first;}).onClose(()->{throw second;});try{throwing.close();throw new Error();}catch(RuntimeException e){h=31*h+(e==first?1:0);h=31*h+e.getSuppressed().length;h=31*h+(e.getSuppressed()[0]==second?1:0);}
+ RuntimeException primary=new IllegalStateException("primary"),cleanup=new IllegalArgumentException("cleanup");try{IntStream.of(1).flatMap(v->IntStream.of(v).onClose(()->{throw cleanup;})).forEach(v->{throw primary;});throw new Error();}catch(RuntimeException e){h=31*h+(e==primary?1:0);h=31*h+e.getSuppressed().length;h=31*h+(e.getSuppressed()[0]==cleanup?1:0);}
+ IntStream reusable=IntStream.of(5);try{IntStream.concat(reusable,null);throw new Error();}catch(NullPointerException e){h++;}h=31*h+reusable.sum();
+ IntStream used=IntStream.of(7);h=31*h+used.sum();try{used.count();throw new Error();}catch(IllegalStateException e){h++;}
+ IntStream ended=IntStream.of(7);ended.close();try{ended.sum();throw new Error();}catch(IllegalStateException e){h++;}
+ for(int mode=0;mode<3;mode++){try{if(mode==0)IntStream.generate(null);if(mode==1)IntStream.iterate(0,(java.util.function.IntUnaryOperator)null);if(mode==2)IntStream.of(1).flatMap(null);throw new Error();}catch(NullPointerException e){h++;}}
+ return h;
+ }}
+            """);compare(1);
+    }
+
     private byte[] fixture(String source) throws Exception {
         Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
         List<String> options=new ArrayList<>(List.of("-g","-parameters","--release","17","-d",directory.toString()));
@@ -145,7 +166,7 @@ public class Metadata {public static int run(int group){int h=1;
                     new Uint8Array(memory.buffer,address,size).fill(0x7f);return address;
                 }}}).exports;
                 assert.equal(allocations,0);heap=Math.max(heap,e.__exception_heap_base?.value??0);
-            """.replace("EXPECTED",expected)+"assert.equal(e['"+fixtureClassName+".run'](group),expected[group],'batch '+group);\n}");
+            """.replace("EXPECTED",expected)+"if(e['Metadata.unsupportedParallel'])assert.equal(e['Metadata.unsupportedParallel'](),1);\nassert.equal(e['"+fixtureClassName+".run'](group),expected[group],'batch '+group);\n}");
         run("node",script.toString(),output.toString());
     }
 }

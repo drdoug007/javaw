@@ -28,4 +28,12 @@ public interface IntStream extends BaseStream<Integer,IntStream> {
     boolean anyMatch(IntPredicate predicate);boolean allMatch(IntPredicate predicate);boolean noneMatch(IntPredicate predicate);
     OptionalInt findFirst();OptionalInt findAny();
 
+
+    static IntStream generate(IntSupplier supplier){Objects.requireNonNull(supplier);return IntPipeline.from(Stream.generate(()->Integer.valueOf(supplier.getAsInt())));}
+    static IntStream iterate(int seed,IntUnaryOperator next){Objects.requireNonNull(next);return IntPipeline.from(Stream.iterate(Integer.valueOf(seed),v->Integer.valueOf(next.applyAsInt(v.intValue()))));}
+    static IntStream iterate(int seed,IntPredicate hasNext,IntUnaryOperator next){Objects.requireNonNull(hasNext);Objects.requireNonNull(next);return IntPipeline.from(Stream.iterate(Integer.valueOf(seed),v->hasNext.test(v.intValue()),v->Integer.valueOf(next.applyAsInt(v.intValue()))));}
+    static IntStream concat(IntStream left,IntStream right){Objects.requireNonNull(left);Objects.requireNonNull(right);return IntPipeline.from(Stream.concat(left.boxed(),right.boxed()));}
+    IntStream flatMap(IntFunction<? extends IntStream> mapper);
+    default IntStream parallel(){throw new UnsupportedOperationException("Parallel bytecode integer streams require worker scheduling");}
+
 }

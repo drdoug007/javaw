@@ -76,7 +76,7 @@ public final class ReferenceStream<T> implements Stream<T> {
     public Stream<T> unordered(){check();return this;}
     public Stream<T> onClose(Runnable handler){Objects.requireNonNull(handler);check();state.handlers.add(handler);return this;}
     public void close(){state.close();}
-    public Iterator<T> iterator(){return consume();}
+    public Iterator<T> iterator(){final Cursor<T> cursor=consume();state.handlers.add(()->cursor.close());return cursor;}
     public Stream<T> filter(final Predicate<? super T> predicate){
         Objects.requireNonNull(predicate);final Supplier<Cursor<T>> previous=link();
         return stage(()->new Chained<T,T>(previous.get()){boolean advance(){while(upstream.hasNext()){T candidate=upstream.next();if(predicate.test(candidate)){value=candidate;return true;}}return false;}});

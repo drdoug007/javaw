@@ -62,4 +62,7 @@ public final class IntPipeline implements IntStream {
     public boolean noneMatch(IntPredicate predicate){Objects.requireNonNull(predicate);return values.noneMatch(v->predicate.test(v.intValue()));}
     public OptionalInt findFirst(){return optional(values.findFirst());}public OptionalInt findAny(){return optional(values.findAny());}
 
+
+    public IntStream flatMap(IntFunction<? extends IntStream> mapper){Objects.requireNonNull(mapper);return from(values.flatMap(v->{IntStream inner=mapper.apply(v.intValue());return inner==null?null:inner.boxed();}));}
+
 }
