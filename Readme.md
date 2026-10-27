@@ -2007,3 +2007,5 @@ Validation: 500 bytecode tests pass; the pinned runtime audit baseline passes wi
 Bytecode regex subset 1/10 (v211): Literal Pattern/Matcher compilation, quoting, flags and PatternSyntaxException accessors. Focused Java 17 differential/admission checks pass; inventory unchanged. See [the selected regex contract](docs/bytecode-regex.md); full regex and framework support remain open.
 
 Bytecode regex subset 2/10 (v212): Regex code-point atoms, escaped literals and quoted spans. Focused Java 17 differential/admission checks pass; inventory unchanged. See [the selected regex contract](docs/bytecode-regex.md); full regex and framework support remain open.
+
+Bytecode regex subset 3/10 (v213): Positive/negative character classes, ranges and ASCII predefined classes. Focused Java 17 differential/admission checks pass; inventory unchanged. See [the selected regex contract](docs/bytecode-regex.md); full regex and framework support remain open.

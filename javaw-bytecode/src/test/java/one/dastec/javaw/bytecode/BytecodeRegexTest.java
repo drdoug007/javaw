@@ -38,6 +38,17 @@ public class Metadata {public static int run(int group){int h=1;
 }}
 """);compare(1);
  }
+ @Test void characterClasses() throws Exception {
+ fixture("""
+import java.util.regex.*;
+public class Metadata {public static int run(int group){int h=1;
+ for(String regex:new String[]{"[abc]","[^abc]","[a-z]","[a-zA-Z0-9_]","[-a]","[a-]","[]a]","[\\\\]x]","[😀-🙏]","\\\\d","\\\\D","\\\\w","\\\\W","\\\\s","\\\\S","[\\\\dA-F]","[^\\\\s]"})
+  for(String text:new String[]{"","a","A","0","_","-","]","é","😀","🙏","\\n","\\u00a0"," ","xx"})h=31*h+(Pattern.matches(regex,text)?1:0);
+ for(String regex:new String[]{"[","[abc","[z-a]"})try{Pattern.compile(regex);throw new Error();}catch(PatternSyntaxException e){h=31*h+e.getDescription().hashCode();h=31*h+e.getIndex();}
+ return h;
+}}
+""");compare(1);
+ }
     private String classpath(){return directory+(fixtureClasspath.isEmpty()?"":File.pathSeparator+fixtureClasspath);}
 
     /** Preserve selected original method instructions; omit unrelated library state and initialization. */
