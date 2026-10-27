@@ -10,5 +10,6 @@ Completed focused cases (each passes):
 
 - `charToHex`
 - `hexDigits`
+- `inputCodes`
 
 Complete serializer/generator execution, `IOContext`/buffer-recycling paths, whole-JAR admission, sustained allocation stability and the broader text/JDK/framework milestones remain open.
