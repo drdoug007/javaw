@@ -55,4 +55,5 @@ public final class StringBuffer implements CharSequence,Comparable<StringBuffer>
     public StringBuffer insert(int offset,long text){builder.insert(offset,String.valueOf(text));return this;}
     public StringBuffer insert(int offset,float text){builder.insert(offset,String.valueOf(text));return this;}
     public StringBuffer insert(int offset,double text){builder.insert(offset,String.valueOf(text));return this;}
+    public StringBuffer insert(int offset,char[] text){builder.insert(offset,text);return this;}
 }
