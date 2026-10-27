@@ -3,7 +3,7 @@ package one.dastec.javaw.bytecode.cache;
 import java.util.*;
 
 public class CacheMetadata {
-    public static final String COMPILER_VERSION = "1.0-SNAPSHOT-sorted-map-v221";
+    public static final String COMPILER_VERSION = "1.0-SNAPSHOT-map-navigation-v222";
     private String groupId;
     private String artifactId;
     private String version;

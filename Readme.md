@@ -2010,3 +2010,5 @@ Bytecode regular expressions (v211–v220) support selected code-point literals,
 Validation (v220): all 510 bytecode tests pass with the prescribed offline selection (four forks, JVMCI compilation disabled); all 15 combined regex/object-identity tests pass. The pinned runtime audit passes with 63 JARs, 26,625 classes and 734 resources unchanged. Audited JDK linkage reports 1,030 declared signatures, 18 missing members and 289 missing owners; these counts do not establish full framework execution.
 
 Sorted bytecode collections subset 1/10 (v221): Ordered TreeMap construction, comparator identity, key equivalence and typed failures. Focused checks pass; see [the selected contract](docs/bytecode-sorted-collections.md). Broad collections, concurrency and framework execution remain open.
+
+Sorted bytecode collections subset 2/10 (v222): Navigable map neighbors and immutable entry snapshots. Focused checks pass; see [the selected contract](docs/bytecode-sorted-collections.md). Broad collections, concurrency and framework execution remain open.

@@ -20,6 +20,9 @@ public class Metadata {public static int run(int group){int h=1;for(Comparator<S
  }
  TreeMap<String,Integer> m=new TreeMap<>();try{m.firstKey();throw new Error();}catch(NoSuchElementException e){h++;}try{m.get(null);throw new Error();}catch(NullPointerException e){h++;}try{((Map)m).put(new Object(),1);throw new Error();}catch(ClassCastException e){h++;}return h;}}
 """);compare(1);}
+ @Test void mapNavigation() throws Exception {fixture("""
+import java.util.*;public class Metadata {public static int run(int g){int h=1;for(Comparator<Integer> order:Arrays.<Comparator<Integer>>asList(null,Comparator.reverseOrder())){NavigableMap<Integer,String> m=new TreeMap<>(order);for(int k:new int[]{1,3,5})m.put(k,"v"+k);for(int k=0;k<=6;k++){h=31*h+Objects.hash(m.lowerKey(k),m.floorKey(k),m.ceilingKey(k),m.higherKey(k));h=31*h+Objects.hash(m.lowerEntry(k),m.floorEntry(k),m.ceilingEntry(k),m.higherEntry(k));}Map.Entry<Integer,String> old=m.firstEntry();m.put(old.getKey(),"changed");h=31*h+old.hashCode();try{old.setValue("bad");throw new Error();}catch(UnsupportedOperationException e){h++;}while(!m.isEmpty()){h=31*h+m.pollLastEntry().hashCode();}h=31*h+Objects.hash(m.firstEntry(),m.lastEntry(),m.pollFirstEntry(),m.pollLastEntry());}return h;}}
+""");compare(1);}
     private String classpath(){return directory+(fixtureClasspath.isEmpty()?"":File.pathSeparator+fixtureClasspath);}
 
     /** Preserve selected original method instructions; omit unrelated library state and initialization. */
