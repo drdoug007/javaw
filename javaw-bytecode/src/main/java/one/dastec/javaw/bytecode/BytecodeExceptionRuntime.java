@@ -38,6 +38,8 @@ public final class BytecodeExceptionRuntime {
             paths.add("java/io/Serializable.java");
             paths.add("java/io/IOException.java");
             paths.add("java/io/UnsupportedEncodingException.java");
+            for(String name:List.of("Closeable","Flushable","OutputStream","Writer"))paths.add("java/io/"+name+".java");
+            paths.add("java/lang/Appendable.java");
             paths.add("javaw/runtime/TextCharsets.java");
             paths.add("javaw/runtime/SystemProperties.java");
             paths.add("javaw/runtime/CharacterStreams.java");
