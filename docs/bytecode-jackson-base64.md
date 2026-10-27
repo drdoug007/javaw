@@ -7,5 +7,7 @@ Fixtures link unmodified class files from Jackson Core 2.15.4, SHA-256 `8dc9210d
 `BytecodeJacksonBase64Test` covers:
 - `encoding`: `encode(byte[])`, `encode(byte[],boolean)` and `encode(byte[],boolean,String)` for MIME, MIME without linefeeds, PEM and URL-safe variants. Inputs cover every length from 0 to 80, a 700-byte input and all 256 byte values. Quoting, custom, empty and null linefeeds are included, as are null-input failures.
 - `encodingPieces`: `encodeBase64BitsAsChar`/`Byte` for all 64 values and out-of-range indexes, plus the `encodeBase64Chunk`/`encodeBase64Partial` overloads for `char[]`, `byte[]` and `StringBuilder`, including insufficient-buffer and null failures.
+- `decoding`: `decodeBase64Char(int)`/`(char)` and `decodeBase64Byte` tables, including negative-index failures. It round-trips lengths 0 to 80 through explicit linefeeds, decodes into a pre-filled `ByteArrayBuilder`, and checks padding stripped or required per variant. `encode(byte[])` emits the JSON-escaped `\n` linefeed for MIME, so its long output is not decodable; that failure is compared rather than assumed.
+- `decodingFailures`: 25 inputs (truncation, extra/missing padding, illegal characters, whitespace and CR/LF) under each variant with allowed/required/forbidden padding. Explicit `IllegalArgumentException` messages and `missingPaddingMessage` are compared, along with null inputs and partial output before a failure.
 
 Java serialization (`readResolve` through object streams), Jackson parser/generator binary paths and whole-JAR admission remain open.
