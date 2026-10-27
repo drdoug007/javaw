@@ -41,6 +41,7 @@ public final class BytecodeExceptionRuntime {
             paths.add("javaw/runtime/TextCharsets.java");
             paths.add("javaw/runtime/SystemProperties.java");
             paths.add("javaw/runtime/CharacterStreams.java");
+            for(String name:List.of("Pattern","Matcher","PatternSyntaxException"))paths.add("java/util/regex/"+name+".java");
             paths.add("java/util/Objects.java");
             paths.add("java/util/Locale.java");
             for(String name:"IllegalFormatException UnknownFormatConversionException UnknownFormatFlagsException DuplicateFormatFlagsException MissingFormatArgumentException MissingFormatWidthException IllegalFormatFlagsException IllegalFormatCodePointException IllegalFormatPrecisionException IllegalFormatWidthException IllegalFormatArgumentIndexException IllegalFormatConversionException FormatFlagsConversionMismatchException".split(" "))paths.add("java/util/"+name+".java");
