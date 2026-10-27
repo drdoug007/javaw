@@ -20,4 +20,18 @@ public final class Matcher implements MatchResult {
     public int start(){check();return first;}public int end(){check();return last;}public String group(){return group(0);}public int groupCount(){return pattern.groups;}
     public int start(int group){check();groupIndex(group);return state.starts[group];}public int end(int group){check();groupIndex(group);return state.ends[group];}
     public String group(int group){int start=start(group);return start<0?null:text.subSequence(start,end(group)).toString();}
+
+    public static String quoteReplacement(String text){Objects.requireNonNull(text);if(text.indexOf('\\')<0&&text.indexOf('$')<0)return text;StringBuilder out=new StringBuilder();for(int i=0;i<text.length();i++){char c=text.charAt(i);if(c=='\\'||c=='$')out.append('\\');out.append(c);}return out.toString();}
+    private String replacement(String value){Objects.requireNonNull(value);StringBuilder out=new StringBuilder();for(int i=0;i<value.length();i++){char c=value.charAt(i);
+        if(c=='\\'){if(++i==value.length())throw new IllegalArgumentException("character to be escaped is missing");out.append(value.charAt(i));}
+        else if(c=='$'){if(++i==value.length())throw new IllegalArgumentException("Illegal group reference: group index is missing");c=value.charAt(i);if(c=='{')throw Pattern.unsupported("named replacement group");if(c<'0'||c>'9')throw new IllegalArgumentException("Illegal group reference");int number=c-'0';groupIndex(number);
+            while(i+1<value.length()&&value.charAt(i+1)>='0'&&value.charAt(i+1)<='9'){int candidate=number*10+value.charAt(i+1)-'0';if(candidate>pattern.groups)break;number=candidate;i++;}String capture=group(number);if(capture!=null)out.append(capture);
+        }else out.append(c);
+    }return out.toString();}
+    public Matcher appendReplacement(StringBuilder destination,String replacement){check();String value=replacement(replacement);destination.append(text,appendPosition,first).append(value);appendPosition=last;return this;}
+    public Matcher appendReplacement(StringBuffer destination,String replacement){check();String value=replacement(replacement);destination.append(text,appendPosition,first).append(value);appendPosition=last;return this;}
+    public StringBuilder appendTail(StringBuilder destination){return destination.append(text,appendPosition,text.length());}
+    public StringBuffer appendTail(StringBuffer destination){return destination.append(text,appendPosition,text.length());}
+    public String replaceAll(String replacement){reset();if(!find())return text.toString();StringBuilder result=new StringBuilder();do{appendReplacement(result,replacement);}while(find());return appendTail(result).toString();}
+    public String replaceFirst(String replacement){Objects.requireNonNull(replacement);reset();if(!find())return text.toString();StringBuilder result=new StringBuilder();appendReplacement(result,replacement);return appendTail(result).toString();}
 }

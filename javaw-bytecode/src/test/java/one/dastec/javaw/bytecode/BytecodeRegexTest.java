@@ -95,6 +95,21 @@ public class Metadata {public static int excludedState(){Matcher m=Pattern.compi
 }}
 """);compare(8);
  }
+ @Test void replacements() throws Exception {
+ fixture("""
+import java.util.regex.*;
+public class Metadata {public static int run(int group){int h=1;String regex=new String[]{"(a+)(b?)","","a","z","(a)?b"}[group];
+ for(String text:new String[]{"","ab aa b","😀ab"}){
+  for(String replacement:new String[]{"x","$0","$1:$2","$10","$01","$","\\\\","$9","$x",null})for(int first=0;first<2;first++)try{String out=first==0?text.replaceAll(regex,replacement):text.replaceFirst(regex,replacement);h=31*h+out.hashCode();}catch(NullPointerException e){h=31*h+1;}catch(IllegalArgumentException e){h=31*h+2;}catch(IndexOutOfBoundsException e){h=31*h+3;}
+  for(String replacement:new String[]{"plain","$1","a\\\\E$0","\\\\$"}){String quote=Matcher.quoteReplacement(replacement);h=31*h+quote.hashCode();h=31*h+text.replaceAll(regex,quote).hashCode();}
+  Matcher m=Pattern.compile(regex).matcher(text);StringBuilder a=new StringBuilder("prefix");while(m.find())h=31*h+(m.appendReplacement(a,"<$0>")==m?1:0);h=31*h+(m.appendTail(a)==a?1:0);h=31*h+a.toString().hashCode();
+  m.reset();StringBuffer b=new StringBuffer();while(m.find())m.appendReplacement(b,"<$0>");h=31*h+(m.appendTail(b)==b?1:0);h=31*h+b.toString().hashCode();
+ }
+ Matcher unused=Pattern.compile("a").matcher("a");try{unused.appendReplacement(new StringBuilder(),"x");throw new Error();}catch(IllegalStateException e){h++;}
+ try{Matcher.quoteReplacement(null);throw new Error();}catch(NullPointerException e){h++;}return h;
+}}
+""");compare(5);
+ }
     private String classpath(){return directory+(fixtureClasspath.isEmpty()?"":File.pathSeparator+fixtureClasspath);}
 
     /** Preserve selected original method instructions; omit unrelated library state and initialization. */

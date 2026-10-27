@@ -15,3 +15,4 @@ Matching uses an explicit instruction/backtracking stack with saved capture and 
 - v217: Matcher find/lookingAt/reset, capture access and String.matches.
 
 Matcher search starts require reset after a failed `matches()` or `lookingAt()`; `find()` diagnoses that unsupported reuse state explicitly. `find(int)` resets by definition. Ordinary repeated find, successful anchored reuse, reset, capture access, and Java 17 zero-width exhaustion state are differential tested. After `reset(null)`, restore non-null input before further traversal; only failure type and invalidation of the prior match are covered.
+- v218: Group-aware replacement, quoteReplacement and String replaceAll/replaceFirst.
