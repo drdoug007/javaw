@@ -76,4 +76,11 @@ public final class Integer extends Number implements Comparable<Integer>,java.io
         return (int)javaw.runtime.IntegralNumbers.parse(text,start,end,radix,0,0xffffffffL);
     }
 
+    public static Integer getInteger(String name){
+        String value;
+        try{value=javaw.runtime.SystemProperties.getProperty(name);}
+        catch(IllegalArgumentException failure){return null;}catch(NullPointerException failure){return null;}
+        if(value!=null)try{return decode(value);}catch(NumberFormatException failure){}
+        return null;
+    }
 }
