@@ -2014,3 +2014,5 @@ Sorted bytecode collections subset 1/10 (v221): Ordered TreeMap construction, co
 Sorted bytecode collections subset 2/10 (v222): Navigable map neighbors and immutable entry snapshots. Focused checks pass; see [the selected contract](docs/bytecode-sorted-collections.md). Broad collections, concurrency and framework execution remain open.
 
 Sorted bytecode collections subset 3/10 (v223): Live sorted map range views and nested bound checks. Focused checks pass; see [the selected contract](docs/bytecode-sorted-collections.md). Broad collections, concurrency and framework execution remain open.
+
+Sorted bytecode collections subset 4/10 (v224): Inclusive/exclusive and descending map views. Focused checks pass; see [the selected contract](docs/bytecode-sorted-collections.md). Broad collections, concurrency and framework execution remain open.
