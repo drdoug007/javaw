@@ -152,6 +152,18 @@ class BytecodeBigIntegerBitsTest implements Opcodes {
             """);compare(List.of("run0","run1","run2","run3","run4","run5","run6","run7","run8","run9","run10","run11","run12","run13"));
     }
 
+    @Test void bitCount() throws Exception {
+        fixture("""
+            import java.math.BigInteger;
+            public class Metadata {public static int run0(){return sample(0);}public static int run1(){return sample(12);}public static int run2(){return sample(24);}public static int run3(){return sample(36);}public static int run4(){return sample(48);}public static int run5(){return sample(60);}public static int run6(){return sample(72);}public static int run7(){return sample(84);}public static int run8(){return sample(96);}public static int run9(){return sample(108);}public static int run10(){return sample(120);}public static int run11(){return sample(132);}public static int run12(){return sample(144);}public static int run13(){return sample(156);}public static int run14(){return sample(168);}private static int sample(int offset){int hash=1;
+                String[] values={"0","1","-1","127","128","255","256","-128","-129","-256","9223372036854775808","-9223372036854775809","123456789012345678901234567890","-123456789012345678901234567890"};
+                java.util.function.ToIntFunction<BigInteger> op=BigInteger::bitCount;
+                for(String x:values){BigInteger a=new BigInteger(x);if(a.bitCount()!=op.applyAsInt(a))throw new Error();hash=31*hash+a.bitCount();}
+                for(int bit=offset;bit<offset+12;bit++){BigInteger a=BigInteger.ONE.shiftLeft(bit);hash=31*hash+a.bitCount();hash=31*hash+a.negate().bitCount();}
+                return hash;}}
+            """);compare(List.of("run0","run1","run2","run3","run4","run5","run6","run7","run8","run9","run10","run11","run12","run13","run14"));
+    }
+
     private void compare(List<String> names) throws Exception {
         StringBuilder assertions=new StringBuilder();
         try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)){
