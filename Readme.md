@@ -2023,4 +2023,6 @@ Linked bytecode `BigInteger` bit operations: `and`, `or`, `xor`, `andNot`, `not`
 
 Validation (v250): the full 541-test bytecode run passed 539 tests and exposed two outdated unsupported-`and` assertions. Both were corrected; all 11 tests in the affected classes pass on rerun. All ten operation regressions and the 40-case malformed admission regression pass. The reviewed 63-JAR audit passes with unchanged inventory and linkage counts.
 
-Pinned Jackson Core 2.15.4 numeric execution: `bigIntegerDecimal`, `intString`, `intArray`, `longString`, `longArray`, `long19`, `longRangeString`, `longRangeArray`, `decimalStrings`. See [the selected parsing contract](docs/bytecode-jackson-number-input.md) and `BytecodeJacksonNumberInputTest`. Fast parsing/coercion and full Jackson/framework execution remain open.
+Pinned Jackson Core 2.15.4 numeric execution: `bigIntegerDecimal`, `intString`, `intArray`, `longString`, `longArray`, `long19`, `longRangeString`, `longRangeArray`, `decimalStrings`, `decimalArrays`. See [the selected parsing contract](docs/bytecode-jackson-number-input.md) and `BytecodeJacksonNumberInputTest`. Fast parsing/coercion and full Jackson/framework execution remain open.
+
+Jackson numeric validation: all 551 bytecode tests pass (four forks, JVMCI compilation disabled), with zero failures, errors or skips. The 63-JAR audit baseline and compiler revision v250 are unchanged. Fixtures target Java 17 bytecode and compare against the host Java 25.0.3 JVM.

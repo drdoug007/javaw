@@ -171,6 +171,37 @@ class BytecodeJacksonNumberInputTest implements Opcodes {
             """);compare(List.of("run"));
     }
 
+    @Test void decimalArrays() throws Exception {
+        fixture("""
+            import java.math.*;
+            import com.fasterxml.jackson.core.io.NumberInput;
+            public class Metadata {
+                public static int runLarge0(){return large(500);}
+                public static int runLarge1(){return large(501);}
+                public static int runLarge2(){return large(1001);}
+                static int large(int length){
+                    String text="1234567890".repeat(length/10)+"1".repeat(length%10);
+                    BigDecimal result=NumberInput.parseBigDecimal(("xx"+text+"yy").toCharArray(),2,length);
+                    return 31*result.toString().hashCode()+result.scale();
+                }
+                public static int runLongFailure(){
+                    try{NumberInput.parseBigDecimal(("1".repeat(1001)+"x").toCharArray());throw new Error();}
+                    catch(RuntimeException e){return e.getClass().getName().hashCode();}
+                }
+                public static int runSlices(){int hash=1;
+                    for(int[] range:new int[][]{{-1,1},{0,-1},{3,2},{Integer.MAX_VALUE,1},{0,Integer.MAX_VALUE}})
+                        try{NumberInput.parseBigDecimal(new char[]{'1','2','3'},range[0],range[1]);throw new Error();}
+                        catch(RuntimeException e){hash=31*hash+e.getClass().getName().hashCode();}
+                    return hash;
+                }
+                public static int run(){
+                int hash=1;for(String text:new String[]{"0","-0.000","+12.34","12345678901234567890.00001","1E+30","-1e-30",".123","123."}){char[] a=("xx"+text+"yy").toCharArray();BigDecimal b=NumberInput.parseBigDecimal(a,2,text.length());hash=31*hash+b.toString().hashCode();hash=31*hash+b.scale();hash=31*hash+NumberInput.parseBigDecimal(text.toCharArray()).toString().hashCode();a[2]='9';hash=31*hash+b.hashCode();}
+ for(String text:new String[]{"","+","1e","1.2.3","NaN"})try{NumberInput.parseBigDecimal(text.toCharArray());throw new Error();}catch(RuntimeException e){hash=31*hash+e.getClass().getName().hashCode();}
+ try{NumberInput.parseBigDecimal((char[])null);throw new Error();}catch(NullPointerException e){hash++;}return hash;
+            }}
+            """);compare(List.of("run","runLarge0","runLarge1","runLarge2","runLongFailure","runSlices"));
+    }
+
     private void compare(List<String> names) throws Exception {
         StringBuilder assertions=new StringBuilder();
         try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL(),artifact().toUri().toURL()},null)){
