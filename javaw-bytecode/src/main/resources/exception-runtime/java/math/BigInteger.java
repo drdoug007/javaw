@@ -181,6 +181,10 @@ public class BigInteger extends Number implements Comparable<BigInteger>,java.io
     public BigInteger or(BigInteger other){return bitwise(other,1);}
     public BigInteger xor(BigInteger other){return bitwise(other,2);}
     public BigInteger andNot(BigInteger other){return bitwise(other,3);}
+    public BigInteger not(){
+        byte[] result=toByteArray();for(int i=0;i<result.length;i++)result[i]=(byte)~result[i];
+        return new BigInteger(result);
+    }
     public BigInteger min(BigInteger other){return compareTo(other)<=0?this:other;}
     public BigInteger max(BigInteger other){return compareTo(other)>=0?this:other;}
     public BigInteger mod(BigInteger modulus){if(modulus.sign<=0)throw new ArithmeticException();BigInteger result=remainder(modulus);return result.sign<0?result.add(modulus):result;}

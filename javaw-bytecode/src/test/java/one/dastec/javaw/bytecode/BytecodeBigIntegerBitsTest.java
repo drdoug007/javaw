@@ -98,6 +98,18 @@ class BytecodeBigIntegerBitsTest implements Opcodes {
             """);compare(List.of("run"));
     }
 
+    @Test void not() throws Exception {
+        fixture("""
+            import java.math.BigInteger;
+            public class Metadata {public static int run(){int hash=1;
+                String[] values={"0","1","-1","127","128","255","256","-128","-129","-256","9223372036854775808","-9223372036854775809","123456789012345678901234567890","-123456789012345678901234567890"};
+                java.util.function.UnaryOperator<BigInteger> op=BigInteger::not;
+                for(String x:values){BigInteger a=new BigInteger(x);BigInteger result=a.not();
+                    if(!result.equals(op.apply(a)) || !result.not().equals(a))throw new Error();hash=31*hash+result.toString().hashCode();}
+                return hash;}}
+            """);compare(List.of("run"));
+    }
+
     private void compare(List<String> names) throws Exception {
         StringBuilder assertions=new StringBuilder();
         try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)){
