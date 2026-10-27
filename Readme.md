@@ -2015,3 +2015,5 @@ Bytecode sorted collections (v221–v230) support selected TreeMap/TreeSet const
 Validation (v230): all 520 bytecode tests pass with the prescribed offline selection (four forks, JVMCI compilation disabled), including all ten sorted-collection tests; the separate combined sorted/object-identity run passes all 15 tests. The runtime audit passes with unchanged 63-JAR / 26,625-class / 734-resource inventory. Selected JDK linkage reports 1,097 declared signatures, 18 missing members and 222 missing owners; these are declaration counts, not framework execution evidence.
 
 Reference traversal subset 1/10 (v231): Collection generated-array overload and typed callback/store failures. Focused checks pass; see [the reference traversal contract](docs/bytecode-spliterators.md). Primitive/parallel and framework milestones remain open.
+
+Reference traversal subset 2/10 (v232): Reference Spliterator defaults and empty traversal. Focused checks pass; see [the reference traversal contract](docs/bytecode-spliterators.md). Primitive/parallel and framework milestones remain open.

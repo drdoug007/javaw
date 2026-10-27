@@ -3,7 +3,7 @@ package one.dastec.javaw.bytecode.cache;
 import java.util.*;
 
 public class CacheMetadata {
-    public static final String COMPILER_VERSION = "1.0-SNAPSHOT-collection-array-generator-v231";
+    public static final String COMPILER_VERSION = "1.0-SNAPSHOT-spliterator-defaults-v232";
     private String groupId;
     private String artifactId;
     private String version;
