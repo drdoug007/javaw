@@ -159,6 +159,18 @@ class BytecodeJacksonNumberInputTest implements Opcodes {
             """);compare(List.of("run"));
     }
 
+    @Test void decimalStrings() throws Exception {
+        fixture("""
+            import java.math.*;
+            import com.fasterxml.jackson.core.io.NumberInput;
+            public class Metadata {public static int run(){
+                int hash=1;for(String text:new String[]{"0","-0","+1.00","12345678901234567890.00001","1E+30","-1e-30","1e2147483648","1e-2147483647",".123","123.","\u0661.\u0662"}){BigDecimal a=NumberInput.parseBigDecimal(text);hash=31*hash+a.toString().hashCode();hash=31*hash+a.scale();}
+ for(String text:new String[]{"","+","1e","1e2147483649","1.2.3"," 1","1 ","NaN","Infinity"})try{NumberInput.parseBigDecimal(text);throw new Error();}catch(RuntimeException e){hash=31*hash+e.getClass().getName().hashCode();}
+ try{NumberInput.parseBigDecimal((String)null);throw new Error();}catch(NullPointerException e){hash++;}return hash;
+            }}
+            """);compare(List.of("run"));
+    }
+
     private void compare(List<String> names) throws Exception {
         StringBuilder assertions=new StringBuilder();
         try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL(),artifact().toUri().toURL()},null)){
