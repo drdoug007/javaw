@@ -16,3 +16,6 @@ Completed subsets:
 - v195: Long.getLong nullable lookup with decimal/hexadecimal/octal decoding and malformed/overflow fallback.
 - v196: Long.getLong primitive default overload and small-value cache identity.
 - v197: Long.getLong boxed default overload preserving fallback identity and null.
+- v198: Pinned Spring CGLIB property-dependent class initialization and naming execution.
+
+Pinned execution uses original, unmodified `org.springframework.cglib.core.DefaultNamingPolicy`, `NamingPolicy` and `Predicate` class files from Spring Core 6.1.5 (SHA-256 `476dac28509b3f47d0b5e895a639fa75ac2218f074ce214e44832a836c469f7e`). The JVM oracle and Wasm execute those same classes. Separate JVM processes and fresh Wasm instances cover both initial values of `org.springframework.cglib.test.stressHashCodes`, class-initialization capture after later property mutation, deterministic naming, Java package prefix handling, collision callbacks, equality and hash codes. This proves this selected naming-policy path; CGLIB class generation, proxies, the complete Spring container and security-manager behavior remain outside the claim.

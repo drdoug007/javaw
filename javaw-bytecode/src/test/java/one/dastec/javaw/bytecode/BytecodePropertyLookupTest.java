@@ -160,10 +160,46 @@ class BytecodePropertyLookupTest {
             """);compare(1);
     }
 
+    @Test void pinnedSpringPropertyInitialization() throws Exception {
+        Path artifact=Path.of(System.getProperty("maven.repo.local",System.getProperty("user.home")+"/.m2/repository"))
+            .resolve("org/springframework/spring-core/6.1.5/spring-core-6.1.5.jar");
+        assertEquals("476dac28509b3f47d0b5e895a639fa75ac2218f074ce214e44832a836c469f7e",
+            HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(artifact))));
+        try(JarFile jar=new JarFile(artifact.toFile())) {
+            for(String name:List.of("DefaultNamingPolicy","NamingPolicy","Predicate")) {
+                String entry="org/springframework/cglib/core/"+name+".class";
+                Path output=directory.resolve(entry);Files.createDirectories(output.getParent());
+                Files.write(output,jar.getInputStream(jar.getJarEntry(entry)).readAllBytes());
+            }
+        }
+        for(boolean stress:new boolean[]{false,true}) {
+            fixture("""
+                import org.springframework.cglib.core.DefaultNamingPolicy;
+                public class Metadata {public static int run(int group){
+                 String key="org.springframework.cglib.test.stressHashCodes";
+                 System.setProperty(key,"STRESS");
+                 DefaultNamingPolicy policy=DefaultNamingPolicy.INSTANCE;int h=1;
+                 for(String prefix:new String[]{null,"java.lang.String","sample.Base"}){
+                  String first=policy.getClassName(prefix,"demo.Emitter","stable-key",candidate->false);
+                  h=31*h+first.hashCode();
+                  int[] calls={0};String collisions=policy.getClassName(prefix,"demo.Emitter","stable-key",candidate->calls[0]++<2);
+                  h=31*h+collisions.hashCode();h=31*h+calls[0];
+                  System.setProperty(key,"CHANGED");
+                  h=31*h+(first.equals(policy.getClassName(prefix,"demo.Emitter","stable-key",candidate->false))?1:0);
+                 }
+                 h=31*h+policy.hashCode();h=31*h+(policy.equals(new DefaultNamingPolicy())?1:0);
+                 h=31*h+(policy.equals(null)?1:0);System.clearProperty(key);return h;
+                }}
+                """.replace("STRESS",Boolean.toString(stress)).replace("CHANGED",Boolean.toString(!stress)));
+            compare(1);
+        }
+    }
+
     private byte[] fixture(String source) throws Exception {
         Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
         List<String> options=new ArrayList<>(List.of("-g","-parameters","--release","17","-d",directory.toString()));
         Path oracle=directory.resolve("CaseOracle.java");Files.writeString(oracle,"public class CaseOracle {public static void main(String[] args)throws Exception{if(Runtime.version().feature()!=17)throw new Error();var method=Class.forName(args[0]).getMethod(\"run\",int.class);System.out.print(\"[\");for(int i=0;i<Integer.parseInt(args[1]);i++){if(i>0)System.out.print(\",\");System.out.print(method.invoke(null,i));}System.out.print(\"]\");}}");
+        options.addAll(List.of("-classpath",directory.toString()));
         options.add(file.toString());options.add(oracle.toString());
         assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,options.toArray(String[]::new)));
         return jar(false);

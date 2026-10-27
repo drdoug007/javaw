@@ -2013,3 +2013,5 @@ Bytecode property subset 6/10 (v195): Long.getLong nullable lookup with decimal/
 Bytecode property subset 7/10 (v196): Long.getLong primitive default overload and small-value cache identity. Focused Java 17 JVM/Wasm checks and the reviewed 63-JAR inventory pass. See [the explicit property contract](docs/bytecode-properties.md). Host defaults, security-manager behavior and concurrent access remain outside this sequential contract.
 
 Bytecode property subset 8/10 (v197): Long.getLong boxed default overload preserving fallback identity and null. Focused Java 17 JVM/Wasm checks and the reviewed 63-JAR inventory pass. See [the explicit property contract](docs/bytecode-properties.md). Host defaults, security-manager behavior and concurrent access remain outside this sequential contract.
+
+Bytecode property subset 9/10 (v198): Pinned Spring CGLIB property-dependent class initialization and naming execution. Focused Java 17 JVM/Wasm checks and the reviewed 63-JAR inventory pass. See [the explicit property contract](docs/bytecode-properties.md). Host defaults, security-manager behavior and concurrent access remain outside this sequential contract.
