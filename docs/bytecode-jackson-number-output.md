@@ -13,3 +13,4 @@ Completed focused cases (each passes):
 - `intStrings`
 - `longStrings`
 - `doubleStrings`
+- `floatStrings`
