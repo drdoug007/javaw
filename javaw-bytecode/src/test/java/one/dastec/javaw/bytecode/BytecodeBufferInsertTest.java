@@ -58,6 +58,19 @@ public class Metadata {
 return h;}}
             """);compare(1);
     }
+    @Test void insertLong() throws Exception {
+        fixture("""
+public class Metadata {
+ static class Value {public String toString(){return "object";}}
+ public static int run(int group){int h=1;
+ for(int offset:new int[]{Integer.MIN_VALUE,-1,0,1,3,4,Integer.MAX_VALUE})for(long text:new long[]{0L,-17L,Long.MIN_VALUE,Long.MAX_VALUE}){
+ StringBuffer b=new StringBuffer("abc");int result=0;
+ try{result=b.insert(offset,text)==b?7:9;}catch(StringIndexOutOfBoundsException e){result=11;}catch(IndexOutOfBoundsException e){result=13;}catch(NullPointerException e){result=17;}
+ h=31*h+result;h=31*h+b.toString().hashCode();h=31*h+b.length();
+ }
+return h;}}
+            """);compare(1);
+    }
     private byte[] fixture(String source) throws Exception {
         Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
         List<String> options=new ArrayList<>(List.of("-g","-parameters","--release",release,"-d",directory.toString()));

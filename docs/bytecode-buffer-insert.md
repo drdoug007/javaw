@@ -9,3 +9,4 @@ Supported additions:
 - v180: `Object` insertion overload (`insertObject` regression).
 - v181: `Boolean` insertion overload (`insertBoolean` regression).
 - v182: `Int` insertion overload (`insertInt` regression).
+- v183: `Long` insertion overload (`insertLong` regression).
