@@ -7,6 +7,10 @@ public final class ReferenceStream<T> implements Stream<T> {
     private final Supplier<Cursor<T>> factory;
     private final State state;
     private boolean used;
+    private Supplier<? extends Spliterator<T>> sourceSpliterator;
+    ReferenceStream<T> withSpliteratorSource(Supplier<? extends Spliterator<T>> source){sourceSpliterator=source;return this;}
+    public Spliterator<T> spliterator(){check();if(sourceSpliterator==null)throw new UnsupportedOperationException("spliterator of transformed/generated reference stream");used=true;return Objects.requireNonNull(sourceSpliterator.get());}
+
     private ReferenceStream(Supplier<Cursor<T>> factory,State state){this.factory=factory;this.state=state;}
     private static <E extends Throwable> void rethrow(Throwable failure)throws E{throw (E)failure;}
     private static Throwable suppress(Throwable first,Throwable next){if(first==null)return next;if(first!=next)first.addSuppressed(next);return first;}
@@ -42,11 +46,11 @@ public final class ReferenceStream<T> implements Stream<T> {
         Objects.requireNonNull(factory);return new ReferenceStream<E>(()->wrap(Objects.requireNonNull(factory.get())),new State());
     }
     public static <E> Stream<E> collection(final Collection<E> values){
-        Objects.requireNonNull(values);return new ReferenceStream<E>(()->wrap(values.iterator()),new State());
+        Objects.requireNonNull(values);return new ReferenceStream<E>(()->wrap(values.iterator()),new State()).withSpliteratorSource(()->values.spliterator());
     }
     public static <E> Stream<E> array(final E[] values,final int start,final int end){
         Objects.requireNonNull(values);if(start>end)throw new ArrayIndexOutOfBoundsException();if(start<0 || end>values.length)throw new ArrayIndexOutOfBoundsException();
-        return new ReferenceStream<E>(()->new Cursor<E>(){int index=start;boolean advance(){if(index==end)return false;value=values[index++];return true;}},new State());
+        return new ReferenceStream<E>(()->new Cursor<E>(){int index=start;boolean advance(){if(index==end)return false;value=values[index++];return true;}},new State()).withSpliteratorSource(()->Spliterators.spliterator(values,start,end,Spliterator.ORDERED|Spliterator.IMMUTABLE));
     }
     static <E> Stream<E> generate(final Supplier<? extends E> supplier){
         Objects.requireNonNull(supplier);return new ReferenceStream<E>(()->new Cursor<E>(){boolean advance(){value=supplier.get();return true;}},new State());
