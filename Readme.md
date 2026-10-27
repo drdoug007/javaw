@@ -2022,3 +2022,5 @@ Validation (v240): all 530 bytecode tests pass with the prescribed offline selec
 Linked bytecode `BigInteger` bit operations: `and`, `or`, `xor`, `andNot`, `not`, `setBit`, `clearBit`, `flipBit`, `bitCount`, `getLowestSetBit`. JVM/Wasm evidence: `BytecodeBigIntegerBitsTest`; see [the bit-operation contract](docs/bytecode-biginteger-bits.md). Full JDK and framework execution remain open.
 
 Validation (v250): the full 541-test bytecode run passed 539 tests and exposed two outdated unsupported-`and` assertions. Both were corrected; all 11 tests in the affected classes pass on rerun. All ten operation regressions and the 40-case malformed admission regression pass. The reviewed 63-JAR audit passes with unchanged inventory and linkage counts.
+
+Pinned Jackson Core 2.15.4 numeric execution: `bigIntegerDecimal`. See [the selected parsing contract](docs/bytecode-jackson-number-input.md) and `BytecodeJacksonNumberInputTest`. Fast parsing/coercion and full Jackson/framework execution remain open.
