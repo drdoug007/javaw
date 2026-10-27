@@ -3,7 +3,7 @@ package one.dastec.javaw.bytecode.cache;
 import java.util.*;
 
 public class CacheMetadata {
-    public static final String COMPILER_VERSION = "1.0-SNAPSHOT-collection-traversal-metadata-v239";
+    public static final String COMPILER_VERSION = "1.0-SNAPSHOT-reference-traversal-admission-v240";
     private String groupId;
     private String artifactId;
     private String version;

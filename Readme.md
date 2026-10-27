@@ -2014,20 +2014,7 @@ Bytecode sorted collections (v221–v230) support selected TreeMap/TreeSet const
 
 Validation (v230): all 520 bytecode tests pass with the prescribed offline selection (four forks, JVMCI compilation disabled), including all ten sorted-collection tests; the separate combined sorted/object-identity run passes all 15 tests. The runtime audit passes with unchanged 63-JAR / 26,625-class / 734-resource inventory. Selected JDK linkage reports 1,097 declared signatures, 18 missing members and 222 missing owners; these are declaration counts, not framework execution evidence.
 
-Reference traversal subset 1/10 (v231): Collection generated-array overload and typed callback/store failures. Focused checks pass; see [the reference traversal contract](docs/bytecode-spliterators.md). Primitive/parallel and framework milestones remain open.
 
-Reference traversal subset 2/10 (v232): Reference Spliterator defaults and empty traversal. Focused checks pass; see [the reference traversal contract](docs/bytecode-spliterators.md). Primitive/parallel and framework milestones remain open.
+Bytecode reference traversal (v231–v240) supports generated collection arrays, reference Spliterator defaults/factories, array/iterator/abstract splitting, adapters, late-binding collection traversal, sequential StreamSupport and selected source-stream spliterators. ArrayList traversal checks structural changes; sorted/read-only views preserve selected comparator metadata. Collection.stream honors custom spliterator overrides, and empty Stream heads retain empty-source characteristics. Tests execute original pinned Spring Data iterator/zip helpers and validate malformed unused calls/handles. See [the selected traversal contract](docs/bytecode-spliterators.md). Primitive/parallel traversal, transformed/generated stream spliterators and broader framework execution remain open.
 
-Reference traversal subset 3/10 (v233): Reference array spliterators, range validation and ordered splitting. Focused checks pass; see [the reference traversal contract](docs/bytecode-spliterators.md). Primitive/parallel and framework milestones remain open.
-
-Reference traversal subset 4/10 (v234): Sized/unknown iterator spliterators and iterator adapter. Focused checks pass; see [the reference traversal contract](docs/bytecode-spliterators.md). Primitive/parallel and framework milestones remain open.
-
-Reference traversal subset 5/10 (v235): AbstractSpliterator subclass batching and callback state. Focused checks pass; see [the reference traversal contract](docs/bytecode-spliterators.md). Primitive/parallel and framework milestones remain open.
-
-Reference traversal subset 6/10 (v236): Iterable and collection late-binding spliterators. Focused checks pass; see [the reference traversal contract](docs/bytecode-spliterators.md). Primitive/parallel and framework milestones remain open.
-
-Reference traversal subset 7/10 (v237): Sequential StreamSupport direct and supplier sources. Focused checks pass; see [the reference traversal contract](docs/bytecode-spliterators.md). Primitive/parallel and framework milestones remain open.
-
-Reference traversal subset 8/10 (v238): Single-use lazy reference-stream spliterator traversal. Focused checks pass; see [the reference traversal contract](docs/bytecode-spliterators.md). Primitive/parallel and framework milestones remain open.
-
-Reference traversal subset 9/10 (v239): Array and sorted-collection spliterator metadata and views. Focused checks pass; see [the reference traversal contract](docs/bytecode-spliterators.md). Primitive/parallel and framework milestones remain open.
+Validation (v240): all 530 bytecode tests pass with the prescribed offline selection (four forks, JVMCI compilation disabled), with zero failures, errors or skips. The combined focused traversal/sorted-admission/object-identity run passes all 16 tests; the final pinned-library/admission rerun also passes. The reviewed runtime audit passes with unchanged 63-JAR / 26,625-class / 734-resource inventory. Selected JDK linkage reports 1,121 declared signatures, 9 missing members and 207 missing owners; these are declaration counts, not framework execution evidence.

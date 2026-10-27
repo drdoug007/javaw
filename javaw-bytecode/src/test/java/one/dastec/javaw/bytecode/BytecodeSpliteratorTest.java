@@ -40,6 +40,57 @@ import java.util.*;import java.util.stream.*;public class Metadata {public stati
  @Test void arraysAndSortedMetadata() throws Exception {fixture("""
 import java.util.*;public class Metadata {public static int run(int g){int h=1;String[] a={"a","b","c","d"};Spliterator<String> s=Arrays.spliterator(a,1,4);h=31*h+s.characteristics();h=31*h+(int)s.getExactSizeIfKnown();List<Integer> list=new ArrayList<>(Arrays.asList(1,2,3,4));Spliterator<Integer> p=list.spliterator();list.add(5);h=31*h+(int)p.estimateSize();Spliterator<Integer> prefix=p.trySplit();h=31*h+(int)prefix.estimateSize();int[] sum={0};prefix.forEachRemaining(x->sum[0]+=x);p.forEachRemaining(x->sum[0]+=x);h=31*h+sum[0];p=list.spliterator();p.estimateSize();list.add(6);try{p.tryAdvance(x->sum[0]+=x);throw new Error();}catch(ConcurrentModificationException e){h++;}h=31*h+sum[0];for(Comparator<String> cmp:Arrays.<Comparator<String>>asList(null,Comparator.reverseOrder())){TreeSet<String> set=new TreeSet<>(cmp);set.addAll(Arrays.asList("a","b","c"));Spliterator<String> sp=set.spliterator();h=31*h+sp.characteristics();h=31*h+(int)sp.getExactSizeIfKnown();h=31*h+(sp.getComparator()==cmp?1:0);StringBuilder out=new StringBuilder();sp.forEachRemaining(out::append);h=31*h+out.toString().hashCode();SortedSet<String> readonly=Collections.unmodifiableSortedSet(set);sp=readonly.spliterator();h=31*h+sp.characteristics();h=31*h+(sp.getComparator()==cmp?1:0);}return h;}}
 """);compare(1);}
+ @Test void libraryAndAdmission() throws Exception {fixture("""
+import java.util.*;import java.util.function.*;import java.util.stream.*;public class Metadata {public static int run(int g){int h=1;h=31*h+Stream.empty().spliterator().characteristics();h=31*h+Stream.ofNullable(null).spliterator().characteristics();Collection<Integer> custom=new AbstractCollection<Integer>(){public int size(){return 2;}public Iterator<Integer> iterator(){throw new Error();}public Spliterator<Integer> spliterator(){return Arrays.spliterator(new Integer[]{7,8});}};h=31*h+custom.stream().toList().hashCode();List<String> values=new ArrayList<>(Arrays.asList("a","b","c"));Spliterator<String> s=values.spliterator();Function<Spliterator<String>,Iterator<String>> adapt=Spliterators::iterator;Iterator<String> it=adapt.apply(s);while(it.hasNext())h=31*h+it.next().hashCode();for(int mode=0;mode<2;mode++){TreeSet<Integer> set=new TreeSet<>(Arrays.asList(1));Spliterator<Integer> sp=set.spliterator();sp.estimateSize();try{if(mode==0)sp.tryAdvance(x->set.add(2));else sp.forEachRemaining(x->set.add(2));throw new Error();}catch(ConcurrentModificationException e){h++;}}return h;}}
+""");compare(1);springTraversal();traversalAdmission();}
+    private void traversalAdmission(){
+        String[][] signatures={
+          {"java/util/Collection","toArray","(Ljava/util/function/IntFunction;)[Ljava/lang/Object;","interface"},
+          {"java/util/Spliterator","tryAdvance","(Ljava/util/function/Consumer;)Z","interface"},
+          {"java/util/Spliterator","trySplit","()Ljava/util/Spliterator;","interface"},
+          {"java/util/Spliterator","getComparator","()Ljava/util/Comparator;","interface"},
+          {"java/util/Spliterators","iterator","(Ljava/util/Spliterator;)Ljava/util/Iterator;","static"},
+          {"java/util/stream/StreamSupport","stream","(Ljava/util/Spliterator;Z)Ljava/util/stream/Stream;","static"},
+          {"java/util/stream/Stream","spliterator","()Ljava/util/Spliterator;","interface"},
+          {"java/lang/Iterable","spliterator","()Ljava/util/Spliterator;","interface"}
+        };
+        for(String[] call:signatures)for(int variant=0;variant<4;variant++){
+            boolean iface=call[3].equals("interface"),statik=call[3].equals("static");
+            String descriptor=variant%2==0?"(J)Ljava/lang/Object;":call[2];
+            ClassWriter writer=new ClassWriter(0);writer.visit(Opcodes.V17,Opcodes.ACC_PUBLIC,"BadTraversalCall",null,"java/lang/Object",null);writer.visitSource("TraversalCalls.java",null);
+            MethodVisitor m=writer.visitMethod(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"unused","()Ljava/lang/Object;",null,null);
+            m.visitCode();Label line=new Label();m.visitLabel(line);m.visitLineNumber(61,line);
+            if(variant<2){m.visitInsn(Opcodes.ACONST_NULL);m.visitInsn(Opcodes.ACONST_NULL);m.visitInsn(Opcodes.ACONST_NULL);
+                int opcode=variant==1?(statik?Opcodes.INVOKEINTERFACE:Opcodes.INVOKESTATIC):(statik?Opcodes.INVOKESTATIC:iface?Opcodes.INVOKEINTERFACE:Opcodes.INVOKEVIRTUAL);
+                m.visitMethodInsn(opcode,call[0],call[1],descriptor,iface);
+            }else{int tag=variant==3?(statik?Opcodes.H_INVOKEINTERFACE:Opcodes.H_INVOKESTATIC):(statik?Opcodes.H_INVOKESTATIC:iface?Opcodes.H_INVOKEINTERFACE:Opcodes.H_INVOKEVIRTUAL);
+                m.visitLdcInsn(new Handle(tag,call[0],call[1],descriptor,iface));}
+            m.visitInsn(Opcodes.ARETURN);m.visitMaxs(4,0);m.visitEnd();writer.visitEnd();
+            var failure=assertThrows(IllegalArgumentException.class,()->BytecodeCompiler.compileClassWithExceptionRuntime(writer.toByteArray()));
+            assertTrue(failure.getMessage().contains("unused"),failure.getMessage());
+            assertTrue(failure.getMessage().contains("TraversalCalls.java:61"),failure.getMessage());
+        }
+        for(String[] api:new String[][]{{"java/util/Spliterators","emptyIntSpliterator","()Ljava/util/Spliterator$OfInt;"},{"java/util/stream/StreamSupport","intStream","(Ljava/util/Spliterator$OfInt;Z)Ljava/util/stream/IntStream;"}}){
+            ClassWriter w=new ClassWriter(0);w.visit(Opcodes.V17,Opcodes.ACC_PUBLIC,"UnsupportedTraversalApi",null,"java/lang/Object",null);w.visitSource("TraversalCalls.java",null);MethodVisitor m=w.visitMethod(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"unused","()Ljava/lang/Object;",null,null);m.visitCode();Label line=new Label();m.visitLabel(line);m.visitLineNumber(61,line);m.visitInsn(Opcodes.ACONST_NULL);m.visitInsn(Opcodes.ICONST_0);m.visitMethodInsn(Opcodes.INVOKESTATIC,api[0],api[1],api[2],false);m.visitInsn(Opcodes.ARETURN);m.visitMaxs(2,0);m.visitEnd();w.visitEnd();var failure=assertThrows(IllegalArgumentException.class,()->BytecodeCompiler.compileClassWithExceptionRuntime(w.toByteArray()));assertTrue(failure.getMessage().contains("unused"),failure.getMessage());assertTrue(failure.getMessage().contains("TraversalCalls.java:61"),failure.getMessage());
+        }
+    }
+    private void springTraversal() throws Exception {
+        String artifact="org/springframework/data/spring-data-commons/3.2.4/spring-data-commons-3.2.4.jar",hash="35d95442ab476e46d9ac4d60074f9b9c30b18c106fd1ec71d1d68c00d8080f6d";
+        ClassNode selected=selectedLibrary("org/springframework/data/util/StreamUtils.class",artifact,hash,name->name.equals("createStreamFromIterator")||name.equals("zip"));selected.methods.removeIf(m->m.name.equals("createStreamFromIterator")&&!m.desc.equals("(Ljava/util/Iterator;)Ljava/util/stream/Stream;"));carrier(selected);
+        for(String relative:new String[]{"org/springframework/data/util/StreamUtils$1.class","org/springframework/data/util/Sink.class"}){
+            Path jar=Path.of(System.getProperty("user.home"),".m2/repository",artifact);try(JarFile input=new JarFile(jar.toFile())){Path target=directory.resolve(relative);Files.createDirectories(target.getParent());Files.write(target,input.getInputStream(input.getJarEntry(relative)).readAllBytes());}
+        }
+        ClassNode assertion=selectedLibrary("org/springframework/util/Assert.class","org/springframework/spring-core/6.1.5/spring-core-6.1.5.jar","476dac28509b3f47d0b5e895a639fa75ac2218f074ce214e44832a836c469f7e",name->name.equals("notNull"));assertion.methods.removeIf(m->!m.desc.equals("(Ljava/lang/Object;Ljava/lang/String;)V"));carrier(assertion);
+        fixtureClasspath+=File.pathSeparator+Path.of(System.getProperty("user.home"),".m2/repository",artifact);
+        fixture("""
+            import java.util.*;import java.util.stream.*;import java.util.function.*;import org.springframework.data.util.StreamUtils;
+            public class Metadata {public static int run(int group){int h=1;Function<Iterator<Integer>,Stream<Integer>> create=StreamUtils::createStreamFromIterator;h=31*h+create.apply(Arrays.asList(1,2,3).iterator()).map(x->x*2).toList().hashCode();
+             for(int length:new int[]{0,1,3,5}){Integer[] left=new Integer[length];for(int i=0;i<length;i++)left[i]=i;int[] combined={0};Stream<Integer> zipped=StreamUtils.zip(Arrays.stream(left),Stream.of(10,20,30),(a,b)->{combined[0]++;return a+b;});h=31*h+combined[0];h=31*h+zipped.toList().hashCode();h=31*h+combined[0];zipped.close();}
+             try{StreamUtils.createStreamFromIterator((Iterator<Object>)null);throw new Error();}catch(NullPointerException e){h++;}
+             for(int i=0;i<3;i++)try{StreamUtils.zip(i==0?null:Stream.of(1),i==1?null:Stream.of(2),i==2?null:(a,b)->a+b);throw new Error();}catch(IllegalArgumentException e){h++;}
+             try{StreamUtils.zip(Stream.of(1,2),Stream.of(3,4),(a,b)->{throw new IllegalStateException();}).toList();throw new Error();}catch(IllegalStateException e){h++;}return h;}}
+            """);compare(1);
+    }
     private String classpath(){return directory+(fixtureClasspath.isEmpty()?"":File.pathSeparator+fixtureClasspath);}
 
     /** Preserve selected original method instructions; omit unrelated library state and initialization. */

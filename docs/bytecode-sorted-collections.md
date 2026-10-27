@@ -1,6 +1,6 @@
 # Selected sorted bytecode collections
 
-Sequential sorted-array storage establishes tested ordering behavior, not balanced-tree performance or concurrency. Serialization, spliterators and broad framework execution are not established.
+Sequential sorted-array storage establishes tested ordering behavior, not balanced-tree performance or concurrency. Serialization and broad framework execution are not established. Selected reference spliterators were added subsequently; see [the reference traversal contract](bytecode-spliterators.md).
 
 - v221: Ordered TreeMap construction, comparator identity, key equivalence and typed failures.
 - v222: Navigable map neighbors and immutable entry snapshots.
@@ -31,7 +31,7 @@ Spring Core 6.1.5, SHA-256 `476dac28509b3f47d0b5e895a639fa75ac2218f074ce214e4483
 
 The JVM oracle invokes the original methods against the pinned JAR. Wasm carriers retain only those helper bodies, replace their superclass with Object, and add simple constructors plus forwarding shims. The bridge uses reflection only on the JVM and direct calls in Wasm. Original initialization, delegate hierarchy, code generation and Spring startup are excluded.
 
-Malformed ASM calls/handles in unused methods check descriptor and invocation-kind admission with source/method context. Unsupported spliterator and synchronized sorted/navigable APIs must fail admission before WAT generation. Executable cases compare Java 17 fingerprints in both JAR orders and fresh dirty-memory instances.
+Malformed ASM calls/handles in unused methods check descriptor and invocation-kind admission with source/method context. Unsupported synchronized sorted/navigable APIs must fail admission before WAT generation. Executable cases compare Java 17 fingerprints in both JAR orders and fresh dirty-memory instances.
 
 ## Validation
 

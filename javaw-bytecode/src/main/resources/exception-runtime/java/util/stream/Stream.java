@@ -2,7 +2,7 @@ package java.util.stream;
 import java.util.*;
 import java.util.function.*;
 public interface Stream<T> extends BaseStream<T,Stream<T>> {
-    static <T> Stream<T> empty(){return ReferenceStream.array((T[])new Object[0],0,0);}
+    static <T> Stream<T> empty(){return ReferenceStream.<T>empty();}
     static <T> Stream<T> of(T value){return ReferenceStream.array((T[])new Object[]{value},0,1);}
     @SafeVarargs static <T> Stream<T> of(T... values){return ReferenceStream.array(values,0,values.length);}
     static <T> Stream<T> ofNullable(T value){return value==null?Stream.<T>empty():of(value);}

@@ -48,6 +48,7 @@ public final class ReferenceStream<T> implements Stream<T> {
     public static <E> Stream<E> collection(final Collection<E> values){
         Objects.requireNonNull(values);return new ReferenceStream<E>(()->wrap(values.iterator()),new State()).withSpliteratorSource(()->values.spliterator());
     }
+    static <E> Stream<E> empty(){return new ReferenceStream<E>(() -> wrap(Collections.<E>emptyIterator()),new State()).withSpliteratorSource(()->Spliterators.<E>emptySpliterator());}
     public static <E> Stream<E> array(final E[] values,final int start,final int end){
         Objects.requireNonNull(values);if(start>end)throw new ArrayIndexOutOfBoundsException();if(start<0 || end>values.length)throw new ArrayIndexOutOfBoundsException();
         return new ReferenceStream<E>(()->new Cursor<E>(){int index=start;boolean advance(){if(index==end)return false;value=values[index++];return true;}},new State()).withSpliteratorSource(()->Spliterators.spliterator(values,start,end,Spliterator.ORDERED|Spliterator.IMMUTABLE));
