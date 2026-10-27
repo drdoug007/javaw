@@ -33,4 +33,16 @@ public final class IntPipeline implements IntStream {
     public int[] toArray(){Object[] boxed=values.toArray();int[] result=new int[boxed.length];for(int i=0;i<result.length;i++)result[i]=((Integer)boxed[i]).intValue();return result;}
     public void forEach(IntConsumer action){Objects.requireNonNull(action);values.forEach(v->action.accept(v.intValue()));}
     public void forEachOrdered(IntConsumer action){forEach(action);}
+
+    private static OptionalInt optional(Optional<Integer> value){return value.isPresent()?OptionalInt.of(value.get().intValue()):OptionalInt.empty();}
+    public int reduce(int identity,IntBinaryOperator accumulator){Objects.requireNonNull(accumulator);return values.reduce(Integer.valueOf(identity),(a,v)->Integer.valueOf(accumulator.applyAsInt(a.intValue(),v.intValue()))).intValue();}
+    public OptionalInt reduce(IntBinaryOperator accumulator){Objects.requireNonNull(accumulator);return optional(values.reduce((a,v)->Integer.valueOf(accumulator.applyAsInt(a.intValue(),v.intValue()))));}
+    public int sum(){return reduce(0,(a,v)->a+v);}
+    public long count(){return values.count();}
+    public OptionalInt min(){return reduce((a,v)->Math.min(a,v));}
+    public OptionalInt max(){return reduce((a,v)->Math.max(a,v));}
+    public OptionalDouble average(){long[] totals={0,0};forEach(v->{totals[0]++;totals[1]+=v;});return totals[0]==0?OptionalDouble.empty():OptionalDouble.of((double)totals[1]/totals[0]);}
+    public <R> R collect(Supplier<R> supplier,ObjIntConsumer<R> accumulator,BiConsumer<R,R> combiner){Objects.requireNonNull(supplier);Objects.requireNonNull(accumulator);Objects.requireNonNull(combiner);return values.collect(supplier,(result,v)->accumulator.accept(result,v.intValue()),combiner);}
+    public IntSummaryStatistics summaryStatistics(){return collect(IntSummaryStatistics::new,IntSummaryStatistics::accept,IntSummaryStatistics::combine);}
+
 }

@@ -67,6 +67,7 @@ public final class BytecodeExceptionRuntime {
             for(String name:List.of("BaseStream","Stream","ReferenceStream","IntStream","IntPipeline","Collector","Collectors"))paths.add("java/util/stream/"+name+".java");
             paths.add("java/util/Comparator.java");
             paths.add("java/util/PrimitiveIterator.java");
+            paths.add("java/util/IntSummaryStatistics.java");
             for(String name:List.of("Optional","OptionalInt","OptionalLong","OptionalDouble","Map","AbstractMap","HashMap","LinkedHashMap","Set","AbstractSet","HashSet","LinkedHashSet"))paths.add("java/util/"+name+".java");
             paths.add("javaw/runtime/IntegralNumbers.java");
             paths.add("javaw/runtime/UnicodeCase.java");

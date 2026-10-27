@@ -12,4 +12,10 @@ public interface IntStream extends BaseStream<Integer,IntStream> {
     int[] toArray();
     void forEach(IntConsumer action);
     void forEachOrdered(IntConsumer action);
+
+    int sum();long count();OptionalInt min();OptionalInt max();OptionalDouble average();
+    int reduce(int identity,IntBinaryOperator accumulator);OptionalInt reduce(IntBinaryOperator accumulator);
+    <R> R collect(Supplier<R> supplier,ObjIntConsumer<R> accumulator,BiConsumer<R,R> combiner);
+    IntSummaryStatistics summaryStatistics();
+
 }

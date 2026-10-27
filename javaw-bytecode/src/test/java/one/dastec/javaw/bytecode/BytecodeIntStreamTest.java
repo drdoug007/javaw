@@ -37,6 +37,27 @@ class BytecodeIntStreamTest {
             """);compare(1);
     }
 
+    @Test void numericTerminals() throws Exception {
+        fixture("""
+import java.util.*;import java.util.stream.*;import java.util.function.*;
+public class Metadata {static int stat(IntSummaryStatistics s){int h=Long.hashCode(s.getCount());h=31*h+Long.hashCode(s.getSum());h=31*h+s.getMin();h=31*h+s.getMax();return 31*h+Double.hashCode(s.getAverage());}
+ public static int run(int group){int h=1;
+ for(int[] data:new int[][]{new int[0],{7},{-7,4,12},{Integer.MIN_VALUE,Integer.MAX_VALUE,Integer.MAX_VALUE}}){
+  h=31*h+IntStream.of(data).sum();h=31*h+Long.hashCode(IntStream.of(data).count());
+  h=31*h+IntStream.of(data).min().hashCode();h=31*h+IntStream.of(data).max().hashCode();h=31*h+IntStream.of(data).average().hashCode();
+  h=31*h+IntStream.of(data).reduce(9,(a,v)->31*a+v);h=31*h+IntStream.of(data).reduce((a,v)->a-v).hashCode();
+  h=31*h+stat(IntStream.of(data).summaryStatistics());
+  StringBuilder result=IntStream.of(data).collect(StringBuilder::new,(s,v)->s.append(v).append(','),(a,c)->a.append(c));h=31*h+result.toString().hashCode();
+ }
+ IntSummaryStatistics a=new IntSummaryStatistics(),c=new IntSummaryStatistics();a.accept(Integer.MIN_VALUE);c.accept(Integer.MAX_VALUE);a.combine(c);h=31*h+stat(a);a.combine(new IntSummaryStatistics());h=31*h+stat(a);
+ try{a.combine(null);throw new Error();}catch(NullPointerException e){h++;}
+ IntStream s=IntStream.of(1,2);try{s.reduce(0,null);throw new Error();}catch(NullPointerException e){h++;}h=31*h+s.sum();
+ IntStream failed=IntStream.of(1);RuntimeException failure=new IllegalStateException("supplier");try{failed.collect(()->{throw failure;},(Object o,int v)->{},(Object x,Object y)->{});throw new Error();}catch(RuntimeException e){h=31*h+(e==failure?1:0);}
+ try{failed.count();throw new Error();}catch(IllegalStateException e){h++;}return h;
+ }}
+            """);compare(1);
+    }
+
     private byte[] fixture(String source) throws Exception {
         Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
         List<String> options=new ArrayList<>(List.of("-g","-parameters","--release","17","-d",directory.toString()));
