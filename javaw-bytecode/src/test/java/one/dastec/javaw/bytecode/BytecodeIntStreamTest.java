@@ -112,6 +112,21 @@ public class Metadata {public static int unsupportedParallel(){try{IntStream.of(
             """);compare(1);
     }
 
+    @Test void stringCharacters() throws Exception {
+        fixture("""
+import java.util.*;import java.util.stream.*;import java.util.function.*;
+public class Metadata {public static int run(int group){int h=1;
+ for(String text:new String[]{"","hello","a𐐀z",new String(new char[]{0,(char)0xd800,65,(char)0xdc00,(char)0xffff})}){
+  h=31*h+Arrays.hashCode(text.chars().toArray());h=31*h+text.chars().sum();h=31*h+Long.hashCode(text.chars().count());h=31*h+text.chars().mapToObj(v->Integer.toHexString(v)).toList().hashCode();
+  Function<String,IntStream> factory=String::chars;h=31*h+Arrays.hashCode(factory.apply(text).toArray());
+ }
+ char[] units=new char[2048];for(int i=0;i<units.length;i++)units[i]=(char)(group*2048+i);h=31*h+Arrays.hashCode(new String(units).chars().toArray());
+ IntStream one="abc".chars();h=31*h+one.sum();try{one.count();throw new Error();}catch(IllegalStateException e){h++;}
+ int[] calls={0};h=31*h+("abca".chars().peek(v->calls[0]++).anyMatch(v->v=='b')?1:0);h=31*h+calls[0];return h;
+}}
+            """);compare(32);
+    }
+
     private byte[] fixture(String source) throws Exception {
         Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
         List<String> options=new ArrayList<>(List.of("-g","-parameters","--release","17","-d",directory.toString()));

@@ -11,3 +11,4 @@ Completed subsets:
 - v202: Lazy primitive map/filter/peek, mapToObj and boxed conversion with callback and null-failure tests.
 - v203: Ordered skip/limit/takeWhile/dropWhile, distinct/sorted, matching and find short-circuit behavior.
 - v204: Generate/iterate, concat/flatMap, child cleanup, single-use/onClose behavior and explicit parallel rejection.
+- v205: String.chars UTF-16 unit traversal, surrogate preservation and fresh single-use pipelines.
