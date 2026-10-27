@@ -19,6 +19,7 @@
 
     <modules>
         <module>javaw-core</module>
+        <module>javaw-log4j-compat</module>
         <module>javaw-bytecode</module>
         <module>javaw-maven-plugin</module>
         <module>examples</module>
@@ -43,6 +44,11 @@
             <dependency>
                 <groupId>dastec.one</groupId>
                 <artifactId>javaw-core</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>dastec.one</groupId>
+                <artifactId>javaw-log4j-compat</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

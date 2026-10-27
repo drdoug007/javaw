@@ -83,12 +83,10 @@ Phase 1 source-resolution foundations and source-backed Optional/closures are im
   - Local `.m2` repository cache manager (`LocalM2CacheManager`) storing precompiled WebAssembly artifacts (`${artifactId}-${version}-javaw.wasm` and `.javaw-metadata.json`) directly in `~/.m2/repository/` for near-instantaneous $O(1)$ cache hits on subsequent builds.
   - Deterministic SHA-256 content hashing (`JarHashUtil`) verifying JAR checksums before cache reuse, guaranteeing reliable cache invalidation for updated release or SNAPSHOT dependencies.
   - Seamless Maven build integration: `javaw-maven-plugin:compile` inspects project dependencies, compiles external JAR dependencies on cache miss, caches them in `.m2`, and statically links dependency functions and exports into the application bundle via `WasmLinker`.
-- **Log4j2 Enterprise Logging Engine (`org.apache.logging.log4j`)**:
-  - Standard Log4j2 API compatibility (`Level`, `Logger`, `LogManager`, `ThreadContext`, `SimpleLogger`) compiling directly into WebAssembly without heavy server-side dependency overhead.
-  - Multi-logger category management via `LogManager.getLogger(...)` with runtime level thresholding (`FATAL`, `ERROR`, `WARN`, `INFO`, `DEBUG`, `TRACE`).
-  - ThreadContext (Mapped Diagnostic Context / MDC) diagnostics for request correlation, tracing metadata, and structured log context.
-  - Parameterized message formatting with `{}` placeholder substitution lowered directly to high-throughput WebAssembly string and stream output.
-  - Pluggable log listener architecture (`SimpleLogger.addListener(...)`) allowing WebAssembly UI dashboards, DOM streams, and WASI output consoles to capture and render log streams in real-time.
+- **Optional logging compatibility facades**:
+  - Project-owned `Level`, `Logger`, `LogManager`, `ThreadContext` and `SimpleLogger` live in the separate `javaw-log4j-compat` module. They are excluded from `javaw-core` and its shaded CLI JAR.
+  - These classes reuse Log4j package names for a small API subset; they are not Apache Log4j and must not share a classpath with the real Log4j API.
+  - JVM facade tests cover levels, formatting, context and listeners. Source-to-Wasm logging uses separate compiler lowering with substantially narrower behavior. See [the logging compatibility contract](docs/logging-compatibility.md).
 - **Maven Multi-Module Architecture & Build Tooling (`javaw-maven-plugin`)**:
   - Modular reactor architecture comprising `javaw-core` (embeddable compiler engine, runtime helpers, facades, and AST visitors), `javaw-bytecode` (bytecode parser, Relooper CFG engine, stack lowering, linker, and `.m2` cache manager), `javaw-maven-plugin` (dedicated Maven Mojo automating WebAssembly compilation and dependency linking), and `examples` (interactive consumer module).
   - Dedicated Maven Mojo `javaw:compile` bound to the `process-classes` lifecycle phase with full parameter configuration (`sourceDirectory`, `outputDirectory`, `optimizationLevel`, `generateSourceMaps`, `enableThreads`, `copyRuntimeScript`, `batchMode`, `moduleName`, `includes`, `excludes`).
@@ -1523,9 +1521,9 @@ public class StandardLibraryDemo {
 
 ---
 
-#### Example X: Log4j2 Enterprise Logging & Diagnostic Context (`org.apache.logging.log4j`)
+#### Example X: Optional Log4j-style logging facade (`org.apache.logging.log4j`)
 
-Use standard Apache Log4j2 APIs for category-based logging, dynamic severity thresholding, ThreadContext (MDC) tracing, and parameterized message formatting in WebAssembly:
+The demo uses the optional project-owned logging facade. Add `dastec.one:javaw-log4j-compat:1.0-SNAPSHOT` with `provided` scope when compiling its Java source. JVM facade behavior and Wasm lowering differ; see [the supported behavior and limits](docs/logging-compatibility.md):
 
 ```java
 package one.dastec.javaw;
@@ -1573,7 +1571,7 @@ The repository includes a suite of standalone, fully functional example applicat
 | Example Application | Directory / File | Key Features Demonstrated |
 | :--- | :--- | :--- |
 | **Spring API CRUD subset** | `examples/springboot-h2/` | Constructor-injected controllers, generated integer IDs, in-memory Wasm repositories, annotation-based routes, Node.js HTTP/JSON bridge |
-| **Log4j2 Enterprise Logging** | `examples/log4j/Log4j2Demo.java` | Standard Log4j2 API (`LogManager`, `Logger`, `Level`, `ThreadContext` MDC), parameter formatting, live UI log streaming |
+| **Optional logging facade** | `examples/log4j/Log4j2Demo.java` | Project-owned Log4j-style API subset; JVM context/listener support and limited Wasm source lowering |
 | **Bytecode & Relooper Algorithms** | `examples/bytecode/BytecodeAlgorithmsDemo.java` | Complex control flow structuring (Euclidean GCD, Fibonacci, Collatz, Prime Sieve, State Machine Lexer) |
 | **Interactive Todo MVC** | `examples/todo/TodoApp.java` | DOM tree creation, `Element.appendChild`, `removeChild`, input forms, event listeners, dynamic strings, active item counts |
 | **Conway's Game of Life** | `examples/canvas/GameOfLife.java` | HTML5 Canvas 2D (`CanvasRenderingContext2D`), grid state in linear memory, animation loops, color styling |
@@ -1993,3 +1991,5 @@ Bytecode lowercase/text progress (v170–v179): String lowercase supports Java 1
 Java package correction: compiler, bytecode, runtime support and Maven plugin classes now use `one.dastec.javaw` and matching source paths. Imports, CLI entry points, fixtures and scripts use the corrected name. Maven artifact coordinates are unchanged.
 
 Validation: the clean required bytecode suite passes all 470 tests (four forks), with zero failures, errors or skips; the unchanged audit baseline passes. All 13 browser assertions and both Maven plugin tests pass with local-server/cache access. The broader core run passes all 43 compiler-generation tests but retains two reflection failures (object-backed records and inherited/nested/array annotations); both reproduce with identical table-index errors on the preceding commit. The initial sandbox-only browser setup error is resolved by the successful browser retry.
+
+Logging facade isolation: `javaw-log4j-compat` is now opt-in; core consumers receive no `org.apache.logging.log4j` classes. Validation: the clean offline package build passes all four relocated logging tests with zero failures, errors or skips. JAR inspection confirms zero Log4j-package classes in both regular and shaded core artifacts and six class files in the compatibility artifact (five facades and the listener interface). The logging demo also compiles with javac against core plus the explicit compatibility JAR. See [the contract](docs/logging-compatibility.md) for JVM/Wasm differences.

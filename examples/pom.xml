@@ -17,6 +17,12 @@
             <groupId>dastec.one</groupId>
             <artifactId>javaw-core</artifactId>
         </dependency>
+        <!-- Compile-time facades for the logging demo; source lowering supplies Wasm output. -->
+        <dependency>
+            <groupId>dastec.one</groupId>
+            <artifactId>javaw-log4j-compat</artifactId>
+            <scope>provided</scope>
+        </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
