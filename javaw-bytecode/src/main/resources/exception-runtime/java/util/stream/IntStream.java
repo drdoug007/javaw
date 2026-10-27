@@ -18,4 +18,8 @@ public interface IntStream extends BaseStream<Integer,IntStream> {
     <R> R collect(Supplier<R> supplier,ObjIntConsumer<R> accumulator,BiConsumer<R,R> combiner);
     IntSummaryStatistics summaryStatistics();
 
+
+    IntStream filter(IntPredicate predicate);IntStream map(IntUnaryOperator mapper);IntStream peek(IntConsumer action);
+    <U> Stream<U> mapToObj(IntFunction<? extends U> mapper);Stream<Integer> boxed();
+
 }

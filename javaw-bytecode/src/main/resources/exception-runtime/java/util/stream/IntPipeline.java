@@ -45,4 +45,11 @@ public final class IntPipeline implements IntStream {
     public <R> R collect(Supplier<R> supplier,ObjIntConsumer<R> accumulator,BiConsumer<R,R> combiner){Objects.requireNonNull(supplier);Objects.requireNonNull(accumulator);Objects.requireNonNull(combiner);return values.collect(supplier,(result,v)->accumulator.accept(result,v.intValue()),combiner);}
     public IntSummaryStatistics summaryStatistics(){return collect(IntSummaryStatistics::new,IntSummaryStatistics::accept,IntSummaryStatistics::combine);}
 
+
+    public IntStream filter(IntPredicate predicate){Objects.requireNonNull(predicate);return from(values.filter(v->predicate.test(v.intValue())));}
+    public IntStream map(IntUnaryOperator mapper){Objects.requireNonNull(mapper);return from(values.map(v->Integer.valueOf(mapper.applyAsInt(v.intValue()))));}
+    public IntStream peek(IntConsumer action){Objects.requireNonNull(action);return from(values.peek(v->action.accept(v.intValue())));}
+    public <U> Stream<U> mapToObj(IntFunction<? extends U> mapper){Objects.requireNonNull(mapper);return values.map(v->mapper.apply(v.intValue()));}
+    public Stream<Integer> boxed(){return values.map(v->v);}
+
 }

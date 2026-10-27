@@ -8,3 +8,4 @@ Completed subsets:
 
 - v200: Sequential IntStream factories, live arrays, bounded ranges, primitive/boxed iterator dispatch and typed traversal failures.
 - v201: Integer reductions, numeric terminals, OptionalInt/OptionalDouble results, mutable collection and IntSummaryStatistics.
+- v202: Lazy primitive map/filter/peek, mapToObj and boxed conversion with callback and null-failure tests.

@@ -58,6 +58,22 @@ public class Metadata {static int stat(IntSummaryStatistics s){int h=Long.hashCo
             """);compare(1);
     }
 
+    @Test void lazyTransforms() throws Exception {
+        fixture("""
+import java.util.*;import java.util.stream.*;import java.util.function.*;
+public class Metadata {public static int run(int group){int h=1;int[] calls={0};
+ IntStream source=IntStream.of(-2,-1,0,1,2);IntStream pipeline=source.filter(v->{calls[0]++;return v>=0;}).map(v->{calls[0]+=10;return v*3;}).peek(v->calls[0]+=100);
+ h=31*h+calls[0];try{source.sum();throw new Error();}catch(IllegalStateException e){h++;}
+ h=31*h+Arrays.hashCode(pipeline.toArray());h=31*h+calls[0];
+ h=31*h+IntStream.of(3,4).mapToObj(v->v==3?null:"v"+v).toList().hashCode();
+ h=31*h+IntStream.of(-128,0,127,1000).boxed().toList().hashCode();
+ IntStream original=IntStream.of(9);Stream<Integer> boxed=original.boxed();try{original.count();throw new Error();}catch(IllegalStateException e){h++;}h=31*h+boxed.toList().hashCode();
+ for(int mode=0;mode<4;mode++){IntStream s=IntStream.of(5);try{if(mode==0)s.filter(null);if(mode==1)s.map(null);if(mode==2)s.peek(null);if(mode==3)s.mapToObj(null);throw new Error();}catch(NullPointerException e){h++;}h=31*h+s.sum();}
+ RuntimeException failure=new IllegalStateException("map");try{IntStream.of(1).map(v->{throw failure;}).sum();throw new Error();}catch(RuntimeException e){h=31*h+(e==failure?1:0);}return h;
+}}
+            """);compare(1);
+    }
+
     private byte[] fixture(String source) throws Exception {
         Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
         List<String> options=new ArrayList<>(List.of("-g","-parameters","--release","17","-d",directory.toString()));
