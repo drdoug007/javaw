@@ -2038,3 +2038,5 @@ LinkedList (v252): `AbstractSequentialList` and `LinkedList` are linked, with JV
 Pinned Jackson text escaping execution: `charToHex`, `hexDigits`, `inputCodes`, `outputEscapes`, `appendQuoted`, `quoteString`, `quoteSequence`, `quoteBuilder`, `quoteUtf8`, `encodeUtf8`. See [the text contract](docs/bytecode-jackson-text.md) and `BytecodeJacksonTextTest`. Original CharTypes/JsonStringEncoder classes run with reachable-closure helper carriers; serializer and whole-JAR compatibility remain open.
 
 AtomicReferenceArray (v253): linked for the single-threaded contract only; every access mode is a plain array operation. JVM/Wasm evidence is in `BytecodeAtomicReferenceArrayTest`; see [the contract](docs/bytecode-atomic-reference-array.md). No memory-model ordering is claimed.
+
+Pinned Jackson buffers: original `BufferRecycler` links whole and runs allocation/reuse/hook paths; see [the buffer contract](docs/bytecode-jackson-buffers.md) and `BytecodeJacksonBufferTest`.
