@@ -7,3 +7,4 @@ The bundled StringBuffer runtime supports sequential text operations. These APIs
 Supported additions:
 
 - v180: `Object` insertion overload (`insertObject` regression).
+- v181: `Boolean` insertion overload (`insertBoolean` regression).
