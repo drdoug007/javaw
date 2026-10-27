@@ -447,4 +447,6 @@ public final class String implements CharSequence,Comparable<String>,java.io.Ser
     public boolean matches(String regex){return java.util.regex.Pattern.matches(regex,this);}
     public String replaceAll(String regex,String replacement){return java.util.regex.Pattern.compile(regex).matcher(this).replaceAll(replacement);}
     public String replaceFirst(String regex,String replacement){return java.util.regex.Pattern.compile(regex).matcher(this).replaceFirst(replacement);}
+    public String[] split(String regex){return split(regex,0);}
+    public String[] split(String regex,int limit){return java.util.regex.Pattern.compile(regex).split(this,limit);}
 }

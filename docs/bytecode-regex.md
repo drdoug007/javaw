@@ -16,3 +16,6 @@ Matching uses an explicit instruction/backtracking stack with saved capture and 
 
 Matcher search starts require reset after a failed `matches()` or `lookingAt()`; `find()` diagnoses that unsupported reuse state explicitly. `find(int)` resets by definition. Ordinary repeated find, successful anchored reuse, reset, capture access, and Java 17 zero-width exhaustion state are differential tested. After `reset(null)`, restore non-null input before further traversal; only failure type and invalidation of the prior match are covered.
 - v218: Group-aware replacement, quoteReplacement and String replaceAll/replaceFirst.
+- v219: Pattern and String split limits, zero-width boundaries and selected pinned H2 replacement execution.
+
+The H2 2.2.224 helper `org.h2.command.dml.Help.stripAnnotationsFromSyntax` executes its unchanged replacement/trim instructions from SHA-256 `b9d8f19358ada82a4f6eb5b174c6cfe320a375b5a9cb5a4fe456d623e6e55497`. The Wasm carrier omits unrelated methods, fields, initialization and hierarchy; the JVM oracle uses the original artifact. This establishes the selected helper, not H2 SQL execution.

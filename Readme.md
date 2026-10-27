@@ -2019,3 +2019,5 @@ Bytecode regex subset 6/10 (v216): Anchors and selected matching flags with expl
 Bytecode regex subset 7/10 (v217): Matcher find/lookingAt/reset, capture access and String.matches. Focused Java 17 differential/admission checks pass; inventory unchanged. See [the selected regex contract](docs/bytecode-regex.md); full regex and framework support remain open.
 
 Bytecode regex subset 8/10 (v218): Group-aware replacement, quoteReplacement and String replaceAll/replaceFirst. Focused Java 17 differential/admission checks pass; inventory unchanged. See [the selected regex contract](docs/bytecode-regex.md); full regex and framework support remain open.
+
+Bytecode regex subset 9/10 (v219): Pattern and String split limits, zero-width boundaries and selected pinned H2 replacement execution. Focused Java 17 differential/admission checks pass; inventory unchanged. See [the selected regex contract](docs/bytecode-regex.md); full regex and framework support remain open.

@@ -135,4 +135,15 @@ public final class Pattern {
         if((flags&UNICODE_CASE)!=0){int upper=Character.toUpperCase(value);return predicate.test(upper)||predicate.test(Character.toLowerCase(upper))||predicate.test(Character.toLowerCase(value));}
         return value>='A'&&value<='Z'&&predicate.test(value+32)||value>='a'&&value<='z'&&predicate.test(value-32);
     }
+    public String[] split(CharSequence input){return split(input,0);}
+    public String[] split(CharSequence input,int limit){Objects.requireNonNull(input);Matcher matcher=matcher(input);List<String> parts=new ArrayList<>();int end=0;boolean found=false;
+        while(matcher.find()){
+            if(end==0&&matcher.start()==0&&matcher.end()==0)continue;
+            if(limit>0&&parts.size()==limit-1)break;
+            parts.add(input.subSequence(end,matcher.start()).toString());end=matcher.end();found=true;
+        }
+        if(!found)return new String[]{input.toString()};parts.add(input.subSequence(end,input.length()).toString());
+        if(limit==0)while(!parts.isEmpty()&&parts.get(parts.size()-1).isEmpty())parts.remove(parts.size()-1);
+        return parts.toArray(new String[parts.size()]);
+    }
 }

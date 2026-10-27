@@ -110,6 +110,30 @@ public class Metadata {public static int run(int group){int h=1;String regex=new
 }}
 """);compare(5);
  }
+    private void h2Help() throws Exception {
+        ClassNode selected=selectedLibrary("org/h2/command/dml/Help.class","com/h2database/h2/2.2.224/h2-2.2.224.jar",
+            "b9d8f19358ada82a4f6eb5b174c6cfe320a375b5a9cb5a4fe456d623e6e55497",name->name.equals("stripAnnotationsFromSyntax"));
+        selected.superName="java/lang/Object";carrier(selected);
+        fixture("""
+            import org.h2.command.dml.Help;
+            public class Metadata {public static int run(int group){int h=1;
+             for(String text:new String[]{"","  SELECT @c@ a @h2@ b  ","@c@@h2@@c@", " x @c@ @h2@ 😀 ","ordinary"})h=31*h+Help.stripAnnotationsFromSyntax(text).hashCode();
+             try{Help.stripAnnotationsFromSyntax(null);throw new Error();}catch(NullPointerException e){h++;}return h;
+            }}
+            """);compare(1);
+    }
+
+ @Test void splitSemantics() throws Exception {
+ fixture("""
+import java.util.*;import java.util.regex.*;
+public class Metadata {public static int run(int group){int h=1;String regex=new String[]{",","","a*","a*?","^|$","[,;]+","(,)","\\\\Q..\\\\E"}[group];Pattern p=Pattern.compile(regex);
+ for(String text:new String[]{"","a,b,,","a..b..c","😀x","aaa",",,a,", "a;b,c"})for(int limit:new int[]{-3,-1,0,1,2,3,20}){
+  h=31*h+Arrays.hashCode(text.split(regex,limit));h=31*h+Arrays.hashCode(p.split(new StringBuilder(text),limit));
+ }
+ h=31*h+Arrays.hashCode("a,b,".split(regex));h=31*h+Arrays.hashCode(p.split("a,b,"));try{p.split(null);throw new Error();}catch(NullPointerException e){h++;}return h;
+}}
+""");compare(8);h2Help();
+ }
     private String classpath(){return directory+(fixtureClasspath.isEmpty()?"":File.pathSeparator+fixtureClasspath);}
 
     /** Preserve selected original method instructions; omit unrelated library state and initialization. */
