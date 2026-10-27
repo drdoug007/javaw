@@ -124,6 +124,18 @@ class BytecodeJacksonNumberInputTest implements Opcodes {
             """);compare(List.of("run"));
     }
 
+    @Test void long19() throws Exception {
+        fixture("""
+            import java.math.*;
+            import com.fasterxml.jackson.core.io.NumberInput;
+            public class Metadata {public static int run(){
+                int hash=1;for(String text:new String[]{"0000000000000000000","0000000000000000001","1234567890123456789","9223372036854775807","9223372036854775808"})for(boolean negative:new boolean[]{false,true})hash=31*hash+Long.hashCode(NumberInput.parseLong19(("xx"+text+"yy").toCharArray(),2,negative));
+ try{NumberInput.parseLong19(null,0,false);throw new Error();}catch(NullPointerException e){hash++;}
+ try{NumberInput.parseLong19(new char[18],0,false);throw new Error();}catch(ArrayIndexOutOfBoundsException e){hash++;}return hash;
+            }}
+            """);compare(List.of("run"));
+    }
+
     private void compare(List<String> names) throws Exception {
         StringBuilder assertions=new StringBuilder();
         try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL(),artifact().toUri().toURL()},null)){
