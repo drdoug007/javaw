@@ -145,6 +145,55 @@ public class Metadata {public static int run(int group){int h=1;Function<String,
             """);compare(32);h2Trim();
     }
 
+    @Test void primitiveAbiAndAdmission() throws Exception {
+        fixture("""
+            import java.util.*;import java.util.function.*;import java.util.stream.*;
+            public class Metadata {
+             static class Dual implements Consumer<Integer>,IntConsumer {int sum;public void accept(Integer v){sum+=100*v;}public void accept(int v){sum+=v;}}
+             static class Cursor implements PrimitiveIterator.OfInt {int index;public boolean hasNext(){return index<3;}public int nextInt(){if(!hasNext())throw new NoSuchElementException();return ++index;}}
+             public static int run(int group){int h=1;IntStream sequential=IntStream.of(3,4);h=31*h+(sequential.sequential()==sequential?1:0);h=31*h+(sequential.isParallel()?1:0);h=31*h+sequential.unordered().sum();Dual dual=new Dual();((Iterator<Integer>)new Cursor()).forEachRemaining(dual);h=31*h+dual.sum;
+              int[] sum={0};new Cursor().forEachRemaining((Consumer<Integer>)v->sum[0]+=v);h=31*h+sum[0];
+              new Cursor().forEachRemaining((IntConsumer)v->sum[0]+=v);h=31*h+sum[0];
+              PrimitiveIterator<Integer,IntConsumer> erased=new Cursor();erased.forEachRemaining((IntConsumer)v->sum[0]+=v);h=31*h+sum[0];
+              for(int mode=0;mode<2;mode++){Cursor c=new Cursor();try{if(mode==0)c.forEachRemaining((IntConsumer)null);else c.forEachRemaining((Consumer<Integer>)null);throw new Error();}catch(NullPointerException e){h++;}h=31*h+c.nextInt();}
+              Cursor c=new Cursor();h=31*h+((Iterator<Integer>)c).next();c.forEachRemaining((IntConsumer)v->{});try{c.nextInt();throw new Error();}catch(NoSuchElementException e){h++;}try{c.remove();throw new Error();}catch(UnsupportedOperationException e){h++;}
+              return h;
+             }}
+            """);compare(1);
+        String[][] signatures={
+            {"java/lang/String","chars","()Ljava/util/stream/IntStream;","virtual"},
+            {"java/lang/String","codePoints","()Ljava/util/stream/IntStream;","virtual"},
+            {"java/lang/CharSequence","chars","()Ljava/util/stream/IntStream;","interface"},
+            {"java/lang/CharSequence","codePoints","()Ljava/util/stream/IntStream;","interface"},
+            {"java/util/stream/IntStream","of","(I)Ljava/util/stream/IntStream;","static"},
+            {"java/util/stream/IntStream","map","(Ljava/util/function/IntUnaryOperator;)Ljava/util/stream/IntStream;","interface"},
+            {"java/util/stream/IntStream","sum","()I","interface"},
+            {"java/util/stream/Stream","mapToInt","(Ljava/util/function/ToIntFunction;)Ljava/util/stream/IntStream;","interface"}
+        };
+        for(String[] call:signatures)for(int variant=0;variant<4;variant++){
+            boolean iface=!call[3].equals("virtual"),statik=call[3].equals("static");
+            String descriptor=variant%2==0?"(J)Ljava/lang/Object;":call[2];
+            ClassWriter writer=new ClassWriter(0);writer.visit(Opcodes.V17,Opcodes.ACC_PUBLIC,"BadPrimitiveCall",null,"java/lang/Object",null);writer.visitSource("PrimitiveCalls.java",null);
+            MethodVisitor m=writer.visitMethod(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"unused","()Ljava/lang/Object;",null,null);
+            m.visitCode();Label line=new Label();m.visitLabel(line);m.visitLineNumber(47,line);
+            if(variant<2){m.visitInsn(Opcodes.ACONST_NULL);m.visitInsn(Opcodes.ACONST_NULL);m.visitInsn(Opcodes.ACONST_NULL);
+                int opcode=variant==1?(statik?Opcodes.INVOKEINTERFACE:Opcodes.INVOKESTATIC):(statik?Opcodes.INVOKESTATIC:iface?Opcodes.INVOKEINTERFACE:Opcodes.INVOKEVIRTUAL);
+                m.visitMethodInsn(opcode,call[0],call[1],descriptor,iface);
+            }else{int tag=variant==3?(statik?Opcodes.H_INVOKEINTERFACE:Opcodes.H_INVOKESTATIC):(statik?Opcodes.H_INVOKESTATIC:iface?Opcodes.H_INVOKEINTERFACE:Opcodes.H_INVOKEVIRTUAL);
+                m.visitLdcInsn(new Handle(tag,call[0],call[1],descriptor,iface));}
+            m.visitInsn(Opcodes.ARETURN);m.visitMaxs(4,0);m.visitEnd();writer.visitEnd();
+            var failure=assertThrows(IllegalArgumentException.class,()->BytecodeCompiler.compileClassWithExceptionRuntime(writer.toByteArray()));
+            assertTrue(failure.getMessage().contains("unused"),failure.getMessage());
+            assertTrue(failure.getMessage().contains("PrimitiveCalls.java:47"),failure.getMessage());
+        }
+        for(String[] api:new String[][]{{"asLongStream","()Ljava/util/stream/LongStream;"},{"asDoubleStream","()Ljava/util/stream/DoubleStream;"},{"spliterator","()Ljava/util/Spliterator$OfInt;"},{"builder","()Ljava/util/stream/IntStream$Builder;"}}){
+            ClassWriter writer=new ClassWriter(0);writer.visit(Opcodes.V17,Opcodes.ACC_PUBLIC,"UnsupportedPrimitiveApi",null,"java/lang/Object",null);
+            MethodVisitor m=writer.visitMethod(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"unused","()Ljava/lang/Object;",null,null);m.visitCode();m.visitInsn(Opcodes.ACONST_NULL);
+            m.visitMethodInsn(api[0].equals("builder")?Opcodes.INVOKESTATIC:Opcodes.INVOKEINTERFACE,"java/util/stream/IntStream",api[0],api[1],true);m.visitInsn(Opcodes.ARETURN);m.visitMaxs(1,0);m.visitEnd();writer.visitEnd();
+            assertThrows(IllegalArgumentException.class,()->BytecodeCompiler.compileClassWithExceptionRuntime(writer.toByteArray()));
+        }
+    }
+
     private void springEscape() throws Exception {
         ClassNode selected=selectedLibrary("org/springframework/aot/nativex/BasicJsonWriter.class",
             "org/springframework/spring-core/6.1.5/spring-core-6.1.5.jar",

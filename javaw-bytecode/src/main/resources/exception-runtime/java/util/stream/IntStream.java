@@ -9,6 +9,7 @@ public interface IntStream extends BaseStream<Integer,IntStream> {
     static IntStream range(int start,int end){return IntPipeline.range(start,end,false);}
     static IntStream rangeClosed(int start,int end){return IntPipeline.range(start,end,true);}
     @Override PrimitiveIterator.OfInt iterator();
+    @Override IntStream sequential();
     int[] toArray();
     void forEach(IntConsumer action);
     void forEachOrdered(IntConsumer action);
