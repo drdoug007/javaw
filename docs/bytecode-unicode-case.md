@@ -36,3 +36,5 @@ Validation: all 321 bytecode-module tests pass with zero failures, errors or ski
 ## Remaining core gate
 
 String locale/full case conversion, remaining wrapper/numeric APIs, charset/regex/formatting bridges, primitive streams and spliterators, sorted/synchronized collections, broader collectors and closure-wide configuration/reachability proof remain open. Source-backed facades and selected utilities do not establish complete H2/Spring/Hibernate binary compatibility. Keep the core-JDK parent milestone unchecked.
+
+String lowercase expansions and locale-sensitive contexts are documented in [the lowercase contract](bytecode-lowercase.md).

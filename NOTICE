@@ -11,7 +11,7 @@ Third-party material retains its original licenses:
   javaw-bytecode/src/main/resources/exception-runtime/legal/fdlibm/.
 - javaw-bytecode/src/main/resources/exception-runtime/javaw/runtime/StringLowerData.java
   and javaw-bytecode/src/main/resources/exception-runtime/javaw/runtime/WordBreaks.java
-  contain generated/adapted OpenJDK 17.0.9 word-break data/code under GPLv2 with the
+  contain generated/adapted OpenJDK 17.0.9 word-break and lowercase-context data/code under GPLv2 with the
   Classpath exception. Upstream notices, source, license and reproduction notes
   are in javaw-bytecode/src/main/resources/exception-runtime/legal/word-break/.
 - External dependencies, including the pinned runtime-target libraries,

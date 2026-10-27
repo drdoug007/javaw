@@ -2,7 +2,7 @@
 
 These bundled bytecode implementations target Java 17 semantics. They do not establish complete JDK or framework support.
 
-Current selected String operations are locale/default uppercase and formatting conversions s/S, b/B, h/H, c/C, d, o, x/X, f, e/E, g/G, a/A, percent and LF newline. d/o/x/X accept boxed integral primitives and BigInteger; f/e/E/g/G accept BigDecimal, Float and Double; a/A accept Float and Double. Date formatting, lowercase, regex, Formattable and public Formatter/provider APIs remain open. Valid excluded forms raise UnsupportedOperationException; unavailable public APIs fail linking. Exception types and accessor payloads are tested; exact message text is not promised. The isolated default locale is ROOT and cannot be changed.
+Current selected String operations are locale/default uppercase and formatting conversions s/S, b/B, h/H, c/C, d, o, x/X, f, e/E, g/G, a/A, percent and LF newline. d/o/x/X accept boxed integral primitives and BigInteger; f/e/E/g/G accept BigDecimal, Float and Double; a/A accept Float and Double. Date formatting, regex, Formattable and public Formatter/provider APIs remain open. Valid excluded forms raise UnsupportedOperationException; unavailable public APIs fail linking. Exception types and accessor payloads are tested; exact message text is not promised. The isolated default locale is ROOT and cannot be changed.
 
 Decimal localization accepts ROOT, ENGLISH/US/UK, GERMAN/GERMANY, FRENCH/FRANCE, ar and ar_EG, ITALIAN/ITALY, JAPANESE/JAPAN, CHINESE/CHINA/TAIWAN and KOREAN/KOREA without variants or extensions. French grouping is U+202F; Arabic digits start at U+0660 with U+066B decimal and U+066C grouping. Hexadecimal/octal output stays ASCII, and text casing supports other language/country/variant identities. These fixed symbols match Java 17 CLDR data; providers, extensions and other numeric locale identities are excluded. Null numeric values emit precision-limited null text without consulting symbols.
 
@@ -30,7 +30,7 @@ Lithuanian uppercase removes combining dot above after soft-dotted letters with 
 
 ## Default String uppercase (default-uppercase-v134)
 
-String.toUpperCase() uses the isolated ROOT locale. Direct calls and method references match a Java 17 ROOT-default oracle for expansions, supplementary and malformed-surrogate text, unchanged identity and mixed combining marks. Configurable defaults and lowercase remain unsupported.
+String.toUpperCase() uses the isolated ROOT locale. Direct calls and method references match a Java 17 ROOT-default oracle for expansions, supplementary and malformed-surrogate text, unchanged identity and mixed combining marks. Configurable defaults remain unsupported. Lowercase is documented in [the lowercase contract](bytecode-lowercase.md).
 
 ## String text formatting (text-formatting-v135)
 

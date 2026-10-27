@@ -3,7 +3,7 @@ package dastec.one.javaw.bytecode.cache;
 import java.util.*;
 
 public class CacheMetadata {
-    public static final String COMPILER_VERSION = "1.0-SNAPSHOT-string-strip-indent-v178";
+    public static final String COMPILER_VERSION = "1.0-SNAPSHOT-legacy-string-byte-copy-v179";
     private String groupId;
     private String artifactId;
     private String version;

@@ -129,6 +129,13 @@ public final class String implements CharSequence,Comparable<String>,java.io.Ser
     public byte[] getBytes(String charsetName) throws java.io.UnsupportedEncodingException {
         return javaw.runtime.TextCharsets.encode(this,charsetName);
     }
+    @Deprecated public void getBytes(int start,int end,byte[] destination,int offset){
+        if(start<0 || end>length() || start>end)throw new StringIndexOutOfBoundsException();
+        if(destination==null)throw new NullPointerException();
+        int count=end-start;
+        if(offset<0 || offset>destination.length-count)throw new StringIndexOutOfBoundsException();
+        for(int i=0;i<count;i++)destination[offset+i]=(byte)value[start+i];
+    }
     public byte[] getBytes(){
         long length=0;
         for(int i=0;i<value.length;i++){

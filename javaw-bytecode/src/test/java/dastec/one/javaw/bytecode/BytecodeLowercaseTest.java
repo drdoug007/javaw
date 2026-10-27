@@ -189,6 +189,25 @@ class BytecodeLowercaseTest implements Opcodes {
             """);compare(256);
     }
 
+    @Test void legacyLowByteCopy() throws Exception {
+        fixture("""
+            import java.util.*;
+            public class Metadata {public static int run(int group){char[] chars=new char[256];for(int i=0;i<chars.length;i++)chars[i]=(char)(group*256+i);String s=new String(chars);byte[] target=new byte[300];Arrays.fill(target,(byte)0x55);s.getBytes(0,s.length(),target,3);int h=Arrays.hashCode(target);s.getBytes(17,s.length()-13,target,7);h=31*h+Arrays.hashCode(target);
+             for(String text:new String[]{"","ASCII","ĀÿéΩ","😀𐐀",new String(new char[]{(char)0xd800,120,(char)0xdc00})}){byte[] b=new byte[text.length()+4];Arrays.fill(b,(byte)-7);text.getBytes(0,text.length(),b,2);h=31*h+Arrays.hashCode(b);}
+             return h;}}
+            """);compare(256);
+    }
+
+    @Test void legacyCopyFailurePrecedence() throws Exception {
+        fixture("""
+            import java.util.*;
+            public class Metadata {static int call(String s,int start,int end,byte[] target,int offset){int h=1;try{s.getBytes(start,end,target,offset);h=7;}catch(StringIndexOutOfBoundsException e){h=11;}catch(NullPointerException e){h=13;}return 31*h+Arrays.hashCode(target);}
+             public static int run(int group){int h=1;int[] bounds={Integer.MIN_VALUE,-1,0,1,3,4,Integer.MAX_VALUE};
+             for(int offset:new int[]{Integer.MIN_VALUE,-1,0,1,3,4,Integer.MAX_VALUE})for(byte[] b:new byte[][]{null,new byte[0],new byte[]{77,88,99}})h=31*h+call("abc",bounds[group/7],bounds[group%7],b,offset);
+             h=31*h+call(null,0,0,new byte[]{77},0);return h;}}
+            """);compare(49);
+    }
+
     private byte[] fixture(String source) throws Exception {
         Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
         List<String> options=new ArrayList<>(List.of("-g","-parameters","--release",release,"-d",directory.toString()));
