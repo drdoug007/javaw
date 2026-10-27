@@ -863,19 +863,28 @@ public class BytecodeInstructionVisitor {
             if (dispatch == null) throw new IllegalArgumentException("Dynamic calls require a linked dispatch context");
             String resultType = TypeHelper.getWasmType(retType);
             emit("block $__dispatch" + (resultType == null ? "" : " (result " + resultType + ")"));
-            for (var target : dispatch.targets(minsn).entrySet()) {
-                emit("local.get " + thisVar);
-                emit("i32.load");
-                emit("i32.const " + target.getKey());
-                emit("i32.eq");
+            // Many receiver classes inherit the same implementation. Merge their tag
+            // tests before branching, avoiding one result merge per receiver class.
+            Map<String, List<Integer>> implementations = new LinkedHashMap<>();
+            for (var target : dispatch.targets(minsn).entrySet())
+                implementations.computeIfAbsent(target.getValue(), ignored -> new ArrayList<>()).add(target.getKey());
+            for (var target : implementations.entrySet()) {
+                emit("i32.const 0");
+                for (int receiver : target.getValue()) {
+                    emit("local.get " + thisVar);
+                    emit("i32.load");
+                    emit("i32.const " + receiver);
+                    emit("i32.eq");
+                    emit("i32.or");
+                }
                 emit("if");
-                if (dispatch.isDispatchFailure(target.getValue())) {
-                    emit("call " + target.getValue());
+                if (dispatch.isDispatchFailure(target.getKey())) {
+                    emit("call " + target.getKey());
                     emit("unreachable");
                 } else {
                     emit("local.get " + thisVar);
                     for (String argument : argVars) emit("local.get " + argument);
-                    emit("call " + target.getValue());
+                    emit("call " + target.getKey());
                     emit("br $__dispatch");
                 }
                 emit("end");

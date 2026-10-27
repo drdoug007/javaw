@@ -232,10 +232,10 @@ class BytecodeStreamsTest implements Opcodes {
         }
     }
 
-    @Test void unsupportedPrimitiveAndParallelOperationsFailAdmission() throws Exception {
-        fixture("public class Metadata {public static int run(){return java.util.stream.Stream.of(1).mapToInt(Integer::intValue).sum();}}");
+    @Test void unsupportedLongAndParallelOperationsFailAdmission() throws Exception {
+        fixture("public class Metadata {public static long run(){return java.util.stream.Stream.of(1).mapToLong(Integer::longValue).sum();}}");
         var primitive=assertThrows(IllegalArgumentException.class,()->BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(false))));
-        assertTrue(primitive.getMessage().contains("java/util/stream/Stream.mapToInt"),primitive.getMessage());
+        assertTrue(primitive.getMessage().contains("java/util/stream/Stream.mapToLong"),primitive.getMessage());
         fixture("public class Metadata {public static long run(){return java.util.stream.Stream.of(1).parallel().count();}}");
         var parallel=assertThrows(IllegalArgumentException.class,()->BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(false))));
         assertTrue(parallel.getMessage().contains("java/util/stream/Stream.parallel"),parallel.getMessage());
