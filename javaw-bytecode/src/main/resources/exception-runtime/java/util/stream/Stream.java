@@ -39,4 +39,5 @@ public interface Stream<T> extends BaseStream<T,Stream<T>> {
     <U> U reduce(U identity,BiFunction<U,? super T,U> accumulator,BinaryOperator<U> combiner);
     <R> R collect(Supplier<R> supplier,BiConsumer<R,? super T> accumulator,BiConsumer<R,R> combiner);
     <R,A> R collect(Collector<? super T,A,R> collector);
+    IntStream mapToInt(ToIntFunction<? super T> mapper);
 }

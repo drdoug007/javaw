@@ -179,4 +179,7 @@ public final class ReferenceStream<T> implements Stream<T> {
         public void sort(Comparator<? super E> comparator){throw new UnsupportedOperationException();}
         public List<E> subList(int start,int end){if(start<0 || end>size())throw new IndexOutOfBoundsException();if(start>end)throw new IllegalArgumentException();return new FrozenList<E>(Arrays.copyOfRange(values,start,end));}
     }
+
+    public IntStream mapToInt(ToIntFunction<? super T> mapper){Objects.requireNonNull(mapper);return IntPipeline.from(map(value->Integer.valueOf(mapper.applyAsInt(value))));}
+
 }

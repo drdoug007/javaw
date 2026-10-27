@@ -231,6 +231,21 @@ public class Metadata {static class Text implements CharSequence {StringBuilder 
             """);compare(1);springEscape();
     }
 
+    @Test void referenceMapToInt() throws Exception {
+        fixture("""
+import java.util.*;import java.util.stream.*;import java.util.function.*;
+public class Metadata {public static int run(int group){int h=1;int[] calls={0};Stream<String> original=Stream.of("a","hello","xy");IntStream lengths=original.mapToInt(v->{calls[0]++;return v.length();});h=31*h+calls[0];
+ try{original.count();throw new Error();}catch(IllegalStateException e){h++;}h=31*h+Arrays.hashCode(lengths.toArray());h=31*h+calls[0];
+ h=31*h+Stream.of("x","long").mapToInt(String::length).sum();calls[0]=0;h=31*h+Stream.iterate(0,v->v+1).mapToInt(v->{calls[0]++;return v;}).filter(v->v==4).findFirst().orElse(-1);h=31*h+calls[0];
+ Stream<String> keep=Stream.of("abc");try{keep.mapToInt(null);throw new Error();}catch(NullPointerException e){h++;}h=31*h+Long.hashCode(keep.count());
+ RuntimeException failure=new IllegalStateException("callback");try{Stream.of("a").mapToInt(v->{throw failure;}).sum();throw new Error();}catch(RuntimeException e){h=31*h+(e==failure?1:0);}
+ try{Stream.<Integer>of((Integer)null).mapToInt(Integer::intValue).sum();throw new Error();}catch(NullPointerException e){h++;}
+ int[] closed={0};Stream<String> source=Stream.of("ab").onClose(()->closed[0]++);IntStream mapped=source.mapToInt(String::length);mapped.close();source.close();h=31*h+closed[0];
+ try{mapped.sum();throw new Error();}catch(IllegalStateException e){h++;}return h;
+ }}
+            """);compare(1);
+    }
+
     private byte[] fixture(String source) throws Exception {
         try(var old=Files.list(directory)){for(Path path:old.filter(v->v.getFileName().toString().matches("Metadata.*\\.class")).toList())Files.delete(path);}
         Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
