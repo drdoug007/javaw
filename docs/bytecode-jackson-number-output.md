@@ -7,3 +7,4 @@ Fixtures link unmodified NumberOutput, DoubleToDecimal, FloatToDecimal and MathU
 Completed focused cases (each passes):
 
 - `intChars`
+- `intBytes`

@@ -2027,4 +2027,4 @@ Pinned Jackson Core 2.15.4 numeric execution: `bigIntegerDecimal`, `intString`, 
 
 Jackson numeric validation: all 551 bytecode tests pass (four forks, JVMCI compilation disabled), with zero failures, errors or skips. The 63-JAR audit baseline and compiler revision v250 are unchanged. Fixtures target Java 17 bytecode and compare against the host Java 25.0.3 JVM.
 
-Pinned Jackson NumberOutput execution: `intChars`. See [the output contract](docs/bytecode-jackson-number-output.md) and `BytecodeJacksonNumberOutputTest`. Focused JVM/Wasm comparisons pass in both JAR orders and independent dirty-memory instances. Whole-JAR/framework compatibility remains open.
+Pinned Jackson NumberOutput execution: `intChars`, `intBytes`. See [the output contract](docs/bytecode-jackson-number-output.md) and `BytecodeJacksonNumberOutputTest`. Focused JVM/Wasm comparisons pass in both JAR orders and independent dirty-memory instances. Whole-JAR/framework compatibility remains open.
