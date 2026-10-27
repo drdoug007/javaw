@@ -1,5 +1,8 @@
 package java.util;
 public final class Collections{
+ public static <T>SortedSet<T> unmodifiableSortedSet(SortedSet<T> source){return new SortedViews.SetView<T>(source);}
+ public static <K,V>SortedMap<K,V> unmodifiableSortedMap(SortedMap<K,? extends V> source){return new SortedViews.MapView<K,V>(source);}
+
  public static <T>Collection<T> unmodifiableCollection(Collection<? extends T> source){return new UnmodifiableViews.CollectionView<T>(source);}
  public static <T>List<T> unmodifiableList(List<? extends T> source){return UnmodifiableViews.list(source);}
  public static <T>Set<T> unmodifiableSet(Set<? extends T> source){return new UnmodifiableViews.SetView<T>(source);}

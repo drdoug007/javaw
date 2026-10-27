@@ -9,3 +9,4 @@ Sequential sorted-array storage establishes tested ordering behavior, not balanc
 - v225: Fail-fast sorted traversal and backed key/value/entry mutation.
 - v226: TreeSet construction, ordering and navigation.
 - v227: Live navigable set ranges and descending traversal.
+- v228: Unmodifiable sorted map/set wrappers and nested view protection.
