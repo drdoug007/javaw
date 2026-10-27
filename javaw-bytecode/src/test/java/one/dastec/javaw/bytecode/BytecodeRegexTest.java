@@ -60,6 +60,17 @@ public class Metadata {public static int run(int group){int h=1;
 }}
 """);compare(13);
  }
+ @Test void groupsAndAlternatives() throws Exception {
+ fixture("""
+import java.util.regex.*;
+public class Metadata {public static int run(int group){int h=1;
+ String regex=new String[]{"(a|ab)c","(ab|a)b","((a)b)?(c*)","(?:ab)+","(a(b)?)+","(a?)*","(a?)*a","(a*){2,3}","a|","|a","((a)|(b))+"}[group];Pattern p=Pattern.compile(regex);
+ for(String text:new String[]{"","a","b","ab","abc","ababc","aba","aaa","ccc"}){Matcher m=p.matcher(text);h=31*h+m.groupCount();boolean found=m.matches();h=31*h+(found?1:0);if(found){MatchResult result=m;for(int i=0;i<=m.groupCount();i++){String capture=result.group(i);h=31*h+(capture==null?17:capture.hashCode());h=31*h+result.start(i);h=31*h+result.end(i);}try{m.group(m.groupCount()+1);throw new Error();}catch(IndexOutOfBoundsException e){h++;}}else try{m.group();throw new Error();}catch(IllegalStateException e){h++;}}
+ for(String bad:new String[]{"(","(abc","a)"})try{Pattern.compile(bad);throw new Error();}catch(PatternSyntaxException e){h=31*h+e.getDescription().hashCode();h=31*h+e.getIndex();}
+ return h;
+}}
+""");compare(11);
+ }
     private String classpath(){return directory+(fixtureClasspath.isEmpty()?"":File.pathSeparator+fixtureClasspath);}
 
     /** Preserve selected original method instructions; omit unrelated library state and initialization. */
@@ -119,7 +130,7 @@ public class Metadata {public static int run(int group){int h=1;
     }
     private void execute(String wat,String expected) throws Exception {
         Path input=directory.resolve("metadata.wat"),output=directory.resolve("metadata.wasm"),script=directory.resolve("run.cjs");
-        Files.writeString(input,wat);run("wat2wasm","--enable-exceptions",input.toString(),"-o",output.toString());
+        Files.writeString(input,wat);run("wat2wasm","--enable-exceptions","--debug-names",input.toString(),"-o",output.toString());
         Files.writeString(script,"""
             const fs=require('node:fs'),assert=require('node:assert/strict');
             const compiled=new WebAssembly.Module(fs.readFileSync(process.argv[2]));

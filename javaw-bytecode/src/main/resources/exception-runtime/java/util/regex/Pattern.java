@@ -5,7 +5,15 @@ public final class Pattern {
     public static final int UNIX_LINES=1,CASE_INSENSITIVE=2,COMMENTS=4,MULTILINE=8,LITERAL=16,DOTALL=32,UNICODE_CASE=64,CANON_EQ=128,UNICODE_CHARACTER_CLASS=256;
     final String source;final int flags;final Node root;int groups;
     interface Next {boolean at(int position);}
-    interface Node {boolean match(State state,int position,Next next);}
+    static final class Node {
+        final int kind;Node left,right;String text;java.util.function.IntPredicate predicate;int number,min,max;boolean greedy;List<Instruction> code;int loops;
+        Node(int kind){this.kind=kind;}
+        boolean match(State state,int position,Next next){if(code==null){code=new ArrayList<>();int[] count={0};compile(this,code,count);code.add(new Instruction(0));loops=count[0];}return execute(code,loops,state,position,next);}
+    }
+    static final class Instruction {final int kind;Node node;int x,y,id;Instruction(int kind){this.kind=kind;}}
+    static final class Frame {final int pc,position;final int[] starts,ends,counts,positions;
+        Frame(int pc,int position,State state,int[] counts,int[] positions){this.pc=pc;this.position=position;starts=state.starts.clone();ends=state.ends.clone();this.counts=counts.clone();this.positions=positions.clone();}
+    }
     static final class State {final CharSequence text;final int end,flags;final int[] starts,ends;
         State(CharSequence text,int flags,int count){this.text=text;this.end=text.length();this.flags=flags;starts=new int[count+1];ends=new int[count+1];Arrays.fill(starts,-1);Arrays.fill(ends,-1);}
     }
@@ -16,14 +24,16 @@ public final class Pattern {
     public static boolean matches(String regex,CharSequence text){return compile(regex).matcher(text).matches();}
     public static String quote(String text){Objects.requireNonNull(text);return "\\Q"+text.replace("\\E","\\E\\\\E\\Q")+"\\E";}
     static UnsupportedOperationException unsupported(String feature){return new UnsupportedOperationException("Unsupported bytecode regular expression feature: "+feature);}
-    private Node parse(){if((flags&LITERAL)!=0)return literal(source);Parser parser=new Parser();Node result=parser.sequence();if(parser.position!=source.length())throw parser.error("Unmatched closing ')'",parser.position-1);return result;}
+    private Node parse(){if((flags&LITERAL)!=0)return literal(source);Parser parser=new Parser();Node result=parser.expression();if(parser.position!=source.length())throw parser.error("Unmatched closing ')'",parser.position-1);return result;}
     static int codePoint(CharSequence text,int position,int end){char first=text.charAt(position);if(Character.isHighSurrogate(first) && position+1<end && Character.isLowSurrogate(text.charAt(position+1)))return Character.toCodePoint(first,text.charAt(position+1));return first;}
-    static Node sequence(Node left,Node right){return (s,p,n)->left.match(s,p,q->right.match(s,q,n));}
-    static Node atom(java.util.function.IntPredicate predicate){return (s,p,n)->p<s.end && predicate.test(codePoint(s.text,p,s.end)) && n.at(p+Character.charCount(codePoint(s.text,p,s.end)));}
+    static Node sequence(Node left,Node right){Node node=new Node(10);node.left=left;node.right=right;return node;}
+    static Node atom(java.util.function.IntPredicate predicate){Node node=new Node(1);node.predicate=predicate;return node;}
+    static Node alternative(Node left,Node right){Node node=new Node(3);node.left=left;node.right=right;return node;}
     final class Parser {
         int position;boolean quoted;
         PatternSyntaxException error(String message,int index){return new PatternSyntaxException(message,source,index);}
         void quotes(){while(position+1<source.length() && source.charAt(position)=='\\' && ((!quoted && source.charAt(position+1)=='Q') || (quoted && source.charAt(position+1)=='E'))){quoted=!quoted;position+=2;}}
+        Node expression(){Node result=sequence();while(position<source.length()&&!quoted&&source.charAt(position)=='|'){position++;Node left=result,right=sequence();result=alternative(left,right);}return result;}
         Node sequence(){Node result=literal("");while(true){quotes();if(position==source.length())return result;char c=source.charAt(position);if(!quoted && (c==')'||c=='|'))return result;result=Pattern.sequence(result,term());}}
         Node term(){Node body=baseTerm();quotes();if(quoted||position==source.length())return body;char c=source.charAt(position);int min,max;
             if(c=='*'){min=0;max=Integer.MAX_VALUE;position++;}else if(c=='+'){min=1;max=Integer.MAX_VALUE;position++;}else if(c=='?'){min=0;max=1;position++;}
@@ -38,7 +48,8 @@ public final class Pattern {
             if(c=='\\')return escaped();
             if(c=='.')return atom(v->v!='\n' && v!='\r' && v!=0x85 && v!=0x2028 && v!=0x2029);
             if(c=='[')return characterClass();
-            if(c=='(' || c=='|' || c=='^' || c=='$')throw unsupported("construct at index "+offset);
+            if(c=='('){boolean capture=true;if(position<source.length()&&source.charAt(position)=='?'){position++;if(position<source.length()&&source.charAt(position)==':'){capture=false;position++;}else throw unsupported("special group at index "+offset);}int number=capture?++groups:0;Node child=expression();if(position==source.length()||source.charAt(position)!=')')throw error("Unclosed group",position);position++;return capture?group(child,number):child;}
+            if(c=='|' || c=='^' || c=='$')throw unsupported("construct at index "+offset);
             if(c=='*'||c=='+'||c=='?')throw error("Dangling meta character '"+(char)c+"'",offset);
             if(c=='{')throw error("Illegal repetition",position);
             return literal(new String(Character.toChars(c)));
@@ -71,15 +82,40 @@ public final class Pattern {
         }
         int hex(int length){int value=0;for(int i=0;i<length;i++){if(position==source.length())throw error("Illegal hexadecimal escape sequence",position);int digit=Character.digit(source.charAt(position++),16);if(digit<0)throw error("Illegal hexadecimal escape sequence",position-1);value=(value<<4)|digit;}return value;}
     }
-    static Node repeat(Node body,int min,int max,boolean greedy){return (s,p,n)->repetitions(body,s,p,n,min,max,greedy,0);}
-    static boolean repetitions(Node body,State s,int p,Next next,int min,int max,boolean greedy,int count){
-        if(!greedy && count>=min && next.at(p))return true;
-        if(count<max && body.match(s,p,q->{if(q==p)return count+1<min?repetitions(body,s,q,next,min,max,greedy,count+1):next.at(q);return repetitions(body,s,q,next,min,max,greedy,count+1);}))return true;
-        return greedy && count>=min && next.at(p);
+    static Node group(Node body,int number){Node node=new Node(4);node.left=body;node.number=number;return node;}
+    static Node repeat(Node body,int min,int max,boolean greedy){Node node=new Node(5);node.left=body;node.min=min;node.max=max;node.greedy=greedy;return node;}
+    static void compile(Node node,List<Instruction> code,int[] loops){
+        if(node.kind==10){compile(node.left,code,loops);compile(node.right,code,loops);return;}
+        if(node.kind==3){Instruction branch=new Instruction(3);code.add(branch);branch.x=code.size();compile(node.left,code,loops);Instruction jump=new Instruction(6);code.add(jump);branch.y=code.size();compile(node.right,code,loops);jump.x=code.size();return;}
+        if(node.kind==4){Instruction start=new Instruction(4);start.id=node.number;code.add(start);compile(node.left,code,loops);Instruction end=new Instruction(7);end.id=node.number;code.add(end);return;}
+        if(node.kind==5){int id=loops[0]++;Instruction enter=new Instruction(8);enter.id=id;code.add(enter);Instruction choice=new Instruction(5);choice.id=id;choice.node=node;int target=code.size();code.add(choice);choice.x=code.size();compile(node.left,code,loops);Instruction end=new Instruction(9);end.id=id;end.x=target;code.add(end);choice.y=code.size();return;}
+        Instruction leaf=new Instruction(node.kind);leaf.node=node;code.add(leaf);
     }
+    static boolean execute(List<Instruction> code,int loops,State state,int position,Next next){
+        List<Frame> stack=new ArrayList<>();int[] counts=new int[loops],positions=new int[loops];int pc=0,p=position;
+        while(true){Instruction instruction=code.get(pc);boolean failed=false;
+            switch(instruction.kind){
+                case 0:if(next.at(p))return true;failed=true;break;
+                case 1:if(p<state.end&&instruction.node.predicate.test(codePoint(state.text,p,state.end))){p+=Character.charCount(codePoint(state.text,p,state.end));pc++;}else failed=true;break;
+                case 2:int end=literalEnd(instruction.node.text,state,p);if(end>=0){p=end;pc++;}else failed=true;break;
+                case 3:stack.add(new Frame(instruction.y,p,state,counts,positions));pc=instruction.x;break;
+                case 4:state.starts[instruction.id]=p;pc++;break;
+                case 7:state.ends[instruction.id]=p;pc++;break;
+                case 6:pc=instruction.x;break;
+                case 8:counts[instruction.id]=0;positions[instruction.id]=-1;pc++;break;
+                case 9:counts[instruction.id]++;pc=instruction.x;break;
+                case 5:{Node node=instruction.node;int count=counts[instruction.id];boolean exit=count>=node.min,body=count<node.max&&!(count>0&&positions[instruction.id]==p&&exit);positions[instruction.id]=p;
+                    if(body&&exit){stack.add(new Frame(node.greedy?instruction.y:instruction.x,p,state,counts,positions));pc=node.greedy?instruction.x:instruction.y;}
+                    else if(body)pc=instruction.x;else if(exit)pc=instruction.y;else failed=true;break;}
+                default:throw new IllegalStateException("Invalid regex instruction");
+            }
+            if(failed){if(stack.isEmpty())return false;Frame frame=stack.remove(stack.size()-1);pc=frame.pc;p=frame.position;System.arraycopy(frame.starts,0,state.starts,0,state.starts.length);System.arraycopy(frame.ends,0,state.ends,0,state.ends.length);counts=frame.counts;positions=frame.positions;}
+        }
+    }
+    static int literalEnd(String value,State state,int p){if(value.length()>state.end-p)return -1;for(int i=0;i<value.length();i++)if(state.text.charAt(p+i)!=value.charAt(i))return -1;return p+value.length();}
     static final class ClassPart {final int value;final java.util.function.IntPredicate predicate;ClassPart(int value,java.util.function.IntPredicate predicate){this.value=value;this.predicate=predicate;}}
     static java.util.function.IntPredicate predefined(char code){
         switch(code){case 'd':return v->v>='0'&&v<='9';case 'D':return v->!(v>='0'&&v<='9');case 'w':return v->v>='a'&&v<='z'||v>='A'&&v<='Z'||v>='0'&&v<='9'||v=='_';case 'W':return v->!(v>='a'&&v<='z'||v>='A'&&v<='Z'||v>='0'&&v<='9'||v=='_');case 's':return v->v==' '||v>=9&&v<=13;case 'S':return v->!(v==' '||v>=9&&v<=13);default:return null;}
     }
-    static Node literal(final String value){return (s,p,n)->{if(value.length()>s.end-p)return false;for(int i=0;i<value.length();i++)if(s.text.charAt(p+i)!=value.charAt(i))return false;return n.at(p+value.length());};}
+    static Node literal(String value){Node node=new Node(2);node.text=value;return node;}
 }
