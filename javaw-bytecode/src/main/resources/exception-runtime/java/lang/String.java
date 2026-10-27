@@ -443,4 +443,5 @@ public final class String implements CharSequence,Comparable<String>,java.io.Ser
         return out.toString();
     }
     public java.util.stream.IntStream chars(){return javaw.runtime.CharacterStreams.chars(this);}
+    public java.util.stream.IntStream codePoints(){return javaw.runtime.CharacterStreams.codePoints(this);}
 }

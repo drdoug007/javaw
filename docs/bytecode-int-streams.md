@@ -12,3 +12,6 @@ Completed subsets:
 - v203: Ordered skip/limit/takeWhile/dropWhile, distinct/sorted, matching and find short-circuit behavior.
 - v204: Generate/iterate, concat/flatMap, child cleanup, single-use/onClose behavior and explicit parallel rejection.
 - v205: String.chars UTF-16 unit traversal, surrogate preservation and fresh single-use pipelines.
+- v206: String.codePoints supplementary pairing and malformed surrogate preservation, with selected pinned H2 trim instructions.
+
+The H2 trim evidence uses `h2-2.2.224.jar` (SHA-256 `b9d8f19358ada82a4f6eb5b174c6cfe320a375b5a9cb5a4fe456d623e6e55497`). The JVM loads the original `org.h2.util.StringUtils`; Wasm links a carrier with its three unchanged `trim` methods and two predicate lambda bodies, omitting unrelated fields, methods and class initialization. The >2-code-point trim set executes the original `codePoints().forEach(HashSet::add)` path. Tests compare results, unchanged-string identity, direction flags, null/empty trim sets, supplementary and unpaired surrogate inputs, and null-source failure. This does not establish H2 engine execution.

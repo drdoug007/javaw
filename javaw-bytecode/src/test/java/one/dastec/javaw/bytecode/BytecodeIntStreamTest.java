@@ -1,6 +1,8 @@
 package one.dastec.javaw.bytecode;
 
 import org.junit.jupiter.api.Test;
+import org.objectweb.asm.*;
+import org.objectweb.asm.tree.*;
 import org.junit.jupiter.api.io.TempDir;
 import javax.tools.ToolProvider;
 import java.io.*;
@@ -14,6 +16,8 @@ import static org.junit.jupiter.api.Assertions.*;
 class BytecodeIntStreamTest {
     @TempDir Path directory;
     private final String fixtureClassName="Metadata";
+    private String fixtureClasspath="";
+    private final Map<String,byte[]> carriers=new HashMap<>();
     @Test void factoriesAndTraversal() throws Exception {
         fixture("""
             import java.util.*;import java.util.stream.*;import java.util.function.*;
@@ -127,9 +131,63 @@ public class Metadata {public static int run(int group){int h=1;
             """);compare(32);
     }
 
+    @Test void stringCodePoints() throws Exception {
+        fixture("""
+import java.util.*;import java.util.stream.*;import java.util.function.*;
+public class Metadata {public static int run(int group){int h=1;Function<String,IntStream> factory=String::codePoints;
+ for(String text:new String[]{"","hello","𐐀a😀",new String(new char[]{(char)0xd800,(char)0xd801,(char)0xdc00,(char)0xdc01,(char)0xdbff,(char)0xdfff,0})}){
+  h=31*h+Arrays.hashCode(text.codePoints().toArray());h=31*h+Arrays.hashCode(factory.apply(text).toArray());h=31*h+text.codePoints().sum();h=31*h+Long.hashCode(text.codePoints().count());
+ }
+ char[] units=new char[2048];for(int i=0;i<units.length;i++)units[i]=(char)(group*2048+i);h=31*h+Arrays.hashCode(new String(units).codePoints().toArray());
+ int[] points=new int[256];for(int i=0;i<points.length;i++)points[i]=0x10000+((group*256+i)*127%0x100000);String text=new String(points,0,points.length);h=31*h+Arrays.hashCode(text.codePoints().toArray());
+ int[] calls={0};h=31*h+"𐐀😀a".codePoints().peek(v->calls[0]++).findFirst().orElse(-1);h=31*h+calls[0];return h;
+}}
+            """);compare(32);h2Trim();
+    }
+
+    private void h2Trim() throws Exception {
+        carrier(selectedLibrary("org/h2/util/StringUtils.class","com/h2database/h2/2.2.224/h2-2.2.224.jar",
+            "b9d8f19358ada82a4f6eb5b174c6cfe320a375b5a9cb5a4fe456d623e6e55497",
+            name->name.equals("trim")||name.startsWith("lambda$trim$")));
+        fixture("""
+            import org.h2.util.StringUtils;
+            public class Metadata {public static int run(int group){int h=1;
+             String lone=new String(new char[]{(char)0xd800});
+             for(String trim:new String[]{null,"","x","xy","xyz","😀𐐀x",lone+"xy"})
+              for(String text:new String[]{"","xyzhellozyx","😀𐐀hello𐐀😀",lone+"hello"+lone,"  hi  ","unchanged"})
+               for(int flags=0;flags<4;flags++){
+                String result=StringUtils.trim(text,(flags&1)!=0,(flags&2)!=0,trim);
+                h=31*h+result.hashCode();h=31*h+(result==text?1:0);
+               }
+             for(int flags=0;flags<4;flags++){String text="xxhixx";String result=StringUtils.trim(text,(flags&1)!=0,(flags&2)!=0,'x');h=31*h+result.hashCode();}
+             try{StringUtils.trim(null,true,true,"xyz");throw new Error();}catch(NullPointerException e){h++;}
+             return h;
+            }}
+            """);compare(1);
+    }
+
+    private String classpath(){return directory+(fixtureClasspath.isEmpty()?"":File.pathSeparator+fixtureClasspath);}
+
+    /** Preserve selected original method instructions; omit unrelated library state and initialization. */
+    private ClassNode selectedLibrary(String relative,String artifact,String hash,java.util.function.Predicate<String> select) throws Exception {
+        Path jar=Path.of(System.getProperty("user.home"),".m2/repository",artifact);
+        assertTrue(Files.isRegularFile(jar),"Pinned artifact required: "+jar);
+        assertEquals(hash,HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(jar))));
+        fixtureClasspath=jar.toString();byte[] original;
+        try(JarFile input=new JarFile(jar.toFile())){original=input.getInputStream(input.getJarEntry(relative)).readAllBytes();}
+        Path target=directory.resolve(relative);Files.createDirectories(target.getParent());Files.write(target,original);
+        ClassNode full=new ClassNode();new ClassReader(original).accept(full,0);
+        ClassNode carrier=new ClassNode();carrier.visit(full.version,full.access,full.name,null,full.superName,null);
+        carrier.methods.addAll(full.methods.stream().filter(m->select.test(m.name)).toList());
+        return carrier;
+    }
+    private void carrier(ClassNode node){ClassWriter writer=new ClassWriter(0);node.accept(writer);carriers.put(node.name+".class",writer.toByteArray());}
+
     private byte[] fixture(String source) throws Exception {
+        try(var old=Files.list(directory)){for(Path path:old.filter(v->v.getFileName().toString().matches("Metadata.*\\.class")).toList())Files.delete(path);}
         Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
         List<String> options=new ArrayList<>(List.of("-g","-parameters","--release","17","-d",directory.toString()));
+        options.add("-classpath");options.add(classpath());
         Path oracle=directory.resolve("CaseOracle.java");Files.writeString(oracle,"public class CaseOracle {public static void main(String[] args)throws Exception{if(Runtime.version().feature()!=17)throw new Error();var method=Class.forName(args[0]).getMethod(\"run\",int.class);System.out.print(\"[\");for(int i=0;i<Integer.parseInt(args[1]);i++){if(i>0)System.out.print(\",\");System.out.print(method.invoke(null,i));}System.out.print(\"]\");}}");
         options.add(file.toString());options.add(oracle.toString());
         assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,options.toArray(String[]::new)));
@@ -146,7 +204,7 @@ public class Metadata {public static int run(int group){int h=1;
         try(JarOutputStream jar=new JarOutputStream(bytes)) {
             for(Path file:files){
                 String entry=directory.relativize(file).toString();
-                jar.putNextEntry(new JarEntry(directory.relativize(file).toString()));jar.write(Files.readAllBytes(file));jar.closeEntry();}
+                jar.putNextEntry(new JarEntry(directory.relativize(file).toString()));jar.write(carriers.containsKey(entry)?carriers.get(entry):Files.readAllBytes(file));jar.closeEntry();}
         }
         return bytes.toByteArray();
     }
@@ -154,7 +212,7 @@ public class Metadata {public static int run(int group){int h=1;
     private void compare(int groups) throws Exception {
         Path java=Path.of(System.getProperty("javaw.jdk17.home",System.getProperty("user.home")+"/Library/Java/JavaVirtualMachines/graalvm-ce-17.0.9/Contents/Home"),"bin/java");
         assertTrue(Files.isExecutable(java),"A JDK 17 oracle is required (javaw.jdk17.home)");
-        run(java.toString(),"-Djava.locale.providers=CLDR","-Duser.language=","-Duser.country=","-Duser.variant=","-cp",directory.toString(),"CaseOracle",fixtureClassName,Integer.toString(groups));
+        run(java.toString(),"-Djava.locale.providers=CLDR","-Duser.language=","-Duser.country=","-Duser.variant=","-cp",classpath(),"CaseOracle",fixtureClassName,Integer.toString(groups));
         String expected=Files.readString(directory.resolve("command.log")).trim();
         for(boolean reverse:new boolean[]{false,true})
             execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),expected);
