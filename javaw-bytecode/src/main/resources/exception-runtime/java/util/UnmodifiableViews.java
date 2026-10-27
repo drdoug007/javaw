@@ -10,6 +10,7 @@ final class UnmodifiableViews {
         CollectionView(Collection<? extends E> source){this.source=Objects.requireNonNull(source);}
         public int size(){return source.size();}public boolean isEmpty(){return source.isEmpty();}public boolean contains(Object value){return source.contains(value);}public boolean containsAll(Collection<?> values){return source.containsAll(values);}
         public Iterator<E> iterator(){return UnmodifiableViews.<E>iterator(source.iterator());}
+        public Spliterator<E> spliterator(){return (Spliterator<E>)source.spliterator();}
         public Object[] toArray(){return source.toArray();}public <T>T[] toArray(T[] values){return source.toArray(values);}
         public void forEach(Consumer<? super E> action){source.forEach(action);}
         public String toString(){return source.toString();}

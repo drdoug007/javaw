@@ -19,4 +19,13 @@ public class ArrayList<E> extends AbstractList<E> implements List<E>,RandomAcces
   try{ArrayList<E> copy=(ArrayList<E>)super.clone();copy.elements=new Object[count];System.arraycopy(elements,0,copy.elements,0,count);copy.modCount=0;copy.defaultCapacity=false;return copy;}
   catch(CloneNotSupportedException impossible){throw new InternalError();}
  }
+ public Spliterator<E> spliterator(){return new ArrayTraversal(0,-1,0);}
+ private final class ArrayTraversal implements Spliterator<E>{
+ int index,fence,expected;ArrayTraversal(int index,int fence,int expected){this.index=index;this.fence=fence;this.expected=expected;}
+ int fence(){if(fence<0){fence=count;expected=modCount;}return fence;}
+ public int characteristics(){return Spliterator.ORDERED|Spliterator.SIZED|Spliterator.SUBSIZED;}public long estimateSize(){return fence()-index;}
+ public Spliterator<E> trySplit(){int end=fence(),middle=(index+end)>>>1;if(index>=middle)return null;int from=index;index=middle;return new ArrayTraversal(from,middle,expected);}
+ public boolean tryAdvance(java.util.function.Consumer<? super E> action){Objects.requireNonNull(action);int end=fence();if(index>=end)return false;if(index>=elements.length)throw new ConcurrentModificationException();E value=(E)elements[index++];action.accept(value);if(modCount!=expected)throw new ConcurrentModificationException();return true;}
+ public void forEachRemaining(java.util.function.Consumer<? super E> action){Objects.requireNonNull(action);int end=fence(),from=index;index=end;for(int i=from;i<end;i++){if(i>=elements.length)throw new ConcurrentModificationException();action.accept((E)elements[i]);}if(modCount!=expected)throw new ConcurrentModificationException();}
+ }
 }

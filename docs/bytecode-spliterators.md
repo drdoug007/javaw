@@ -10,3 +10,4 @@ This sequential reference subset does not establish primitive or parallel traver
 - v236: Iterable and collection late-binding spliterators.
 - v237: Sequential StreamSupport direct and supplier sources.
 - v238: Single-use lazy reference-stream spliterator traversal.
+- v239: Array and sorted-collection spliterator metadata and views.

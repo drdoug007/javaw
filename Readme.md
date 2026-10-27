@@ -2029,3 +2029,5 @@ Reference traversal subset 6/10 (v236): Iterable and collection late-binding spl
 Reference traversal subset 7/10 (v237): Sequential StreamSupport direct and supplier sources. Focused checks pass; see [the reference traversal contract](docs/bytecode-spliterators.md). Primitive/parallel and framework milestones remain open.
 
 Reference traversal subset 8/10 (v238): Single-use lazy reference-stream spliterator traversal. Focused checks pass; see [the reference traversal contract](docs/bytecode-spliterators.md). Primitive/parallel and framework milestones remain open.
+
+Reference traversal subset 9/10 (v239): Array and sorted-collection spliterator metadata and views. Focused checks pass; see [the reference traversal contract](docs/bytecode-spliterators.md). Primitive/parallel and framework milestones remain open.

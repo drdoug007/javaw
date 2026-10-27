@@ -198,4 +198,6 @@ public final class Arrays {
     public static int binarySearch(double[] values,int start,int end,double key){range(values.length,start,end);int low=start,high=end-1;while(low<=high){int mid=(low+high)>>>1;int compared=Double.compare(values[mid],key);if(compared<0)low=mid+1;else if(compared>0)high=mid-1;else return mid;}return -low-1;}
     public static void sort(double[] values){sort(values,0,values.length);}
     public static void sort(double[] values,int start,int end){range(values.length,start,end);for(int i=start+1;i<end;i++){double value=values[i];int j=i;while(j>start && Double.compare(values[j-1],value)>0){values[j]=values[j-1];j--;}values[j]=value;}}
+ public static <T>Spliterator<T> spliterator(T[] values){return Spliterators.spliterator(values,Spliterator.ORDERED|Spliterator.IMMUTABLE);}
+ public static <T>Spliterator<T> spliterator(T[] values,int start,int end){return Spliterators.spliterator(values,start,end,Spliterator.ORDERED|Spliterator.IMMUTABLE);}
 }

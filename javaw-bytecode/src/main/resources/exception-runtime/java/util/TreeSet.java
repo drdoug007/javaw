@@ -12,4 +12,10 @@ public class TreeSet<E> extends AbstractSet<E> implements NavigableSet<E>,Clonea
  public Object clone(){return new TreeSet<E>(new TreeMap<E,Object>((SortedMap<E,Object>)map));}
  public NavigableSet<E> descendingSet(){return new TreeSet<E>(map.descendingMap());}public NavigableSet<E> subSet(E from,boolean fi,E to,boolean ti){return new TreeSet<E>(map.subMap(from,fi,to,ti));}public NavigableSet<E> headSet(E to,boolean inclusive){return new TreeSet<E>(map.headMap(to,inclusive));}public NavigableSet<E> tailSet(E from,boolean inclusive){return new TreeSet<E>(map.tailMap(from,inclusive));}
  public SortedSet<E> subSet(E from,E to){return subSet(from,true,to,false);}public SortedSet<E> headSet(E to){return headSet(to,false);}public SortedSet<E> tailSet(E from){return tailSet(from,true);}
+ public Spliterator<E> spliterator(){TreeMap<E,Object> sorted=(TreeMap<E,Object>)map;boolean full=!sorted.hasLow&&!sorted.hasHigh;int flags=Spliterator.ORDERED|Spliterator.DISTINCT|(full?Spliterator.SIZED:0)|(!sorted.descending?Spliterator.SORTED:0);return new SetTraversal(flags,full);}
+ private final class SetTraversal implements Spliterator<E>{
+ final int flags;final boolean sized;Spliterator<E> cursor;SetTraversal(int flags,boolean sized){this.flags=flags;this.sized=sized;}
+ Spliterator<E> get(){if(cursor==null)cursor=sized?Spliterators.spliterator(iterator(),size(),flags):Spliterators.spliteratorUnknownSize(iterator(),flags);return cursor;}
+ public int characteristics(){return flags;}public long estimateSize(){return get().estimateSize();}public boolean tryAdvance(java.util.function.Consumer<? super E> action){Objects.requireNonNull(action);return get().tryAdvance(action);}public void forEachRemaining(java.util.function.Consumer<? super E> action){Objects.requireNonNull(action);get().forEachRemaining(action);}public Spliterator<E> trySplit(){return null;}public Comparator<? super E> getComparator(){if((flags&Spliterator.SORTED)==0)throw new IllegalStateException();return comparator();}
+ }
 }
