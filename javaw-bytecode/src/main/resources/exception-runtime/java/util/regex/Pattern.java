@@ -1,7 +1,7 @@
 package java.util.regex;
 import java.util.*;
 /** Selected sequential regex engine; unsupported constructs are diagnosed explicitly. */
-public final class Pattern {
+public final class Pattern implements java.io.Serializable {
     public static final int UNIX_LINES=1,CASE_INSENSITIVE=2,COMMENTS=4,MULTILINE=8,LITERAL=16,DOTALL=32,UNICODE_CASE=64,CANON_EQ=128,UNICODE_CHARACTER_CLASS=256;
     final String source;final int flags;final Node root;int groups;
     interface Next {boolean at(int position);}
@@ -59,7 +59,8 @@ public final class Pattern {
             if(c=='A'||c=='z'||c=='Z')return anchor(c);
             java.util.function.IntPredicate predefined=predefined(c);if(predefined!=null)return atom(predefined);
             switch(c){case 't':return literal("\t");case 'n':return literal("\n");case 'r':return literal("\r");case 'f':return literal("\f");case 'a':return literal(String.valueOf((char)7));case 'e':return literal(String.valueOf((char)27));
-                case 'u':return literal(String.valueOf((char)hex(4)));case 'x':return literal(String.valueOf((char)hex(2)));default:
+                case 'u':return literal(new String(Character.toChars(unicode())));case 'x':return literal(new String(Character.toChars(hexPoint())));default:
+                if(Character.isLetterOrDigit(c)&&"bBcpPkGNRXhHvV0123456789".indexOf(c)<0)throw error("Illegal/unsupported escape sequence",offset);
                 if(c>='a'&&c<='z'||c>='A'&&c<='Z'||c>='0'&&c<='9')throw unsupported("escape \\"+c+" at index "+offset);return literal(String.valueOf(c));}
         }
         Node characterClass(){boolean negative=false;if(position<source.length() && source.charAt(position)=='^'){negative=true;position++;}
@@ -78,11 +79,19 @@ public final class Pattern {
             if(c=='[' || c=='&' && position<source.length() && source.charAt(position)=='&')throw unsupported("nested/intersected character class at index "+start);
             if(c=='\\'){
                 if(position==source.length())throw error("Unclosed character class",position-1);char escaped=source.charAt(position++);java.util.function.IntPredicate pre=predefined(escaped);if(pre!=null)return new ClassPart(-1,pre);
-                switch(escaped){case 't':c=9;break;case 'n':c=10;break;case 'r':c=13;break;case 'f':c=12;break;case 'a':c=7;break;case 'e':c=27;break;case 'u':c=hex(4);break;case 'x':c=hex(2);break;default:if(Character.isLetterOrDigit(escaped))throw unsupported("class escape "+escaped);c=escaped;}
+                switch(escaped){case 't':c=9;break;case 'n':c=10;break;case 'r':c=13;break;case 'f':c=12;break;case 'a':c=7;break;case 'e':c=27;break;case 'u':c=unicode();break;case 'x':c=hexPoint();break;default:if(Character.isLetterOrDigit(escaped)){if("cpPNQhHvV0123456789".indexOf(escaped)<0)throw error("Illegal/unsupported escape sequence",position-1);throw unsupported("class escape "+escaped);}c=escaped;}
             }
             final int point=c;return new ClassPart(c,v->same(point,v,flags));
         }
-        int hex(int length){int value=0;for(int i=0;i<length;i++){if(position==source.length())throw error("Illegal hexadecimal escape sequence",position);int digit=Character.digit(source.charAt(position++),16);if(digit<0)throw error("Illegal hexadecimal escape sequence",position-1);value=(value<<4)|digit;}return value;}
+        int unicode(){int first=hex(4);if(first>=0xd800&&first<=0xdbff&&position+6<=source.length()&&source.charAt(position)=='\\'&&source.charAt(position+1)=='u'){
+            int old=position;position+=2;int second=hex(4);if(second>=0xdc00&&second<=0xdfff)return Character.toCodePoint((char)first,(char)second);position=old;
+        }return first;}
+        int hexPoint(){if(position==source.length()||source.charAt(position)!='{')return hex(2);position++;int start=position;long value=0;
+            while(position<source.length()&&source.charAt(position)!='}'){int digit=hexDigit(source.charAt(position++));if(digit<0)throw error("Illegal hexadecimal escape sequence",position-1);value=value*16+digit;if(value>0x10ffff)throw error("Hexadecimal codepoint is too big",position-1);}
+            if(position==source.length()||position==start)throw error("Illegal hexadecimal escape sequence",position);position++;if(value>=0xd800&&value<=0xdfff)throw unsupported("surrogate code-point hex escape");return (int)value;
+        }
+        int hexDigit(char value){return value<128?Character.digit(value,16):-1;}
+        int hex(int length){int value=0;for(int i=0;i<length;i++){if(position==source.length())throw error("Illegal hexadecimal escape sequence",position);int digit=hexDigit(source.charAt(position++));if(digit<0)throw error("Illegal hexadecimal escape sequence",position-1);value=(value<<4)|digit;}return value;}
     }
     static Node group(Node body,int number){Node node=new Node(4);node.left=body;node.number=number;return node;}
     static Node repeat(Node body,int min,int max,boolean greedy){Node node=new Node(5);node.left=body;node.min=min;node.max=max;node.greedy=greedy;return node;}
@@ -146,4 +155,6 @@ public final class Pattern {
         if(limit==0)while(!parts.isEmpty()&&parts.get(parts.size()-1).isEmpty())parts.remove(parts.size()-1);
         return parts.toArray(new String[parts.size()]);
     }
+    public java.util.function.Predicate<String> asPredicate(){return value->matcher(value).find();}
+    public java.util.function.Predicate<String> asMatchPredicate(){return value->matcher(value).matches();}
 }

@@ -134,6 +134,85 @@ public class Metadata {public static int run(int group){int h=1;String regex=new
 }}
 """);compare(8);h2Help();
  }
+    private void logbackRange() throws Exception {
+        ClassNode selected=selectedLibrary("ch/qos/logback/classic/pattern/CallerDataConverter.class",
+            "ch/qos/logback/logback-classic/1.4.14/logback-classic-1.4.14.jar",
+            "8e832f7263ca606ae36dabb2d8b24c2f43d82cf634e81dad9d1640fa6ee3c596",name->name.equals("splitRange")||name.equals("getDefaultRangeDelimiter"));
+        selected.superName="java/lang/Object";
+        MethodVisitor ctor=selected.visitMethod(Opcodes.ACC_PUBLIC,"<init>","()V",null,null);ctor.visitCode();ctor.visitVarInsn(Opcodes.ALOAD,0);ctor.visitMethodInsn(Opcodes.INVOKESPECIAL,"java/lang/Object","<init>","()V",false);ctor.visitInsn(Opcodes.RETURN);ctor.visitMaxs(1,1);ctor.visitEnd();
+        MethodVisitor shim=selected.visitMethod(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"javawSplit","(Ljava/lang/String;)[Ljava/lang/String;",null,null);shim.visitCode();shim.visitTypeInsn(Opcodes.NEW,selected.name);shim.visitInsn(Opcodes.DUP);shim.visitMethodInsn(Opcodes.INVOKESPECIAL,selected.name,"<init>","()V",false);shim.visitVarInsn(Opcodes.ALOAD,0);shim.visitMethodInsn(Opcodes.INVOKESPECIAL,selected.name,"splitRange","(Ljava/lang/String;)[Ljava/lang/String;",false);shim.visitInsn(Opcodes.ARETURN);shim.visitMaxs(2,1);shim.visitEnd();carrier(selected);
+        for(String dependency:new String[]{"ch/qos/logback/logback-core/1.4.14/logback-core-1.4.14.jar","org/slf4j/slf4j-api/2.0.2/slf4j-api-2.0.2.jar"})fixtureClasspath+=File.pathSeparator+Path.of(System.getProperty("user.home"),".m2/repository",dependency);
+        Path bridge=directory.resolve("RegexBridge.java");Files.writeString(bridge,"""
+            public class RegexBridge {public static String[] run(String text){try{
+              Class<?> type=Class.forName("ch.qos.logback.classic.pattern.CallerDataConverter");var method=type.getDeclaredMethod("splitRange",String.class);method.setAccessible(true);
+              return (String[])method.invoke(type.getConstructor().newInstance(),text);
+            }catch(java.lang.reflect.InvocationTargetException e){Throwable c=e.getCause();if(c instanceof RuntimeException)throw (RuntimeException)c;throw (Error)c;
+            }catch(ReflectiveOperationException e){throw new Error(e);}}}
+            """);assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,"--release","17","-d",directory.toString(),bridge.toString()));
+        ClassNode direct=new ClassNode();direct.visit(Opcodes.V17,Opcodes.ACC_PUBLIC,"RegexBridge",null,"java/lang/Object",null);
+        MethodVisitor run=direct.visitMethod(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"run","(Ljava/lang/String;)[Ljava/lang/String;",null,null);run.visitCode();run.visitVarInsn(Opcodes.ALOAD,0);run.visitMethodInsn(Opcodes.INVOKESTATIC,selected.name,"javawSplit","(Ljava/lang/String;)[Ljava/lang/String;",false);run.visitInsn(Opcodes.ARETURN);run.visitMaxs(1,1);run.visitEnd();carrier(direct);
+        fixture("""
+            import java.util.Arrays;
+            public class Metadata {public static int run(int group){int h=1;for(String text:new String[]{"","1","1..5","..5","1..","1..5..7","...","😀..𐐀"})h=31*h+Arrays.hashCode(RegexBridge.run(text));
+             try{RegexBridge.run(null);throw new Error();}catch(NullPointerException e){h++;}return h;}}
+            """);compare(1);
+    }
+
+ @Test void predicatesUnicodeAndAdmission() throws Exception {
+ fixture("""
+import java.util.regex.*;import java.util.function.*;
+public class Metadata {
+ public static int exclusions(){int h=0;for(String regex:new String[]{"(?=a)","(?<x>a)","(?i)a","(a)\\\\1","a++","[a&&b]","\\\\p{L}","\\\\b","\\\\x{d800}"})try{Pattern.compile(regex);return 0;}catch(UnsupportedOperationException e){h++;}
+ for(int flag:new int[]{Pattern.COMMENTS,Pattern.CANON_EQ,Pattern.UNICODE_CHARACTER_CLASS})try{Pattern.compile("a",flag);return 0;}catch(UnsupportedOperationException e){h++;}return h==12?1:0;}
+ public static int run(int group){int h=1;Pattern p=Pattern.compile("a+");Predicate<String> find=p.asPredicate(),match=p.asMatchPredicate();
+ for(String text:new String[]{"","a","baab","aa","b"}){h=31*h+(find.test(text)?1:0);h=31*h+(match.test(text)?1:0);h=31*h+(find.test(text)?1:0);}
+ h=31*h+(p instanceof java.io.Serializable?1:0);Function<String,Matcher> make=p::matcher;h=31*h+(make.apply("a").matches()?1:0);
+ for(int i=0;i<2;i++)try{(i==0?find:match).test(null);throw new Error();}catch(NullPointerException e){h++;}
+ for(String regex:new String[]{"\\\\uD83D\\\\uDE00+","[\\\\uD83D\\\\uDE00]","\\\\x{1f600}+","\\\\x{41}","\\\\uD800","\\\\x41"})for(String text:new String[]{"","A","😀","😀😀",new String(new char[]{(char)0xd800}),"a"})h=31*h+(Pattern.matches(regex,text)?1:0);
+ for(String regex:new String[]{"\\\\q","[\\\\q]","\\\\x{z}","\\\\x{}","\\\\x{110000}"})try{Pattern.compile(regex);throw new Error();}catch(PatternSyntaxException e){h++;}
+ return h;
+ }}
+""");compare(1);logbackRange();regexAdmission();
+ }
+    private void regexAdmission() {
+        String[][] signatures={
+          {"java/util/regex/Pattern","compile","(Ljava/lang/String;)Ljava/util/regex/Pattern;","static"},
+          {"java/util/regex/Pattern","quote","(Ljava/lang/String;)Ljava/lang/String;","static"},
+          {"java/util/regex/Matcher","find","()Z","virtual"},
+          {"java/util/regex/Matcher","matches","()Z","virtual"},
+          {"java/util/regex/Matcher","group","(I)Ljava/lang/String;","virtual"},
+          {"java/util/regex/MatchResult","group","(I)Ljava/lang/String;","interface"},
+          {"java/lang/String","matches","(Ljava/lang/String;)Z","virtual"},
+          {"java/lang/String","split","(Ljava/lang/String;I)[Ljava/lang/String;","virtual"}
+        };
+        for(String[] call:signatures)for(int variant=0;variant<4;variant++){
+            boolean iface=call[3].equals("interface"),statik=call[3].equals("static");
+            String descriptor=variant%2==0?"(J)Ljava/lang/Object;":call[2];
+            ClassWriter writer=new ClassWriter(0);writer.visit(Opcodes.V17,Opcodes.ACC_PUBLIC,"BadRegexCall",null,"java/lang/Object",null);writer.visitSource("RegexCalls.java",null);
+            MethodVisitor m=writer.visitMethod(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"unused","()Ljava/lang/Object;",null,null);
+            m.visitCode();Label line=new Label();m.visitLabel(line);m.visitLineNumber(61,line);
+            if(variant<2){m.visitInsn(Opcodes.ACONST_NULL);m.visitInsn(Opcodes.ACONST_NULL);m.visitInsn(Opcodes.ACONST_NULL);
+                int opcode=variant==1?(statik?Opcodes.INVOKEINTERFACE:Opcodes.INVOKESTATIC):(statik?Opcodes.INVOKESTATIC:iface?Opcodes.INVOKEINTERFACE:Opcodes.INVOKEVIRTUAL);
+                m.visitMethodInsn(opcode,call[0],call[1],descriptor,iface);
+            }else{int tag=variant==3?(statik?Opcodes.H_INVOKEINTERFACE:Opcodes.H_INVOKESTATIC):(statik?Opcodes.H_INVOKESTATIC:iface?Opcodes.H_INVOKEINTERFACE:Opcodes.H_INVOKEVIRTUAL);
+                m.visitLdcInsn(new Handle(tag,call[0],call[1],descriptor,iface));}
+            m.visitInsn(Opcodes.ARETURN);m.visitMaxs(4,0);m.visitEnd();writer.visitEnd();
+            var failure=assertThrows(IllegalArgumentException.class,()->BytecodeCompiler.compileClassWithExceptionRuntime(writer.toByteArray()));
+            assertTrue(failure.getMessage().contains("unused"),failure.getMessage());
+            assertTrue(failure.getMessage().contains("RegexCalls.java:61"),failure.getMessage());
+        }
+        for(String[] api:new String[][]{
+          {"java/util/regex/Matcher","region","(II)Ljava/util/regex/Matcher;"},
+          {"java/util/regex/Matcher","toMatchResult","()Ljava/util/regex/MatchResult;"},
+          {"java/util/regex/Matcher","replaceAll","(Ljava/util/function/Function;)Ljava/lang/String;"},
+          {"java/util/regex/Pattern","splitAsStream","(Ljava/lang/CharSequence;)Ljava/util/stream/Stream;"}}){
+            ClassWriter writer=new ClassWriter(0);writer.visit(Opcodes.V17,Opcodes.ACC_PUBLIC,"UnsupportedRegexApi",null,"java/lang/Object",null);writer.visitSource("RegexCalls.java",null);
+            MethodVisitor m=writer.visitMethod(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"unused","()Ljava/lang/Object;",null,null);m.visitCode();Label line=new Label();m.visitLabel(line);m.visitLineNumber(61,line);m.visitInsn(Opcodes.ACONST_NULL);
+            m.visitMethodInsn(Opcodes.INVOKEVIRTUAL,api[0],api[1],api[2],false);m.visitInsn(Opcodes.ARETURN);m.visitMaxs(4,0);m.visitEnd();writer.visitEnd();
+            var failure=assertThrows(IllegalArgumentException.class,()->BytecodeCompiler.compileClassWithExceptionRuntime(writer.toByteArray()));
+            assertTrue(failure.getMessage().contains("unused"),failure.getMessage());assertTrue(failure.getMessage().contains("RegexCalls.java:61"),failure.getMessage());
+        }
+    }
     private String classpath(){return directory+(fixtureClasspath.isEmpty()?"":File.pathSeparator+fixtureClasspath);}
 
     /** Preserve selected original method instructions; omit unrelated library state and initialization. */
@@ -207,7 +286,7 @@ public class Metadata {public static int run(int group){int h=1;String regex=new
                     new Uint8Array(memory.buffer,address,size).fill(0x7f);return address;
                 }}}).exports;
                 assert.equal(allocations,0);heap=Math.max(heap,e.__exception_heap_base?.value??0);
-            """.replace("EXPECTED",expected)+"if(e['Metadata.excludedState'])assert.equal(e['Metadata.excludedState'](),1);\nif(e['Metadata.unsupportedParallel'])assert.equal(e['Metadata.unsupportedParallel'](),1);\nassert.equal(e['"+fixtureClassName+".run'](group),expected[group],'batch '+group);\n}");
+            """.replace("EXPECTED",expected)+"if(e['Metadata.excludedState'])assert.equal(e['Metadata.excludedState'](),1);\nif(e['Metadata.exclusions'])assert.equal(e['Metadata.exclusions'](),1);\nassert.equal(e['"+fixtureClassName+".run'](group),expected[group],'batch '+group);\n}");
         run("node",script.toString(),output.toString());
     }
 }

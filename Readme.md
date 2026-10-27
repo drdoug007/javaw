@@ -2004,20 +2004,7 @@ Bytecode integer/character streams (v200–v210) now support selected sequential
 
 Validation: 500 bytecode tests pass; the pinned runtime audit baseline passes with unchanged inventory. Audited JDK linkage now records 1,025 declared signatures, 23 missing members and 289 missing owners. These are declaration counts, not proof of full framework execution.
 
-Bytecode regex subset 1/10 (v211): Literal Pattern/Matcher compilation, quoting, flags and PatternSyntaxException accessors. Focused Java 17 differential/admission checks pass; inventory unchanged. See [the selected regex contract](docs/bytecode-regex.md); full regex and framework support remain open.
 
-Bytecode regex subset 2/10 (v212): Regex code-point atoms, escaped literals and quoted spans. Focused Java 17 differential/admission checks pass; inventory unchanged. See [the selected regex contract](docs/bytecode-regex.md); full regex and framework support remain open.
+Bytecode regular expressions (v211–v220) support selected code-point literals, quoting, classes/ranges, repetition, captures/alternatives, anchors and flags through an explicit backtracking stack. `Pattern`/`Matcher` expose selected search/reset, capture, replacement, split and predicate APIs; `String` delegates matching/replacement/splitting. Java 17 differential tests include selected original pinned H2 annotation stripping and Logback range splitting. Malformed unused calls/handles and unsupported APIs fail admission. See [the selected regex contract](docs/bytecode-regex.md) for grammar, library evidence and limitations, including reset after failed anchored matching. Full regex and framework execution remain open.
 
-Bytecode regex subset 3/10 (v213): Positive/negative character classes, ranges and ASCII predefined classes. Focused Java 17 differential/admission checks pass; inventory unchanged. See [the selected regex contract](docs/bytecode-regex.md); full regex and framework support remain open.
-
-Bytecode regex subset 4/10 (v214): Greedy/reluctant bounded and unbounded repetition with zero-width progress. Focused Java 17 differential/admission checks pass; inventory unchanged. See [the selected regex contract](docs/bytecode-regex.md); full regex and framework support remain open.
-
-Bytecode regex subset 5/10 (v215): Capturing/noncapturing groups and ordered alternatives with backtracking. Focused Java 17 differential/admission checks pass; inventory unchanged. See [the selected regex contract](docs/bytecode-regex.md); full regex and framework support remain open.
-
-Bytecode regex subset 6/10 (v216): Anchors and selected matching flags with explicit unsupported-feature diagnostics. Focused Java 17 differential/admission checks pass; inventory unchanged. See [the selected regex contract](docs/bytecode-regex.md); full regex and framework support remain open.
-
-Bytecode regex subset 7/10 (v217): Matcher find/lookingAt/reset, capture access and String.matches. Focused Java 17 differential/admission checks pass; inventory unchanged. See [the selected regex contract](docs/bytecode-regex.md); full regex and framework support remain open.
-
-Bytecode regex subset 8/10 (v218): Group-aware replacement, quoteReplacement and String replaceAll/replaceFirst. Focused Java 17 differential/admission checks pass; inventory unchanged. See [the selected regex contract](docs/bytecode-regex.md); full regex and framework support remain open.
-
-Bytecode regex subset 9/10 (v219): Pattern and String split limits, zero-width boundaries and selected pinned H2 replacement execution. Focused Java 17 differential/admission checks pass; inventory unchanged. See [the selected regex contract](docs/bytecode-regex.md); full regex and framework support remain open.
+Validation (v220): all 510 bytecode tests pass with the prescribed offline selection (four forks, JVMCI compilation disabled); all 15 combined regex/object-identity tests pass. The pinned runtime audit passes with 63 JARs, 26,625 classes and 734 resources unchanged. Audited JDK linkage reports 1,030 declared signatures, 18 missing members and 289 missing owners; these counts do not establish full framework execution.
