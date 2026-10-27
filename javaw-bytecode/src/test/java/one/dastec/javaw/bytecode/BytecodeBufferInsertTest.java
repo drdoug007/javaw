@@ -123,6 +123,21 @@ public class Metadata {
 return h;}}
             """);compare(1);
     }
+    @Test void insertSequence() throws Exception {
+        fixture("""
+public class Metadata {
+ static class Value {public String toString(){return "object";}}
+ static class Sequence implements CharSequence {public int length(){return 3;}public char charAt(int i){return "xyz".charAt(i);}public CharSequence subSequence(int s,int e){return "xyz".substring(s,e);}public String toString(){return "different";}}
+ public static int run(int group){int h=1;
+ for(int offset:new int[]{Integer.MIN_VALUE,-1,0,1,3,4,Integer.MAX_VALUE})for(CharSequence text:new CharSequence[]{null,"hello",new StringBuilder("xy"),new StringBuffer("ab"),new Sequence()}){
+ StringBuffer b=new StringBuffer("abc");int result=0;
+ try{result=b.insert(offset,text)==b?7:9;}catch(StringIndexOutOfBoundsException e){result=11;}catch(IndexOutOfBoundsException e){result=13;}catch(NullPointerException e){result=17;}
+ h=31*h+result;h=31*h+b.toString().hashCode();h=31*h+b.length();
+ }
+StringBuffer self=new StringBuffer("abcd");self.insert(1,(CharSequence)self);h=31*h+self.toString().hashCode();
+return h;}}
+            """);compare(1);
+    }
     private byte[] fixture(String source) throws Exception {
         Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
         List<String> options=new ArrayList<>(List.of("-g","-parameters","--release",release,"-d",directory.toString()));

@@ -14,3 +14,4 @@ Supported additions:
 - v185: `Double` insertion overload (`insertDouble` regression).
 - v186: `Array` insertion overload (`insertArray` regression).
 - v187: `ArrayRange` insertion overload (`insertArrayRange` regression).
+- v188: `Sequence` insertion overload (`insertSequence` regression).
