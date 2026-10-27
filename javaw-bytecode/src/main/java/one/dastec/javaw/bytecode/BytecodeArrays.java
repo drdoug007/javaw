@@ -76,7 +76,7 @@ public final class BytecodeArrays implements Opcodes {
                 local.get $length
                 i32.const 0
                 i32.lt_s
-                if @NEGATIVE_SIZE@ end
+                if @LENGTH_NEGATIVE_SIZE@ end
                 local.get $length
                 i32.const 2147483639
                 local.get $width
@@ -135,7 +135,7 @@ public final class BytecodeArrays implements Opcodes {
                 local.get $array
                 i32.load offset=4
                 i32.ge_u
-                if @BOUNDS@ end
+                if @INDEX_BOUNDS@ end
                 local.get $array
                 i32.const 8
                 i32.add
@@ -144,6 +144,8 @@ public final class BytecodeArrays implements Opcodes {
                 i32.mul
                 i32.add)
             """ + transferRuntimeWat();
+        wat = wat.replace("@INDEX_BOUNDS@", dispatch.indexFailureWat("$index", "$array"))
+                .replace("@LENGTH_NEGATIVE_SIZE@", dispatch.negativeSizeFailureWat("$length"));
         for (var kind : BytecodeExceptions.Implicit.values())
             wat = wat.replace("@" + kind.name() + "@", dispatch.implicitFailureWat(kind));
         return wat.replace("@TRAP@", "unreachable");

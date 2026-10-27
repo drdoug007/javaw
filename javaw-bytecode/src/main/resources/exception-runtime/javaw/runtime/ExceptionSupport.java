@@ -13,6 +13,14 @@ public final class ExceptionSupport {
         if (cause instanceof Error) return cause;
         return new ExceptionInInitializerError(cause);
     }
+    /** Implicit element-access failure with the JVM index/length message. */
+    public static Throwable arrayIndexFailure(int index,int length) {
+        return new ArrayIndexOutOfBoundsException("Index "+index+" out of bounds for length "+length);
+    }
+    /** Implicit allocation failure with the JVM negative-length message. */
+    public static Throwable negativeSizeFailure(int length) {
+        return new NegativeArraySizeException(String.valueOf(length));
+    }
     public static Throwable initializationFailed(Throwable cause) {
         NoClassDefFoundError failure = new NoClassDefFoundError();
         failure.initCause(cause);

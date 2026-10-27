@@ -3,7 +3,7 @@ package one.dastec.javaw.bytecode.cache;
 import java.util.*;
 
 public class CacheMetadata {
-    public static final String COMPILER_VERSION = "1.0-SNAPSHOT-atomic-reference-array-v253";
+    public static final String COMPILER_VERSION = "1.0-SNAPSHOT-implicit-array-messages-v254";
     private String groupId;
     private String artifactId;
     private String version;

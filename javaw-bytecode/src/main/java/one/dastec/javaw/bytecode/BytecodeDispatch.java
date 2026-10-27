@@ -206,6 +206,24 @@ public final class BytecodeDispatch {
         return hasImplicitException(kind) ? "call " + kind.helper + " unreachable" : "unreachable";
     }
 
+    /** Element-access failures carry the JVM index/length message when the exception runtime supplies it. */
+    public String indexFailureWat(String index, String array) {
+        if (!exceptionRuntimeEnabled() || !hasImplicitException(BytecodeExceptions.Implicit.BOUNDS))
+            return implicitFailureWat(BytecodeExceptions.Implicit.BOUNDS);
+        return "local.get " + index + " local.get " + array + " i32.load offset=4 call "
+                + TypeHelper.getMethodFunctionName("javaw/runtime/ExceptionSupport", "arrayIndexFailure", "(II)Ljava/lang/Throwable;")
+                + " throw $__java_exception";
+    }
+
+    /** Allocation failures carry the JVM negative-length message when the exception runtime supplies it. */
+    public String negativeSizeFailureWat(String length) {
+        if (!exceptionRuntimeEnabled() || !hasImplicitException(BytecodeExceptions.Implicit.NEGATIVE_SIZE))
+            return implicitFailureWat(BytecodeExceptions.Implicit.NEGATIVE_SIZE);
+        return "local.get " + length + " call "
+                + TypeHelper.getMethodFunctionName("javaw/runtime/ExceptionSupport", "negativeSizeFailure", "(I)Ljava/lang/Throwable;")
+                + " throw $__java_exception";
+    }
+
     String implicitExceptionRuntimeWat(BytecodeExceptions.Implicit kind) {
         String name = kind.className;
         String simpleName = name.substring(name.lastIndexOf('/') + 1);
@@ -315,7 +333,7 @@ public final class BytecodeDispatch {
         wat.append("local.get $a i32.eqz if ").append(implicitFailureWat(BytecodeExceptions.Implicit.NULL_POINTER)).append(" end\nlocal.get $a i32.load\n");
         // All reference-array tags are below the reserved primitive-tag range.
         wat.append("i32.const -100 i32.gt_s if unreachable end\n");
-        wat.append("local.get $i local.get $a i32.load offset=4 i32.ge_u if ").append(implicitFailureWat(BytecodeExceptions.Implicit.BOUNDS)).append(" end\n");
+        wat.append("local.get $i local.get $a i32.load offset=4 i32.ge_u if ").append(indexFailureWat("$i", "$a")).append(" end\n");
         wat.append("local.get $a i32.const 8 i32.add local.get $i i32.const 4 i32.mul i32.add)\n");
         wat.append("(func $__reference_array_store (param $a i32) (param $i i32) (param $v i32) (local $p i32)\n");
         wat.append("local.get $a local.get $i call $__reference_array_address local.set $p\n");
@@ -366,7 +384,7 @@ public final class BytecodeDispatch {
                 for(int i=0;i<multi.dims;i++) wat.append(" (param $d").append(i).append(" i32)");
                 wat.append(" (result i32) (local $a i32) (local $i i32)\n");
                 if(level==0) for(int i=0;i<multi.dims;i++)
-                    wat.append("local.get $d").append(i).append(" i32.const 0 i32.lt_s if ").append(implicitFailureWat(BytecodeExceptions.Implicit.NEGATIVE_SIZE)).append(" end\n");
+                    wat.append("local.get $d").append(i).append(" i32.const 0 i32.lt_s if ").append(negativeSizeFailureWat("$d" + i)).append(" end\n");
                 String descriptor = multi.desc.substring(level);
                 BytecodeArrays.Primitive primitive = BytecodeArrays.primitive(descriptor);
                 wat.append("local.get $d").append(level).append(" i32.const ").append(arrayId(descriptor))

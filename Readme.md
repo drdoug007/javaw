@@ -2054,3 +2054,5 @@ Pinned Jackson `Version`/`Separators`: see [the value-type contract](docs/byteco
 Pinned Jackson `Separators` also matches the JVM (`BytecodeJacksonValueTypesTest`).
 
 Pinned Jackson character escapes and `SerializedString`: see [the escape contract](docs/bytecode-jackson-character-escapes.md) and `BytecodeJacksonCharacterEscapesTest`. `ByteBuffer` members are not linked.
+
+Implicit array failure messages (v254): bounds and negative-size failures carry JVM detail messages; see [the message contract](docs/bytecode-implicit-exception-messages.md) and `BytecodeArrayBoundsMessageTest`. `System.arraycopy` messages are not matched yet.

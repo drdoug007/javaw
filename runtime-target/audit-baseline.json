@@ -32,7 +32,7 @@
     "analysis": "class-reference estimate; reflection/resources/generated classes are not complete reachability",
     "artifacts": "63",
     "classDefinitions": "26625",
-    "compilerRevision": "1.0-SNAPSHOT-atomic-reference-array-v253",
+    "compilerRevision": "1.0-SNAPSHOT-implicit-array-messages-v254",
     "duplicateClasses": "0",
     "javaFeature": "17",
     "resources": "734",
