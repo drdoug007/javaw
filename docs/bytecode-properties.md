@@ -15,3 +15,4 @@ Completed subsets:
 - v194: Integer.getInteger boxed default overload preserving fallback identity and null.
 - v195: Long.getLong nullable lookup with decimal/hexadecimal/octal decoding and malformed/overflow fallback.
 - v196: Long.getLong primitive default overload and small-value cache identity.
+- v197: Long.getLong boxed default overload preserving fallback identity and null.

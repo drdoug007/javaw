@@ -96,4 +96,5 @@ public final class Long extends Number implements Comparable<Long>,java.io.Seria
         return null;
     }
     public static Long getLong(String name,long fallback){Long value=getLong(name);return value==null?valueOf(fallback):value;}
+    public static Long getLong(String name,Long fallback){Long value=getLong(name);return value==null?fallback:value;}
 }
