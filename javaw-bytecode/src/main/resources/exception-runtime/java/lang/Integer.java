@@ -83,4 +83,5 @@ public final class Integer extends Number implements Comparable<Integer>,java.io
         if(value!=null)try{return decode(value);}catch(NumberFormatException failure){}
         return null;
     }
+    public static Integer getInteger(String name,int fallback){Integer value=getInteger(name);return value==null?valueOf(fallback):value;}
 }
