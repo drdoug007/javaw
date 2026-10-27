@@ -130,9 +130,9 @@ int hash=1;
                 return hash;
             }}
             """);compare(List.of("run"));
-        fixture("public class Metadata {public static java.math.BigInteger run(){return java.math.BigInteger.ONE.and(java.math.BigInteger.TEN);}}");
+        fixture("public class Metadata {public static java.math.BigInteger run(){return java.math.BigInteger.ONE.modInverse(java.math.BigInteger.TEN);}}");
         var failure=assertThrows(IllegalArgumentException.class,()->BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(false))));
-        assertTrue(failure.getMessage().contains("java/math/BigInteger.and"),failure.getMessage());
+        assertTrue(failure.getMessage().contains("java/math/BigInteger.modInverse"),failure.getMessage());
     }
 
     @Test void executesSelectedPinnedJacksonStaticInitializer() throws Exception {

@@ -205,6 +205,12 @@ public class BigInteger extends Number implements Comparable<BigInteger>,java.io
         for(int i=0;i<bytes.length;i++)count+=Integer.bitCount((sign<0?~bytes[i]:bytes[i])&255);
         return count;
     }
+    public int getLowestSetBit(){
+        if(sign==0)return -1;
+        byte[] bytes=toByteArray();int index=bytes.length-1;
+        while(bytes[index]==0)index--;
+        return (bytes.length-1-index)*8+Integer.numberOfTrailingZeros(bytes[index]&255);
+    }
     public BigInteger min(BigInteger other){return compareTo(other)<=0?this:other;}
     public BigInteger max(BigInteger other){return compareTo(other)>=0?this:other;}
     public BigInteger mod(BigInteger modulus){if(modulus.sign<=0)throw new ArithmeticException();BigInteger result=remainder(modulus);return result.sign<0?result.add(modulus):result;}

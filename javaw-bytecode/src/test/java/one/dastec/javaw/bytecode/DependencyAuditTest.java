@@ -77,7 +77,8 @@ class DependencyAuditTest {
         assertEquals("missing-member",CoreJdkCoverage.status(definitions,"java/util/ArrayList","get","(J)Ljava/lang/Object;"));
         assertEquals("missing-member",CoreJdkCoverage.status(definitions,"java/util/HashMap","<init>","(Ljava/util/Collection;)V"));
         assertEquals("declared-signature",CoreJdkCoverage.status(definitions,"java/math/BigInteger","add","(Ljava/math/BigInteger;)Ljava/math/BigInteger;"));
-        assertEquals("missing-member",CoreJdkCoverage.status(definitions,"java/math/BigInteger","and","(Ljava/math/BigInteger;)Ljava/math/BigInteger;"));
+        assertEquals("declared-signature",CoreJdkCoverage.status(definitions,"java/math/BigInteger","and","(Ljava/math/BigInteger;)Ljava/math/BigInteger;"));
+        assertEquals("missing-member",CoreJdkCoverage.status(definitions,"java/math/BigInteger","modInverse","(Ljava/math/BigInteger;)Ljava/math/BigInteger;"));
         assertEquals("declared-signature",CoreJdkCoverage.status(definitions,"java/math/BigDecimal","add","(Ljava/math/BigDecimal;)Ljava/math/BigDecimal;"));
         assertEquals("declared-signature",CoreJdkCoverage.status(definitions,"java/math/MathContext","getPrecision","()I"));
         assertTrue(CoreJdkCoverage.includes("java/util/Map$Entry"));assertTrue(CoreJdkCoverage.includes("java/math/BigDecimal"));assertFalse(CoreJdkCoverage.includes("java/util/Properties"));assertFalse(CoreJdkCoverage.includes("java/util/concurrent/ConcurrentHashMap"));

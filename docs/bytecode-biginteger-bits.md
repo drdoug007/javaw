@@ -1,5 +1,13 @@
 # Linked BigInteger bit operations
 
-The isolated bytecode runtime supports `and`, `or`, `xor`, `andNot`, `not`, `setBit`, `clearBit`, `flipBit`, `bitCount`. Operations use infinite two’s-complement sign extension, preserve operands, and return arbitrary-width results. Binary null operands throw NullPointerException; negative bit indices throw ArithmeticException.
+The isolated bytecode runtime supports `and`, `or`, `xor`, `andNot`, `not`, `setBit`, `clearBit`, `flipBit`, `bitCount`, `getLowestSetBit`. Operations use infinite two’s-complement sign extension, preserve operands, and return arbitrary-width results. Binary null operands throw NullPointerException; negative bit indices throw ArithmeticException.
 
 BytecodeBigIntegerBitsTest compiles Java 17 fixtures and compares decimal result hashes and typed failures against the JVM, in both JAR orders and two fresh instances with dirty allocation memory. Cases cover zero, signs, byte/word boundaries and values beyond long. Method references exercise linked invocation handles. This is runtime API evidence, not a claim of complete numeric APIs, pinned-library reachability or H2/Spring/Hibernate execution. Extremely large bit positions remain subject to the host memory limit; the decimal-magnitude runtime is not optimized for large bitwise workloads.
+
+`bitCount` counts bits differing from the sign bit (so `-1` has count zero); `getLowestSetBit` returns -1 for zero. Indexed operations preserve the infinite sign extension even when changing bits above the original magnitude. No-op identity is an implementation detail, not a documented Java API guarantee.
+
+The malformed ASM regression checks wrong descriptors and static invocation kinds for all ten APIs, through both direct calls and method handles in unused linked methods. Admission must fail before WAT generation and retain the fixture source line and method name.
+
+The indexed and counting fixtures split allocation-heavy cases across separate fresh invocations to respect the fixed 20-page test heap. They do not establish garbage collection or bounded memory under sustained library workloads.
+
+Validation (v250): the prescribed offline bytecode selection ran 541 tests (four forks, JVMCI compilation disabled). 539 passed; two legacy tests still expected BigInteger.and to be unsupported. Updated those fixtures to use unsupported modInverse, added the declared and signature assertion, and reran both affected classes: all 11 tests pass with zero failures, errors or skips. All 11 new bit-operation/admission tests passed in the full run, including 40 malformed direct-call/handle fixtures. The reviewed audit baseline passes with only the compiler revision changed: 63 JARs, 26,625 classes, 734 resources; JDK linkage remains 1,121 declared signatures, 9 missing members and 207 missing owners. This batch does not establish pinned-library bit-operation reachability or complete the numeric/JDK/framework milestones.

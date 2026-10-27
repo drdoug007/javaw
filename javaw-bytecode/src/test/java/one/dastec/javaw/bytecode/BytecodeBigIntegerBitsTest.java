@@ -164,6 +164,46 @@ class BytecodeBigIntegerBitsTest implements Opcodes {
             """);compare(List.of("run0","run1","run2","run3","run4","run5","run6","run7","run8","run9","run10","run11","run12","run13","run14"));
     }
 
+    @Test void getLowestSetBit() throws Exception {
+        fixture("""
+            import java.math.BigInteger;
+            public class Metadata {public static int run0(){return sample(0);}public static int run1(){return sample(12);}public static int run2(){return sample(24);}public static int run3(){return sample(36);}public static int run4(){return sample(48);}public static int run5(){return sample(60);}public static int run6(){return sample(72);}public static int run7(){return sample(84);}public static int run8(){return sample(96);}public static int run9(){return sample(108);}public static int run10(){return sample(120);}public static int run11(){return sample(132);}public static int run12(){return sample(144);}public static int run13(){return sample(156);}public static int run14(){return sample(168);}private static int sample(int offset){int hash=1;
+                String[] values={"0","1","-1","127","128","255","256","-128","-129","-256","9223372036854775808","-9223372036854775809","123456789012345678901234567890","-123456789012345678901234567890"};
+                java.util.function.ToIntFunction<BigInteger> op=BigInteger::getLowestSetBit;
+                for(String x:values){BigInteger a=new BigInteger(x);if(a.getLowestSetBit()!=op.applyAsInt(a))throw new Error();hash=31*hash+a.getLowestSetBit();}
+                for(int bit=offset;bit<offset+12;bit++){BigInteger a=BigInteger.ONE.shiftLeft(bit);hash=31*hash+a.getLowestSetBit();hash=31*hash+a.negate().getLowestSetBit();}
+                return hash;}}
+            """);compare(List.of("run0","run1","run2","run3","run4","run5","run6","run7","run8","run9","run10","run11","run12","run13","run14"));
+    }
+
+    @Test void malformedBitOperationAdmission() {
+        String owner="java/math/BigInteger";
+        for(String name:new String[]{"and","or","xor","andNot","not","setBit","clearBit","flipBit","bitCount","getLowestSetBit"}) {
+            String descriptor=switch(name){
+                case "and","or","xor","andNot" -> "(Ljava/math/BigInteger;)Ljava/math/BigInteger;";
+                case "setBit","clearBit","flipBit" -> "(I)Ljava/math/BigInteger;";
+                case "not" -> "()Ljava/math/BigInteger;";
+                default -> "()I";
+            };
+            for(int variant=0;variant<4;variant++) {
+                ClassWriter writer=new ClassWriter(0);
+                writer.visit(V17,ACC_PUBLIC,"BadBits",null,"java/lang/Object",null);
+                writer.visitSource("BitCalls.java",null);
+                MethodVisitor method=writer.visitMethod(ACC_PUBLIC|ACC_STATIC,"unused","()Ljava/lang/Object;",null,null);
+                method.visitCode();Label line=new Label();method.visitLabel(line);method.visitLineNumber(42,line);
+                String signature=variant%2==0?"(J)Ljava/lang/Object;":descriptor;
+                if(variant<2) {
+                    method.visitInsn(ACONST_NULL);method.visitInsn(ACONST_NULL);
+                    method.visitMethodInsn(variant==1?INVOKESTATIC:INVOKEVIRTUAL,owner,name,signature,false);
+                } else method.visitLdcInsn(new Handle(variant==3?H_INVOKESTATIC:H_INVOKEVIRTUAL,owner,name,signature,false));
+                method.visitInsn(ARETURN);method.visitMaxs(4,0);method.visitEnd();writer.visitEnd();
+                var failure=assertThrows(IllegalArgumentException.class,()->BytecodeCompiler.compileClassWithExceptionRuntime(writer.toByteArray()));
+                assertTrue(failure.getMessage().contains("unused"),failure.getMessage());
+                assertTrue(failure.getMessage().contains("BitCalls.java:42"),failure.getMessage());
+            }
+        }
+    }
+
     private void compare(List<String> names) throws Exception {
         StringBuilder assertions=new StringBuilder();
         try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)){
