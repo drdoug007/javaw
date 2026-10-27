@@ -70,6 +70,7 @@ public final class BytecodeExceptionRuntime {
             for(String name:"BiConsumer BiFunction BiPredicate BinaryOperator BooleanSupplier Consumer DoubleBinaryOperator DoubleConsumer DoubleFunction DoublePredicate DoubleSupplier DoubleToIntFunction DoubleToLongFunction DoubleUnaryOperator Function IntBinaryOperator IntConsumer IntFunction IntPredicate IntSupplier IntToDoubleFunction IntToLongFunction IntUnaryOperator LongBinaryOperator LongConsumer LongFunction LongPredicate LongSupplier LongToDoubleFunction LongToIntFunction LongUnaryOperator ObjDoubleConsumer ObjIntConsumer ObjLongConsumer Predicate Supplier ToDoubleBiFunction ToDoubleFunction ToIntBiFunction ToIntFunction ToLongBiFunction ToLongFunction UnaryOperator".split(" "))paths.add("java/util/function/"+name+".java");
             for(String name:List.of("BaseStream","Stream","ReferenceStream","IntStream","IntPipeline","Collector","Collectors"))paths.add("java/util/stream/"+name+".java");
             paths.add("java/util/Comparator.java");
+            paths.add("java/util/concurrent/atomic/AtomicReferenceArray.java");
             paths.add("java/util/PrimitiveIterator.java");
             paths.add("java/util/IntSummaryStatistics.java");
             for(String name:List.of("Optional","OptionalInt","OptionalLong","OptionalDouble","Map","AbstractMap","HashMap","LinkedHashMap","Set","AbstractSet","HashSet","LinkedHashSet"))paths.add("java/util/"+name+".java");
