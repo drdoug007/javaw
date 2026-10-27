@@ -2040,3 +2040,5 @@ Pinned Jackson text escaping execution: `charToHex`, `hexDigits`, `inputCodes`, 
 AtomicReferenceArray (v253): linked for the single-threaded contract only; every access mode is a plain array operation. JVM/Wasm evidence is in `BytecodeAtomicReferenceArrayTest`; see [the contract](docs/bytecode-atomic-reference-array.md). No memory-model ordering is claimed.
 
 Pinned Jackson buffers: original `BufferRecycler` links whole and runs allocation/reuse/hook paths; see [the buffer contract](docs/bytecode-jackson-buffers.md) and `BytecodeJacksonBufferTest`.
+
+Pinned Jackson `ByteArrayBuilder` also links whole, with segment/append/recycling evidence in `BytecodeJacksonBufferTest`. Compiled modules declare a 20-page (1.25 MB) memory maximum, which bounds these workloads.

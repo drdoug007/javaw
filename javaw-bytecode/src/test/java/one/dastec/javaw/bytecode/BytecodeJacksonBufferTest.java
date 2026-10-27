@@ -58,6 +58,74 @@ class BytecodeJacksonBufferTest {
 
     // BufferRecycler and ByteArrayBuilder differential cases.
 
+    @Test void builderRecycling() throws Exception {
+        fixture("""
+            import com.fasterxml.jackson.core.util.*;
+            public class Metadata {
+                static int bytes(int hash,byte[] bytes){hash=31*hash+bytes.length;for(byte b:bytes)hash=31*hash+b;return hash;}
+                public static int run(){
+                    int hash=1;BufferRecycler recycler=new BufferRecycler();
+                    ByteArrayBuilder builder=new ByteArrayBuilder(recycler);byte[] first=builder.getCurrentSegment();hash=31*hash+first.length;
+                    for(int i=0;i<700;i++)builder.write(i);hash=bytes(hash,builder.toByteArray());
+                    builder.release();byte[] reused=recycler.allocByteBuffer(BufferRecycler.BYTE_WRITE_CONCAT_BUFFER);hash=31*hash+(reused==first?1:0)+reused.length;
+                    recycler.releaseByteBuffer(BufferRecycler.BYTE_WRITE_CONCAT_BUFFER,reused);
+                    ByteArrayBuilder sized=new ByteArrayBuilder(recycler,10);hash=31*hash+(sized.getCurrentSegment()==reused?1:0)+sized.getCurrentSegment().length;
+                    sized.write(new byte[]{1,2,3});byte[] segment=sized.resetAndGetFirstSegment();hash=31*hash+sized.size()+segment.length+(segment==reused?1:0);
+                    for(int i=0;i<3000;i++)sized.append(i*7);byte[] all=sized.toByteArray();hash=bytes(hash,all);hash=31*hash+sized.size();
+                    sized.release();hash=31*hash+sized.size();sized.release();
+                    ByteArrayBuilder plain=new ByteArrayBuilder(64);plain.append(5);plain.release();plain.reset();hash=31*hash+plain.size()+plain.getCurrentSegment().length;
+                    ByteArrayBuilder initial=ByteArrayBuilder.fromInitial(new byte[]{9,8,7,6},2);hash=31*hash+initial.size();initial.append(1);initial.append(2);initial.append(3);hash=bytes(hash,initial.toByteArray());
+                    ByteArrayBuilder defaults=new ByteArrayBuilder();hash=31*hash+defaults.getCurrentSegment().length+ByteArrayBuilder.NO_BYTES.length;
+                    hash=bytes(hash,defaults.toByteArray());hash=31*hash+(defaults.toByteArray()==ByteArrayBuilder.NO_BYTES?1:0);
+                    java.io.OutputStream stream=defaults;try{stream.write(new byte[]{4,5},0,2);stream.flush();stream.close();}catch(java.io.IOException impossible){throw new Error(impossible);}
+                    return bytes(hash,defaults.toByteArray());
+                }
+                public static int failures(){
+                    int hash=1;ByteArrayBuilder builder=new ByteArrayBuilder(4);
+                    for(int[] range:new int[][]{{-1,1},{0,-1},{3,1},{1,Integer.MAX_VALUE}})try{builder.write(new byte[3],range[0],range[1]);hash=31*hash+builder.size();}catch(RuntimeException failure){hash=31*hash+failure.getClass().getName().hashCode();}
+                    try{builder.write((byte[])null);throw new Error();}catch(NullPointerException expected){hash+=3;}
+                    try{new ByteArrayBuilder(-1);throw new Error();}catch(NegativeArraySizeException expected){hash+=5;}
+                    try{ByteArrayBuilder.fromInitial(null,0).append(1);throw new Error();}catch(NullPointerException expected){hash+=7;}
+                    ByteArrayBuilder empty=ByteArrayBuilder.fromInitial(new byte[0],0);empty.append(1);hash=31*hash+empty.size()+empty.getCurrentSegment().length;
+                    return hash;
+                }
+            }
+            """);compare(List.of("run","failures"));
+    }
+
+    @Test void builderSegments() throws Exception {
+        fixture("""
+            import com.fasterxml.jackson.core.util.*;
+            public class Metadata {
+                static int bytes(int hash,byte[] bytes){hash=31*hash+bytes.length;for(int i=0;i<bytes.length;i+=Math.max(1,bytes.length/997))hash=31*hash+bytes[i];return 31*hash+(bytes.length==0?0:bytes[bytes.length-1]);}
+                public static int appends(){
+                    int hash=1;ByteArrayBuilder builder=new ByteArrayBuilder(5);
+                    for(int i=0;i<8000;i++){switch(i%4){case 0->builder.append(i);case 1->builder.appendTwoBytes(i*31);case 2->builder.appendThreeBytes(i*997);default->builder.appendFourBytes(i*7919);}}
+                    hash=31*hash+builder.size();byte[] all=builder.toByteArray();hash=bytes(hash,all);
+                    int[] values={0x12345678,-1,0x80,0x7fffff,Integer.MIN_VALUE};for(int value:values){ByteArrayBuilder small=new ByteArrayBuilder(1);small.appendFourBytes(value);small.appendThreeBytes(value);small.appendTwoBytes(value);small.append(value);hash=bytes(hash,small.toByteArray());}
+                    builder.reset();hash=31*hash+builder.size();
+                    return hash;
+                }
+                public static int large(){
+                    ByteArrayBuilder builder=new ByteArrayBuilder();byte[] block=new byte[60000];for(int i=0;i<block.length;i++)block[i]=(byte)(i*13);
+                    builder.write(block,0,block.length);builder.write(new byte[]{1,2,3,4,5},1,3);int hash=31+builder.size();return bytes(hash,builder.toByteArray());
+                }
+                public static int segments(){
+                    int hash=1;ByteArrayBuilder builder=new ByteArrayBuilder(8);
+                    byte[] current=builder.getCurrentSegment();for(int i=0;i<8;i++)current[i]=(byte)(i+1);builder.setCurrentSegmentLength(8);hash=31*hash+builder.getCurrentSegmentLength()+builder.size();
+                    byte[] next=builder.finishCurrentSegment();hash=31*hash+next.length+builder.getCurrentSegmentLength()+builder.size();
+                    for(int i=0;i<5;i++)next[i]=(byte)(100+i);byte[] coalesced=builder.completeAndCoalesce(5);hash=bytes(hash,coalesced);
+                    hash=31*hash+builder.size();
+                    ByteArrayBuilder exact=new ByteArrayBuilder(4);exact.write(new byte[]{1,2,3,4});hash=bytes(hash,exact.completeAndCoalesce(0));
+                    ByteArrayBuilder many=new ByteArrayBuilder(2);for(int round=0;round<12;round++){byte[] segment=many.getCurrentSegment();java.util.Arrays.fill(segment,(byte)round);many.setCurrentSegmentLength(segment.length);hash=31*hash+segment.length;many.finishCurrentSegment();}
+                    hash=31*hash+many.size();hash=bytes(hash,many.toByteArray());byte[] twice=many.toByteArray();hash=31*hash+(twice==many.toByteArray()?1:0);
+                    many.reset();hash=31*hash+many.size()+many.getCurrentSegmentLength();
+                    return hash;
+                }
+            }
+            """);compare(List.of("appends","large","segments"));
+    }
+
     @Test void recyclerHooks() throws Exception {
         fixture("""
             import com.fasterxml.jackson.core.util.BufferRecycler;
