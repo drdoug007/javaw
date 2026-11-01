@@ -12,6 +12,12 @@
 
     <artifactId>javaw-bytecode</artifactId>
 
+    <properties>
+        <!-- Settings for the prescribed validation run; see docs/bytecode-test-performance.md. Override with -D. -->
+        <javaw.test.forks>0.6C</javaw.test.forks>
+        <javaw.test.argLine></javaw.test.argLine>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>one.dastec</groupId>
@@ -54,6 +60,16 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <!-- Each fork runs whole test classes sequentially; tests also spawn wat2wasm and node processes. -->
+                    <forkCount>${javaw.test.forks}</forkCount>
+                    <reuseForks>true</reuseForks>
+                    <argLine>${javaw.test.argLine}</argLine>
+                    <systemPropertyVariables>
+                        <!-- Per-test wall and compile times for test-timings.py (BytecodeTestTimings). -->
+                        <javaw.compileTimes.dir>${project.build.directory}/test-timings</javaw.compileTimes.dir>
+                    </systemPropertyVariables>
+                </configuration>
             </plugin>
         </plugins>
     </build>

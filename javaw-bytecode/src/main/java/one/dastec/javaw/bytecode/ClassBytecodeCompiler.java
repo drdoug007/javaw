@@ -44,6 +44,10 @@ public class ClassBytecodeCompiler {
     }
 
     String compileToWat(Map<String, ClassNode> linked, boolean includeNumericRuntime) {
+        return BytecodeCompileClock.<String, RuntimeException>time(() -> lower(linked, includeNumericRuntime));
+    }
+
+    private String lower(Map<String, ClassNode> linked, boolean includeNumericRuntime) {
         BytecodeCompatibility.validate(classNode, linked);
         this.linked = linked;
         dispatch = new BytecodeDispatch(linked, classNode.name);

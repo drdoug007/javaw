@@ -1,0 +1,51 @@
+# Prescribed javaw-bytecode validation run, with per-test compile-time tracking.
+# Fork and JVM settings live in javaw-bytecode/pom.xml; see docs/bytecode-test-performance.md. Hosted runners
+# have few cores, and forks idle while wat2wasm and node run, so CI uses one fork per core.
+name: bytecode tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  bytecode:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          # 17 is the oracle for JDK 17 behavior (javaw.jdk17.home); the last version listed is the default.
+          java-version: |
+            17
+            21
+          cache: maven
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install wat2wasm
+        run: sudo apt-get update && sudo apt-get install -y wabt && wat2wasm --version
+      # Library tests read the pinned H2/Spring/Hibernate/Jackson JARs from the local repository.
+      - name: Resolve and verify pinned dependencies
+        run: python3 runtime-target/verify-lock.py --online
+      - name: Bytecode tests
+        run: >-
+          mvn -B -ntp -pl javaw-bytecode -am -Djavaw.test.forks=1C
+          -Djavaw.jdk17.home="$JAVA_HOME_17_X64"
+          -Dtest='one.dastec.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false test
+      - name: Compile-time report
+        if: always()
+        run: >-
+          python3 javaw-bytecode/test-timings.py --markdown "$GITHUB_STEP_SUMMARY"
+          --json javaw-bytecode/target/test-timings.json --warn-compile-seconds 90
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bytecode-test-timings
+          path: |
+            javaw-bytecode/target/test-timings
+            javaw-bytecode/target/test-timings.json
+            javaw-bytecode/target/surefire-reports/*.xml

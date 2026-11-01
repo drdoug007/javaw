@@ -33,8 +33,7 @@ public class BytecodeCompiler {
     }
 
     public static String compileClass(byte[] classBytes) {
-        ClassBytecodeCompiler compiler = ClassBytecodeCompiler.fromBytes(classBytes);
-        return compiler.compileToWat();
+        return BytecodeCompileClock.<String, RuntimeException>time(() -> ClassBytecodeCompiler.fromBytes(classBytes).compileToWat());
     }
 
     public static String compileClass(InputStream classInputStream) throws IOException {
@@ -73,15 +72,15 @@ public class BytecodeCompiler {
     }
 
     public static String compileClassWithExceptionRuntime(byte[] bytes,Memory memory) throws IOException {
-        return compileClasses(new ArrayList<>(List.of(BytecodeInput.read(bytes))),true,List.of(),Set.of(),memory);
+        return BytecodeCompileClock.time(() -> compileClasses(new ArrayList<>(List.of(BytecodeInput.read(bytes))),true,List.of(),Set.of(),memory));
     }
 
     public static String compileClassWithExceptionRuntime(byte[] bytes) throws IOException {
-        return compileClasses(new ArrayList<>(List.of(BytecodeInput.read(bytes))), true);
+        return BytecodeCompileClock.time(() -> compileClasses(new ArrayList<>(List.of(BytecodeInput.read(bytes))), true));
     }
 
     public static String compileClassWithExceptionRuntime(byte[] bytes,List<List<String>> proxyShapes) throws IOException {
-        return compileClasses(new ArrayList<>(List.of(BytecodeInput.read(bytes))),true,proxyShapes);
+        return BytecodeCompileClock.time(() -> compileClasses(new ArrayList<>(List.of(BytecodeInput.read(bytes))),true,proxyShapes));
     }
 
     public static String compileJar(InputStream jarInputStream) throws IOException { return compileJar(jarInputStream, false); }
@@ -94,6 +93,9 @@ public class BytecodeCompiler {
         return compileJar(jarInputStream,exceptionRuntime,proxyShapes,retainedFunctions,exceptionRuntime ? Memory.managed() : Memory.hostAllocator());
     }
     private static String compileJar(InputStream jarInputStream, boolean exceptionRuntime,List<List<String>> proxyShapes,Set<String> retainedFunctions,Memory memory) throws IOException {
+        return BytecodeCompileClock.time(() -> readAndCompileJar(jarInputStream,exceptionRuntime,proxyShapes,retainedFunctions,memory));
+    }
+    private static String readAndCompileJar(InputStream jarInputStream, boolean exceptionRuntime,List<List<String>> proxyShapes,Set<String> retainedFunctions,Memory memory) throws IOException {
         JarInputStream jis = new JarInputStream(jarInputStream);
         JarEntry entry;
         List<ClassNode> classes = new ArrayList<>();
@@ -122,6 +124,9 @@ public class BytecodeCompiler {
         return compileClasses(classes,exceptionRuntime,proxyShapes,retainedFunctions,exceptionRuntime ? Memory.managed() : Memory.hostAllocator());
     }
     static String compileClasses(List<ClassNode> classes, boolean exceptionRuntime,List<List<String>> proxyShapes,Set<String> retainedFunctions,Memory memory) throws IOException {
+        return BytecodeCompileClock.time(() -> link(classes,exceptionRuntime,proxyShapes,retainedFunctions,memory));
+    }
+    private static String link(List<ClassNode> classes, boolean exceptionRuntime,List<List<String>> proxyShapes,Set<String> retainedFunctions,Memory memory) throws IOException {
         if (memory.managedHeap() && !exceptionRuntime)
             throw new IllegalArgumentException("the managed heap requires the bundled exception runtime");
         Set<String> roots = new HashSet<>();
@@ -289,7 +294,8 @@ public class BytecodeCompiler {
                 }
             } else if (file.getName().endsWith(".class")) {
                 try (FileInputStream fis = new FileInputStream(file)) {
-                    wat = exceptionRuntime ? compileClasses(new ArrayList<>(List.of(BytecodeInput.read(fis.readAllBytes()))),true,proxyShapes,Set.of(),memory) : compileClass(fis);
+                    byte[] bytes = fis.readAllBytes();
+                    wat = exceptionRuntime ? BytecodeCompileClock.time(() -> compileClasses(new ArrayList<>(List.of(BytecodeInput.read(bytes))),true,proxyShapes,Set.of(),memory)) : compileClass(bytes);
                 }
             } else {
                 System.err.println("Unsupported file type: " + file.getName());
