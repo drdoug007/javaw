@@ -16,6 +16,7 @@ public final class BytecodeDispatch {
     private final Map<String, Boolean> subtypes;
     private final Map<String, Integer> classIds = new LinkedHashMap<>();
     private final Map<String, Integer> referenceArrayIds = new LinkedHashMap<>();
+    private java.util.function.Predicate<String> receivers;
     private record Declaration(String owner, MethodNode method) {}
     private static final class DefaultConflict extends IllegalArgumentException {
         DefaultConflict(String message) { super(message); }
@@ -766,6 +767,9 @@ public final class BytecodeDispatch {
         }
     }
 
+    /** Lowering-only: omit virtual/interface receiver classes rejected by {@code receivers} from {@link #targets}. */
+    void restrictReceivers(java.util.function.Predicate<String> receivers) { this.receivers = receivers; }
+
     public Map<Integer, String> targets(MethodInsnNode call) {
         boolean arrayOwner = exceptionRuntimeEnabled() && call.owner.startsWith("[")
                 && BytecodeObjects.objectMethod(call.name, call.desc) && !call.name.equals("clone") && !call.name.equals("finalize");
@@ -791,6 +795,8 @@ public final class BytecodeDispatch {
                     || !isSubtype(type.name, symbolicOwner)) continue;
             // The JVM protected receiver rule applies outside the declaring package.
             if (crossPackageProtected(declared) && !isSubtype(type.name, caller)) continue;
+            // Reachability-driven lowering omits receivers that are never instantiated; admission never restricts.
+            if (receivers != null && !receivers.test(type.name)) continue;
             // Private methods never participate in overriding, even on a subclass receiver.
             Declaration implementation;
             try { implementation = privateCall ? declared : virtualImplementation(type.name, declared); }

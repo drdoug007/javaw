@@ -68,7 +68,80 @@ public class ClassBytecodeCompiler {
 
         wat.append(BytecodeInitialization.runtimeWat(classNode, linked));
 
-        // Collect fields
+        appendStaticFields(wat);
+
+        // Collect methods
+        for (MethodNode mn : loweredMethods()) compileMethod(mn, wat);
+
+        wat.append(")\n");
+        return wat.toString();
+    }
+
+    /** Methods with a function body: concrete methods and every class initializer. */
+    List<MethodNode> loweredMethods() {
+        List<MethodNode> result = new ArrayList<>();
+        for (MethodNode mn : classNode.methods)
+            if (mn.name.equals("<clinit>") || (mn.access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_NATIVE)) == 0) result.add(mn);
+        return result;
+    }
+
+    /**
+     * Admission for a reachability-driven linked compilation. Runs the same checks, in the same order, that
+     * {@link #compileToWat(Map, boolean)} performs, so unused methods are diagnosed even though they are not lowered.
+     */
+    void admit(Map<String, ClassNode> linked) {
+        BytecodeCompatibility.validate(classNode, linked);
+        this.linked = linked;
+        dispatch = new BytecodeDispatch(linked, classNode.name);
+        BytecodeObjectLayouts layouts = BytecodeObjectLayouts.of(linked);
+        fieldOffsets.putAll(layouts.offsets());
+        objectSizes.putAll(layouts.sizes());
+        for (MethodNode mn : loweredMethods()) {
+            exportName(mn);
+            frames(mn);
+        }
+    }
+
+    ClassNode classNode() { return classNode; }
+
+    /** Restricts lowered virtual/interface dispatch to receivers accepted by {@code receivers}; admission is unaffected. */
+    void restrictReceivers(java.util.function.Predicate<String> receivers) { dispatch.restrictReceivers(receivers); }
+
+    /** Class initialization support and static field globals; requires {@link #admit}. */
+    String declarationsWat() {
+        StringBuilder wat = new StringBuilder(BytecodeInitialization.runtimeWat(classNode, linked));
+        appendStaticFields(wat);
+        return wat.toString();
+    }
+
+    /** One lowered method function; requires {@link #admit}. */
+    String methodWat(MethodNode mn) {
+        StringBuilder wat = new StringBuilder();
+        compileMethod(mn, wat);
+        return wat.toString();
+    }
+
+    /** The export name of a lowered method, or null if it is not exported. */
+    String exportName(MethodNode mn) {
+        if ((mn.access & Opcodes.ACC_PUBLIC) == 0 || mn.name.equals("<clinit>")) return null;
+        String exportName = classNode.name.replace('/', '.') + "." + mn.name;
+        if (classNode.methods.stream().filter(method -> method.name.equals(mn.name)
+                && (method.access & Opcodes.ACC_PUBLIC) != 0).count() > 1) exportName += mn.desc;
+        try { return TypeHelper.watString(exportName); }
+        catch (IllegalArgumentException error) {
+            throw BytecodeCompatibility.failure(classNode, mn, null, "public export name", error.getMessage());
+        }
+    }
+
+    private org.objectweb.asm.tree.analysis.Frame<org.objectweb.asm.tree.analysis.BasicValue>[] frames(MethodNode mn) {
+        try {
+            return BytecodeFrames.analyze(classNode, mn, linked);
+        } catch (org.objectweb.asm.tree.analysis.AnalyzerException error) {
+            throw BytecodeCompatibility.failure(classNode, mn, error.node, "invalid operand stack", "recompile valid typed Java bytecode and link required hierarchy metadata: " + error.getMessage());
+        }
+    }
+
+    private void appendStaticFields(StringBuilder wat) {
         for (FieldNode fn : classNode.fields) {
             boolean isStatic = (fn.access & Opcodes.ACC_STATIC) != 0;
             if (isStatic) {
@@ -79,17 +152,6 @@ public class ClassBytecodeCompiler {
                    .append(") (").append(wasmType != null ? wasmType : "i32").append(".const ").append(BytecodeInitialization.constantValue(fn)).append("))\n");
             }
         }
-
-        // Collect methods
-        for (MethodNode mn : classNode.methods) {
-            if (!mn.name.equals("<clinit>") && (mn.access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_NATIVE)) != 0) {
-                continue;
-            }
-            compileMethod(mn, wat);
-        }
-
-        wat.append(")\n");
-        return wat.toString();
     }
 
     private void compileMethod(MethodNode mn, StringBuilder wat) {
@@ -99,15 +161,8 @@ public class ClassBytecodeCompiler {
         String retType = TypeHelper.getReturnWasmType(mn.desc);
 
         wat.append("    (func ").append(funcName);
-        if ((mn.access & Opcodes.ACC_PUBLIC) != 0 && !mn.name.equals("<clinit>")) {
-            String exportName = classNode.name.replace('/', '.') + "." + mn.name;
-            if (classNode.methods.stream().filter(method -> method.name.equals(mn.name)
-                    && (method.access & Opcodes.ACC_PUBLIC) != 0).count() > 1) exportName += mn.desc;
-            try { wat.append(" (export \"").append(TypeHelper.watString(exportName)).append("\")"); }
-            catch (IllegalArgumentException error) {
-                throw BytecodeCompatibility.failure(classNode, mn, null, "public export name", error.getMessage());
-            }
-        }
+        String exportName = exportName(mn);
+        if (exportName != null) wat.append(" (export \"").append(exportName).append("\")");
 
         int paramIndex = 0;
         if (!isStatic) {
@@ -124,12 +179,7 @@ public class ClassBytecodeCompiler {
         }
         wat.append("\n");
 
-        org.objectweb.asm.tree.analysis.Frame<org.objectweb.asm.tree.analysis.BasicValue>[] frames;
-        try {
-            frames = BytecodeFrames.analyze(classNode, mn, linked);
-        } catch (org.objectweb.asm.tree.analysis.AnalyzerException error) {
-            throw BytecodeCompatibility.failure(classNode, mn, error.node, "invalid operand stack", "recompile valid typed Java bytecode and link required hierarchy metadata: " + error.getMessage());
-        }
+        var frames = frames(mn);
 
         ControlFlowGraph cfg = ControlFlowGraph.build(mn);
 

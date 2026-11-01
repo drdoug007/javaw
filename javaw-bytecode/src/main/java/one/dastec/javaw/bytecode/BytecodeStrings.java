@@ -46,10 +46,17 @@ public final class BytecodeStrings {
                     .append(" local.set $text\n");
             wat.append("local.get $text global.set ").append(global).append(" local.get $text)\n");
         }
-        wat.append("(func $__exception_class_name (param $value i32) (result i32)\n");
+        return wat.append(classNameWat(linked,dispatch,name->true)).toString();
+    }
+
+    /** {@code $__exception_class_name} over the classes accepted by {@code instantiated}; no other class tags a value. */
+    static String classNameWat(Map<String,ClassNode> linked,BytecodeDispatch dispatch,java.util.function.Predicate<String> instantiated) {
+        if(!BytecodeExceptionRuntime.enabled(linked))return "";
+        StringBuilder wat=new StringBuilder("(func $__exception_class_name (param $value i32) (result i32)\n");
         for(String name:new TreeSet<>(linked.keySet()))
-            wat.append("local.get $value i32.load i32.const ").append(dispatch.classId(name))
-                    .append(" i32.eq if call ").append(symbol(name.replace('/','.'))).append(" return end\n");
+            if(instantiated.test(name))
+                wat.append("local.get $value i32.load i32.const ").append(dispatch.classId(name))
+                        .append(" i32.eq if call ").append(symbol(name.replace('/','.'))).append(" return end\n");
         return wat.append("unreachable)\n").toString();
     }
 }

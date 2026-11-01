@@ -5,6 +5,7 @@ import org.objectweb.asm.tree.ClassNode;
 
 import java.io.*;
 import java.util.*;
+import java.util.function.Predicate;
 import java.util.jar.JarEntry;
 import java.util.jar.JarInputStream;
 
@@ -116,17 +117,18 @@ public class BytecodeCompiler {
                 throw BytecodeCompatibility.failure(cn, null, null, "duplicate class declaration",
                         "provide exactly one definition of " + cn.name + " in the linked JAR");
         }
+        // Bundled runtime code is kept only when reachable from linked-class exports, host hooks or Throwable inspection.
+        Predicate<String> rootExport = export -> export.startsWith("__")
+                || export.startsWith("java.lang.Throwable.") || roots.stream().anyMatch(export::startsWith);
         String wat;
         try (BytecodeAnalysisCache ignored = BytecodeAnalysisCache.open(linked)) {
-            wat = compileLinked(classes, linked, exceptionRuntime, combinedWat);
+            wat = compileLinked(classes, linked, exceptionRuntime, combinedWat, rootExport, retainedFunctions);
         }
-        // Bundled runtime code is kept only when reachable from linked-class exports, host hooks or Throwable inspection.
-        return exceptionRuntime ? BytecodeDeadCode.prune(wat, export -> export.startsWith("__")
-                || export.startsWith("java.lang.Throwable.") || roots.stream().anyMatch(export::startsWith), retainedFunctions) : wat;
+        return exceptionRuntime ? BytecodeDeadCode.prune(wat, rootExport, retainedFunctions) : wat;
     }
 
     private static String compileLinked(List<ClassNode> classes, Map<String, ClassNode> linked, boolean exceptionRuntime,
-                                        StringBuilder combinedWat) {
+                                        StringBuilder combinedWat, Predicate<String> rootExport, Set<String> retainedFunctions) {
         BytecodeDispatch runtimeDispatch = new BytecodeDispatch(linked);
         if (classes.stream().anyMatch(BytecodeArrays::usesRuntime)) combinedWat.append(BytecodeArrays.runtimeWat(runtimeDispatch));
         Set<BytecodeExceptions.Implicit> implicit = EnumSet.noneOf(BytecodeExceptions.Implicit.class);
@@ -142,7 +144,32 @@ public class BytecodeCompiler {
             """);
         if (exceptionRuntime) combinedWat.append(BytecodeObjects.runtimeWat(linked,runtimeDispatch)).append(BytecodeClasses.runtimeWat(linked,runtimeDispatch));
         combinedWat.append(BytecodeStrings.runtimeWat(linked, runtimeDispatch));
+        int classNamesEnd = combinedWat.length(), classNames = classNamesEnd
+                - BytecodeStrings.classNameWat(linked, runtimeDispatch, name -> true).length();
+        int traces = combinedWat.length();
         combinedWat.append(BytecodeTraces.runtimeWat(linked, runtimeDispatch));
+        int tracesEnd = combinedWat.length();
+        if (exceptionRuntime) {
+            // Admit every class and method first, then lower only what the module can reach.
+            List<ClassBytecodeCompiler> compilers = new ArrayList<>();
+            for (ClassNode cn : classes) {
+                ClassBytecodeCompiler compiler = new ClassBytecodeCompiler(cn);
+                compiler.admit(linked);
+                compilers.add(compiler);
+            }
+            String arrays = classes.stream().anyMatch(BytecodeArrays::usesRuntime)
+                    ? runtimeDispatch.referenceArrayRuntimeWat() + runtimeDispatch.multiArrayRuntimeWat() : "";
+            String runtime = combinedWat.substring("(module\n".length()) + arrays;
+            var reachable = BytecodeReachability.lower(compilers, runtime, rootExport, retainedFunctions);
+            // Analysis used the complete versions of these lookups; the emitted ones cover only what can occur.
+            // Trace capture names sites whose method has a body; class names cover instantiated classes.
+            combinedWat.replace(traces, tracesEnd,
+                    BytecodeTraces.runtimeWat(linked, runtimeDispatch, reachable.lowered()::contains));
+            combinedWat.replace(classNames, classNamesEnd,
+                    BytecodeStrings.classNameWat(linked, runtimeDispatch, reachable.instantiated()::contains));
+            combinedWat.append(reachable.classes()).append(arrays).append(")\n");
+            return combinedWat.toString();
+        }
         for (ClassNode cn : classes) {
             ClassBytecodeCompiler compiler = new ClassBytecodeCompiler(cn);
             String classWat = compiler.compileToWat(linked, false);

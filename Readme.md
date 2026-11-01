@@ -2060,3 +2060,5 @@ Implicit array failure messages (v254): bounds and negative-size failures carry 
 Compile scaling: whole-program analyses are reused within one compilation, so a trivial exception-runtime compile drops from 11.8 s to 2.2 s with identical output; see [the scaling notes](docs/bytecode-compile-scaling.md).
 
 Dead-function pruning (v255): exception-runtime modules keep only functions reachable from linked-class exports, `__` host hooks and `java.lang.Throwable` exports. A trivial program shrinks from 11.8 MB to 654 KB of Wasm. Hosts that add exports to the WAT pass the function IDs to `compileJarWithExceptionRuntime(InputStream, Set<String>)`; see [the scaling notes](docs/bytecode-compile-scaling.md).
+
+Instantiation-aware reachability (v256): exception-runtime builds lower only methods reachable from those roots, and virtual/interface calls dispatch only to classes the module can instantiate. Admission still checks every linked method. A trivial program shrinks to 115 KB of Wasm and a Jackson `NumberOutput` fixture from 3.79 MB to 1.13 MB. References passed in by a host must have been created by the same module.

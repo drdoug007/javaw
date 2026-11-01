@@ -60,6 +60,11 @@ final class BytecodeTraces {
     }
 
     static String runtimeWat(Map<String,ClassNode> linked,BytecodeDispatch dispatch) {
+        return runtimeWat(linked,dispatch,method->true);
+    }
+
+    /** Capture names only sites accepted by {@code lowered}; a method without a body never pushes its trace id. */
+    static String runtimeWat(Map<String,ClassNode> linked,BytecodeDispatch dispatch,java.util.function.Predicate<MethodNode> lowered) {
         if(!BytecodeExceptionRuntime.enabled(linked))return "";
         int base=stackBase(linked),size=BytecodeObjectLayouts.of(linked).sizes().get("java/lang/StackTraceElement");
         StringBuilder wat=new StringBuilder();
@@ -85,6 +90,7 @@ final class BytecodeTraces {
         List<Site> sites=sites(linked);
         for(int i=0;i<sites.size();i++) {
             Site site=sites.get(i);
+            if(!lowered.test(site.method))continue;
             wat.append("local.get $frame i32.load i32.const ").append(i).append(" i32.eq if\nlocal.get $entry call ")
                .append(BytecodeStrings.symbol(site.owner.name.replace('/','.'))).append(" call ")
                .append(BytecodeStrings.symbol(site.method.name)).append(' ');

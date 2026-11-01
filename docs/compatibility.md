@@ -51,7 +51,10 @@ An admitted module imports `env.memory` (2 initial / 20 maximum pages) and
 `env.__heap_alloc`. Pure numeric methods need no allocation. This memory ABI
 is separate from the source backend's managed heap. References supplied to a
 bytecode module must already follow its ABI; admission does not provide a JDK
-object model, class loader, GC integration, or host-object marshalling.
+object model, class loader, GC integration, or host-object marshalling. In
+bundled exception-runtime builds, references must also have been created by the
+same module: virtual dispatch covers only classes the module can instantiate
+(see [the scaling notes](bytecode-compile-scaling.md)).
 
 `compileClass` resolves callees against that class. `compileJar` resolves against
 classes within that JAR. Inherited lookup, linking separate dependency JARs,
