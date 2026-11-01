@@ -240,13 +240,13 @@ class BytecodeDynamicTest implements Opcodes {
             """);
         execute(wat,"""
             assert.equal(e['Metadata.events'](),0);
-            failAllocation=true;const before=allocations;let first;
+            failNext();const before=allocated();let first;
             for(let attempt=0;attempt<2;attempt++) {
                 try{e['Metadata.mirror']();assert.fail('failed constant resolved');}
                 catch(error){const pointer=error.getArg(e.__java_exception,0);
                     if(attempt===0)first=pointer;else assert.equal(pointer,first);}
             }
-            assert.equal(allocations,before+1);
+            assert.equal(allocated(),before+1);
             """);
         try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)) {
             Class<?> jvm=loader.loadClass("Metadata");assertEquals(0,jvm.getMethod("events").invoke(null));
@@ -394,7 +394,7 @@ class BytecodeDynamicTest implements Opcodes {
             """);
         execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar)),"""
             assert.equal(e['Metadata.events'](),0);
-            failAllocation=true;
+            failNext();
             assert.throws(()=>e['Metadata.good'](),WebAssembly.Exception);
             assert.equal(e['Metadata.value'](e['Metadata.good']()),3);
             assert.equal(e['Metadata.events'](),7);
@@ -609,14 +609,16 @@ class BytecodeDynamicTest implements Opcodes {
             const fs=require('node:fs'),assert=require('node:assert/strict');
             const compiled=new WebAssembly.Module(fs.readFileSync(process.argv[2]));
             for(let instance=0;instance<2;instance++) {
-                const memory=new WebAssembly.Memory({initial:2,maximum:20});let heap=1024,allocations=0,failAllocation=false;
+                const memory=new WebAssembly.Memory({initial:2});let heap=1024,allocations=0,failAllocation=false;
                 const e=new WebAssembly.Instance(compiled,{env:{memory,__heap_alloc:size=>{
                     allocations++;if(failAllocation){failAllocation=false;return 0;}
                     const address=heap;heap+=size;
                     while(heap>memory.buffer.byteLength)memory.grow(1);
                     new Uint8Array(memory.buffer,address,size).fill(0x7f);return address;
                 }}}).exports;
-                assert.equal(allocations,0);heap=Math.max(heap,e.__exception_heap_base?.value??0);
+                assert.equal(allocations,0);assert.equal(e.__gc_heap_bytes?.()??0,0);if(e.__gc_scribble)e.__gc_scribble.value=1;heap=Math.max(heap,e.__exception_heap_base?.value??0);
+                // Fail or count allocation requests through whichever allocator the module uses.
+                const failNext=()=>{if(e.__gc_fail_allocations)e.__gc_fail_allocations.value=1;else failAllocation=true;},allocated=()=>e.__gc_allocations?.value??allocations;
                 function text(pointer){if(!pointer)return null;const view=new DataView(memory.buffer);
                     const chars=view.getInt32(pointer+4,true),length=view.getInt32(chars+4,true);
                     let result='';for(let i=0;i<length;i++)result+=String.fromCharCode(view.getUint16(chars+8+2*i,true));return result;}

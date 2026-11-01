@@ -27,7 +27,7 @@ The selected whole-JAR signature inventory now has 974 declared signatures, 61 m
 
 ## Memory and remaining limits
 
-Finite nonzero products allocate the bounded digit arrays on each call. Fresh Wasm instances per test batch keep the bump-only test allocator within its default 20-page limit; this is not a sustained-allocation or reclamation claim. General managed library memory and concurrency remain separate milestones. No JDK performance or allocation-free intrinsic guarantee is claimed. Remaining logarithmic, exponential, trigonometric and power APIs, the broader core-JDK gate and framework startup stay open.
+Finite nonzero products allocate the bounded digit arrays on each call. Fresh Wasm instances per test batch keep the bump-only test allocator within its default 20-page limit (since v258 the hosts use the managed heap with no maximum); this is not a sustained-allocation or reclamation claim. General managed library memory and concurrency remain separate milestones. No JDK performance or allocation-free intrinsic guarantee is claimed. Remaining logarithmic, exponential, trigonometric and power APIs, the broader core-JDK gate and framework startup stay open.
 
 ## Validation
 

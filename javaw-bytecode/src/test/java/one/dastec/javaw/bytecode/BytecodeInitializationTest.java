@@ -162,7 +162,7 @@ class BytecodeInitializationTest {
             }
             class Victim { static int[] data=new int[1]; }
             """);
-        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar)), """
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar),BytecodeCompiler.Memory.hostAllocator()), """
             failAllocation=true;
             assert.throws(()=>e['Init.run'](), error=>error===hostError);
             assert.equal(e['Init.run'](),8);
@@ -234,14 +234,14 @@ class BytecodeInitializationTest {
             const compiled=new WebAssembly.Module(fs.readFileSync(process.argv[2]));
             // Run twice to establish independent initialization state and no eager host allocations.
             for(let iteration=0;iteration<2;iteration++) {
-                const memory=new WebAssembly.Memory({initial:2,maximum:20}); let heap=1024, allocations=0, failAllocation=false;
+                const memory=new WebAssembly.Memory({initial:2}); let heap=1024, allocations=0, failAllocation=false;
                 const hostError=new Error("foreign allocator failure");
                 const e=new WebAssembly.Instance(compiled,{env:{memory,__heap_alloc:size=>{
                     if(failAllocation){failAllocation=false;throw hostError;}
                     allocations++;const result=heap;heap+=size;
                     new Uint8Array(memory.buffer,result,size).fill(0x7f);return result;
                 }}}).exports;
-                assert.equal(allocations,0);
+                assert.equal(allocations,0);assert.equal(e.__gc_heap_bytes?.()??0,0);if(e.__gc_scribble)e.__gc_scribble.value=1;
                 heap=Math.max(heap,e.__exception_heap_base?.value??0);
             """+assertions+"\n}");
         run("node",script.toString(),output.toString());

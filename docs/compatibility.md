@@ -50,8 +50,9 @@ Initialization and exception behavior below depends on runtime selection. The cu
 An admitted module imports `env.memory` (2 initial pages, no maximum, so the
 host chooses how far it may grow; `BytecodeCompiler.Memory` configures both
 limits) and `env.__heap_alloc`. Pure numeric methods need no allocation. With
-the bundled exception runtime, `BytecodeCompiler.Memory.managed()` instead
-compiles a module-owned reclaiming heap with no `__heap_alloc` import; see
+the bundled exception runtime, a module-owned reclaiming heap with no
+`__heap_alloc` import is the default (`BytecodeCompiler.Memory.hostAllocator()`
+keeps the import); see
 [memory management](memory-management.md#bytecode-modules). This memory ABI is
 separate from the source backend's managed heap. References supplied to a
 bytecode module must already follow its ABI; admission does not provide a JDK

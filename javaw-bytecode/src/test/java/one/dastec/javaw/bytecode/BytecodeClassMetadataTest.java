@@ -243,7 +243,7 @@ class BytecodeClassMetadataTest implements Opcodes {
             assert.equal(text(e['Metadata.arrayText']()),'[I@'+(e['Metadata.arrayHash']()>>>0).toString(16));
             assert.equal(text(e['Metadata.objectText']()),'java.lang.Object@'+(e['Metadata.objectHash']()>>>0).toString(16));
             assert.equal(e['Metadata.ready'](),7);
-            failAllocation=true;
+            failNext();
             assert.throws(()=>e['Metadata.copy'](),error=>error instanceof WebAssembly.Exception);
             assert.equal(e['Metadata.ready'](),7);assert.notEqual(e['Metadata.copy'](),0);
             assert.equal(e['Metadata.finalizer'](),1);
@@ -256,7 +256,7 @@ class BytecodeClassMetadataTest implements Opcodes {
             class Dormant {static {if(true)throw new RuntimeException();}}
             """);
         execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar)),"""
-            failAllocation=true;
+            failNext();
             assert.throws(()=>e['Metadata.literal'](),error=>error instanceof WebAssembly.Exception);
             const mirror=e['Metadata.literal']();assert.notEqual(mirror,0);assert.equal(e['Metadata.literal'](),mirror);
             """);
@@ -334,14 +334,16 @@ class BytecodeClassMetadataTest implements Opcodes {
             const fs=require('node:fs'),assert=require('node:assert/strict');
             const compiled=new WebAssembly.Module(fs.readFileSync(process.argv[2]));
             for(let instance=0;instance<2;instance++) {
-                const memory=new WebAssembly.Memory({initial:2,maximum:20});let heap=1024,allocations=0,failAllocation=false;
+                const memory=new WebAssembly.Memory({initial:2});let heap=1024,allocations=0,failAllocation=false;
                 const e=new WebAssembly.Instance(compiled,{env:{memory,__heap_alloc:size=>{
                     allocations++;if(failAllocation){failAllocation=false;return 0;}
                     const address=heap;heap+=size;
                     while(heap>memory.buffer.byteLength)memory.grow(1);
                     new Uint8Array(memory.buffer,address,size).fill(0x7f);return address;
                 }}}).exports;
-                assert.equal(allocations,0);heap=Math.max(heap,e.__exception_heap_base?.value??0);
+                assert.equal(allocations,0);assert.equal(e.__gc_heap_bytes?.()??0,0);if(e.__gc_scribble)e.__gc_scribble.value=1;heap=Math.max(heap,e.__exception_heap_base?.value??0);
+                // Fail or count allocation requests through whichever allocator the module uses.
+                const failNext=()=>{if(e.__gc_fail_allocations)e.__gc_fail_allocations.value=1;else failAllocation=true;},allocated=()=>e.__gc_allocations?.value??allocations;
                 function text(pointer){if(!pointer)return null;const view=new DataView(memory.buffer);
                     const chars=view.getInt32(pointer+4,true),length=view.getInt32(chars+4,true);
                     let result='';for(let i=0;i<length;i++)result+=String.fromCharCode(view.getUint16(chars+8+2*i,true));return result;}

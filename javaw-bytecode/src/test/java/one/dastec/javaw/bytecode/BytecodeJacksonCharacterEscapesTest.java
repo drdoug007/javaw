@@ -185,13 +185,13 @@ class BytecodeJacksonCharacterEscapesTest {
             const compiled=new WebAssembly.Module(fs.readFileSync(process.argv[2]));
             for(let instance=0;instance<2;instance++) {
                 function fresh(){
-                    const memory=new WebAssembly.Memory({initial:2,maximum:20});let heap=1024,allocations=0;
+                    const memory=new WebAssembly.Memory({initial:2});let heap=1024,allocations=0;
                     const e=new WebAssembly.Instance(compiled,{env:{memory,__heap_alloc:size=>{
                         allocations++;const address=heap;heap+=size;
                         while(heap>memory.buffer.byteLength)memory.grow(1);
                         new Uint8Array(memory.buffer,address,size).fill(0x7f);return address;
                     }}}).exports;
-                    assert.equal(allocations,0);heap=Math.max(heap,e.__exception_heap_base?.value??0);current=memory;return e;
+                    assert.equal(allocations,0);assert.equal(e.__gc_heap_bytes?.()??0,0);if(e.__gc_scribble)e.__gc_scribble.value=1;heap=Math.max(heap,e.__exception_heap_base?.value??0);current=memory;return e;
                 }
                 let current;
                 function text(pointer){if(!pointer)return null;const view=new DataView(current.buffer);

@@ -56,9 +56,15 @@ A separate [experimental WasmGC prototype](wasmgc.md) now emits native structs f
 
 Bytecode modules (`javaw-bytecode`) have their own memory ABI. They import `env.memory` with 2 initial pages and no maximum, so the host decides how far memory may grow. `BytecodeCompiler.Memory` configures the initial size and an optional maximum (CLI: `--memory-pages=initial[:maximum]`). Before v257 every module declared a 20-page (1.25 MB) maximum.
 
-By default a module also imports `env.__heap_alloc`, and the host allocates. The test hosts use bump allocators that never free.
+Since v258, modules built with the bundled exception runtime own their heap by default (`BytecodeCompiler.Memory.managed()`). They do not import `__heap_alloc`, and they export the same host API as the source backend: `__gc_collect`, `__gc_retain`, `__gc_release`, `__gc_live_bytes` and `__gc_heap_bytes`.
 
-`BytecodeCompiler.Memory.managed()` (CLI: `--managed-heap`, bundled exception runtime only) compiles a module-owned heap instead. It does not import `__heap_alloc`, and it exports the same host API as the source backend: `__gc_collect`, `__gc_retain`, `__gc_release`, `__gc_live_bytes` and `__gc_heap_bytes`.
+`BytecodeCompiler.Memory.hostAllocator()` (CLI: `--host-allocator`) keeps the earlier ABI: the module imports `env.__heap_alloc` and the host allocates. Builds without the bundled runtime always use it. v257 had the opposite default, with an opt-in `--managed-heap` flag. That flag is still accepted and changes nothing.
+
+Managed modules also export debug hooks, which test hosts use in place of their own allocators:
+
+- `__gc_scribble`: when non-zero, every new block is filled with `0x7f` before its caller zeroes it, as a dirty host heap would be.
+- `__gc_allocations`: the number of allocation requests so far, including failed ones. This is the same count a host `__heap_alloc` would see.
+- `__gc_fail_allocations`: while non-zero, allocation requests fail as if memory were exhausted, raising `OutOfMemoryError`. A positive value fails that many requests; a negative value fails every request until the host clears it. Injected failures neither search the free lists nor grow memory.
 
 ### Allocation
 
@@ -122,9 +128,16 @@ On a 64-page memory:
 - After release and collection, allocation succeeds again.
 - Filling memory with 16-byte nodes, freeing two of every three and collecting lets 24-byte objects reuse at least 90% of the coalesced runs without growing memory. Without the split step, one allocation succeeds.
 
+The default heap (v258) is checked against a host allocator:
+
+- With the same calls, `__gc_allocations` grows exactly as a host `__heap_alloc` call count does.
+- A failure count of 1 raises one Java `OutOfMemoryError` and then clears. A negative count fails every request without growing memory, until the host resets it.
+
+The executable bytecode tests now use the managed heap by default, with scribbling enabled and no memory maximum. A BigInteger bitwise fixture that fit the former 20-page limit under a bump allocator (1.01 MB over 48,072 requests) needs 1.55 MB, or 24 pages, uncollected. The difference comes from block headers and 8-byte rounding.
+
 Limits:
 
-- The default build still uses the host allocator, and the existing executable tests have not moved to the managed heap.
+- Each block costs an 8-byte header plus rounding to 8 bytes, about 11 bytes per request in that fixture.
 - There are no stack maps, so the collector never runs during a call; one oversized call still needs memory for everything it allocates.
 - Free-list search for large blocks is first-fit, and nothing is compacted.
 - There are no weak or soft references, finalization, or concurrent collection.

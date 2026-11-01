@@ -39,6 +39,11 @@ final class BytecodeHeap {
                 .append("(global $__gc_top (mut i32) (i32.const 0))\n")
                 .append("(global $__gc_overflow (mut i32) (i32.const 0))\n")
                 .append("(global $__gc_low (mut i32) (i32.const -1))\n")
+                // Debug: when non-zero, fill every allocation with 0x7f before its caller zeroes it, like a dirty host heap.
+                .append("(global $__gc_scribble (export \"__gc_scribble\") (mut i32) (i32.const 0))\n")
+                // Debug: allocation requests so far, and requests still to fail (negative fails every request).
+                .append("(global $__gc_allocations (export \"__gc_allocations\") (mut i32) (i32.const 0))\n")
+                .append("(global $__gc_fail (export \"__gc_fail_allocations\") (mut i32) (i32.const 0))\n")
                 // Diagnostic: mark-stack pushes dropped (and recovered by rescanning) during the last collection.
                 .append("(global $__gc_overflows (export \"__gc_mark_overflows\") (mut i32) (i32.const 0))\n");
         out.append("""
@@ -58,6 +63,11 @@ final class BytecodeHeap {
             (func $__heap_alloc (param $size i32) (result i32)
               (local $need i32) (local $block i32) (local $prev i32) (local $capacity i32) (local $end i32) (local $fit i32)
               global.get $__gc_ptr i32.eqz if call $__gc_init end
+              global.get $__gc_allocations i32.const 1 i32.add global.set $__gc_allocations
+              global.get $__gc_fail if
+                global.get $__gc_fail i32.const 0 i32.gt_s if global.get $__gc_fail i32.const 1 i32.sub global.set $__gc_fail end
+                i32.const 0 return
+              end
               local.get $size i32.const 2147483632 i32.gt_u if i32.const 0 return end
               local.get $size i32.const 7 i32.add i32.const -8 i32.and local.tee $need i32.eqz if i32.const 8 local.set $need end
               block $take
@@ -100,6 +110,7 @@ final class BytecodeHeap {
               end
               local.get $block local.get $block i32.load i32.const 1 i32.or i32.store
               local.get $block i32.const 0 i32.store offset=4
+              global.get $__gc_scribble if local.get $block i32.const 8 i32.add i32.const 127 local.get $block i32.load i32.const -8 i32.and memory.fill end
               local.get $block i32.const 8 i32.add)
             (func $__gc_block (param $ptr i32) (result i32) (local $block i32)
               local.get $ptr global.get $__gc_start i32.const 8 i32.add i32.lt_u

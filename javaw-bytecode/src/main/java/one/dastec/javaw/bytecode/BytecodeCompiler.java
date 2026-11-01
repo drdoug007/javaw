@@ -13,12 +13,12 @@ public class BytecodeCompiler {
 
     /**
      * Linear-memory configuration. Memory is imported as {@code env.memory}; without a maximum the host chooses how far
-     * it may grow. {@code managedHeap} (bundled exception runtime only) replaces the imported {@code env.__heap_alloc}
-     * with a module-owned reclaiming allocator and exports {@code __gc_collect}, {@code __gc_retain},
-     * {@code __gc_release}, {@code __gc_live_bytes} and {@code __gc_heap_bytes}.
+     * it may grow. {@code managedHeap} (bundled exception runtime only, and its default) uses a module-owned reclaiming
+     * allocator exporting {@code __gc_collect}, {@code __gc_retain}, {@code __gc_release}, {@code __gc_live_bytes},
+     * {@code __gc_heap_bytes} and the debug switch {@code __gc_scribble}. Otherwise the host supplies
+     * {@code env.__heap_alloc}, as it always does without the bundled runtime.
      */
     public record Memory(int initialPages, Integer maximumPages, boolean managedHeap) {
-        public static final Memory DEFAULT = new Memory(2, null, false);
         public Memory {
             if (initialPages < 1 || initialPages > 65536)
                 throw new IllegalArgumentException("initial memory must be between 1 and 65536 pages");
@@ -26,6 +26,7 @@ public class BytecodeCompiler {
                 throw new IllegalArgumentException("maximum memory must be between the initial size and 65536 pages");
         }
         public static Memory managed() { return new Memory(2, null, true); }
+        public static Memory hostAllocator() { return new Memory(2, null, false); }
         String importWat() {
             return "    (import \"env\" \"memory\" (memory " + initialPages + (maximumPages == null ? "" : " " + maximumPages) + "))\n";
         }
@@ -62,7 +63,7 @@ public class BytecodeCompiler {
         return compileJar(input,true,List.of(),retainedFunctions);
     }
 
-    /** Selects the linear-memory configuration, e.g. {@link Memory#managed()} for the reclaiming heap. */
+    /** Selects the linear-memory configuration, e.g. {@link Memory#hostAllocator()} to import {@code env.__heap_alloc}. */
     public static String compileJarWithExceptionRuntime(InputStream input,Memory memory) throws IOException {
         return compileJar(input,true,List.of(),Set.of(),memory);
     }
@@ -90,7 +91,7 @@ public class BytecodeCompiler {
         return compileJar(jarInputStream,exceptionRuntime,proxyShapes,Set.of());
     }
     private static String compileJar(InputStream jarInputStream, boolean exceptionRuntime,List<List<String>> proxyShapes,Set<String> retainedFunctions) throws IOException {
-        return compileJar(jarInputStream,exceptionRuntime,proxyShapes,retainedFunctions,Memory.DEFAULT);
+        return compileJar(jarInputStream,exceptionRuntime,proxyShapes,retainedFunctions,exceptionRuntime ? Memory.managed() : Memory.hostAllocator());
     }
     private static String compileJar(InputStream jarInputStream, boolean exceptionRuntime,List<List<String>> proxyShapes,Set<String> retainedFunctions,Memory memory) throws IOException {
         JarInputStream jis = new JarInputStream(jarInputStream);
@@ -118,7 +119,7 @@ public class BytecodeCompiler {
         return compileClasses(classes,exceptionRuntime,proxyShapes,Set.of());
     }
     private static String compileClasses(List<ClassNode> classes, boolean exceptionRuntime,List<List<String>> proxyShapes,Set<String> retainedFunctions) throws IOException {
-        return compileClasses(classes,exceptionRuntime,proxyShapes,retainedFunctions,Memory.DEFAULT);
+        return compileClasses(classes,exceptionRuntime,proxyShapes,retainedFunctions,exceptionRuntime ? Memory.managed() : Memory.hostAllocator());
     }
     static String compileClasses(List<ClassNode> classes, boolean exceptionRuntime,List<List<String>> proxyShapes,Set<String> retainedFunctions,Memory memory) throws IOException {
         if (memory.managedHeap() && !exceptionRuntime)
@@ -249,10 +250,11 @@ public class BytecodeCompiler {
     }
 
     public static void main(String[] args) {
-        boolean exceptionRuntime=false,managedHeap=false;Integer initialPages=null,maximumPages=null;List<List<String>> proxyShapes=new ArrayList<>();int option=0;
+        boolean exceptionRuntime=false,hostAllocator=false,managedHeap=false;Integer initialPages=null,maximumPages=null;List<List<String>> proxyShapes=new ArrayList<>();int option=0;
         while(option<args.length) {
             if(args[option].equals("--exception-runtime"))exceptionRuntime=true;
-            else if(args[option].equals("--managed-heap"))managedHeap=true;
+            else if(args[option].equals("--host-allocator"))hostAllocator=true;
+            else if(args[option].equals("--managed-heap"))managedHeap=true; // the v257 opt-in, now the default
             else if(args[option].startsWith("--memory-pages=")) {
                 String[] pages=args[option].substring("--memory-pages=".length()).split(":",-1);
                 initialPages=Integer.valueOf(pages[0]);if(pages.length>1)maximumPages=Integer.valueOf(pages[1]);
@@ -263,13 +265,14 @@ public class BytecodeCompiler {
         }
         args=Arrays.copyOfRange(args,option,args.length);
         if (args.length == 0 || "--help".equals(args[0]) || "-h".equals(args[0])) {
-            System.out.println("Usage: java one.dastec.javaw.bytecode.BytecodeCompiler [--exception-runtime] [--managed-heap] [--memory-pages=initial[:maximum]] [--aot-proxy=Interface,Other] <jar-or-class-file> [output-wat-file]");
+            System.out.println("Usage: java one.dastec.javaw.bytecode.BytecodeCompiler [--exception-runtime] [--host-allocator] [--memory-pages=initial[:maximum]] [--aot-proxy=Interface,Other] <jar-or-class-file> [output-wat-file]");
             return;
         }
         try {
             if(!exceptionRuntime && !proxyShapes.isEmpty())throw new IllegalArgumentException("AOT proxies require --exception-runtime");
-            if(!exceptionRuntime && (managedHeap || initialPages!=null))throw new IllegalArgumentException("memory options require --exception-runtime");
-            Memory memory=new Memory(initialPages==null?2:initialPages,maximumPages,managedHeap);
+            if(hostAllocator && managedHeap)throw new IllegalArgumentException("--host-allocator and --managed-heap conflict");
+            if(!exceptionRuntime && (hostAllocator || managedHeap || initialPages!=null))throw new IllegalArgumentException("memory options require --exception-runtime");
+            Memory memory=new Memory(initialPages==null?2:initialPages,maximumPages,exceptionRuntime && !hostAllocator);
             String path = args[0];
             if (path.startsWith("~" + File.separator) || path.equals("~")) {
                 path = System.getProperty("user.home") + path.substring(1);

@@ -102,7 +102,7 @@ class BytecodeReachabilityTest implements Opcodes {
         run("wat2wasm", "--enable-exceptions", input.toString(), "-o", output.toString());
         Files.writeString(script, """
             const fs=require('node:fs'),assert=require('node:assert/strict');
-            const memory=new WebAssembly.Memory({initial:2,maximum:20});let heap=1024;
+            const memory=new WebAssembly.Memory({initial:2});let heap=1024;
             const e=new WebAssembly.Instance(new WebAssembly.Module(fs.readFileSync(process.argv[2])),{env:{memory,__heap_alloc:size=>{
                 const address=heap;heap+=size;while(heap>memory.buffer.byteLength)memory.grow(1);return address;}}}).exports;
             heap=Math.max(heap,e.__exception_heap_base?.value??0);

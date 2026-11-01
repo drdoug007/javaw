@@ -603,22 +603,27 @@ class BytecodeExceptionRuntimeTest implements Opcodes {
             assert.equal(e['ThrowableProgram.overflow'](1000),1);
             assert.equal(e['ThrowableProgram.overflow'](1),0);
             assert.equal(e['ThrowableProgram.traces'](),15);
-            const exhausted=new WebAssembly.Instance(compiled,{env:{memory:new WebAssembly.Memory({initial:2,maximum:20}),__heap_alloc:()=>0}}).exports;
+            const exhausted=new WebAssembly.Instance(compiled,{env:{memory:new WebAssembly.Memory({initial:2}),__heap_alloc:()=>0}}).exports;
+            if(exhausted.__gc_fail_allocations)exhausted.__gc_fail_allocations.value=-1;
             assert.equal(exhausted['ThrowableProgram.exhausted'](),9);
-            const sentinel=new Error('allocator');let failOnce=true;
-            const host=new WebAssembly.Instance(compiled,{env:{memory,__heap_alloc:size=>{
-                if(failOnce){failOnce=false;throw sentinel;}const address=heap;heap+=size;return address;
-            }}}).exports;
-            assert.throws(()=>host['ThrowableProgram.messages'](),error=>error===sentinel);
-            assert.equal(host['ThrowableProgram.traces'](),15);
+            // Only a host-supplied allocator can fail with a foreign exception.
+            if(WebAssembly.Module.imports(compiled).some(entry=>entry.name==='__heap_alloc')) {
+                const sentinel=new Error('allocator');let failOnce=true;
+                const host=new WebAssembly.Instance(compiled,{env:{memory,__heap_alloc:size=>{
+                    if(failOnce){failOnce=false;throw sentinel;}const address=heap;heap+=size;return address;
+                }}}).exports;
+                assert.throws(()=>host['ThrowableProgram.messages'](),error=>error===sentinel);
+                assert.equal(host['ThrowableProgram.traces'](),15);
+            }
             """);
-        for(boolean reverse:new boolean[]{false,true}) {
+        for(boolean reverse:new boolean[]{false,true}) for(BytecodeCompiler.Memory memory:List.of(BytecodeCompiler.Memory.managed(),BytecodeCompiler.Memory.hostAllocator())) {
             List<String> names=new ArrayList<>(List.of("ThrowableProgram","Quiet","Resource","SameResource"));if(reverse)Collections.reverse(names);
             ByteArrayOutputStream bytes=new ByteArrayOutputStream();
             try(JarOutputStream jar=new JarOutputStream(bytes)) {
                 for(String name:names){jar.putNextEntry(new JarEntry(name+".class"));jar.write(Files.readAllBytes(directory.resolve(name+".class")));jar.closeEntry();}
             }
-            String wat=BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(bytes.toByteArray()));
+            String wat=BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(bytes.toByteArray()),memory);
+            assertEquals(!memory.managedHeap(),wat.contains("(import \"env\" \"__heap_alloc\""));
             assertEquals(1,wat.split("\\(tag \\$__java_exception",-1).length-1);
             assertTrue(wat.contains("Throwable.<init>(Ljava/lang/String;)V"));
             execute(wat,checks.toString());
@@ -720,8 +725,14 @@ class BytecodeExceptionRuntimeTest implements Opcodes {
         method.visitIntInsn(BIPUSH,7);method.visitInsn(IRETURN);method.visitMaxs(2,1);method.visitEnd();writer.visitEnd();
         Path input=directory.resolve("CliThrow.class"),output=directory.resolve("cli.wat");
         Files.write(input,writer.toByteArray());
-        BytecodeCompiler.main(new String[]{"--exception-runtime",input.toString(),output.toString()});
-        execute(Files.readString(output),"assert.equal(e['CliThrow.run'](0),7);assert.equal(e['CliThrow.run'](3),4);");
+        // The managed heap is the default; --managed-heap is still accepted, and --host-allocator imports env.__heap_alloc.
+        for(List<String> options:List.<List<String>>of(List.of(),List.of("--managed-heap"),List.of("--host-allocator"))) {
+            List<String> arguments=new ArrayList<>(List.of("--exception-runtime"));arguments.addAll(options);arguments.addAll(List.of(input.toString(),output.toString()));
+            BytecodeCompiler.main(arguments.toArray(String[]::new));
+            String wat=Files.readString(output);
+            assertEquals(options.contains("--host-allocator"),wat.contains("(import \"env\" \"__heap_alloc\""),options.toString());
+            execute(wat,"assert.equal(e['CliThrow.run'](0),7);assert.equal(e['CliThrow.run'](3),4);");
+        }
     }
 
     private void run(String... args) throws Exception {
@@ -737,10 +748,11 @@ class BytecodeExceptionRuntimeTest implements Opcodes {
         Files.writeString(script,"""
             const fs=require('node:fs');const assert=require('node:assert/strict');
             const moduleBytes=fs.readFileSync(process.argv[2]);const compiled=new WebAssembly.Module(moduleBytes);
-            const memory=new WebAssembly.Memory({initial:2,maximum:20});let heap=1024;
+            const memory=new WebAssembly.Memory({initial:2});let heap=1024;
             const instance=new WebAssembly.Instance(compiled,{env:{memory,__heap_alloc:size=>{
                 const address=heap;heap+=size;new Uint8Array(memory.buffer,address,size).fill(0x7f);return address;
             }}});const e=instance.exports;
+            assert.equal(e.__gc_heap_bytes?.()??0,0);if(e.__gc_scribble)e.__gc_scribble.value=1;
             heap=Math.max(heap,e.__exception_heap_base?.value??0);
             """+assertions);
         run("node",script.toString(),output.toString());

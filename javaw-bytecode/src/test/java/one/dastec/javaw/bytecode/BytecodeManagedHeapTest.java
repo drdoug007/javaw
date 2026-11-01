@@ -174,6 +174,51 @@ class BytecodeManagedHeapTest {
             """);
     }
 
+    @Test void isTheDefaultAndCountsAndFailsRequestsLikeAHostAllocator() throws Exception {
+        byte[] jar = compile();
+        String wat = BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar));
+        assertFalse(wat.contains("(import \"env\" \"__heap_alloc\""), "the bundled runtime owns its allocator by default");
+        String hosted = BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar), BytecodeCompiler.Memory.hostAllocator());
+        assertTrue(hosted.contains("(import \"env\" \"__heap_alloc\""));
+        assertFalse(hosted.contains("__gc_"), "a host-allocator module has no managed heap");
+        Path hostedInput = directory.resolve("hosted.wat"), hostedOutput = directory.resolve("hosted.wasm");
+        Files.writeString(hostedInput, hosted);
+        run("wat2wasm", "--enable-exceptions", hostedInput.toString(), "-o", hostedOutput.toString());
+        execute(wat, "{initial:2}", """
+            // The same calls make the same allocation requests through either allocator.
+            const hostMemory=new WebAssembly.Memory({initial:2});let heap=1024,requests=0;
+            const host=new WebAssembly.Instance(new WebAssembly.Module(fs.readFileSync('%s')),{env:{memory:hostMemory,__heap_alloc:size=>{
+                requests++;const address=heap;heap+=size;while(heap>hostMemory.buffer.byteLength)hostMemory.grow(1);return address;
+            }}}).exports;
+            heap=Math.max(heap,host.__exception_heap_base?.value??0);
+            assert.equal(e.__gc_allocations.value,0,'instantiation allocates nothing');
+            for(const [name,...args] of [['Heap.churn',50],['Heap.make'],['Heap.cycle',10],['Heap.churn',50]]){
+                const before=e.__gc_allocations.value,hostBefore=requests,managed=e[name](...args),hostResult=host[name](...args);
+                if(name!=='Heap.make')assert.equal(managed,hostResult);
+                assert.equal(e.__gc_allocations.value-before,requests-hostBefore,'request counts match the host allocator');
+            }
+            assert.ok(requests>100);
+            // A positive count fails that many requests, each as a Java OutOfMemoryError; later requests succeed.
+            e.__gc_fail_allocations.value=2;
+            for(let remaining=1;remaining>=0;remaining--){
+                const before=e.__gc_allocations.value;let error;
+                try{e['Heap.make']();}catch(thrown){error=thrown;}
+                assert.ok(error instanceof WebAssembly.Exception && error.is(e.__java_exception));
+                assert.equal(e.__gc_allocations.value,before+1,'the first request fails');
+                assert.equal(e.__gc_fail_allocations.value,remaining,'each failed request consumes one count');
+                // Rendering the message allocates, so it is checked only once no failures remain.
+                if(remaining===0)assert.equal(text(e['java.lang.Throwable.toString'](error.getArg(e.__java_exception,0))),'java.lang.OutOfMemoryError');
+                e.__reset_exception_trace();
+            }
+            assert.equal(text(e['Heap.make']()),'retained-42');
+            // A negative count fails every request until the host clears it.
+            const pages=memory.buffer.byteLength;e.__gc_fail_allocations.value=-1;
+            for(let attempt=0;attempt<3;attempt++){assert.throws(()=>e['Heap.keep'](1),WebAssembly.Exception);e.__reset_exception_trace();}
+            assert.equal(e.__gc_fail_allocations.value,-1);assert.equal(memory.buffer.byteLength,pages,'injected failures do not grow memory');
+            e.__gc_fail_allocations.value=0;assert.equal(e['Heap.keep'](1),1);
+            """.formatted(hostedOutput.toString().replace("\\", "\\\\")));
+    }
+
     @Test void memoryRejectsMaximumBelowInitial() {
         var failure = assertThrows(IllegalArgumentException.class, () -> new BytecodeCompiler.Memory(4, 2, true));
         assertTrue(failure.getMessage().contains("maximum memory"));

@@ -182,14 +182,14 @@ class BytecodeCaseComparisonTest implements Opcodes {
             const fs=require('node:fs'),assert=require('node:assert/strict');
             const compiled=new WebAssembly.Module(fs.readFileSync(process.argv[2]));
             for(let instance=0;instance<2;instance++) {
-                const memory=new WebAssembly.Memory({initial:2,maximum:20});let heap=1024,allocations=0,failAllocation=false;
+                const memory=new WebAssembly.Memory({initial:2});let heap=1024,allocations=0,failAllocation=false;
                 const e=new WebAssembly.Instance(compiled,{env:{memory,__heap_alloc:size=>{
                     allocations++;if(failAllocation){failAllocation=false;return 0;}
                     const address=heap;heap+=size;
                     while(heap>memory.buffer.byteLength)memory.grow(1);
                     new Uint8Array(memory.buffer,address,size).fill(0x7f);return address;
                 }}}).exports;
-                assert.equal(allocations,0);heap=Math.max(heap,e.__exception_heap_base?.value??0);
+                assert.equal(allocations,0);assert.equal(e.__gc_heap_bytes?.()??0,0);if(e.__gc_scribble)e.__gc_scribble.value=1;heap=Math.max(heap,e.__exception_heap_base?.value??0);
                 function text(pointer){if(!pointer)return null;const view=new DataView(memory.buffer);
                     const chars=view.getInt32(pointer+4,true),length=view.getInt32(chars+4,true);
                     let result='';for(let i=0;i<length;i++)result+=String.fromCharCode(view.getUint16(chars+8+2*i,true));return result;}
