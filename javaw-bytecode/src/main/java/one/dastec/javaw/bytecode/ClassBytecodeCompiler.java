@@ -52,7 +52,7 @@ public class ClassBytecodeCompiler {
         objectSizes.putAll(layouts.sizes());
         StringBuilder wat = new StringBuilder();
         wat.append("(module\n");
-        wat.append("    (import \"env\" \"memory\" (memory 2 20))\n");
+        wat.append(BytecodeCompiler.Memory.DEFAULT.importWat());
         wat.append("    (import \"env\" \"__heap_alloc\" (func $__heap_alloc (param i32) (result i32)))\n");
 
         Set<BytecodeExceptions.Implicit> implicit = BytecodeExceptions.implicitRuntime(classNode, dispatch);

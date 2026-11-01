@@ -2041,7 +2041,7 @@ AtomicReferenceArray (v253): linked for the single-threaded contract only; every
 
 Pinned Jackson buffers: original `BufferRecycler` links whole and runs allocation/reuse/hook paths; see [the buffer contract](docs/bytecode-jackson-buffers.md) and `BytecodeJacksonBufferTest`.
 
-Pinned Jackson `ByteArrayBuilder` also links whole, with segment/append/recycling evidence in `BytecodeJacksonBufferTest`. Compiled modules declare a 20-page (1.25 MB) memory maximum, which bounds these workloads.
+Pinned Jackson `ByteArrayBuilder` also links whole, with segment/append/recycling evidence in `BytecodeJacksonBufferTest`. Compiled modules then declared a 20-page (1.25 MB) memory maximum, which bounds these workloads; since v257 they declare none.
 
 Pinned Jackson Base64: original `Base64Variant`/`Base64Variants` link whole; see [the Base64 contract](docs/bytecode-jackson-base64.md) and `BytecodeJacksonBase64Test`.
 
@@ -2062,3 +2062,5 @@ Compile scaling: whole-program analyses are reused within one compilation, so a 
 Dead-function pruning (v255): exception-runtime modules keep only functions reachable from linked-class exports, `__` host hooks and `java.lang.Throwable` exports. A trivial program shrinks from 11.8 MB to 654 KB of Wasm. Hosts that add exports to the WAT pass the function IDs to `compileJarWithExceptionRuntime(InputStream, Set<String>)`; see [the scaling notes](docs/bytecode-compile-scaling.md).
 
 Instantiation-aware reachability (v256): exception-runtime builds lower only methods reachable from those roots, and virtual/interface calls dispatch only to classes the module can instantiate. Admission still checks every linked method. A trivial program shrinks to 115 KB of Wasm and a Jackson `NumberOutput` fixture from 3.79 MB to 1.13 MB. References passed in by a host must have been created by the same module.
+
+Memory and managed heap (v257): bytecode modules import `env.memory` with no maximum (configurable through `BytecodeCompiler.Memory`). `BytecodeCompiler.Memory.managed()` adds a module-owned reclaiming heap, a free-list allocator with a precise, non-moving collector that the host runs between calls, in place of the host `__heap_alloc`. See [memory management](docs/memory-management.md#bytecode-modules).

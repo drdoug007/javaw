@@ -51,3 +51,80 @@ These are executable bounds for those workloads, not a proof that every applicat
 
 
 A separate [experimental WasmGC prototype](wasmgc.md) now emits native structs for a restricted source subset. It does not replace the default allocator or change the ownership contract above.
+
+## Bytecode modules
+
+Bytecode modules (`javaw-bytecode`) have their own memory ABI. They import `env.memory` with 2 initial pages and no maximum, so the host decides how far memory may grow. `BytecodeCompiler.Memory` configures the initial size and an optional maximum (CLI: `--memory-pages=initial[:maximum]`). Before v257 every module declared a 20-page (1.25 MB) maximum.
+
+By default a module also imports `env.__heap_alloc`, and the host allocates. The test hosts use bump allocators that never free.
+
+`BytecodeCompiler.Memory.managed()` (CLI: `--managed-heap`, bundled exception runtime only) compiles a module-owned heap instead. It does not import `__heap_alloc`, and it exports the same host API as the source backend: `__gc_collect`, `__gc_retain`, `__gc_release`, `__gc_live_bytes` and `__gc_heap_bytes`.
+
+### Allocation
+
+The heap starts after the static prefix: the emergency OutOfMemoryError/StackOverflowError objects and the trace shadow stack. Its first 136 bytes hold the free-list heads.
+
+Each block has an 8-byte header before an 8-byte-aligned payload:
+
+- Word 0 holds the capacity, with flags in its low bits: used, marked, scanned.
+- Word 1 holds the host retain count of a used block, or the next block of a free list.
+
+Payloads of up to 256 bytes have exact free lists, one per 8-byte size. On an exact-list miss, the smallest larger small free block is split. Coalescing produces sizes that no request asks for exactly, such as 40-byte runs left by pairs of freed 16-byte objects. Larger free blocks share a first-fit list and are split when the remainder can hold a block.
+
+When no free block fits, the bump pointer advances and memory grows with `memory.grow`. If memory cannot grow, allocation returns 0, which the existing allocation sites raise as `OutOfMemoryError`. Allocation never collects. Callers zero what they allocate, so reused blocks need not be cleared.
+
+### Collection
+
+Collection is precise and non-moving. Every heap block is a tagged object or array:
+
+- Objects are traced through every reference field slot, including inherited fields that a subclass field hides, using a `br_table` over class ids that covers exactly the classes the module can instantiate (see [the scaling notes](bytecode-compile-scaling.md)).
+- Reference arrays (tags at or below -100) are traced through their elements.
+- Primitive arrays hold no references.
+
+An object tag outside that set traps instead of being traced incompletely.
+
+Roots are:
+
+- blocks with a non-zero retain count
+- reference static fields
+- the cached String and Class mirror globals
+- class-initialization failure globals
+- the fields of the static emergency objects
+
+These are read from the final, pruned module text, so pruned globals cost nothing.
+
+Marking uses an explicit stack placed above the heap, growing memory if needed. If memory cannot grow, collection still completes by rescanning the heap for marked blocks that have not been scanned. This happens in the collection that follows an `OutOfMemoryError`. A push dropped below the scan position rewinds the scan to that block, so a long graph linked toward lower addresses needs no pass per node. `__gc_mark_overflows` reports how many pushes the last collection dropped. The sweep rebuilds every free list, coalesces adjacent free blocks and returns a trailing free run to the bump pointer. Pages are never returned to the host.
+
+The host contract is the one above:
+
+- Collect only when no Wasm frame is active.
+- Retain pointers that must survive a collection; a returned pointer is borrowed until the next one.
+- Release each retain exactly once.
+- Pass in only references the module created.
+
+Identity hashes are addresses. They are stable while the object is live, and a dead object's address may be reused.
+
+### Evidence and limits
+
+`BytecodeManagedHeapTest` compares results with the JVM, using a host with no allocator and an unbounded memory:
+
+- A single call needs more than 20 pages. Across 24 rounds of about 4 MB of garbage each, memory pages and live bytes stay unchanged after warm-up.
+- More than 2 MB of live static data survives collection, and is reclaimed once released.
+- Cyclic graphs are reclaimed, and repeated cycles keep live bytes stable.
+- A 50,000-node chain survives with the explicit mark stack.
+- A retained host pointer survives collections, is reclaimed after release, and repeated retain/release returns to the same live bytes.
+- A parent reference field hidden by a subclass instance or static field is the only reference to its value, and the value survives collections followed by reuse of same-sized blocks.
+
+On a 64-page memory:
+
+- Exhaustion raises a Java `OutOfMemoryError` only near the maximum.
+- A collection with the live set still at the maximum overflows the mark stack (`__gc_mark_overflows` > 0) and keeps every block.
+- After release and collection, allocation succeeds again.
+- Filling memory with 16-byte nodes, freeing two of every three and collecting lets 24-byte objects reuse at least 90% of the coalesced runs without growing memory. Without the split step, one allocation succeeds.
+
+Limits:
+
+- The default build still uses the host allocator, and the existing executable tests have not moved to the managed heap.
+- There are no stack maps, so the collector never runs during a call; one oversized call still needs memory for everything it allocates.
+- Free-list search for large blocks is first-fit, and nothing is compacted.
+- There are no weak or soft references, finalization, or concurrent collection.

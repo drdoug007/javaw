@@ -11,6 +11,26 @@ import java.util.jar.JarInputStream;
 
 public class BytecodeCompiler {
 
+    /**
+     * Linear-memory configuration. Memory is imported as {@code env.memory}; without a maximum the host chooses how far
+     * it may grow. {@code managedHeap} (bundled exception runtime only) replaces the imported {@code env.__heap_alloc}
+     * with a module-owned reclaiming allocator and exports {@code __gc_collect}, {@code __gc_retain},
+     * {@code __gc_release}, {@code __gc_live_bytes} and {@code __gc_heap_bytes}.
+     */
+    public record Memory(int initialPages, Integer maximumPages, boolean managedHeap) {
+        public static final Memory DEFAULT = new Memory(2, null, false);
+        public Memory {
+            if (initialPages < 1 || initialPages > 65536)
+                throw new IllegalArgumentException("initial memory must be between 1 and 65536 pages");
+            if (maximumPages != null && (maximumPages < initialPages || maximumPages > 65536))
+                throw new IllegalArgumentException("maximum memory must be between the initial size and 65536 pages");
+        }
+        public static Memory managed() { return new Memory(2, null, true); }
+        String importWat() {
+            return "    (import \"env\" \"memory\" (memory " + initialPages + (maximumPages == null ? "" : " " + maximumPages) + "))\n";
+        }
+    }
+
     public static String compileClass(byte[] classBytes) {
         ClassBytecodeCompiler compiler = ClassBytecodeCompiler.fromBytes(classBytes);
         return compiler.compileToWat();
@@ -42,6 +62,19 @@ public class BytecodeCompiler {
         return compileJar(input,true,List.of(),retainedFunctions);
     }
 
+    /** Selects the linear-memory configuration, e.g. {@link Memory#managed()} for the reclaiming heap. */
+    public static String compileJarWithExceptionRuntime(InputStream input,Memory memory) throws IOException {
+        return compileJar(input,true,List.of(),Set.of(),memory);
+    }
+
+    public static String compileJarWithExceptionRuntime(InputStream input,List<List<String>> proxyShapes,Set<String> retainedFunctions,Memory memory) throws IOException {
+        return compileJar(input,true,proxyShapes,retainedFunctions,memory);
+    }
+
+    public static String compileClassWithExceptionRuntime(byte[] bytes,Memory memory) throws IOException {
+        return compileClasses(new ArrayList<>(List.of(BytecodeInput.read(bytes))),true,List.of(),Set.of(),memory);
+    }
+
     public static String compileClassWithExceptionRuntime(byte[] bytes) throws IOException {
         return compileClasses(new ArrayList<>(List.of(BytecodeInput.read(bytes))), true);
     }
@@ -57,6 +90,9 @@ public class BytecodeCompiler {
         return compileJar(jarInputStream,exceptionRuntime,proxyShapes,Set.of());
     }
     private static String compileJar(InputStream jarInputStream, boolean exceptionRuntime,List<List<String>> proxyShapes,Set<String> retainedFunctions) throws IOException {
+        return compileJar(jarInputStream,exceptionRuntime,proxyShapes,retainedFunctions,Memory.DEFAULT);
+    }
+    private static String compileJar(InputStream jarInputStream, boolean exceptionRuntime,List<List<String>> proxyShapes,Set<String> retainedFunctions,Memory memory) throws IOException {
         JarInputStream jis = new JarInputStream(jarInputStream);
         JarEntry entry;
         List<ClassNode> classes = new ArrayList<>();
@@ -74,7 +110,7 @@ public class BytecodeCompiler {
             }
         }
 
-        return compileClasses(classes, exceptionRuntime,proxyShapes,retainedFunctions);
+        return compileClasses(classes, exceptionRuntime,proxyShapes,retainedFunctions,memory);
     }
 
     private static String compileClasses(List<ClassNode> classes, boolean exceptionRuntime) throws IOException {return compileClasses(classes,exceptionRuntime,List.of());}
@@ -82,6 +118,11 @@ public class BytecodeCompiler {
         return compileClasses(classes,exceptionRuntime,proxyShapes,Set.of());
     }
     private static String compileClasses(List<ClassNode> classes, boolean exceptionRuntime,List<List<String>> proxyShapes,Set<String> retainedFunctions) throws IOException {
+        return compileClasses(classes,exceptionRuntime,proxyShapes,retainedFunctions,Memory.DEFAULT);
+    }
+    static String compileClasses(List<ClassNode> classes, boolean exceptionRuntime,List<List<String>> proxyShapes,Set<String> retainedFunctions,Memory memory) throws IOException {
+        if (memory.managedHeap() && !exceptionRuntime)
+            throw new IllegalArgumentException("the managed heap requires the bundled exception runtime");
         Set<String> roots = new HashSet<>();
         // Export names are emitted as escaped WAT strings; compare roots in the same form.
         for (ClassNode type : classes) roots.add(TypeHelper.watString(type.name.replace('/', '.') + "."));
@@ -104,8 +145,9 @@ public class BytecodeCompiler {
         }
         StringBuilder combinedWat = new StringBuilder();
         combinedWat.append("(module\n");
-        combinedWat.append("    (import \"env\" \"memory\" (memory 2 20))\n");
-        combinedWat.append("    (import \"env\" \"__heap_alloc\" (func $__heap_alloc (param i32) (result i32)))\n");
+        combinedWat.append(memory.importWat());
+        if (!memory.managedHeap())
+            combinedWat.append("    (import \"env\" \"__heap_alloc\" (func $__heap_alloc (param i32) (result i32)))\n");
 
         if (classes.stream().anyMatch(ClassBytecodeCompiler::usesFloatingRemainder))
             combinedWat.append(FloatingPointSupport.remainderFunctionsWat());
@@ -120,15 +162,21 @@ public class BytecodeCompiler {
         // Bundled runtime code is kept only when reachable from linked-class exports, host hooks or Throwable inspection.
         Predicate<String> rootExport = export -> export.startsWith("__")
                 || export.startsWith("java.lang.Throwable.") || roots.stream().anyMatch(export::startsWith);
-        String wat;
         try (BytecodeAnalysisCache ignored = BytecodeAnalysisCache.open(linked)) {
-            wat = compileLinked(classes, linked, exceptionRuntime, combinedWat, rootExport, retainedFunctions);
+            Set<String> instantiated = new HashSet<>();
+            String wat = compileLinked(classes, linked, exceptionRuntime, combinedWat, rootExport, retainedFunctions, instantiated);
+            if (!exceptionRuntime) return wat;
+            wat = BytecodeDeadCode.prune(wat, rootExport, retainedFunctions);
+            if (!memory.managedHeap()) return wat;
+            // The collector reads only roots that survive pruning, so it is generated for the final module text.
+            int end = wat.lastIndexOf(')');
+            return wat.substring(0, end) + BytecodeHeap.runtimeWat(linked, new BytecodeDispatch(linked), instantiated, wat) + wat.substring(end);
         }
-        return exceptionRuntime ? BytecodeDeadCode.prune(wat, rootExport, retainedFunctions) : wat;
     }
 
     private static String compileLinked(List<ClassNode> classes, Map<String, ClassNode> linked, boolean exceptionRuntime,
-                                        StringBuilder combinedWat, Predicate<String> rootExport, Set<String> retainedFunctions) {
+                                        StringBuilder combinedWat, Predicate<String> rootExport, Set<String> retainedFunctions,
+                                        Set<String> instantiated) {
         BytecodeDispatch runtimeDispatch = new BytecodeDispatch(linked);
         if (classes.stream().anyMatch(BytecodeArrays::usesRuntime)) combinedWat.append(BytecodeArrays.runtimeWat(runtimeDispatch));
         Set<BytecodeExceptions.Implicit> implicit = EnumSet.noneOf(BytecodeExceptions.Implicit.class);
@@ -161,6 +209,7 @@ public class BytecodeCompiler {
                     ? runtimeDispatch.referenceArrayRuntimeWat() + runtimeDispatch.multiArrayRuntimeWat() : "";
             String runtime = combinedWat.substring("(module\n".length()) + arrays;
             var reachable = BytecodeReachability.lower(compilers, runtime, rootExport, retainedFunctions);
+            instantiated.addAll(reachable.instantiated());
             // Analysis used the complete versions of these lookups; the emitted ones cover only what can occur.
             // Trace capture names sites whose method has a body; class names cover instantiated classes.
             combinedWat.replace(traces, tracesEnd,
@@ -200,20 +249,27 @@ public class BytecodeCompiler {
     }
 
     public static void main(String[] args) {
-        boolean exceptionRuntime=false;List<List<String>> proxyShapes=new ArrayList<>();int option=0;
+        boolean exceptionRuntime=false,managedHeap=false;Integer initialPages=null,maximumPages=null;List<List<String>> proxyShapes=new ArrayList<>();int option=0;
         while(option<args.length) {
             if(args[option].equals("--exception-runtime"))exceptionRuntime=true;
+            else if(args[option].equals("--managed-heap"))managedHeap=true;
+            else if(args[option].startsWith("--memory-pages=")) {
+                String[] pages=args[option].substring("--memory-pages=".length()).split(":",-1);
+                initialPages=Integer.valueOf(pages[0]);if(pages.length>1)maximumPages=Integer.valueOf(pages[1]);
+            }
             else if(args[option].startsWith("--aot-proxy="))proxyShapes.add(List.of(args[option].substring("--aot-proxy=".length()).split(",",-1)));
             else break;
             option++;
         }
         args=Arrays.copyOfRange(args,option,args.length);
         if (args.length == 0 || "--help".equals(args[0]) || "-h".equals(args[0])) {
-            System.out.println("Usage: java one.dastec.javaw.bytecode.BytecodeCompiler [--exception-runtime] [--aot-proxy=Interface,Other] <jar-or-class-file> [output-wat-file]");
+            System.out.println("Usage: java one.dastec.javaw.bytecode.BytecodeCompiler [--exception-runtime] [--managed-heap] [--memory-pages=initial[:maximum]] [--aot-proxy=Interface,Other] <jar-or-class-file> [output-wat-file]");
             return;
         }
         try {
             if(!exceptionRuntime && !proxyShapes.isEmpty())throw new IllegalArgumentException("AOT proxies require --exception-runtime");
+            if(!exceptionRuntime && (managedHeap || initialPages!=null))throw new IllegalArgumentException("memory options require --exception-runtime");
+            Memory memory=new Memory(initialPages==null?2:initialPages,maximumPages,managedHeap);
             String path = args[0];
             if (path.startsWith("~" + File.separator) || path.equals("~")) {
                 path = System.getProperty("user.home") + path.substring(1);
@@ -226,11 +282,11 @@ public class BytecodeCompiler {
             String wat;
             if (file.getName().endsWith(".jar")) {
                 try (FileInputStream fis = new FileInputStream(file)) {
-                    wat = compileJar(fis, exceptionRuntime,proxyShapes);
+                    wat = compileJar(fis, exceptionRuntime,proxyShapes,Set.of(),memory);
                 }
             } else if (file.getName().endsWith(".class")) {
                 try (FileInputStream fis = new FileInputStream(file)) {
-                    wat = exceptionRuntime ? compileClassWithExceptionRuntime(fis.readAllBytes(),proxyShapes) : compileClass(fis);
+                    wat = exceptionRuntime ? compileClasses(new ArrayList<>(List.of(BytecodeInput.read(fis.readAllBytes()))),true,proxyShapes,Set.of(),memory) : compileClass(fis);
                 }
             } else {
                 System.err.println("Unsupported file type: " + file.getName());

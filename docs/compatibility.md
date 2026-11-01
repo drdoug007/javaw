@@ -47,9 +47,13 @@ Initialization and exception behavior below depends on runtime selection. The cu
 | Overloaded public method exports | Rejected with remediation; use unique public entry-point names. Internal method symbols include the descriptor |
 | Every other opcode | Rejected; the instruction visitor also fails closed if admission and lowering diverge |
 
-An admitted module imports `env.memory` (2 initial / 20 maximum pages) and
-`env.__heap_alloc`. Pure numeric methods need no allocation. This memory ABI
-is separate from the source backend's managed heap. References supplied to a
+An admitted module imports `env.memory` (2 initial pages, no maximum, so the
+host chooses how far it may grow; `BytecodeCompiler.Memory` configures both
+limits) and `env.__heap_alloc`. Pure numeric methods need no allocation. With
+the bundled exception runtime, `BytecodeCompiler.Memory.managed()` instead
+compiles a module-owned reclaiming heap with no `__heap_alloc` import; see
+[memory management](memory-management.md#bytecode-modules). This memory ABI is
+separate from the source backend's managed heap. References supplied to a
 bytecode module must already follow its ABI; admission does not provide a JDK
 object model, class loader, GC integration, or host-object marshalling. In
 bundled exception-runtime builds, references must also have been created by the
