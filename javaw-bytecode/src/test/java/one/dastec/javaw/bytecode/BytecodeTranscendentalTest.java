@@ -237,10 +237,11 @@ class BytecodeTranscendentalTest implements Opcodes {
         if(Double.isNaN(expected)){assertTrue(Double.isNaN(actual),context);return;}
         if(expected==0.0 || Double.isInfinite(expected)){
             // This checks the host JVM's Math, not Wasm, which is compared with StrictMath. HotSpot's x86_64 pow
-            // intrinsic returns +0.0 for pow(-0.0, 2^52-1) against the Math.pow specification; record that host
-            // defect rather than failing. Any other mismatch still fails.
-            if(expected==0.0 && actual==0.0 && Double.doubleToLongBits(expected)!=Double.doubleToLongBits(actual)){
-                System.err.println("Host Math deviates from its specification in the zero sign ("+context+" gave "+actual+" on "
+            // intrinsic treats the odd exponent 2^52-1 as even, so pow(-0.0, y) gives +0.0 and pow(-Infinity, y)
+            // gives +Infinity against the Math.pow specification. Record a sign-only deviation of a zero or
+            // infinite result rather than failing; any other mismatch still fails.
+            if(actual==-expected && Double.doubleToLongBits(expected)!=Double.doubleToLongBits(actual)){
+                System.err.println("Host Math deviates from its specification in the result sign ("+context+" gave "+actual+" on "
                     +System.getProperty("java.vm.name")+" "+System.getProperty("java.vm.version")+" "+System.getProperty("os.arch")+")");
                 return;
             }

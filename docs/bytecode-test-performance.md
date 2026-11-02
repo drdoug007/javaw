@@ -60,7 +60,7 @@ The script prints totals, the slowest classes, and the tests with the most compi
 
 `.github/workflows/bytecode-tests.yml` runs the prescribed selection on `ubuntu-24.04`, with Temurin 21, Node 24 and Ubuntu's `wabt` package. Before the tests it runs `runtime-target/verify-lock.py --online`, which downloads and hash-checks the pinned JARs that library tests read from the local repository. Temurin 17 supplies the JDK 17 oracle through `-Djavaw.jdk17.home`, whose default path is macOS-only. The run uses `-Djavaw.test.forks=1C`, because hosted runners have few cores and forks idle while `wat2wasm` and Node run. It then writes the report to the job summary, warns on any test above 90 s of compile time, and uploads the timing files, the JSON report and the surefire XML as the `bytecode-test-timings` artifact.
 
-The first run (41360133970) hit the 60-minute job limit after 45 of 75 classes. It showed that Ubuntu's wabt 1.0.34 handles the generated exception handling, and that CI compiles are about 3.1 times slower than local ones. A completed run, the hosted fork count and a CI timing baseline are still open.
+The first run (41360133970) hit the 60-minute job limit after 45 of 75 classes. It showed that Ubuntu's wabt 1.0.34 handles the generated exception handling, and that CI compiles are about 3.1 times slower than local ones. Its environment is now reproduced and checked locally in Docker; see [Local Docker runs](#local-docker-runs). No hosted run has completed, so hosted-runner timings are unmeasured.
 
 ## Compile-output fingerprints
 
@@ -73,3 +73,37 @@ Known variation: `BytecodeCompatibilityTest.preservesExplicitlyLinkedSystemDefin
 ## After the per-compile analysis work
 
 With the dispatch, hierarchy and text-scan changes in [the scaling notes](bytecode-compile-scaling.md#per-compile-analysis-cost-no-output-change), the unchanged prescribed command (8 forks) runs 603 tests in 3:08, against 8:12. Compile time falls from 3,010 s to 549 s, a mean of 0.29 s per compilation. Compilation is now 57% of test-class time. The slowest compilations take about 8 s, for two-compile tests over pinned Jackson, ByteBuddy and BigInteger fixtures. The CI workflow's fork count and a hosted-runner baseline still need a new run.
+
+## Local Docker runs
+
+`javaw-bytecode/docker/docker-tests.sh` runs the workflow's steps in a local container instead of on a billed GitHub-hosted runner. The image (`javaw-bytecode/docker/Dockerfile`) matches the workflow's environment:
+
+- Ubuntu 24.04, with Ubuntu's `wabt` package (1.0.34)
+- Temurin 21 as the build JDK, and Temurin 17 as the JDK 17 oracle (`javaw.jdk17.home`)
+- Node 24 and Maven 3.9.9
+- a UTF-8 locale (`C.UTF-8`), as on hosted runners
+
+The script exports a clean archive of a Git ref (default `HEAD`), so local `target/` directories and uncommitted files are not used. To test the working tree without committing, pass `--ref "$(git stash create)"`. Maven's repository persists in the `javaw-bytecode-m2` Docker volume. The pinned JARs are downloaded and hash-checked by `runtime-target/verify-lock.py --online`, as in CI. The timing report, timing files, surefire reports and Maven log are copied to `javaw-bytecode/target/docker-tests/<arch>-<commit>/`.
+
+```
+javaw-bytecode/docker/docker-tests.sh [--platform linux/amd64|linux/arm64] [--cpus N] [--memory SIZE]
+                                      [--forks F] [--heap SIZE] [--ref REF] [--test PATTERN]
+```
+
+The defaults are `linux/amd64` (the hosted runners' architecture), 4 CPUs, 7 GB of memory, `1C` forks and `-Xmx1536m` per fork. On Apple silicon, amd64 runs under emulation. Use `--platform linux/arm64` for a fast native check. That check does not exercise x86_64-only JVM behavior, such as the `Math.pow` defect below.
+
+Memory, not CPU, limits the fork count. With Docker Desktop's 7.7 GB VM, 8 forks were killed by the out-of-memory killer, because each fork also starts `wat2wasm` and Node processes. 4 forks fit.
+
+Results on the 14-core Apple-silicon machine, Docker Desktop 29.7, all at `42c1c82` plus the two test fixes below:
+
+| Platform | CPUs / forks | Tests | Wall | Mean compile |
+| --- | --- | --- | --- | --- |
+| amd64 (emulated) | 4 / 4 | 603 pass | 26:21 | 2.31 s |
+| arm64 (native) | 8 / 4 | 603 pass | 4:15 | 0.24 s |
+
+An amd64 run before those fixes (603 tests, 26:47 wall, mean compile 2.27 s) found two test-environment problems. Neither is a compiler problem:
+
+- `BytecodeTranscendentalTest`'s host-`Math` sanity check. HotSpot's x86_64 `pow` intrinsic (Temurin 21.0.13) treats the odd exponent 2^52-1 as even, so `pow(-0.0, y)` returns `+0.0` and `pow(-Infinity, y)` returns `+Infinity`, against the `Math.pow` specification. The first GitHub run stopped at the zero case. The check now records any sign-only deviation of a zero or infinite host result on stderr. Wasm results are still compared bit for bit with `StrictMath`.
+- Without a UTF-8 locale, the JVM encodes file names as ASCII, so `BytecodeDeadCodeTest`'s non-ASCII source path could not be created. The image now sets `C.UTF-8`.
+
+Emulated amd64 compiles are about eight times slower than native ones, so emulated wall times are not a hosted-runner baseline. The run confirms the workflow's x86_64 Ubuntu environment (wabt 1.0.34 with the generated exception handling, the JDK 17 oracle, and pinned-JAR resolution), and that the selection passes there.
