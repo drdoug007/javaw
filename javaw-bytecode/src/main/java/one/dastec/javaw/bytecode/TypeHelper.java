@@ -66,14 +66,16 @@ public class TypeHelper {
         return name.replace('/', '_').replace('.', '_').replace('$', '_').replace('<', '_').replace('>', '_');
     }
 
+    private static final char[] HEX = "0123456789abcdef".toCharArray();
+
     private static String encode(String value) {
         // Encode UTF-16 code units individually, including any unpaired surrogates in JVM names.
-        StringBuilder result = new StringBuilder(value.length() * 4);
-        for (int i = 0; i < value.length(); i++) {
+        char[] result = new char[value.length() * 4];
+        for (int i = 0, j = 0; i < value.length(); i++) {
             char c = value.charAt(i);
-            for (int shift = 12; shift >= 0; shift -= 4) result.append(Character.forDigit(c >>> shift & 15, 16));
+            for (int shift = 12; shift >= 0; shift -= 4) result[j++] = HEX[c >>> shift & 15];
         }
-        return result.toString();
+        return new String(result);
     }
 
     public static String getMethodFunctionName(String ownerInternalName, String methodName, String methodDescriptor) {

@@ -15,8 +15,10 @@ final class BytecodeDeadCode {
     private static final Pattern GLOBAL = Pattern.compile("\\(global (\\$[^\\s()]+)( \\(export )?");
     private static final Pattern INLINE_EXPORT = Pattern.compile("\\(func \\$[^\\s()]+ \\(export \"([^\"]*)\"\\)");
     private static final Pattern EXPORT = Pattern.compile("\\(export \"([^\"]*)\" \\(func (\\$[^\\s()]+)\\)\\)");
-    private static final Pattern REFERENCE = Pattern.compile("(?:call|return_call|ref\\.func) (\\$[^\\s()]+)");
-    private static final Pattern GLOBAL_REFERENCE = Pattern.compile("(?:global\\.get|global\\.set|\\(global) (\\$[^\\s()]+)");
+    /** Each prefix ends where an id begins: the regex {@code (?:call|return_call|ref\.func) (\$[^\s()]+)}. */
+    static final String[] REFERENCE = {"call $", "return_call $", "ref.func $"};
+    /** {@code (?:global\.get|global\.set|\(global) (\$[^\s()]+)} */
+    static final String[] GLOBAL_REFERENCE = {"global.get $", "global.set $", "(global $"};
     /** Globals share the worklist under this prefix; WAT keeps functions and globals in separate namespaces. */
     private static final String GLOBAL_KEY = "global ";
     private record Field(int start, int end, String function) {}
@@ -77,10 +79,8 @@ final class BytecodeDeadCode {
     }
 
     private static void references(String wat, Field field, Deque<String> pending) {
-        Matcher reference = REFERENCE.matcher(wat).region(field.start(), field.end());
-        while (reference.find()) pending.add(reference.group(1));
-        Matcher global = GLOBAL_REFERENCE.matcher(wat).region(field.start(), field.end());
-        while (global.find()) pending.add(GLOBAL_KEY + global.group(1));
+        scan(wat, field.start(), field.end(), REFERENCE, "", pending);
+        scan(wat, field.start(), field.end(), GLOBAL_REFERENCE, GLOBAL_KEY, pending);
     }
 
     /** A top-level module field: its function id (null for other fields), its export name and target, and its text. */
@@ -104,9 +104,38 @@ final class BytecodeDeadCode {
     }
 
     /** Function ids referenced by {@code call}, {@code return_call} or {@code ref.func} in {@code text}. */
-    static void references(CharSequence text, Collection<String> result) {
-        Matcher reference = REFERENCE.matcher(text);
-        while (reference.find()) result.add(reference.group(1));
+    static void references(String text, Collection<String> result) {
+        scan(text, 0, text.length(), REFERENCE, "", result);
+    }
+
+    /**
+     * Adds {@code key} plus each id that follows one of {@code prefixes} within {@code [from, to)}, in text order. This is
+     * a regex {@code find} loop: matches are leftmost and do not overlap, and an id is one or more characters other than
+     * whitespace and parentheses. Every prefix ends in its only {@code " $"}, so candidates are found by searching for
+     * that pair rather than by regex matching over the multi-megabyte runtime text.
+     */
+    static void scan(String text, int from, int to, String[] prefixes, String key, Collection<String> result) {
+        int next = from; // Earliest start of the next match; a match never starts inside the previous one.
+        for (int mark = text.indexOf(" $", from); mark >= 0 && mark + 2 < to; mark = text.indexOf(" $", mark + 1)) {
+            int id = mark + 2;
+            boolean prefixed = false;
+            for (String prefix : prefixes) {
+                int start = id - prefix.length();
+                if (start >= next && text.startsWith(prefix, start)) { prefixed = true; break; }
+            }
+            if (!prefixed) continue;
+            int end = id;
+            while (end < to && !separator(text.charAt(end))) end++;
+            if (end == id) continue;
+            result.add(key + text.substring(mark + 1, end));
+            next = end;
+            mark = end - 1;
+        }
+    }
+
+    /** The regex classes {@code \s} (ASCII whitespace), {@code (} and {@code )}. */
+    private static boolean separator(char c) {
+        return c == ' ' || c == '\t' || c == '\n' || c == '\u000B' || c == '\f' || c == '\r' || c == '(' || c == ')';
     }
 
     /** Top-level module fields with their trailing newline; null if the text is not plain WAT this pass understands. */

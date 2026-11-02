@@ -60,4 +60,16 @@ The script prints totals, the slowest classes, and the tests with the most compi
 
 `.github/workflows/bytecode-tests.yml` runs the prescribed selection on `ubuntu-24.04`, with Temurin 21, Node 24 and Ubuntu's `wabt` package. Before the tests it runs `runtime-target/verify-lock.py --online`, which downloads and hash-checks the pinned JARs that library tests read from the local repository. Temurin 17 supplies the JDK 17 oracle through `-Djavaw.jdk17.home`, whose default path is macOS-only. The run uses `-Djavaw.test.forks=1C`, because hosted runners have few cores and forks idle while `wat2wasm` and Node run. It then writes the report to the job summary, warns on any test above 90 s of compile time, and uploads the timing files, the JSON report and the surefire XML as the `bytecode-test-timings` artifact.
 
-The workflow has not yet run on GitHub. Its fork count, the Ubuntu wabt version (1.0.34) and CI timing baselines still need checking against a first run.
+The first run (41360133970) hit the 60-minute job limit after 45 of 75 classes. It showed that Ubuntu's wabt 1.0.34 handles the generated exception handling, and that CI compiles are about 3.1 times slower than local ones. A completed run, the hosted fork count and a CI timing baseline are still open.
+
+## Compile-output fingerprints
+
+`BytecodeCompileOutputs`, a second auto-registered extension, is inactive unless `-Djavaw.compileOutputs.dir=DIR` is passed to Maven. When active, it records the outcome of every outermost compilation, in order, through `BytecodeCompileClock`'s observer hook. Each outcome is a SHA-256 of the WAT text, or of the thrown exception's class and message, plus the text length. It writes one TSV per test class (test, index, kind, hash, length).
+
+To show that a compiler change preserves every output and diagnostic, run the prescribed selection with the property set, once before and once after, into different directories, and compare them with `diff -r`. A run before the change can use a copy of the working tree, so that it does not share `target/`.
+
+Known variation: `BytecodeCompatibilityTest.preservesExplicitlyLinkedSystemDefinitionsInsteadOfReplacingTheirMethods` links classes in `Map.of(...)` order, which varies between JVM runs, so its single WAT hash takes one of two values.
+
+## After the per-compile analysis work
+
+With the dispatch, hierarchy and text-scan changes in [the scaling notes](bytecode-compile-scaling.md#per-compile-analysis-cost-no-output-change), the unchanged prescribed command (8 forks) runs 603 tests in 3:08, against 8:12. Compile time falls from 3,010 s to 549 s, a mean of 0.29 s per compilation. Compilation is now 57% of test-class time. The slowest compilations take about 8 s, for two-compile tests over pinned Jackson, ByteBuddy and BigInteger fixtures. The CI workflow's fork count and a hosted-runner baseline still need a new run.

@@ -13,9 +13,8 @@ public final class BytecodeDispatch {
     private final Map<String, ClassNode> linked;
     private final String caller;
     private final BytecodeObjectLayouts layouts;
-    private final Map<String, Boolean> subtypes;
-    private final Map<String, Integer> classIds = new LinkedHashMap<>();
-    private final Map<String, Integer> referenceArrayIds = new LinkedHashMap<>();
+    private final Program program;
+    private final Map<String, Integer> classIds;
     private java.util.function.Predicate<String> receivers;
     private record Declaration(String owner, MethodNode method) {}
     private static final class DefaultConflict extends IllegalArgumentException {
@@ -32,31 +31,64 @@ public final class BytecodeDispatch {
         this(linked, null);
     }
 
-    /** Caller-independent closed-world metadata, shared within one compilation. */
-    private record Program(Map<String, ClassNode> linked, BytecodeObjectLayouts layouts,
-                           Map<String, Integer> classIds, Map<String, Integer> referenceArrayIds,
-                           Map<String, Boolean> subtypes) {}
+    /**
+     * Caller-independent closed-world metadata, shared within one compilation. Hierarchy answers are memoized: the
+     * linked hierarchy is immutable during lowering, and each dispatch built during normalization has its own program.
+     */
+    private static final class Program {
+        final Map<String, ClassNode> linked;
+        final BytecodeObjectLayouts layouts;
+        final Map<String, Integer> classIds;
+        /** Computed on first use; many normalization-time dispatches only answer hierarchy questions. */
+        private Map<String, Integer> referenceArrayIds;
+        /** Every name reachable from a class through superclass/interface edges (may include null). */
+        final Map<String, Set<String>> supertypes = new HashMap<>();
+        /** Per type-test target: the concrete ids, or the hierarchy failure message. */
+        final Map<String, Object> typeTests = new HashMap<>();
+        /** Descriptor components and object internal names; see {@link #element}. */
+        final Map<String, String> elements = new HashMap<>();
+        /** Per symbolic owner: the concrete linked subtypes, in class-id order. */
+        final Map<String, List<Map.Entry<String, Integer>>> concreteSubtypes = new HashMap<>();
+        /** The first incomplete or cyclic hierarchy in class-id order, or "" when all are complete; null until checked. */
+        String hierarchyFailure;
+
+        Program(Map<String, ClassNode> linked, BytecodeObjectLayouts layouts, Map<String, Integer> classIds) {
+            this.linked = linked;
+            this.layouts = layouts;
+            this.classIds = classIds;
+        }
+
+        Map<String, Integer> referenceArrayIds() {
+            if (referenceArrayIds == null) referenceArrayIds = Collections.unmodifiableMap(arrayIds(linked));
+            return referenceArrayIds;
+        }
+    }
 
     public BytecodeDispatch(Map<String, ClassNode> linked, String caller) {
         this.caller = caller;
         Map<String, ClassNode> input = linked;
-        Program program = BytecodeAnalysisCache.get(input, "dispatch", () -> program(input));
-        this.linked = program.linked();
-        this.layouts = program.layouts();
-        this.subtypes = program.subtypes();
-        classIds.putAll(program.classIds());
-        referenceArrayIds.putAll(program.referenceArrayIds());
+        program = BytecodeAnalysisCache.get(input, "dispatch", () -> program(input));
+        this.linked = program.linked;
+        this.layouts = program.layouts;
+        this.classIds = program.classIds;
     }
+
+    private Map<String, Integer> referenceArrayIds() { return program.referenceArrayIds(); }
 
     private static Program program(Map<String, ClassNode> linked) {
         if (BytecodeExceptionRuntime.enabled(linked)) {
             linked = new LinkedHashMap<>(linked);
             linked.putIfAbsent(BytecodeObjects.OBJECT, BytecodeObjects.declaration());
         }
-        Map<String, Integer> classIds = new LinkedHashMap<>(), referenceArrayIds = new LinkedHashMap<>();
+        Map<String, Integer> classIds = new LinkedHashMap<>();
         BytecodeObjectLayouts layouts = BytecodeObjectLayouts.of(linked);
         int id = 1;
         for (String name : new TreeSet<>(linked.keySet())) classIds.put(name, id++);
+        return new Program(Collections.unmodifiableMap(linked), layouts, Collections.unmodifiableMap(classIds));
+    }
+
+    private static Map<String, Integer> arrayIds(Map<String, ClassNode> linked) {
+        Map<String, Integer> referenceArrayIds = new LinkedHashMap<>();
         TreeSet<String> components = new TreeSet<>(linked.keySet());
         components.add("java/lang/Object");
         int arrayId = -100;
@@ -92,7 +124,7 @@ public final class BytecodeDispatch {
             if(component.startsWith("L")) component = component.substring(1,component.length()-1);
             if(!referenceArrayIds.containsKey(component)) referenceArrayIds.put(component, arrayId--);
         }
-        return new Program(Collections.unmodifiableMap(linked), layouts, classIds, referenceArrayIds, new HashMap<>());
+        return referenceArrayIds;
     }
 
     private static void collectArrays(Set<String> arrays, String descriptor) {
@@ -118,7 +150,7 @@ public final class BytecodeDispatch {
         Map<String,Integer> types=new LinkedHashMap<>();
         classIds.forEach((name,id)->types.put("L"+name+";",id));
         for(var primitive:BytecodeArrays.PRIMITIVES)types.put(primitive.descriptor(),primitive.classId());
-        referenceArrayIds.forEach((component,id)->types.put(arrayDescriptor(component),id));
+        referenceArrayIds().forEach((component,id)->types.put(arrayDescriptor(component),id));
         types.putAll(BytecodeClasses.primitiveTokens());
         return types;
     }
@@ -130,14 +162,22 @@ public final class BytecodeDispatch {
         if (from.startsWith("[")) {
             if (to.equals("Ljava/lang/Object;")) return true;
             if (to.equals("Ljava/lang/Cloneable;") || to.equals("Ljava/io/Serializable;")) {
-                ClassNode marker = linked.get(to.substring(1, to.length() - 1));
+                ClassNode marker = linked.get(element(to));
                 return marker != null && (marker.access & Opcodes.ACC_INTERFACE) != 0;
             }
-            return to.startsWith("[") && arrayAssignable(from.substring(1), to.substring(1));
+            return to.startsWith("[") && arrayAssignable(element(from), element(to));
         }
         if (from.startsWith("L") && to.startsWith("L"))
-            return subtype(from.substring(1, from.length()-1), to.substring(1, to.length()-1), new HashSet<>());
+            return isSubtype(element(from), element(to));
         return false;
+    }
+
+    /** The component of an array descriptor or the internal name of an object descriptor, shared so its hash is reused. */
+    private String element(String descriptor) {
+        String element = program.elements.get(descriptor);
+        if (element == null) program.elements.put(descriptor, element = descriptor.startsWith("[")
+                ? descriptor.substring(1) : descriptor.substring(1, descriptor.length() - 1));
+        return element;
     }
 
     private String packageName(String name) {
@@ -302,10 +342,12 @@ public final class BytecodeDispatch {
             if (primitive != null) return Set.of(primitive.classId());
             referenceArrayId(target.substring(1).startsWith("L")
                     ? target.substring(2, target.length()-1) : target.substring(1));
-            Set<Integer> ids = new LinkedHashSet<>();
-            for (var entry : referenceArrayIds.entrySet())
-                if (arrayAssignable(arrayDescriptor(entry.getKey()), target)) ids.add(entry.getValue());
-            return ids;
+            return typeTest(target, () -> {
+                Set<Integer> ids = new LinkedHashSet<>();
+                for (var entry : referenceArrayIds().entrySet())
+                    if (arrayAssignable(arrayDescriptor(entry.getKey()), target)) ids.add(entry.getValue());
+                return ids;
+            });
         }
         if (!target.equals("java/lang/Object")) {
             ClassNode type = linked.get(target);
@@ -313,22 +355,46 @@ public final class BytecodeDispatch {
                 throw new IllegalArgumentException("link the type-test class/interface; array type tests are unsupported");
             checkClassAccess(target);
         }
-        Set<Integer> result = new LinkedHashSet<>();
-        for (var entry : classIds.entrySet()) {
-            ClassNode type = linked.get(entry.getKey());
-            validateTypeHierarchy(type.name, new HashSet<>(), new HashSet<>());
-            if ((type.access & (Opcodes.ACC_INTERFACE | Opcodes.ACC_ABSTRACT)) == 0
-                    && layouts.contains(type.name) && isSubtype(type.name, target))
-                result.add(entry.getValue());
+        // Every class hierarchy is validated first, so an incomplete one fails every class type test the same way.
+        String failure = hierarchyFailure();
+        if (!failure.isEmpty()) throw new IllegalArgumentException(failure);
+        return typeTest(target, () -> {
+            Set<Integer> result = new LinkedHashSet<>();
+            for (var entry : classIds.entrySet()) {
+                ClassNode type = linked.get(entry.getKey());
+                if ((type.access & (Opcodes.ACC_INTERFACE | Opcodes.ACC_ABSTRACT)) == 0
+                        && layouts.contains(type.name) && isSubtype(type.name, target))
+                    result.add(entry.getValue());
+            }
+            ClassNode marker = linked.get(target);
+            if (target.equals("java/lang/Object") || marker != null && (marker.access & Opcodes.ACC_INTERFACE) != 0
+                    && (target.equals("java/lang/Cloneable") || target.equals("java/io/Serializable")))
+            {
+                for (BytecodeArrays.Primitive primitive : BytecodeArrays.PRIMITIVES) result.add(primitive.classId());
+                result.addAll(referenceArrayIds().values());
+            }
+            return result;
+        });
+    }
+
+    /** Type-test answers are caller-independent once the caller's access to the target has been checked. */
+    @SuppressWarnings("unchecked")
+    private Set<Integer> typeTest(String target, java.util.function.Supplier<Set<Integer>> compute) {
+        Object ids = program.typeTests.get(target);
+        if (ids == null) program.typeTests.put(target, ids = Collections.unmodifiableSet(compute.get()));
+        return (Set<Integer>) ids;
+    }
+
+    private String hierarchyFailure() {
+        if (program.hierarchyFailure == null) {
+            String failure = "";
+            for (String name : classIds.keySet()) {
+                try { validateTypeHierarchy(linked.get(name).name, new HashSet<>(), new HashSet<>()); }
+                catch (IllegalArgumentException error) { failure = error.getMessage(); break; }
+            }
+            program.hierarchyFailure = failure;
         }
-        ClassNode marker = linked.get(target);
-        if (target.equals("java/lang/Object") || marker != null && (marker.access & Opcodes.ACC_INTERFACE) != 0
-                && (target.equals("java/lang/Cloneable") || target.equals("java/io/Serializable")))
-        {
-            for (BytecodeArrays.Primitive primitive : BytecodeArrays.PRIMITIVES) result.add(primitive.classId());
-            result.addAll(referenceArrayIds.values());
-        }
-        return result;
+        return program.hierarchyFailure;
     }
 
     public int referenceArrayId(String component) {
@@ -340,7 +406,7 @@ public final class BytecodeDispatch {
             leaf = type.getSort() == Type.OBJECT ? type.getInternalName() : "java/lang/Object";
         }
         if (!leaf.equals("java/lang/Object")) checkClassAccess(leaf);
-        Integer id = referenceArrayIds.get(component);
+        Integer id = referenceArrayIds().get(component);
         if (id == null) throw new IllegalArgumentException("link the reference-array component " + component);
         return id;
     }
@@ -358,7 +424,7 @@ public final class BytecodeDispatch {
         wat.append("local.get $v if\n");
         // Runtime metadata is module-wide; component accessibility is checked at each instruction.
         BytecodeDispatch metadata = new BytecodeDispatch(linked);
-        for (var entry : referenceArrayIds.entrySet()) {
+        for (var entry : referenceArrayIds().entrySet()) {
             wat.append("local.get $a i32.load i32.const ").append(entry.getValue()).append(" i32.eq if\n");
             wat.append("i32.const 0\n");
             for (int id : metadata.typeTestIds(entry.getKey()))
@@ -491,7 +557,7 @@ public final class BytecodeDispatch {
                 || packageName(resolved.owner).equals(packageName(caller))) return null;
         Set<Integer> result = new LinkedHashSet<>();
         for (var entry : classIds.entrySet())
-            if (subtype(entry.getKey(), caller, new HashSet<>())) result.add(entry.getValue());
+            if (isSubtype(entry.getKey(), caller)) result.add(entry.getValue());
         return result;
     }
 
@@ -507,17 +573,25 @@ public final class BytecodeDispatch {
 
     /** The linked hierarchy is immutable during lowering, so answers are shared per program. */
     private boolean isSubtype(String name, String target) {
-        return subtypes.computeIfAbsent(name + "\u0000" + target, key -> subtype(name, target, new HashSet<>()));
+        return Objects.equals(name, target) || supertypes(name).contains(target);
     }
 
-    private boolean subtype(String name, String target, Set<String> visited) {
-        if (Objects.equals(name, target)) return true;
-        if (!visited.add(name)) return false;
-        ClassNode type = linked.get(name);
-        if (type == null) return false;
-        if (subtype(type.superName, target, visited)) return true;
-        for (String iface : type.interfaces) if (subtype(iface, target, visited)) return true;
-        return false;
+    /** Names reachable through superclass and interface edges; unlinked names have no edges. */
+    private Set<String> supertypes(String name) {
+        Set<String> reached = program.supertypes.get(name);
+        if (reached != null) return reached;
+        reached = new HashSet<>();
+        List<String> pending = new ArrayList<>();
+        pending.add(name);
+        while (!pending.isEmpty()) {
+            String current = pending.remove(pending.size() - 1);
+            ClassNode type = current == null ? null : linked.get(current);
+            if (type == null) continue;
+            if (reached.add(type.superName)) pending.add(type.superName);
+            for (String iface : type.interfaces) if (reached.add(iface)) pending.add(iface);
+        }
+        program.supertypes.put(name, reached);
+        return reached;
     }
 
     private void interfaceDeclarations(String name, String method, String descriptor,
@@ -770,6 +844,18 @@ public final class BytecodeDispatch {
     /** Lowering-only: omit virtual/interface receiver classes rejected by {@code receivers} from {@link #targets}. */
     void restrictReceivers(java.util.function.Predicate<String> receivers) { this.receivers = receivers; }
 
+    private List<Map.Entry<String, Integer>> concreteSubtypes(String owner) {
+        return program.concreteSubtypes.computeIfAbsent(owner, ignored -> {
+            List<Map.Entry<String, Integer>> result = new ArrayList<>();
+            for (var entry : classIds.entrySet()) {
+                ClassNode type = linked.get(entry.getKey());
+                if ((type.access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_INTERFACE)) == 0 && isSubtype(type.name, owner))
+                    result.add(entry);
+            }
+            return result;
+        });
+    }
+
     public Map<Integer, String> targets(MethodInsnNode call) {
         boolean arrayOwner = exceptionRuntimeEnabled() && call.owner.startsWith("[")
                 && BytecodeObjects.objectMethod(call.name, call.desc) && !call.name.equals("clone") && !call.name.equals("finalize");
@@ -789,10 +875,8 @@ public final class BytecodeDispatch {
         checkMemberAccess(declared);
         boolean privateCall = (declared.method.access & Opcodes.ACC_PRIVATE) != 0;
         Map<Integer, String> result = new LinkedHashMap<>();
-        for (var entry : classIds.entrySet()) {
+        for (var entry : arrayOwner ? List.<Map.Entry<String, Integer>>of() : concreteSubtypes(symbolicOwner)) {
             ClassNode type = linked.get(entry.getKey());
-            if (arrayOwner || (type.access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_INTERFACE)) != 0
-                    || !isSubtype(type.name, symbolicOwner)) continue;
             // The JVM protected receiver rule applies outside the declaring package.
             if (crossPackageProtected(declared) && !isSubtype(type.name, caller)) continue;
             // Reachability-driven lowering omits receivers that are never instantiated; admission never restricts.

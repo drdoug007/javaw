@@ -140,8 +140,18 @@ public final class BytecodeClasses {
         out.append("(func $__type_assignable (param $from i32) (param $to i32) (result i32)\n");
         for(var to:types.entrySet()) {
             out.append("local.get $to i32.const ").append(to.getValue()).append(" i32.eq if\ni32.const 0\n");
-            for(var from:types.entrySet())if(dispatch.descriptorAssignable(from.getKey(),to.getKey()))
-                out.append("local.get $from i32.const ").append(from.getValue()).append(" i32.eq i32.or\n");
+            String target=to.getKey();
+            // Skips pairs descriptor assignability always rejects: a primitive only from itself, an array only from
+            // an array, and an object type only from an object type or, for Object/Cloneable/Serializable, an array.
+            boolean arrays=target.startsWith("[") || target.equals("Ljava/lang/Object;")
+                    || target.equals("Ljava/lang/Cloneable;") || target.equals("Ljava/io/Serializable;");
+            for(var from:types.entrySet()) {
+                String source=from.getKey();
+                boolean candidate=target.startsWith("L")?source.startsWith("L") || arrays && source.startsWith("["):
+                        target.startsWith("[")?source.startsWith("["):source.equals(target);
+                if(candidate && dispatch.descriptorAssignable(source,target))
+                    out.append("local.get $from i32.const ").append(from.getValue()).append(" i32.eq i32.or\n");
+            }
             out.append("return end\n");
         }
         return out.append("unreachable)\n").toString();

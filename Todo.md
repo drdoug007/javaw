@@ -329,6 +329,12 @@ Checkboxes describe the documented scope of each item. Completed child tasks may
     - The one failure was the host JVM, not Wasm. Temurin 21 on x86_64 returns `Math.pow(-0.0, 2^52-1) == +0.0` against the `Math.pow` specification; confirmed in an amd64 `eclipse-temurin:21-jdk` container (21.0.13), where `StrictMath` gives -0.0. `BytecodeTranscendentalTest`'s host-`Math` sanity check now records a zero-sign deviation on stderr instead of failing. Every other mismatch still fails, and the Wasm results are still compared with `StrictMath`.
     - The workflow now runs only when the bytecode build inputs change, and cancels superseded runs.
     - A warm trivial compile costs 1.6 s, about the suite's mean, so nearly all compile time is fixed per-compile work over the bundled runtime. Next: cut that floor (whole-program dispatch/hierarchy analyses and admission over about 300 runtime classes, recomputed every compile) before tuning CI parallelism.
+    - Cut the per-compile floor with no output change; see [the scaling notes](docs/bytecode-compile-scaling.md#per-compile-analysis-cost-no-output-change).
+      - Dispatch memoizes supertype closures, type-test ids, concrete virtual-call receivers and the first hierarchy failure, and computes array ids lazily. Hierarchy validation is memoized once it passes. `__type_assignable` skips pairs that are always rejected, and dead-code reference scanning no longer uses regexes.
+      - Warm trivial compile: 1.70 s to 0.35 s. Pinned Jackson `Base64Variant` fixture: 10.6 s to 1.7 s.
+      - Prescribed selection: 603 tests in 3:08 instead of 8:12 (8 forks), with total compile time down from 3,010 s to 549 s.
+      - Evidence: the new `BytecodeCompileOutputs` extension (`-Djavaw.compileOutputs.dir`) fingerprinted all 1,894 compilations before and after. All match, apart from one test whose `Map.of` JAR order varies between JVM runs; both of its orders match across compilers. `BytecodeDeadCodeScanTest` compares the scanner with the replaced regexes. Three independent review passes found no divergence. The revision is unchanged.
+      - Next: rerun the workflow, which should now fit the job limit on one runner, to record a full green run, its fork count and a timing baseline.
 
 
 ---

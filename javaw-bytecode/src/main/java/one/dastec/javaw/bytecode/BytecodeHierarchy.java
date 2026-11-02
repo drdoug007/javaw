@@ -10,6 +10,14 @@ import java.util.Set;
 /** Declaration checks for the closed-world class/interface inheritance graph. */
 final class BytecodeHierarchy {
     static void validate(ClassNode owner, Map<String, ClassNode> linked) {
+        // Every declaration is visited whatever the start, so a linked owner's pass means the whole graph passes.
+        // A failure is not cached: its message depends on the owner, and the next caller recomputes it.
+        if (linked.get(owner.name) == owner)
+            BytecodeAnalysisCache.get(linked, "validated-hierarchy", () -> { visitAll(owner, linked); return Boolean.TRUE; });
+        else visitAll(owner, linked);
+    }
+
+    private static void visitAll(ClassNode owner, Map<String, ClassNode> linked) {
         Set<String> complete = new HashSet<>();
         visit(owner, linked, new HashSet<>(), complete);
         for (ClassNode declaration : linked.values()) visit(declaration, linked, new HashSet<>(), complete);

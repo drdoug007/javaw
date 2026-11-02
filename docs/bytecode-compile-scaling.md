@@ -102,3 +102,44 @@ Evidence: `BytecodeReachabilityTest` compares with the JVM:
 It also checks that an uninstantiated runtime receiver (`TreeSet.size`) and its static state are absent. It fails on `c0cc2ec` at that assertion. An unused method with an invalid operand stack is still rejected with its source line.
 
 The 594 prescribed bytecode tests pass (four forks). The audit changes only the revision.
+
+## Per-compile analysis cost (no output change)
+
+A warm trivial compile still cost about 1.6 s, close to the test suite's mean, so nearly all compile time was fixed work over the bundled runtime's ~330 classes. Profiling showed it was mostly repeated hierarchy queries, not lowering:
+
+- `BytecodeDispatch.typeTestIds` and `targets` scanned every linked class for each type test and virtual call site, re-validating every class hierarchy on each call.
+- `isSubtype` built a concatenated string key for every query.
+- Each lambda site during normalization built a whole dispatch program, including a scan of every instruction for array types.
+- The `__type_assignable` table compared all descriptor pairs (about 560,000).
+- Reference regexes ran over the multi-megabyte generated runtime text in reachability and pruning.
+
+Changes, all output-preserving:
+
+- The dispatch program memoizes supertype closures (one walk per class, unlinked and null names included), type-test id sets per target, concrete subtypes per virtual-call owner, descriptor components, and the first incomplete hierarchy in class-id order. That first failure is the one the per-call loop threw. Caller-dependent access checks still run on every call, before the cached answer is used.
+- Reference-array ids, which need the instruction scan, are computed on first use, so normalization-time dispatches that only answer hierarchy questions skip it.
+- Dispatch and per-class compilers share the program's id and layout maps instead of copying them.
+- `BytecodeHierarchy.validate` is memoized once a linked owner passes. Every declaration is visited whatever the start, so the result does not depend on the owner. Failures are not cached, because their message depends on the owner.
+- `__type_assignable` skips pairs descriptor assignability always rejects: a primitive or primitive token only from itself, an array only from an array, and an object type only from an object type or, for Object/Cloneable/Serializable, an array.
+- `BytecodeDeadCode` finds `call`/`return_call`/`ref.func` and global references by searching for `" $"` and checking the prefix, instead of by regex. The result keeps the regex's leftmost, non-overlapping, region-bounded matches in the same order.
+- `TypeHelper.encode` fills a char array.
+
+Results (same machine, warm compiles, before → after):
+
+| Fixture | Compile |
+| --- | --- |
+| Trivial (`return 41+1`) | 1.70 s → 0.35 s |
+| Pinned Jackson `Base64Variant` encode/decode (five Jackson classes) | 10.6 s → 1.7 s |
+| Prescribed test selection, all 1,894 compilations | 3,010 s → 549 s (mean 1.59 s → 0.29 s) |
+
+The prescribed command, with the build's 8 forks, now takes 3:08 instead of 8:12. Compilation drops from 86% to 57% of test-class time.
+
+Evidence of identical output:
+
+- `BytecodeCompileOutputs` (see [test performance](bytecode-test-performance.md#compile-output-fingerprints)) fingerprinted every compilation of the prescribed selection before and after the change. 1,893 of 1,894 WAT texts and diagnostics match exactly.
+- The remaining one is `BytecodeCompatibilityTest.preservesExplicitlyLinkedSystemDefinitionsInsteadOfReplacingTheirMethods`. It writes its JAR from `Map.of(...)`, whose iteration order varies between JVM runs. Compiling both entry orders with the old and new compilers gives the same two hashes.
+- `BytecodeDeadCodeScanTest` compares the scanner with the regexes it replaced: 20,000 random token strings in random regions, and every region of edge cases (overlap, empty ids, `return_call`, vertical tab and non-ASCII separators).
+- Three independent review passes found no divergence: dispatch equivalence, mutation and memo lifetime, and text processing/table filters.
+
+The compiler revision is unchanged, because output is unchanged.
+
+Remaining cost: lowering the reachable methods, reading the generated text back for reachability, and pruning now dominate large modules. The pinned Jackson fixture emits 123 MB of WAT. Admission frame analysis over every linked method and the per-compile runtime normalization remain, and nothing is reused across compilations.

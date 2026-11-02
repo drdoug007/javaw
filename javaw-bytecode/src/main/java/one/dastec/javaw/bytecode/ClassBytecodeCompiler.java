@@ -15,8 +15,8 @@ public class ClassBytecodeCompiler {
     private BytecodeDispatch dispatch;
     private Map<String, ClassNode> linked;
     private final Map<String, Integer> stringPool = new LinkedHashMap<>();
-    private final Map<String, Integer> fieldOffsets = new LinkedHashMap<>();
-    private final Map<String, Integer> objectSizes = new LinkedHashMap<>();
+    private Map<String, Integer> fieldOffsets = Map.of();
+    private Map<String, Integer> objectSizes = Map.of();
     private final List<String> globalVariables = new ArrayList<>();
 
     public ClassBytecodeCompiler(ClassNode classNode) {
@@ -52,8 +52,8 @@ public class ClassBytecodeCompiler {
         this.linked = linked;
         dispatch = new BytecodeDispatch(linked, classNode.name);
         BytecodeObjectLayouts layouts = BytecodeObjectLayouts.of(linked);
-        fieldOffsets.putAll(layouts.offsets());
-        objectSizes.putAll(layouts.sizes());
+        fieldOffsets = layouts.offsets();
+        objectSizes = layouts.sizes();
         StringBuilder wat = new StringBuilder();
         wat.append("(module\n");
         wat.append(BytecodeCompiler.Memory.hostAllocator().importWat());
@@ -98,8 +98,8 @@ public class ClassBytecodeCompiler {
         this.linked = linked;
         dispatch = new BytecodeDispatch(linked, classNode.name);
         BytecodeObjectLayouts layouts = BytecodeObjectLayouts.of(linked);
-        fieldOffsets.putAll(layouts.offsets());
-        objectSizes.putAll(layouts.sizes());
+        fieldOffsets = layouts.offsets();
+        objectSizes = layouts.sizes();
         for (MethodNode mn : loweredMethods()) {
             exportName(mn);
             frames(mn);
