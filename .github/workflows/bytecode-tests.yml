@@ -3,28 +3,11 @@
 # have few cores, and forks idle while wat2wasm and node run, so CI uses one fork per core.
 name: bytecode tests
 
-# The repository is private, so runner minutes are billed: run only when the bytecode build can change, and cancel a
-# superseded run of the same branch.
+# Manual only: the repository is private, so runner minutes are billed. The routine check is the local Docker
+# reproduction of this job, javaw-bytecode/docker/docker-tests.sh (see docs/bytecode-test-performance.md). Start a
+# hosted run from the Actions tab or with `gh workflow run bytecode-tests.yml`; a new run cancels one still running on
+# the same ref.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'pom.xml'
-      - 'javaw-core/**'
-      - 'javaw-bytecode/**'
-      - 'runtime-target/pom.xml'
-      - 'runtime-target/dependencies.lock.json'
-      - 'runtime-target/verify-lock.py'
-      - '.github/workflows/bytecode-tests.yml'
-  pull_request:
-    paths:
-      - 'pom.xml'
-      - 'javaw-core/**'
-      - 'javaw-bytecode/**'
-      - 'runtime-target/pom.xml'
-      - 'runtime-target/dependencies.lock.json'
-      - 'runtime-target/verify-lock.py'
-      - '.github/workflows/bytecode-tests.yml'
   workflow_dispatch:
 
 concurrency:
