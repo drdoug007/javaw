@@ -492,6 +492,25 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             }
         }
 
+        // instanceof pattern variables are method-scoped locals, assigned by the matching test.
+        Map<String, String> patternTypes = new HashMap<>();
+        for (PatternExpr pattern : body.findAll(PatternExpr.class)) {
+            String pName = pattern.getNameAsString();
+            String pType = GenericTypes.eraseVariables(pattern.getType().asString(), currentCallable);
+            String previous = patternTypes.putIfAbsent(pName, pType);
+            String declared = localJavaTypes.get(pName);
+            if ((previous != null && !previous.equals(pType)) || (previous == null && declared != null && !declared.equals(pType)))
+                throw JavaSourcePreparation.error(pattern, "Unsupported reuse of pattern variable '" + pName
+                        + "' with another type in one method; rename one of the bindings");
+            if (classRegistry != null && classRegistry.isRecord(pType))
+                throw JavaSourcePreparation.error(pattern, "Unsupported record-typed instanceof pattern '" + pName
+                        + "'; test with instanceof and copy the components explicitly");
+            localTypes.put(pName, "i32");
+            localJavaTypes.put(pName, pType);
+            if (pType.endsWith("[]")) localElementTypes.put(pName, TypeMapper.mapType(pType.substring(0, pType.length() - 2)));
+            if (declaredLocals.add(pName)) collector.append("    (local $").append(pName).append(" i32)\n");
+        }
+
         List<ForEachStmt> forEachStmts = body.findAll(ForEachStmt.class);
         for (int i = 1; i <= forEachStmts.size(); i++) {
             collector.append("    (local $__arr_ptr_").append(i).append(" i32)\n");
@@ -1392,7 +1411,12 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             }
         } else if (expr.isInstanceOfExpr()) {
             InstanceOfExpr ioe = expr.asInstanceOfExpr();
-            String targetClassName = ioe.getType().asString();
+            String targetClassName = GenericTypes.eraseVariables(ioe.getType().asString(), currentCallable);
+            int generic = targetClassName.indexOf('<');
+            if (generic >= 0) targetClassName = targetClassName.substring(0, generic);
+            if (ioe.getType().isArrayType())
+                throw JavaSourcePreparation.error(ioe, "Unsupported instanceof array type " + ioe.getType()
+                        + ": arrays carry no runtime class tag; use a statically typed array or a wrapper class");
             translateExpression(ioe.getExpression(), collector, localTypes, localElementTypes, localJavaTypes, "i32");
             collector.append("    local.set $__obj_tmp\n");
             collector.append("    local.get $__obj_tmp\n");
@@ -1400,6 +1424,14 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             collector.append("    if (result i32)\n");
             collector.append("      i32.const 0\n");
             collector.append("    else\n");
+            // Untagged strings have no vtable word to compare; they are Strings (and so CharSequences, etc.).
+            boolean stringTarget = STRING_CAPABLE_TYPES.contains(targetClassName)
+                    || "String".equals(targetClassName) || "java.lang.String".equals(targetClassName);
+            if (stringTarget) {
+                collector.append("      local.get $__obj_tmp\n");
+                collector.append("      call $__javaw_is_object\n");
+                collector.append("      if (result i32)\n");
+            }
             collector.append("      local.get $__obj_tmp\n");
             collector.append("      i32.load offset=0\n");
             collector.append("      local.set $__vtable_tmp\n");
@@ -1424,7 +1456,13 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     collector.append("      i32.or\n");
                 }
             }
+            if (stringTarget) collector.append("      else\n      i32.const 1\n      end\n");
             collector.append("    end\n");
+            if (ioe.getPattern().isPresent()) {
+                // The binding is only in scope where the test succeeded, so assigning it unconditionally is unobservable.
+                collector.append("    local.get $__obj_tmp\n");
+                collector.append("    local.set $").append(ioe.getPattern().get().getNameAsString()).append("\n");
+            }
         } else if (expr.isNameExpr()) {
             String var = expr.asNameExpr().getNameAsString();
             String activeEnum = switchEnumStack.peek();
@@ -1522,6 +1560,10 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 } else if ("i32".equals(expectedType) && "i64".equals(globalVars.get(var).type)) {
                     collector.append("    i32.wrap_i64\n");
                 }
+            } else {
+                // Emitting nothing would silently omit the value and leave invalid or wrong code.
+                throw JavaSourcePreparation.error(expr, "Unresolved name '" + var
+                        + "': declare it as a local, parameter, field or enum constant supported by this compiler");
             }
         } else if (expr.isEnclosedExpr()) {
             translateExpression(expr.asEnclosedExpr().getInner(), collector, localTypes, localElementTypes, localJavaTypes, expectedType);
@@ -2412,13 +2454,9 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                         translateExpression(arg0, collector, localTypes, localElementTypes, localJavaTypes, "i32");
                         collector.append("    call $__str_from_i32\n");
                     } else {
-                        // Object toString via vtable slot 0
+                        // Object toString via vtable slot 0; an untagged string is its own text.
                         translateExpression(arg0, collector, localTypes, localElementTypes, localJavaTypes, "i32");
-                        collector.append("    local.set $__obj_tmp\n");
-                        collector.append("    local.get $__obj_tmp\n");
-                        collector.append("    local.get $__obj_tmp\n");
-                        collector.append("    i32.load offset=0\n");
-                        collector.append("    call_indirect (type $t_sig_i32_to_i32)\n");
+                        collector.append("    call $__javaw_to_string\n");
                     }
                 } else if (mName.equals("clone")) {
                     String targetType = getExpressionJavaType(scope, localJavaTypes);
@@ -2642,6 +2680,12 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     collector.append("    call $").append(mName).append("\n");
                 }
             }
+        } else if (expr.isTypeExpr()) {
+            // A type qualifier (for example the App in a lowered App::twice reference) has no runtime value.
+        } else {
+            // Emitting nothing would silently omit the expression.
+            throw JavaSourcePreparation.error(expr, "Unsupported expression " + expr.getClass().getSimpleName()
+                    + ": rewrite it with a supported construct");
         }
     }
 
@@ -2669,11 +2713,11 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
     private void emitNumericRuntime(StringBuilder out) {
         CollectionRuntime.emit(out);
         out.append("  (func $__require_nonnull (param $value i32) (result i32) (local $e i32)\n")
-                .append("    local.get $value\n    i32.eqz\n    if\n    i32.const 8\n    call $__heap_alloc\n    local.tee $e\n    i32.const ")
+                .append("    local.get $value\n    i32.eqz\n    if\n    i32.const 8\n    call $__javaw_object_alloc\n    local.tee $e\n    i32.const ")
                 .append(classRegistry.getClass("NullPointerException").getVtableBase())
                 .append("\n    i32.store\n    local.get $e\n    throw $Exception\n    end\n    local.get $value\n  )\n");
         int vtable = classRegistry.getClass("ArithmeticException").getVtableBase();
-        out.append("  (func $__arithmetic_error (local $e i32)\n    i32.const 8\n    call $__heap_alloc\n    local.tee $e\n    i32.const ")
+        out.append("  (func $__arithmetic_error (local $e i32)\n    i32.const 8\n    call $__javaw_object_alloc\n    local.tee $e\n    i32.const ")
                 .append(vtable).append("\n    i32.store\n    local.get $e\n    throw $Exception\n  )\n");
         for (String type : List.of("i32", "i64")) {
             String minimum = type.equals("i32") ? "-2147483648" : "-9223372036854775808";
@@ -6844,7 +6888,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         StringConstant mainSc = stringPool != null ? stringPool.get("main") : null;
         int mainOffset = mainSc != null ? mainSc.offset : 0;
         collector.append("    i32.const 24\n");
-        collector.append("    call $__heap_alloc\n");
+        collector.append("    call $__javaw_object_alloc\n");
         collector.append("    local.set $t\n");
         collector.append("    local.get $t\n");
         collector.append("    i32.const ").append(threadVtable).append("\n");
