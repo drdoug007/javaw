@@ -1,5 +1,8 @@
 package one.dastec.javaw;
-/** Object identity registry distinguishes source objects from the runtime's untagged strings. */
+/**
+ * Object identity registry distinguishes source objects from the runtime's untagged strings. The helpers dispatch
+ * equals/hashCode/toString/compareTo through an object's vtable (slots 1, 2, 0 and 4) and handle strings by content.
+ */
 final class CollectionRuntime {
     static void emit(StringBuilder out) {
         out.append("""
@@ -32,6 +35,12 @@ final class CollectionRuntime {
               local.get $a local.get $b local.get $a i32.load i32.const 4 i32.add
               call_indirect (param i32 i32) (result i32)
             else local.get $a local.get $b call $__str_compareTo end)
+          (func $__javaw_to_string (param $value i32) (result i32)
+            local.get $value call $__javaw_is_object
+            if (result i32)
+              local.get $value local.get $value i32.load
+              call_indirect (param i32) (result i32)
+            else local.get $value end)
           (func $__javaw_hash (param $value i32) (result i32)
             (local $hash i32) (local $index i32) (local $char i32)
             local.get $value i32.eqz if i32.const 0 return end

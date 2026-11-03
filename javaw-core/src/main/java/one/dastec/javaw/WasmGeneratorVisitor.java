@@ -2222,6 +2222,12 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                             collector.append("    call $__str_substring\n");
                         }
                     }
+                } else if (mName.equals("hashCode") && call.getArguments().isEmpty() && isStringType(scope, localJavaTypes)
+                        && !isCharSequenceType(scope, localJavaTypes)) {
+                    // Strings carry no vtable header; hash their content as HashMap keys do (31*h + char).
+                    translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "String");
+                    collector.append("    call $__require_nonnull\n");
+                    collector.append("    call $__javaw_hash\n");
                 } else if (mName.equals("equals") && isStringType(scope, localJavaTypes)) {
                     translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "String");
                     translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "String");
@@ -2490,6 +2496,17 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     }
                     ClassModel targetCm = (targetType != null && classRegistry != null) ? classRegistry.getClass(targetType) : null;
                     MethodModel targetMm = (targetType != null && classRegistry != null) ? resolveMethodCall(targetType, call, localJavaTypes) : (targetCm != null ? targetCm.getMethodByName(mName) : null);
+                    if (targetType != null && STRING_CAPABLE_TYPES.contains(targetType) && (("hashCode".equals(mName) || "toString".equals(mName))
+                            && call.getArguments().isEmpty() || "equals".equals(mName) && call.getArguments().size() == 1)) {
+                        // A receiver of these static types may be an untagged string, which has no vtable header.
+                        translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                        collector.append("    call $__require_nonnull\n");
+                        if ("equals".equals(mName)) {
+                            translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                            collector.append("    call $__javaw_same\n");
+                        } else collector.append("    call $__javaw_").append("hashCode".equals(mName) ? "hash" : "to_string").append("\n");
+                        return;
+                    }
                     if (targetMm == null && ("toString".equals(mName) || "equals".equals(mName) || "hashCode".equals(mName) ||
                             "close".equals(mName) || "compareTo".equals(mName) || "iterator".equals(mName) || "hasNext".equals(mName) || "next".equals(mName)) && classRegistry != null) {
                         targetMm = classRegistry.findMethod("Object", mName);
@@ -3521,6 +3538,18 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             return true;
         }
         return false;
+    }
+
+    /** Static receiver types that String implements, so a value of the type may be an untagged runtime string. */
+    private static final Set<String> STRING_CAPABLE_TYPES = Set.of("Object", "java.lang.Object", "CharSequence", "java.lang.CharSequence",
+            "Comparable", "java.lang.Comparable", "Serializable", "java.io.Serializable");
+
+    /** A receiver declared as CharSequence may be a StringBuilder, whose hashCode is not content-based. */
+    private boolean isCharSequenceType(Expression expr, Map<String, String> localJavaTypes) {
+        String jType = getExpressionJavaType(expr, localJavaTypes);
+        if (expr.isNameExpr() && localJavaTypes != null && localJavaTypes.containsKey(expr.asNameExpr().getNameAsString()))
+            jType = localJavaTypes.get(expr.asNameExpr().getNameAsString());
+        return "CharSequence".equals(jType) || "java.lang.CharSequence".equals(jType);
     }
 
     private boolean isStringType(Expression expr, Map<String, String> localJavaTypes) {

@@ -5,6 +5,40 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class SourceRuntimeSupportTest {
+    @Test void stringReceiversHashCompareAndPrintWithoutAVtable() throws Exception {
+        // Strings carry no object header, so these calls once trapped with "table index is out of bounds".
+        byte[] wasm = JavacToWasm.compile("Strings.java", """
+            class Box { int v; Box(int v) { this.v = v; }
+                public int hashCode() { return v * 3; }
+                public boolean equals(Object o) { if (!(o instanceof Box)) return false; Box b = (Box) o; return b.v == v; }
+                public String toString() { return "Box" + v; } }
+            class Strings {
+                public static int literal() { return "numbers".hashCode(); }
+                public static int local() { String s = "ab"; s = s + "cd"; return s.hashCode(); }
+                public static int empty() { return "".hashCode(); }
+                public static int nullString() { String s = null; try { return s.hashCode(); } catch (NullPointerException e) { return 7; } }
+                public static int objectHash() { Object o = "numbers"; return o.hashCode(); }
+                public static int objectEquals() { Object o = "numbers"; return (o.equals("numbers") ? 1 : 0) + (o.equals(new Box(1)) ? 2 : 0); }
+                public static int objectString() { Object o = "numbers"; return o.toString().length(); }
+                public static int sequenceHash() { CharSequence c = "numbers"; return c.hashCode(); }
+                public static int objects() { Object o = new Box(5); return o.hashCode() + (o.equals(new Box(5)) ? 100 : 0) + (o.equals("x") ? 1000 : 0) + o.toString().length() * 10000; }
+                public static int nullObject() { Object o = null; try { return o.hashCode(); } catch (NullPointerException e) { return 9; } }
+            }
+            """, false).getWasm();
+        OverloadResolutionTest.execute(wasm, """
+            assert.equal(e.literal(), %d);
+            assert.equal(e.local(), %d);
+            assert.equal(e.empty(), 0);
+            assert.equal(e.nullString(), 7);
+            assert.equal(e.objectHash(), %d);
+            assert.equal(e.objectEquals(), 1);
+            assert.equal(e.objectString(), 7);
+            assert.equal(e.sequenceHash(), %d);
+            assert.equal(e.objects(), 40115);
+            assert.equal(e.nullObject(), 9);
+            """.formatted("numbers".hashCode(), "abcd".hashCode(), "numbers".hashCode(), "numbers".hashCode()));
+    }
+
     @Test void assertionsAreLazyAndErrorsDoNotMatchException() throws Exception {
         byte[] wasm = JavacToWasm.compile("Assertions.java", """
             class Assertions {
