@@ -80,7 +80,7 @@ Phase 1 source-resolution foundations and source-backed Optional/closures are im
   - Direct JVM `.class` bytecode parsing via OW2 ASM (`ClassReader`, `ClassNode`, `MethodNode`) enabling consumption of third-party Maven JAR dependencies without requiring source code or `-sources.jar` artifacts.
   - Control Flow Graph analysis and **Relooper algorithm** converting arbitrary JVM branching structures (`goto`, conditional jumps `if*`, `tableswitch`, `lookupswitch`, irreducible loops) into WebAssembly structured control flow (`block`, `loop`, `br`, `br_if`, `br_table`).
   - Operand stack simulation and lowering (`StackToLocalMapper`, `BytecodeInstructionVisitor`) mapping JVM stack depths to WebAssembly local slots for stack manipulations (`dup`, `swap`, `pop`) and instruction translations (arithmetic, bitwise, memory loads/stores, object allocations, field access, static/virtual method calls).
-  - Local `.m2` repository cache manager (`LocalM2CacheManager`) storing precompiled WebAssembly artifacts (`${artifactId}-${version}-javaw.wasm` and `.javaw-metadata.json`) directly in `~/.m2/repository/` for near-instantaneous $O(1)$ cache hits on subsequent builds.
+  - Local `.m2` repository cache manager (`LocalM2CacheManager`, a prototype) storing compiled dependency WAT (`${artifactId}-${version}-javaw.wat` and `-javaw.json` metadata) in `~/.m2/repository/`. It uses the non-runtime bytecode compiler and does not yet record exports or classes; the runtime-aware replacement is Phase 8 in [Todo.md](Todo.md).
   - Deterministic SHA-256 content hashing (`JarHashUtil`) verifying JAR checksums before cache reuse, guaranteeing reliable cache invalidation for updated release or SNAPSHOT dependencies.
   - Seamless Maven build integration: `javaw-maven-plugin:compile` inspects project dependencies, compiles external JAR dependencies on cache miss, caches them in `.m2`, and statically links dependency functions and exports into the application bundle via `WasmLinker`.
 - **Optional logging compatibility facades**:
@@ -141,7 +141,7 @@ Phase 1 source-resolution foundations and source-backed Optional/closures are im
 - **WebAssembly Multi-Value Returns & Java Record Support**:
   - Leverages WebAssembly multi-value return capability (`(result i32 i32 ...)`) to return multiple values on the evaluation stack without heap allocation overhead.
   - Full AST lowering for Java `record` declarations (`RecordDeclaration`), component accessor methods (`p.x()`, `p.first()`), instance/static record methods, and constructor/parameter passing.
-  - Multi-value stack packing for record instantiations (`new Point(x, y)`), returns (`return new Point(...)`), and multi-value local variable unpacking (`Point p = makePoint(...)`).
+  - Multi-value stack packing for record instantiations (`new Point(x, y)`), returns (`return new Point(...)`), and multi-value local variable unpacking (`Point p = makePoint(...)`). This applies to modules without reflection; reflection-enabled modules lower records to managed objects ([reflection](docs/reflection.md)).
 - **Bulk Memory Operations & Fast Array Utilities (`memory.copy`, `memory.fill`)**:
   - Direct translation of `System.arraycopy(...)` and `Arrays.fill(...)` to WebAssembly `memory.copy` and `memory.fill` instructions for high-throughput block data movement and initialization.
   - Strongly-typed array utility facade (`one.dastec.javaw.util.Arrays`) supporting `fill`, `copyOf`, `copyOfRange`, and `equals` for both `int[]` and `double[]`.
@@ -170,7 +170,7 @@ Phase 1 source-resolution foundations and source-backed Optional/closures are im
   - Automatically emits WebAssembly shared memory declarations `(memory (export "memory") 2 20 shared)` and enables thread extensions in `wat2wasm`.
   - **`AtomicInteger`** (`one.dastec.javaw.concurrent.AtomicInteger`): High-level atomic integer operations (`get`, `set`, `getAndSet`, `compareAndSet`, `getAndAdd`, `addAndGet`, `incrementAndGet`, `decrementAndGet`, and bitwise atomics `getAndAnd`, `getAndOr`, `getAndXor`) lowered to `i32.atomic.load`, `i32.atomic.store`, and `i32.atomic.rmw.*`.
   - **`Atomics`** (`one.dastec.javaw.concurrent.Atomics`): Low-level array atomic primitives (`load`, `store`, `add`, `sub`, `and`, `or`, `xor`, `exchange`, `compareExchange`, `wait` via `memory.atomic.wait32`, and `notify` via `memory.atomic.notify`).
-  - **`WasmThread`** (`one.dastec.javaw.concurrent.WasmThread`): Web Worker thread management, entry point dispatching (`spawn`), thread sleep (`sleep`), thread ID discovery (`currentThreadId`), and CPU core detection (`hardwareConcurrency`).
+  - **`WasmThread`** (`one.dastec.javaw.concurrent.WasmThread`): thread facade with entry point dispatching (`spawn`), thread sleep (`sleep`), thread ID discovery (`currentThreadId`), and CPU core detection (`hardwareConcurrency`). `spawn` currently defers the entry point on the same Wasm instance (`setTimeout`), not in a Web Worker; real worker execution is open in [Todo.md](Todo.md).
 - **WASI Target Support & Virtual File System (VFS)**:
   - Standard Java I/O stream lowering: `System.out.println`, `System.out.print`, `System.err.println`, `System.err.print`, and `System.exit(code)` lowered to WASI `fd_write` and `proc_exit`.
   - Automated linear memory string buffering and typed output conversion for strings, integers, floats, doubles, booleans, and characters.
@@ -274,7 +274,7 @@ Phase 1 source-resolution foundations and source-backed Optional/closures are im
 │   │   │   │   ├── concurrent
 │   │   │   │   │   ├── AtomicInteger.java # WebAssembly atomic integer facade
 │   │   │   │   │   ├── Atomics.java       # Low-level array atomics and wait/notify facade
-│   │   │   │   │   └── WasmThread.java    # Web Worker thread management facade
+│   │   │   │   │   └── WasmThread.java    # Thread facade (same-instance deferred spawn)
 │   │   │   │   ├── dom
 │   │   │   │   │   ├── DOM.java           # Java DOM API facade
 │   │   │   │   │   ├── Element.java       # Java DOM Element facade
@@ -476,7 +476,7 @@ The `javaw-maven-plugin` enables zero-friction, automated compilation of Java so
 
 When compiling a Maven project that references external dependencies (such as utility JARs or data structures), `javaw-maven-plugin` coordinates with `javaw-bytecode`:
 1. **Dependency Inspection**: Scans `project.getArtifacts()` for external compile/runtime JARs on the classpath.
-2. **Deterministic SHA-256 Cache Check**: Computes a SHA-256 hash of each dependency JAR and checks the local Maven repository (`~/.m2/repository/{groupId}/{artifactId}/{version}/{artifactId}-{version}-javaw.wasm` and companion `.javaw-metadata.json`).
+2. **Deterministic SHA-256 Cache Check**: Computes a SHA-256 hash of each dependency JAR and checks the local Maven repository (`~/.m2/repository/{groupId}/{artifactId}/{version}/{artifactId}-{version}-javaw.wat` and companion `-javaw.json`).
 3. **Bytecode Compilation on Cache Miss**:
    - Parses `.class` bytecode via OW2 ASM.
    - Restructures unstructured JVM jumps (`goto`, `ifeq`, `tableswitch`, etc.) into WebAssembly structured control flow (`block`, `loop`, `br`, `br_if`) using the **Relooper algorithm**.
