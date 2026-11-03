@@ -78,17 +78,17 @@ Phase 1 source-resolution foundations and source-backed Optional/closures are im
 
 - **Bytecode-to-WebAssembly Compiler & Local Repository Dependency Caching (`javaw-bytecode`)**:
   - Direct JVM `.class` bytecode parsing via OW2 ASM (`ClassReader`, `ClassNode`, `MethodNode`) enabling consumption of third-party Maven JAR dependencies without requiring source code or `-sources.jar` artifacts.
-  - Control Flow Graph analysis and **Relooper algorithm** converting arbitrary JVM branching structures (`goto`, conditional jumps `if*`, `tableswitch`, `lookupswitch`, irreducible loops) into WebAssembly structured control flow (`block`, `loop`, `br`, `br_if`, `br_table`).
+  - Control Flow Graph analysis and a state-variable dispatch loop (a Relooper prototype exists but is not yet used; structuring is open under Phase 7 in [Todo.md](Todo.md)) converting arbitrary JVM branching structures (`goto`, conditional jumps `if*`, `tableswitch`, `lookupswitch`, irreducible loops) into WebAssembly structured control flow (`block`, `loop`, `br`, `br_if`, `br_table`).
   - Operand stack simulation and lowering (`StackToLocalMapper`, `BytecodeInstructionVisitor`) mapping JVM stack depths to WebAssembly local slots for stack manipulations (`dup`, `swap`, `pop`) and instruction translations (arithmetic, bitwise, memory loads/stores, object allocations, field access, static/virtual method calls).
   - Local `.m2` repository cache manager (`LocalM2CacheManager`, a prototype) storing compiled dependency WAT (`${artifactId}-${version}-javaw.wat` and `-javaw.json` metadata) in `~/.m2/repository/`. It uses the non-runtime bytecode compiler and does not yet record exports or classes; the runtime-aware replacement is Phase 8 in [Todo.md](Todo.md).
   - Deterministic SHA-256 content hashing (`JarHashUtil`) verifying JAR checksums before cache reuse, guaranteeing reliable cache invalidation for updated release or SNAPSHOT dependencies.
-  - Seamless Maven build integration: `javaw-maven-plugin:compile` inspects project dependencies, compiles external JAR dependencies on cache miss, caches them in `.m2`, and statically links dependency functions and exports into the application bundle via `WasmLinker`.
+  - Seamless Maven build integration: `javaw-maven-plugin:compile` inspects project dependencies, compiles external JAR dependencies on cache miss, caches them in `.m2`, and splices dependency functions and exports into the application text via the prototype `WasmLinker`, which does not reconcile tables or heaps and is not execution-tested (see Phase 8 in [Todo.md](Todo.md)).
 - **Optional logging compatibility facades**:
   - Project-owned `Level`, `Logger`, `LogManager`, `ThreadContext` and `SimpleLogger` live in the separate `javaw-log4j-compat` module. They are excluded from `javaw-core` and its shaded CLI JAR.
   - These classes reuse Log4j package names for a small API subset; they are not Apache Log4j and must not share a classpath with the real Log4j API.
   - JVM facade tests cover levels, formatting, context and listeners. Source-to-Wasm logging uses separate compiler lowering with substantially narrower behavior. See [the logging compatibility contract](docs/logging-compatibility.md).
 - **Maven Multi-Module Architecture & Build Tooling (`javaw-maven-plugin`)**:
-  - Modular reactor architecture comprising `javaw-core` (embeddable compiler engine, runtime helpers, facades, and AST visitors), `javaw-bytecode` (bytecode parser, Relooper CFG engine, stack lowering, linker, and `.m2` cache manager), `javaw-maven-plugin` (dedicated Maven Mojo automating WebAssembly compilation and dependency linking), and `examples` (interactive consumer module).
+  - Modular reactor architecture comprising `javaw-core` (embeddable compiler engine, runtime helpers, facades, and AST visitors), `javaw-bytecode` (bytecode parser, CFG analysis and state-dispatch lowering, stack lowering, prototype linker, and `.m2` cache manager), `javaw-maven-plugin` (dedicated Maven Mojo automating WebAssembly compilation and dependency linking), and `examples` (interactive consumer module).
   - Dedicated Maven Mojo `javaw:compile` bound to the `process-classes` lifecycle phase with full parameter configuration (`sourceDirectory`, `outputDirectory`, `optimizationLevel`, `generateSourceMaps`, `enableThreads`, `copyRuntimeScript`, `batchMode`, `moduleName`, `includes`, `excludes`).
   - Automated compilation of `.wat`, `.wasm`, `.wasm.map`, and runtime scripts (`javaw-runtime.js`) during standard `mvn compile` or `mvn package`.
 - **`java.lang` Standard Library Support & Core Language Idioms**:
@@ -232,7 +232,7 @@ Phase 1 source-resolution foundations and source-backed Optional/closures are im
   - 32-bit integer handle lookup table (`Map<number, HTMLElement>`) for safe referencing of DOM elements from WebAssembly.
   - Zero-copy UTF-8 text decoding from WebAssembly linear memory (`instance.exports.memory.buffer`).
   - Bi-directional event dispatching mapping browser DOM events to exported WebAssembly handler functions.
-  - Built-in Web Worker spawning, timer queues, and WASI standard streams.
+  - Same-instance deferred thread spawning (`setTimeout`; no Web Workers yet), timer queues, and WASI standard streams.
 - **Arithmetic & Primitive Types**:
   - Primitive and return type mapping (`void`, `int`, `boolean`, `char`, `long`, `float`, `double`).
   - Arithmetic and bitwise binary operators (`+`, `-`, `*`, `/`, `%`, `&`, `|`, `^`, `<<`, `>>`, `>>>`).
@@ -479,11 +479,11 @@ When compiling a Maven project that references external dependencies (such as ut
 2. **Deterministic SHA-256 Cache Check**: Computes a SHA-256 hash of each dependency JAR and checks the local Maven repository (`~/.m2/repository/{groupId}/{artifactId}/{version}/{artifactId}-{version}-javaw.wat` and companion `-javaw.json`).
 3. **Bytecode Compilation on Cache Miss**:
    - Parses `.class` bytecode via OW2 ASM.
-   - Restructures unstructured JVM jumps (`goto`, `ifeq`, `tableswitch`, etc.) into WebAssembly structured control flow (`block`, `loop`, `br`, `br_if`) using the **Relooper algorithm**.
+   - Restructures unstructured JVM jumps (`goto`, `ifeq`, `tableswitch`, etc.) into WebAssembly structured control flow (`block`, `loop`, `br`, `br_if`) with a state-variable dispatch loop that is correct for any CFG. A Relooper prototype is tested but not used in code generation.
    - Lowers JVM stack instructions and allocates WebAssembly locals.
    - Saves the precompiled `.wasm` artifact and metadata JSON directly into `~/.m2/repository`.
 4. **Instant $O(1)$ Cache Hit**: Reuses previously compiled `.wasm` artifacts on subsequent builds without reparsing or recompiling bytecode.
-5. **Static Linking**: Merges application WebAssembly modules with dependency WebAssembly units into the final application bundle using `WasmLinker`.
+5. **Linking (prototype)**: `WasmLinker` splices application and dependency WAT text. It does not reconcile tables or heaps, and linked modules are not execution-tested; the replacement is Phase 8 in [Todo.md](Todo.md).
 
 ### 3. Plugin Configuration Parameters
 
