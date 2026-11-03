@@ -87,7 +87,7 @@ async function runTests() {
         assert.equal((await request('/api/products')).body.length, 1);
 
         // A fresh Wasm instance has its own database; there is no JavaScript row store.
-        const { instance } = await createSpringWeb(fs.readFileSync(path.join(__dirname, 'SpringBootApp.wasm')));
+        const { instance } = await createSpringWeb(fs.readFileSync(path.join(__dirname, 'target', 'generated-wasm', 'SpringBootApp.wasm')));
         const e = instance.exports;
         const ptr = e.ProductController_handleGetAll(e.__javaw_controller_ProductController());
         assert.equal(new DataView(e.memory.buffer).getInt32(ptr, true), 3);
@@ -96,7 +96,7 @@ async function runTests() {
         const after = e.ProductController_handleGetAll(e.__javaw_controller_ProductController());
         assert.equal(new DataView(e.memory.buffer).getInt32(after, true), 3);
         // Exercise the actual bridge's collection boundary while keeping live repository rows.
-        const web = await createSpringWeb(fs.readFileSync(path.join(__dirname, 'SpringBootApp.wasm')));
+        const web = await createSpringWeb(fs.readFileSync(path.join(__dirname, 'target', 'generated-wasm', 'SpringBootApp.wasm')));
         async function invoke(method, route, body) {
             const { Readable } = require('node:stream');
             const req = Readable.from(body === undefined ? [] : [JSON.stringify(body)]); req.method = method;

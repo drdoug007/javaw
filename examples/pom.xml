@@ -67,6 +67,35 @@
                     </execution>
                 </executions>
             </plugin>
+            <plugin>
+                <!-- Copy the showcase pages next to the generated modules, so target/generated-wasm is the servable site. -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>copy-showcase-pages</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/generated-wasm</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>${project.basedir}</directory>
+                                    <includes>
+                                        <include>**/*.html</include>
+                                    </includes>
+                                    <excludes>
+                                        <exclude>target/**</exclude>
+                                        <exclude>springboot-h2/**</exclude>
+                                    </excludes>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 </project>

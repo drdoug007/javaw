@@ -21,6 +21,7 @@
 
 ## Validation
 
+- Tests and builds write generated sources and outputs (`.wat`, `.wasm`, source maps, copied runtime scripts) under `target/` directories, never into the source tree. Do not commit generated modules.
 - For bytecode changes run `mvn -o -pl javaw-bytecode -am -Dtest='one.dastec.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false test`.
 - Use malformed ASM fixtures for admission checks and executable javac-to-Wasm comparisons for supported behavior. Runtime tests require `wat2wasm` and Node.
 - Run `python3 runtime-target/audit.py --check-baseline` when changing admission or the compiler revision. Review generated reports before refreshing `runtime-target/audit-baseline.json`; a revision-only change should leave inventory counts unchanged.

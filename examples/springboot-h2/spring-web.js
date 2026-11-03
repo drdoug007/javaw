@@ -1,5 +1,6 @@
 // HTTP marshalling only. Controllers, repository rows and generated IDs live in Wasm.
-const { instantiateJavaw } = require('./javaw-runtime.js');
+// The plugin copies the runtime that matches the compiled module next to it in target/generated-wasm.
+const { instantiateJavaw } = require('./target/generated-wasm/javaw-runtime.js');
 const { ExactNumber, parseExactJSON, stringifyExactJSON } = require('./exact-json.js');
 
 async function createSpringWeb(wasmBytes) {

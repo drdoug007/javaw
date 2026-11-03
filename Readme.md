@@ -1583,19 +1583,18 @@ The repository includes a suite of standalone, fully functional example applicat
 
 #### Running the Interactive Feature Showcase
 
-An interactive multi-tab web showcase is provided at `examples/index.html`. You can compile all examples and run the showcase locally using Maven and any local HTTP server:
+An interactive multi-tab web showcase is provided at `examples/index.html`. Generated modules are never written into the source tree. The `examples` build compiles every demo into `examples/target/generated-wasm`, copies the showcase pages and `javaw-runtime.js` next to them, and the result is the servable site:
 
 ```bash
-# Option 1: Compile all examples automatically via Maven Multi-Module build
-mvn clean package
+# Build the compiler and plugin, then the examples (about 30 s for the nine demos)
+mvn -pl javaw-maven-plugin,examples -am package -DskipTests
 
-# Option 2: Compile a single example explicitly using the standalone compiler CLI
-java -jar javaw-core/target/javaw-core-1.0-SNAPSHOT.jar examples/todo/TodoApp.java
-
-# Open the showcase in your browser
-python3 -m http.server 8000
-# Navigate to: http://localhost:8000/examples/index.html
+# Serve the generated site
+python3 -m http.server 8000 --directory examples/target/generated-wasm
+# Navigate to: http://localhost:8000/index.html
 ```
+
+`AppBrowserTest` in `javaw-core` compiles the demos it exercises into `javaw-core/target/browser-test` and serves that directory over the source tree.
 
 ---
 
@@ -1628,6 +1627,7 @@ The application runs its `@Bean ApplicationRunner` lambda once at startup, inser
 
 ```bash
 # Build the compiler/plugin and this example together, avoiding stale installed plugins.
+# The module and its matching javaw-runtime.js are written to examples/springboot-h2/target/generated-wasm.
 mvn -pl javaw-maven-plugin,examples/springboot-h2 -am package -DskipTests
 
 # Start the API and dashboard on port 8080.
@@ -1663,7 +1663,7 @@ Include `javaw-runtime.js` and instantiate the WebAssembly module:
     <script src="javaw-core/src/main/resources/javaw-runtime.js"></script>
     <script>
         async function run() {
-            const response = await fetch('javaw-core/src/test/java/one/dastec/javaw/App.wasm');
+            const response = await fetch('App.wasm'); // your compiled module, e.g. from target/generated-wasm
             const wasmBytes = await response.arrayBuffer();
             const { exports } = await Javaw.instantiateJavaw(wasmBytes);
             

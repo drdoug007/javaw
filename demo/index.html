@@ -69,7 +69,8 @@
     <script>
         async function init() {
             try {
-                const response = await fetch('../src/test/java/one/dastec/javaw/App.wasm');
+                // AppBrowserTest compiles javaw-core's test App.java to javaw-core/target/browser-test/demo/App.wasm and serves it here.
+                const response = await fetch('App.wasm');
                 const wasmBytes = await response.arrayBuffer();
                 const runtime = new Javaw.JavawRuntime(document);
                 const term = runtime.createTerminal('#terminal-container', {

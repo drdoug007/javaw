@@ -2,7 +2,8 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-const wasmPath = path.join(__dirname, 'SpringBootApp.wasm');
+// Built by `mvn -pl javaw-maven-plugin,examples/springboot-h2 -am package -DskipTests`.
+const wasmPath = path.join(__dirname, 'target', 'generated-wasm', 'SpringBootApp.wasm');
 if (!fs.existsSync(wasmPath)) {
     console.error('Error: SpringBootApp.wasm not found at ' + wasmPath);
     console.error('Please run "mvn compile" in this directory or root first to compile the WebAssembly module.');

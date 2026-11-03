@@ -3,3 +3,11 @@ dependency-reduced-pom.xml
 .DS_Store
 *.class
 .junie/
+# Generated WebAssembly and source maps belong in target/ directories, never in the source tree.
+*.wat
+*.wasm
+*.wat.map
+*.wasm.map
+# Copies of javaw-runtime.js are build outputs; the source is javaw-core/src/main/resources/javaw-runtime.js.
+examples/javaw-runtime.js
+examples/springboot-h2/javaw-runtime.js

@@ -33,25 +33,17 @@ public class AppBrowserTest {
     private static Playwright playwright;
     private static Browser browser;
 
+    /** Generated modules live here, mirroring their URL paths; the server prefers them over the source tree. */
+    private static final Path GENERATED = Paths.get("target/browser-test").toAbsolutePath().normalize();
+
     @BeforeAll
     public static void setUp() throws Exception {
-        // 1. Ensure App.java is compiled to App.wat and App.wasm
-        Path appJavaPath = Paths.get("src/test/java/one/dastec/javaw/App.java").toAbsolutePath().normalize();
-        CompilationUnit cu = StaticJavaParser.parse(appJavaPath);
-        String watContent = JavacToWasm.generateWat(cu);
-        Path appWatPath = Paths.get("src/test/java/one/dastec/javaw/App.wat").toAbsolutePath().normalize();
-        try (FileWriter writer = new FileWriter(appWatPath.toFile())) {
-            writer.write(watContent);
-        }
-
-        Path appWasmPath = Paths.get("src/test/java/one/dastec/javaw/App.wasm").toAbsolutePath().normalize();
-        try {
-            Process process = new ProcessBuilder("wat2wasm", "--enable-threads", "--enable-exceptions", appWatPath.toString(), "-o", appWasmPath.toString())
-                    .redirectErrorStream(true)
-                    .start();
-            process.waitFor();
-        } catch (IOException ignored) {
-        }
+        // 1. Compile the test app and every demo page these tests load. Nothing is written into the source tree,
+        // and a compile or assembly failure fails the class instead of serving a stale module.
+        compile(Paths.get("src/test/java/one/dastec/javaw/App.java"), "demo/App");
+        for (String demo : new String[]{"todo/TodoApp", "canvas/GameOfLife", "simd/SimdParticles", "jsinterop/JsInteropShowcase",
+                "terminal/WasiShellDemo", "bytecode/BytecodeAlgorithmsDemo", "log4j/Log4j2Demo"})
+            compile(Paths.get("../examples/" + demo + ".java"), "examples/" + demo);
 
         // 2. Start lightweight local HTTP server to serve demo files
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
@@ -62,6 +54,18 @@ public class AppBrowserTest {
         // 3. Initialize Playwright and Browser
         playwright = Playwright.create();
         browser = playwright.chromium().launch(new BrowserType.LaunchOptions().setHeadless(true));
+    }
+
+    /** Writes {@code urlPath}.wat and .wasm under {@link #GENERATED}. */
+    private static void compile(Path source, String urlPath) throws Exception {
+        String wat = JavacToWasm.generateWat(StaticJavaParser.parse(source.toAbsolutePath().normalize()));
+        Path watPath = GENERATED.resolve(urlPath + ".wat"), wasmPath = GENERATED.resolve(urlPath + ".wasm");
+        Files.createDirectories(watPath.getParent());
+        Files.writeString(watPath, wat);
+        Process process = new ProcessBuilder("wat2wasm", "--enable-threads", "--enable-exceptions", "--enable-annotations",
+                watPath.toString(), "-o", wasmPath.toString()).redirectErrorStream(true).start();
+        String output = new String(process.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        assertEquals(0, process.waitFor(), "wat2wasm failed for " + source + ": " + output);
     }
 
     @AfterAll
@@ -430,25 +434,6 @@ public class AppBrowserTest {
 
     @Test
     public void testLog4j2DemoInBrowser() throws Exception {
-        // Compile Log4j2Demo if needed
-        Path log4jJavaPath = Paths.get("examples/log4j/Log4j2Demo.java").toAbsolutePath().normalize();
-        if (!Files.exists(log4jJavaPath)) {
-            log4jJavaPath = Paths.get("../examples/log4j/Log4j2Demo.java").toAbsolutePath().normalize();
-        }
-        if (Files.exists(log4jJavaPath)) {
-            CompilationUnit cu = StaticJavaParser.parse(log4jJavaPath);
-            String wat = JavacToWasm.generateWat(cu);
-            Path watPath = log4jJavaPath.getParent().resolve("Log4j2Demo.wat");
-            Path wasmPath = log4jJavaPath.getParent().resolve("Log4j2Demo.wasm");
-            Files.writeString(watPath, wat);
-            try {
-                Process process = new ProcessBuilder("wat2wasm", "--enable-threads", "--enable-exceptions", watPath.toString(), "-o", wasmPath.toString())
-                        .redirectErrorStream(true)
-                        .start();
-                process.waitFor();
-            } catch (IOException ignored) {}
-        }
-
         Page page = browser.newPage();
         java.util.List<String> consoleErrors = new java.util.ArrayList<>();
         page.onConsoleMessage(msg -> {
@@ -489,24 +474,6 @@ public class AppBrowserTest {
 
     @Test
     public void testTodoAppInBrowser() throws Exception {
-        Path todoJavaPath = Paths.get("examples/todo/TodoApp.java").toAbsolutePath().normalize();
-        if (!Files.exists(todoJavaPath)) {
-            todoJavaPath = Paths.get("../examples/todo/TodoApp.java").toAbsolutePath().normalize();
-        }
-        if (Files.exists(todoJavaPath)) {
-            CompilationUnit cu = StaticJavaParser.parse(todoJavaPath);
-            String wat = JavacToWasm.generateWat(cu);
-            Path watPath = todoJavaPath.getParent().resolve("TodoApp.wat");
-            Path wasmPath = todoJavaPath.getParent().resolve("TodoApp.wasm");
-            Files.writeString(watPath, wat);
-            try {
-                Process process = new ProcessBuilder("wat2wasm", "--enable-threads", "--enable-exceptions", watPath.toString(), "-o", wasmPath.toString())
-                        .redirectErrorStream(true)
-                        .start();
-                process.waitFor();
-            } catch (IOException ignored) {}
-        }
-
         Page page = browser.newPage();
         java.util.List<String> consoleErrors = new java.util.ArrayList<>();
         page.onConsoleMessage(msg -> {
@@ -527,24 +494,6 @@ public class AppBrowserTest {
 
     @Test
     public void testBytecodeAlgorithmsDemoInBrowser() throws Exception {
-        Path bytecodeJavaPath = Paths.get("examples/bytecode/BytecodeAlgorithmsDemo.java").toAbsolutePath().normalize();
-        if (!Files.exists(bytecodeJavaPath)) {
-            bytecodeJavaPath = Paths.get("../examples/bytecode/BytecodeAlgorithmsDemo.java").toAbsolutePath().normalize();
-        }
-        if (Files.exists(bytecodeJavaPath)) {
-            CompilationUnit cu = StaticJavaParser.parse(bytecodeJavaPath);
-            String wat = JavacToWasm.generateWat(cu);
-            Path watPath = bytecodeJavaPath.getParent().resolve("BytecodeAlgorithmsDemo.wat");
-            Path wasmPath = bytecodeJavaPath.getParent().resolve("BytecodeAlgorithmsDemo.wasm");
-            Files.writeString(watPath, wat);
-            try {
-                Process process = new ProcessBuilder("wat2wasm", "--enable-threads", "--enable-exceptions", watPath.toString(), "-o", wasmPath.toString())
-                        .redirectErrorStream(true)
-                        .start();
-                process.waitFor();
-            } catch (IOException ignored) {}
-        }
-
         Page page = browser.newPage();
         java.util.List<String> consoleErrors = new java.util.ArrayList<>();
         page.onConsoleMessage(msg -> {
@@ -726,8 +675,11 @@ public class AppBrowserTest {
                 path = path.substring(1);
             }
             Path filePath = Paths.get(path).toAbsolutePath().normalize();
+            Path generated = GENERATED.resolve(path).normalize();
 
-            if (path.endsWith("javaw-runtime.js")) {
+            if (generated.startsWith(GENERATED) && Files.isRegularFile(generated)) {
+                filePath = generated;
+            } else if (path.endsWith("javaw-runtime.js")) {
                 Path r1 = Paths.get("src/main/resources/javaw-runtime.js").toAbsolutePath().normalize();
                 Path r2 = Paths.get("../javaw-core/src/main/resources/javaw-runtime.js").toAbsolutePath().normalize();
                 if (Files.exists(r1)) {

@@ -64,7 +64,7 @@
                         </goals>
                         <configuration>
                             <sourceDirectory>${project.basedir}/src/main/java</sourceDirectory>
-                            <outputDirectory>${project.basedir}</outputDirectory>
+                            <outputDirectory>${project.build.directory}/generated-wasm</outputDirectory>
                             <batchMode>true</batchMode>
                             <moduleName>SpringBootApp</moduleName>
                             <optimizationLevel>-O3</optimizationLevel>
