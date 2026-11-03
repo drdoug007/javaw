@@ -403,6 +403,7 @@ Phase 1 source-resolution foundations and source-backed Optional/closures are im
 
 - **Java Development Kit (JDK)**: Version 17 or higher
 - **Apache Maven**: Version 3.6 or higher
+- **JDK 17 and Python 3** (for building `javaw-bytecode`): the build derives its Unicode 13 tables from a JDK 17 installation into `target/`. It finds the JDK through `-Djavaw.jdk17.home=<path>`, `JAVA_HOME_17` or, on macOS, `java_home -v 17`; see [generated Unicode tables](docs/bytecode-unicode-case.md#reproducible-data).
 - **WABT (`wat2wasm`)** (optional): For compiling `.wat` text to `.wasm` binary modules directly from the CLI or Maven plugin
 - **Binaryen (`wasm-opt`)** (optional): For optimizing `.wasm` binary size and execution speed with `-O3`
 - **Node.js** (optional): For executing the automated end-to-end test suite

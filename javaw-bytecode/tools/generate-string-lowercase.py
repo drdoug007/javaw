@@ -2,7 +2,7 @@
 """Extract reproducible Java 17 ROOT word-boundary data for String lowercase contexts."""
 import argparse,subprocess,tempfile,zipfile
 from pathlib import Path
-p=argparse.ArgumentParser(description=__doc__);p.add_argument('--java-home',type=Path,required=True);p.add_argument('--check',action='store_true');a=p.parse_args()
+p=argparse.ArgumentParser(description=__doc__);p.add_argument('--java-home',type=Path,required=True);p.add_argument('--check',action='store_true');p.add_argument('--output',type=Path,required=True,help='file to write (under target/)');a=p.parse_args()
 source='''import java.text.*;import java.util.*;import java.lang.reflect.*;
 public class LowerData {
  static Object field(Object b,String name)throws Exception{Field f=b.getClass().getDeclaredField(name);f.setAccessible(true);return f.get(b);}
@@ -69,7 +69,8 @@ out+=''' };
  public static boolean look(int state){return(FLAGS.charAt(state)&2)!=0;}
 }
 '''.replace('COUNT',str(len(rows))).replace('CATEGORIES',str(categories))
-target=Path(__file__).resolve().parents[1]/'src/main/resources/exception-runtime/javaw/runtime/StringLowerData.java'
+target=a.output
+target.parent.mkdir(parents=True,exist_ok=True)
 if a.check:
  if target.read_text()!=out:raise SystemExit('Lowercase word tables differ; regenerate and review')
 else:target.write_text(out)

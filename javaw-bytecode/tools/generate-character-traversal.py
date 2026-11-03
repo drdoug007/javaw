@@ -8,6 +8,7 @@ import tempfile
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--java-home',type=Path,required=True)
 parser.add_argument('--check',action='store_true')
+parser.add_argument('--output',type=Path,required=True,help='file to write (under target/)')
 args=parser.parse_args()
 source='''
 public class TraversalData {
@@ -45,7 +46,8 @@ with tempfile.TemporaryDirectory(prefix='javaw-traversal-') as temp:
     (root/'TraversalData.java').write_text(source)
     subprocess.run([str(args.java_home/'bin/javac'),str(root/'TraversalData.java')],check=True)
     output=subprocess.check_output([str(args.java_home/'bin/java'),'-cp',temp,'TraversalData'],text=True)
-target=Path(__file__).resolve().parents[1]/'src/test/resources/character-traversal-jdk17.txt'
+target=args.output
+target.parent.mkdir(parents=True,exist_ok=True)
 if args.check:
     if target.read_text()!=output:raise SystemExit('Character traversal oracle differs; regenerate and review')
 else:

@@ -8,6 +8,7 @@ import tempfile
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--java-home', type=Path, required=True, help='JDK 17 installation')
 parser.add_argument('--check', action='store_true')
+parser.add_argument('--output',type=Path,required=True,help='file to write (under target/)')
 args = parser.parse_args()
 source = '''
 public class CaseData {
@@ -74,7 +75,8 @@ output += '''    private static int number(String data,int index){return (data.c
     public static int lower(int code){return convert(code,LOWER);}
 }
 '''
-target = Path(__file__).resolve().parents[1] / 'src/main/resources/exception-runtime/javaw/runtime/UnicodeCase.java'
+target=args.output
+target.parent.mkdir(parents=True,exist_ok=True)
 if args.check:
     if target.read_text() != output:
         raise SystemExit('Unicode case tables differ; regenerate and review')

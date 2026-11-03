@@ -14,7 +14,7 @@ The comparison contract guarantees equality and ordering signs. Nonzero comparis
 
 ## Reproducible data
 
-`javaw-bytecode/tools/generate-unicode-case.py --java-home <jdk-17-home> --check` checks the committed tables against the public Character API of a JDK 17 installation. Omit `--check` to regenerate for review. The generator rejects other Java feature versions and prints independent whole-domain reference checksums before compressing the mappings into 676 uppercase and 660 lowercase ranges.
+The tables are not committed. In the `generate-resources` phase, the `javaw-bytecode` build runs `tools/generate-jdk17-data.py`, which derives them from the public Character API of a JDK 17 installation into `target/generated-resources/jdk17`. These are `UnicodeCase.java` from `generate-unicode-case.py`, plus the properties, uppercase and lowercase tables and the test oracle in `target/generated-test-resources/jdk17`. The JDK comes from `-Djavaw.jdk17.home`, `JAVA_HOME_17` (also `_X64`/`_ARM64`) or, on macOS, `java_home -v 17`, and the build fails if none is a JDK 17. Outputs are regenerated only when a generator script or the JDK changes. Each generator takes `--output <file>` and `--check`, which compares with an existing output. The generator rejects other Java feature versions and prints independent whole-domain reference checksums before compressing the mappings into 676 uppercase and 660 lowercase ranges.
 
 Each range stores a start, end and signed delta. Packed UTF-16 constants avoid thousands of array initializer stores and a large Wasm initializer function. Runtime conversion uses binary search and never delegates to a JavaScript or host Unicode implementation.
 

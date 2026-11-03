@@ -8,6 +8,7 @@ import tempfile
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--java-home', type=Path, required=True)
 parser.add_argument('--check', action='store_true')
+parser.add_argument('--output',type=Path,required=True,help='file to write (under target/)')
 args = parser.parse_args()
 source = '''
 public class PropertyData {
@@ -83,7 +84,8 @@ output+='''    };
     public static int numeric(int code){int row=find(code);return row<0?-1:number(row,3);}
 }
 '''.replace('COUNT',str(len(rows)))
-target=Path(__file__).resolve().parents[1]/'src/main/resources/exception-runtime/javaw/runtime/UnicodeProperties.java'
+target=args.output
+target.parent.mkdir(parents=True,exist_ok=True)
 if args.check:
     if target.read_text()!=output:raise SystemExit('Unicode properties differ; regenerate and review')
 else:target.write_text(output)

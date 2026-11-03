@@ -79,10 +79,10 @@ Artifact SHA-256 values:
 
 ## Reproduction
 
-Generate/check the pinned data with:
+The `javaw-bytecode` build generates the data into `target/` from a JDK 17 installation (see [generated Unicode tables](bytecode-unicode-case.md#reproducible-data)). Reproduce and validate with:
 
 ```sh
-python3 javaw-bytecode/tools/generate-string-lowercase.py --java-home <jdk-17-home> --check
+mvn -o -pl javaw-bytecode -am process-resources -Djavaw.jdk17.home=<jdk-17-home>
 mvn -o -pl javaw-bytecode -am -Dtest='one.dastec.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false -DforkCount=4 test
 python3 runtime-target/audit.py --check-baseline
 ```

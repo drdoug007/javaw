@@ -2,7 +2,7 @@
 """Generate Java 17 String full uppercase expansions and canonical combining classes."""
 import argparse,subprocess,tempfile
 from pathlib import Path
-p=argparse.ArgumentParser(description=__doc__);p.add_argument('--java-home',type=Path,required=True);p.add_argument('--check',action='store_true');a=p.parse_args()
+p=argparse.ArgumentParser(description=__doc__);p.add_argument('--java-home',type=Path,required=True);p.add_argument('--check',action='store_true');p.add_argument('--output',type=Path,required=True,help='file to write (under target/)');a=p.parse_args()
 source='''import java.util.Locale;
 public class UpperData { public static void main(String[] args) {
  if(Runtime.version().feature()!=17)throw new IllegalArgumentException("JDK 17 required");
@@ -45,7 +45,8 @@ out+=''' public static String expansion(int cp){int low=0,high=KEYS.length-1;whi
  public static int combining(int cp){int low=0,high=CLASSES.length/3-1;while(low<=high){int m=(low+high)>>>1,i=m*3;if(cp<CLASSES[i])high=m-1;else if(cp>CLASSES[i+1])low=m+1;else return CLASSES[i+2];}return 0;}
 }
 '''
-target=Path(__file__).resolve().parents[1]/'src/main/resources/exception-runtime/javaw/runtime/StringUpperData.java'
+target=a.output
+target.parent.mkdir(parents=True,exist_ok=True)
 if a.check:
  if target.read_text()!=out:raise SystemExit('Uppercase tables differ')
 else:target.write_text(out)
