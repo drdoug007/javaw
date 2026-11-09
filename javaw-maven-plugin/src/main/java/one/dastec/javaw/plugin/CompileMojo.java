@@ -1,5 +1,6 @@
 package one.dastec.javaw.plugin;
 
+import one.dastec.javaw.Wat2Wasm;
 import one.dastec.javaw.JavacToWasm;
 import one.dastec.javaw.bytecode.cache.CacheMetadata;
 import one.dastec.javaw.bytecode.cache.LocalM2CacheManager;
@@ -312,17 +313,9 @@ public class CompileMojo extends AbstractMojo {
 
             // Re-compile linked WAT to WASM if wat2wasm is present
             if (wasmPath != null) {
-                List<String> cmd = new ArrayList<>();
-                cmd.add("wat2wasm");
-                if (enableThreads) {
-                    cmd.add("--enable-threads");
-                }
-                cmd.add("--enable-exceptions");
-                cmd.add("--enable-multi-memory");
-                cmd.add("--enable-annotations");
-                cmd.add(watPath.toString());
-                cmd.add("-o");
-                cmd.add(wasmPath.toString());
+                List<String> cmd = enableThreads
+                        ? Wat2Wasm.command(watPath, wasmPath, Wat2Wasm.THREADS, Wat2Wasm.EXCEPTIONS, Wat2Wasm.MULTI_MEMORY, Wat2Wasm.ANNOTATIONS)
+                        : Wat2Wasm.command(watPath, wasmPath, Wat2Wasm.EXCEPTIONS, Wat2Wasm.MULTI_MEMORY, Wat2Wasm.ANNOTATIONS);
                 try {
                     Process p = new ProcessBuilder(cmd).redirectErrorStream(true).start();
                     int exit = p.waitFor();

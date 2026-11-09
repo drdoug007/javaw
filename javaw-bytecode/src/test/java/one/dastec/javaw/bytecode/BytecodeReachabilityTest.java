@@ -1,5 +1,6 @@
 package one.dastec.javaw.bytecode;
 
+import one.dastec.javaw.Wat2Wasm;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.objectweb.asm.*;
@@ -99,7 +100,7 @@ class BytecodeReachabilityTest implements Opcodes {
     private void execute(String wat, String assertions) throws Exception {
         Path input = directory.resolve("reach.wat"), output = directory.resolve("reach.wasm"), script = directory.resolve("run.cjs");
         Files.writeString(input, wat);
-        run("wat2wasm", "--enable-exceptions", input.toString(), "-o", output.toString());
+        run(Wat2Wasm.command(input,output,Wat2Wasm.EXCEPTIONS).toArray(String[]::new));
         Files.writeString(script, """
             const fs=require('node:fs'),assert=require('node:assert/strict');
             const memory=new WebAssembly.Memory({initial:2});let heap=1024;

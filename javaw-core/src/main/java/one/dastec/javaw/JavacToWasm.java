@@ -140,17 +140,9 @@ public class JavacToWasm {
                 if (wasmFilePath.getParent() != null) {
                     Files.createDirectories(wasmFilePath.getParent());
                 }
-                List<String> wat2wasmCmd = new ArrayList<>();
-                wat2wasmCmd.add("wat2wasm");
-                if (enableThreads) {
-                    wat2wasmCmd.add("--enable-threads");
-                }
-                wat2wasmCmd.add("--enable-exceptions");
-                wat2wasmCmd.add("--enable-multi-memory");
-                wat2wasmCmd.add("--enable-annotations");
-                wat2wasmCmd.add(watFilePath.toString());
-                wat2wasmCmd.add("-o");
-                wat2wasmCmd.add(wasmFilePath.toString());
+                List<String> wat2wasmCmd = enableThreads
+                        ? Wat2Wasm.command(watFilePath, wasmFilePath, Wat2Wasm.THREADS, Wat2Wasm.EXCEPTIONS, Wat2Wasm.MULTI_MEMORY, Wat2Wasm.ANNOTATIONS)
+                        : Wat2Wasm.command(watFilePath, wasmFilePath, Wat2Wasm.EXCEPTIONS, Wat2Wasm.MULTI_MEMORY, Wat2Wasm.ANNOTATIONS);
 
                 try {
                     Process process = new ProcessBuilder(wat2wasmCmd)
@@ -688,7 +680,7 @@ public class JavacToWasm {
             java.nio.file.Path tempWasm = java.nio.file.Files.createTempFile("javaw_", ".wasm");
             java.nio.file.Files.writeString(tempWat, watContent);
             try {
-                Process process = new ProcessBuilder("wat2wasm", "--enable-threads", "--enable-exceptions", "--enable-multi-memory", "--enable-annotations", tempWat.toString(), "-o", tempWasm.toString())
+                Process process = new ProcessBuilder(Wat2Wasm.command(tempWat, tempWasm, Wat2Wasm.THREADS, Wat2Wasm.EXCEPTIONS, Wat2Wasm.MULTI_MEMORY, Wat2Wasm.ANNOTATIONS))
                         .redirectErrorStream(true)
                         .start();
                 String errOutput = new String(process.getInputStream().readAllBytes());

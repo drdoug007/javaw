@@ -1,4 +1,5 @@
 package one.dastec.javaw.bytecode;
+import one.dastec.javaw.Wat2Wasm;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.objectweb.asm.*;
@@ -272,7 +273,7 @@ public class Metadata {
     }
     private void execute(String wat,String expected) throws Exception {
         Path input=directory.resolve("metadata.wat"),output=directory.resolve("metadata.wasm"),script=directory.resolve("run.cjs");
-        Files.writeString(input,wat);run("wat2wasm","--enable-exceptions","--debug-names",input.toString(),"-o",output.toString());
+        Files.writeString(input,wat);run(Wat2Wasm.command(input,output,Wat2Wasm.EXCEPTIONS, "--debug-names").toArray(String[]::new));
         Files.writeString(script,"""
             const fs=require('node:fs'),assert=require('node:assert/strict');
             const compiled=new WebAssembly.Module(fs.readFileSync(process.argv[2]));

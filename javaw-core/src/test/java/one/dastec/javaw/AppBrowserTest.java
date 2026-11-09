@@ -62,8 +62,7 @@ public class AppBrowserTest {
         Path watPath = GENERATED.resolve(urlPath + ".wat"), wasmPath = GENERATED.resolve(urlPath + ".wasm");
         Files.createDirectories(watPath.getParent());
         Files.writeString(watPath, wat);
-        Process process = new ProcessBuilder("wat2wasm", "--enable-threads", "--enable-exceptions", "--enable-annotations",
-                watPath.toString(), "-o", wasmPath.toString()).redirectErrorStream(true).start();
+        Process process = new ProcessBuilder(Wat2Wasm.command(watPath, wasmPath, Wat2Wasm.THREADS, Wat2Wasm.EXCEPTIONS, Wat2Wasm.ANNOTATIONS)).redirectErrorStream(true).start();
         String output = new String(process.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
         assertEquals(0, process.waitFor(), "wat2wasm failed for " + source + ": " + output);
     }
@@ -156,7 +155,7 @@ public class AppBrowserTest {
             writer.write(watContent);
         }
 
-        Process process = new ProcessBuilder("wat2wasm", "--enable-threads", "--enable-exceptions", tempWat.getAbsolutePath(), "-o", tempWasm.getAbsolutePath())
+        Process process = new ProcessBuilder(Wat2Wasm.command(tempWat.toPath(), tempWasm.toPath(), Wat2Wasm.THREADS, Wat2Wasm.EXCEPTIONS))
                 .redirectErrorStream(true)
                 .start();
         process.waitFor();
@@ -219,7 +218,7 @@ public class AppBrowserTest {
             writer.write(watContent);
         }
 
-        Process process = new ProcessBuilder("wat2wasm", "--enable-threads", "--enable-exceptions", tempWat.getAbsolutePath(), "-o", tempWasm.getAbsolutePath())
+        Process process = new ProcessBuilder(Wat2Wasm.command(tempWat.toPath(), tempWasm.toPath(), Wat2Wasm.THREADS, Wat2Wasm.EXCEPTIONS))
                 .redirectErrorStream(true)
                 .start();
         process.waitFor();
@@ -300,7 +299,7 @@ public class AppBrowserTest {
             writer.write(watContent);
         }
 
-        Process process = new ProcessBuilder("wat2wasm", "--enable-threads", "--enable-exceptions", tempWat.getAbsolutePath(), "-o", tempWasm.getAbsolutePath())
+        Process process = new ProcessBuilder(Wat2Wasm.command(tempWat.toPath(), tempWasm.toPath(), Wat2Wasm.THREADS, Wat2Wasm.EXCEPTIONS))
                 .redirectErrorStream(true)
                 .start();
         process.waitFor();
@@ -366,7 +365,7 @@ public class AppBrowserTest {
             writer.write(watContent);
         }
 
-        Process process = new ProcessBuilder("wat2wasm", "--enable-threads", "--enable-exceptions", tempWat.getAbsolutePath(), "-o", tempWasm.getAbsolutePath())
+        Process process = new ProcessBuilder(Wat2Wasm.command(tempWat.toPath(), tempWasm.toPath(), Wat2Wasm.THREADS, Wat2Wasm.EXCEPTIONS))
                 .redirectErrorStream(true)
                 .start();
         process.waitFor();

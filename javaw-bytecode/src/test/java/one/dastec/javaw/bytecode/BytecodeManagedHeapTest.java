@@ -1,5 +1,6 @@
 package one.dastec.javaw.bytecode;
 
+import one.dastec.javaw.Wat2Wasm;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import javax.tools.ToolProvider;
@@ -183,7 +184,7 @@ class BytecodeManagedHeapTest {
         assertFalse(hosted.contains("__gc_"), "a host-allocator module has no managed heap");
         Path hostedInput = directory.resolve("hosted.wat"), hostedOutput = directory.resolve("hosted.wasm");
         Files.writeString(hostedInput, hosted);
-        run("wat2wasm", "--enable-exceptions", hostedInput.toString(), "-o", hostedOutput.toString());
+        run(Wat2Wasm.command(hostedInput,hostedOutput,Wat2Wasm.EXCEPTIONS).toArray(String[]::new));
         execute(wat, "{initial:2}", """
             // The same calls make the same allocation requests through either allocator.
             const hostMemory=new WebAssembly.Memory({initial:2});let heap=1024,requests=0;
@@ -265,7 +266,7 @@ class BytecodeManagedHeapTest {
     private void execute(String wat, String memory, String assertions) throws Exception {
         Path input = directory.resolve("heap.wat"), output = directory.resolve("heap.wasm"), script = directory.resolve("run.cjs");
         Files.writeString(input, wat);
-        run("wat2wasm", "--enable-exceptions", input.toString(), "-o", output.toString());
+        run(Wat2Wasm.command(input,output,Wat2Wasm.EXCEPTIONS).toArray(String[]::new));
         Files.writeString(script, """
             const fs=require('node:fs'),assert=require('node:assert/strict');
             const memory=new WebAssembly.Memory(%s);

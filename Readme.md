@@ -154,6 +154,7 @@ Phase 1 source-resolution foundations and source-backed Optional/closures are im
   - Strongly-typed `Memory` facade (`one.dastec.javaw.memory.Memory`) supporting `Memory.HEAP`, `Memory.STRINGS`, `Memory.STACK`, `Memory.DEFAULT`, and `Memory.of(name)`.
   - Full AST lowering for memory instructions: typed loads and stores (`loadI32`, `storeI32`, `loadI64`, `storeI64`, `loadF32`, `storeF32`, `loadF64`, `storeF64`, `loadI8`, `storeI8`, `loadI16`, `storeI16`), memory sizing (`size()`), memory growth (`grow(pages)`), block filling (`fill`), and bulk copying across discrete memories (`copy`, `copyFrom`).
   - Automatically configures toolchain flags (`wat2wasm --enable-multi-memory` and `wasm-opt --enable-multimemory`).
+  - `one.dastec.javaw.Wat2Wasm` builds every `wat2wasm` command line. It passes an `--enable-*` feature flag only when the installed `wat2wasm --help` lists it: wabt 1.0.34 needs `--enable-exceptions`, `--enable-multi-memory` and `--enable-annotations`, while wabt 1.0.42 enables those features by default and rejects the flags.
   - JavaScript host runtime support in `javaw-runtime.js` (`getMemory`, `getHeapMemory`, `getStringsMemory`, `getStackMemory`) for multi-memory buffer access and UTF-8 string decoding across memories.
 - **Fixed-Width SIMD (`v128`) Vectorization Facades**:
   - Strongly typed 128-bit vector facades (`one.dastec.javaw.simd.Float32x4`, `Int32x4`, `Vector128`) mapping directly to native WebAssembly `v128` vector value types without heap allocation overhead.
