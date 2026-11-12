@@ -131,4 +131,4 @@ Suggested order of work, by expected payoff:
 - Reduce compilations per test where tests compile the same program twice (most of the slowest tests have 2 compiles).
 - Leave Node and wat2wasm as they are until compile time has dropped. They become worth replacing only once compilation is no longer about 75% of the time.
 
-Next captures to make on a JDK 21: `--label jdk21-baseline --repeat 2`, `--label jdk21-cold --cold`, and `--forks 10` to see whether keeping the forks on performance cores is faster.
+Next captures to make on a JDK 21: `--label jdk21-baseline --repeat 2`, `--label jdk21-cold --cold`, and `--forks 6` and `--forks 10` to find the best fork count between the 4 and 8 measured.
