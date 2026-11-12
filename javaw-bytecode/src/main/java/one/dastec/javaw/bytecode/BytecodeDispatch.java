@@ -47,8 +47,13 @@ public final class BytecodeDispatch {
         final Map<String, Object> typeTests = new HashMap<>();
         /** Descriptor components and object internal names; see {@link #element}. */
         final Map<String, String> elements = new HashMap<>();
-        /** Per symbolic owner: the concrete linked subtypes, in class-id order. */
-        final Map<String, List<Map.Entry<String, Integer>>> concreteSubtypes = new HashMap<>();
+        /**
+         * Per name: the concrete (neither abstract nor interface) linked classes that are it or reach it through
+         * superclass/interface edges, in class-id order. Built on first use; answers both concrete-subtype questions.
+         */
+        private Map<String, List<Map.Entry<String, Integer>>> concreteSubtypes;
+        /** Unrestricted virtual/interface targets per call shape, once caller-dependent checks have passed; see {@link #targets}. */
+        final Map<String, Map<Integer, String>> receiverTargets = new HashMap<>();
         /** The first incomplete or cyclic hierarchy in class-id order, or "" when all are complete; null until checked. */
         String hierarchyFailure;
 
@@ -360,12 +365,8 @@ public final class BytecodeDispatch {
         if (!failure.isEmpty()) throw new IllegalArgumentException(failure);
         return typeTest(target, () -> {
             Set<Integer> result = new LinkedHashSet<>();
-            for (var entry : classIds.entrySet()) {
-                ClassNode type = linked.get(entry.getKey());
-                if ((type.access & (Opcodes.ACC_INTERFACE | Opcodes.ACC_ABSTRACT)) == 0
-                        && layouts.contains(type.name) && isSubtype(type.name, target))
-                    result.add(entry.getValue());
-            }
+            for (var entry : concreteSubtypes(target))
+                if (layouts.contains(linked.get(entry.getKey()).name)) result.add(entry.getValue());
             ClassNode marker = linked.get(target);
             if (target.equals("java/lang/Object") || marker != null && (marker.access & Opcodes.ACC_INTERFACE) != 0
                     && (target.equals("java/lang/Cloneable") || target.equals("java/io/Serializable")))
@@ -844,16 +845,21 @@ public final class BytecodeDispatch {
     /** Lowering-only: omit virtual/interface receiver classes rejected by {@code receivers} from {@link #targets}. */
     void restrictReceivers(java.util.function.Predicate<String> receivers) { this.receivers = receivers; }
 
+    /** The concrete linked subtypes of {@code owner}, including itself, in class-id order. */
     private List<Map.Entry<String, Integer>> concreteSubtypes(String owner) {
-        return program.concreteSubtypes.computeIfAbsent(owner, ignored -> {
-            List<Map.Entry<String, Integer>> result = new ArrayList<>();
+        if (program.concreteSubtypes == null) {
+            // One pass in class-id order: a class is listed under its own name and every name isSubtype accepts for it.
+            Map<String, List<Map.Entry<String, Integer>>> index = new HashMap<>();
             for (var entry : classIds.entrySet()) {
                 ClassNode type = linked.get(entry.getKey());
-                if ((type.access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_INTERFACE)) == 0 && isSubtype(type.name, owner))
-                    result.add(entry);
+                if ((type.access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_INTERFACE)) != 0) continue;
+                index.computeIfAbsent(type.name, ignored -> new ArrayList<>()).add(entry);
+                for (String supertype : supertypes(type.name))
+                    if (!Objects.equals(supertype, type.name)) index.computeIfAbsent(supertype, ignored -> new ArrayList<>()).add(entry);
             }
-            return result;
-        });
+            program.concreteSubtypes = index;
+        }
+        return program.concreteSubtypes.getOrDefault(owner, List.of());
     }
 
     public Map<Integer, String> targets(MethodInsnNode call) {
@@ -873,6 +879,15 @@ public final class BytecodeDispatch {
         if (declared == null || (declared.method.access & Opcodes.ACC_STATIC) != 0)
             throw new IllegalArgumentException("link a matching instance method in the declaring hierarchy");
         checkMemberAccess(declared);
+        // The caller-dependent checks have passed. Unless the protected receiver rule filters receivers by caller, or
+        // lowering restricts them, the receiver loop below depends only on the program, so a successful answer is shared.
+        // Failures are not cached: they are recomputed, in the same order, by every call that reaches them.
+        String shape = receivers == null && !crossPackageProtected(declared)
+                ? call.getOpcode() + (call.itf ? "I" : "C") + call.owner + '.' + call.name + call.desc : null;
+        if (shape != null) {
+            Map<Integer, String> shared = program.receiverTargets.get(shape);
+            if (shared != null) return shared;
+        }
         boolean privateCall = (declared.method.access & Opcodes.ACC_PRIVATE) != 0;
         Map<Integer, String> result = new LinkedHashMap<>();
         for (var entry : arrayOwner ? List.<Map.Entry<String, Integer>>of() : concreteSubtypes(symbolicOwner)) {
@@ -913,6 +928,11 @@ public final class BytecodeDispatch {
             Set<Integer> arrays = arrayOwner ? typeTestIds(call.owner) : typeTestIds(BytecodeObjects.OBJECT);
             for (int id : arrays) if (id < 0)
                 result.put(id, TypeHelper.getMethodFunctionName(BytecodeObjects.OBJECT, call.name, call.desc));
+        }
+        if (shape != null) {
+            Map<Integer, String> shared = Collections.unmodifiableMap(result);
+            program.receiverTargets.put(shape, shared);
+            return shared;
         }
         return result;
     }

@@ -204,3 +204,30 @@ Remaining cost in the same profile:
 - normalization: 6%;
 - runtime helper generation: about 15% (`referenceArrayRuntimeWat`, object and class runtime, collector).
 
+
+## Shared dispatch answers in admission (no output change)
+
+Admission (`ClassBytecodeCompiler.admit`) took 24% of a warm compile. A JFR profile of the warm `Metadata` fixture (`String.format`) put about half of it in `BytecodeDispatch.targets`. `BytecodeCompatibility.validate` calls `targets` for every virtual and interface call in every linked method, and each call walked every concrete receiver below its owner. That is about 330 classes for an `Object` method, and each one paid an implementation lookup and a function-name encoding. The same call shapes recur across the runtime's methods, and so the same answers were computed again and again. The class-id scans behind type tests and concrete-subtype lists did the same for every distinct target.
+
+Two changes share those answers within one dispatch program. Both keep every output the same:
+
+- **Receiver targets per call shape.** `targets` still runs every caller-dependent check, in its original order, on every call: the symbolic class access check, the array-owner type test, declaration resolution and the member access check. Once those checks pass, the receiver loop depends only on the program, with two exceptions: a cross-package protected declaration (the JVM receiver rule filters receivers by caller), and lowering's instantiated-receiver restriction. Outside those two cases the successful answer is stored under its opcode, reference kind, owner, name and descriptor, and returned unmodifiable. Failures are not stored, so every call that reaches one recomputes it and reports the same message.
+- **One concrete-subtype index.** `concreteSubtypes` and the class branch of `typeTestIds` used to scan every class id for each owner or target. They now read one index, built on first use in a single pass in class-id order. The index lists each concrete class under its own name and under every name in its supertype closure. Membership is exactly the old `isSubtype` test, including unlinked names. The order is the old class-id order, and type tests still filter by layout and add the array ids after the classes.
+
+The program is shared only within one compilation's immutable linked map, as for the existing memos (see [per-compilation analysis reuse](#per-compilation-analysis-reuse)). A dispatch built during normalization has its own program.
+
+Results (same machine, GraalVM CE 21.0.2):
+
+| Measurement | Before | After |
+| --- | --- | --- |
+| Warm trivial compile (`return 41+1`), median of 15 after 8 warm-ups | 207–209 ms | 168–171 ms |
+| Warm `Metadata` fixture compile, same method | 296–298 ms | 254–258 ms |
+| Admission share of the `Metadata` compile | 24% | 16% |
+| Prescribed selection compile time, three adjacent runs of each (8 forks) | 299–319 s | 249–284 s |
+| Prescribed selection wall time, same runs | 65–70 s | 58–66 s |
+
+The machine heated up over the suite runs, and both columns drifted upward with it. Each adjacent pair still shows an 11–17% cut in compile time. All 618 tests pass in every run.
+
+Evidence of identical output: all 1,519 `BytecodeCompileOutputs` fingerprints of the prescribed selection match those of the previous commit, which match v259, so the compiler revision is unchanged. Three independent review passes (caller dependence, mutation and memo lifetime, and set and order equivalence against the replaced scans) found no divergence.
+
+Remaining admission cost, in the same profile: `BytecodeCompatibility.validate` takes 8% of a warm compile. Frame analysis takes 9% between admission and lowering, and admission runs it over every linked method. Both are recomputed in every compile. Next for this item: reuse admission results for the unchanged bundled runtime across compilations. A runtime method's admission can depend on user classes: user overrides join its receiver sets, and normalizers rewrite runtime classes. A cross-compilation cache therefore needs a key that covers those inputs.
