@@ -12,7 +12,6 @@ public final class BytecodeDispatch {
     private static final java.util.regex.Pattern ARRAY_DESCRIPTOR = java.util.regex.Pattern.compile("\\[+(?:[ZBCSIJFD]|L[^;]+;)");
     private final Map<String, ClassNode> linked;
     private final String caller;
-    private final BytecodeObjectLayouts layouts;
     private final Program program;
     private final Map<String, Integer> classIds;
     private java.util.function.Predicate<String> receivers;
@@ -37,7 +36,8 @@ public final class BytecodeDispatch {
      */
     private static final class Program {
         final Map<String, ClassNode> linked;
-        final BytecodeObjectLayouts layouts;
+        /** Computed on first use; dispatches built during normalization often answer only access and literal checks. */
+        private BytecodeObjectLayouts layouts;
         final Map<String, Integer> classIds;
         /** Computed on first use; many normalization-time dispatches only answer hierarchy questions. */
         private Map<String, Integer> referenceArrayIds;
@@ -57,10 +57,22 @@ public final class BytecodeDispatch {
         /** The first incomplete or cyclic hierarchy in class-id order, or "" when all are complete; null until checked. */
         String hierarchyFailure;
 
-        Program(Map<String, ClassNode> linked, BytecodeObjectLayouts layouts, Map<String, Integer> classIds) {
+        /** Class-name components and Object, with the ids {@link #arrayIds} gives them first: no instruction scan. */
+        private Map<String, Integer> classComponentIds;
+
+        Program(Map<String, ClassNode> linked, Map<String, Integer> classIds) {
             this.linked = linked;
-            this.layouts = layouts;
             this.classIds = classIds;
+        }
+
+        BytecodeObjectLayouts layouts() {
+            if (layouts == null) layouts = BytecodeObjectLayouts.of(linked);
+            return layouts;
+        }
+
+        Map<String, Integer> classComponentIds() {
+            if (classComponentIds == null) classComponentIds = Collections.unmodifiableMap(classComponents(linked));
+            return classComponentIds;
         }
 
         Map<String, Integer> referenceArrayIds() {
@@ -74,7 +86,6 @@ public final class BytecodeDispatch {
         Map<String, ClassNode> input = linked;
         program = BytecodeAnalysisCache.get(input, "dispatch", () -> program(input));
         this.linked = program.linked;
-        this.layouts = program.layouts;
         this.classIds = program.classIds;
     }
 
@@ -86,18 +97,26 @@ public final class BytecodeDispatch {
             linked.putIfAbsent(BytecodeObjects.OBJECT, BytecodeObjects.declaration());
         }
         Map<String, Integer> classIds = new LinkedHashMap<>();
-        BytecodeObjectLayouts layouts = BytecodeObjectLayouts.of(linked);
         int id = 1;
         for (String name : new TreeSet<>(linked.keySet())) classIds.put(name, id++);
-        return new Program(Collections.unmodifiableMap(linked), layouts, Collections.unmodifiableMap(classIds));
+        return new Program(Collections.unmodifiableMap(linked), Collections.unmodifiableMap(classIds));
     }
 
-    private static Map<String, Integer> arrayIds(Map<String, ClassNode> linked) {
-        Map<String, Integer> referenceArrayIds = new LinkedHashMap<>();
+    private BytecodeObjectLayouts layouts() { return program.layouts(); }
+
+    /** The first entries of {@link #arrayIds}: every linked class name and Object, in name order, from -100 down. */
+    private static Map<String, Integer> classComponents(Map<String, ClassNode> linked) {
+        Map<String, Integer> ids = new LinkedHashMap<>();
         TreeSet<String> components = new TreeSet<>(linked.keySet());
         components.add("java/lang/Object");
         int arrayId = -100;
-        for (String component : components) referenceArrayIds.put(component, arrayId--);
+        for (String component : components) ids.put(component, arrayId--);
+        return ids;
+    }
+
+    private static Map<String, Integer> arrayIds(Map<String, ClassNode> linked) {
+        Map<String, Integer> referenceArrayIds = classComponents(linked);
+        int arrayId = -100 - referenceArrayIds.size();
         TreeSet<String> arrays = new TreeSet<>();
         for (ClassNode type : linked.values()) {
             for (FieldNode field : type.fields) collectArrays(arrays, field.desc);
@@ -161,6 +180,19 @@ public final class BytecodeDispatch {
     }
 
     boolean descriptorAssignable(String from,String to) { return arrayAssignable(from,to); }
+
+    /**
+     * The object descriptors {@code from} (an object descriptor) is assignable to under {@link #descriptorAssignable}:
+     * itself and {@code L<name>;} for each name in its supertype closure, which is exactly where isSubtype holds.
+     */
+    List<String> assignableObjectTargets(String from) {
+        String name = element(from);
+        List<String> result = new ArrayList<>();
+        result.add(from);
+        for (String supertype : supertypes(name))
+            if (supertype != null && !supertype.equals(name)) result.add("L" + supertype + ";");
+        return result;
+    }
 
     private boolean arrayAssignable(String from, String to) {
         if (from.equals(to)) return true;
@@ -301,7 +333,7 @@ public final class BytecodeDispatch {
             Declaration init = ownMethod(name, "<init>", "()V");
             if (init == null || (init.method.access & (Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC | Opcodes.ACC_ABSTRACT | Opcodes.ACC_NATIVE)) != Opcodes.ACC_PUBLIC)
                 throw new IllegalArgumentException("link a public bytecode " + simpleName + "() constructor");
-            Integer size = layouts.sizes().get(name);
+            Integer size = layouts().sizes().get(name);
             if (size == null) throw new IllegalArgumentException("link a complete " + simpleName + " object layout through Object");
             if (kind == BytecodeExceptions.Implicit.OUT_OF_MEMORY || kind == BytecodeExceptions.Implicit.STACK_OVERFLOW) {
                 // The host must reserve this exported prefix. Throwing OOME cannot allocate.
@@ -338,15 +370,20 @@ public final class BytecodeDispatch {
         return id;
     }
 
+    /** The checks {@link #typeTestIds} makes for an array target, in the same order, without computing its ids. */
+    void validateArrayType(String target) {
+        if (!BytecodeDeclarations.validDescriptor(target, false))
+            throw new IllegalArgumentException("use a valid array descriptor");
+        if (BytecodeArrays.primitive(target) != null) return;
+        referenceArrayId(target.substring(1).startsWith("L") ? target.substring(2, target.length()-1) : target.substring(1));
+    }
+
     /** Concrete runtime IDs assignable to a linked class/interface type-test target. */
     public Set<Integer> typeTestIds(String target) {
         if (target.startsWith("[")) {
-            if (!BytecodeDeclarations.validDescriptor(target, false))
-                throw new IllegalArgumentException("use a valid array descriptor");
-            BytecodeArrays.Primitive primitive = BytecodeArrays.primitive(target);
+            BytecodeArrays.Primitive primitive = BytecodeDeclarations.validDescriptor(target, false) ? BytecodeArrays.primitive(target) : null;
             if (primitive != null) return Set.of(primitive.classId());
-            referenceArrayId(target.substring(1).startsWith("L")
-                    ? target.substring(2, target.length()-1) : target.substring(1));
+            validateArrayType(target);
             return typeTest(target, () -> {
                 Set<Integer> ids = new LinkedHashSet<>();
                 for (var entry : referenceArrayIds().entrySet())
@@ -366,7 +403,7 @@ public final class BytecodeDispatch {
         return typeTest(target, () -> {
             Set<Integer> result = new LinkedHashSet<>();
             for (var entry : concreteSubtypes(target))
-                if (layouts.contains(linked.get(entry.getKey()).name)) result.add(entry.getValue());
+                if (layouts().contains(linked.get(entry.getKey()).name)) result.add(entry.getValue());
             ClassNode marker = linked.get(target);
             if (target.equals("java/lang/Object") || marker != null && (marker.access & Opcodes.ACC_INTERFACE) != 0
                     && (target.equals("java/lang/Cloneable") || target.equals("java/io/Serializable")))
@@ -407,7 +444,8 @@ public final class BytecodeDispatch {
             leaf = type.getSort() == Type.OBJECT ? type.getInternalName() : "java/lang/Object";
         }
         if (!leaf.equals("java/lang/Object")) checkClassAccess(leaf);
-        Integer id = referenceArrayIds().get(component);
+        // A class-name component has the same id in both tables; only an array component needs the instruction scan.
+        Integer id = component.startsWith("[") ? referenceArrayIds().get(component) : program.classComponentIds().get(component);
         if (id == null) throw new IllegalArgumentException("link the reference-array component " + component);
         return id;
     }
@@ -915,7 +953,7 @@ public final class BytecodeDispatch {
                 result.put(entry.getValue(), failure.helper);
                 continue;
             }
-            if (!layouts.contains(type.name) || implementation == null
+            if (!layouts().contains(type.name) || implementation == null
                     || (!privateCall && (declared.method.access & Opcodes.ACC_PUBLIC) != 0
                         && (implementation.method.access & Opcodes.ACC_PUBLIC) == 0)
                     || (implementation.method.access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_STATIC | Opcodes.ACC_NATIVE)) != 0)

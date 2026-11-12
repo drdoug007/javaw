@@ -20,7 +20,8 @@ public final class BytecodeClasses {
     public static String symbol(String descriptor) { return "$__mirror"+BytecodeStrings.symbol(descriptor).substring("$__text".length()); }
 
     static void validateLiteral(Type type,BytecodeDispatch dispatch) {
-        if(type.getSort()==Type.ARRAY) dispatch.typeTestIds(type.getDescriptor());
+        // Validation only: the same checks as a type test, without computing which ids pass it.
+        if(type.getSort()==Type.ARRAY) dispatch.validateArrayType(type.getDescriptor());
         else if(type.getSort()==Type.OBJECT) dispatch.checkClassAccess(type.getInternalName());
         else throw new IllegalArgumentException("class literals require an object or array constant; primitive literals use wrapper TYPE fields");
     }
@@ -149,22 +150,35 @@ public final class BytecodeClasses {
     /** The {@code $__type_assignable} table that replaces {@link #TYPE_ASSIGNABLE_STUB}. */
     static String typeAssignableWat(BytecodeDispatch dispatch) {
         Map<String,Integer> types=dispatch.runtimeTypes();
+        // Each row lists the assignable sources in this order; rows are built from indexes instead of comparing all pairs.
+        List<String> order=new ArrayList<>(types.keySet());
+        Map<String,Integer> position=new HashMap<>();
+        for(int i=0;i<order.size();i++)position.put(order.get(i),i);
+        // An object source is assignable to exactly the object targets it reaches: itself and its supertype closure.
+        Map<String,List<Integer>> objectSources=new HashMap<>();
+        List<Integer> arraySources=new ArrayList<>();
+        for(int i=0;i<order.size();i++) {
+            String source=order.get(i);
+            if(source.startsWith("["))arraySources.add(i);
+            else if(source.startsWith("L"))
+                for(String target:dispatch.assignableObjectTargets(source))objectSources.computeIfAbsent(target,ignored->new ArrayList<>()).add(i);
+        }
         StringBuilder out=new StringBuilder();
         out.append("(func $__type_assignable (param $from i32) (param $to i32) (result i32)\n");
         for(var to:types.entrySet()) {
             out.append("local.get $to i32.const ").append(to.getValue()).append(" i32.eq if\ni32.const 0\n");
             String target=to.getKey();
-            // Skips pairs descriptor assignability always rejects: a primitive only from itself, an array only from
-            // an array, and an object type only from an object type or, for Object/Cloneable/Serializable, an array.
+            // Descriptor assignability rejects every other pair: a primitive only from itself, an array only from an
+            // array, and an object type only from an object type or, for Object/Cloneable/Serializable, an array.
             boolean arrays=target.startsWith("[") || target.equals("Ljava/lang/Object;")
                     || target.equals("Ljava/lang/Cloneable;") || target.equals("Ljava/io/Serializable;");
-            for(var from:types.entrySet()) {
-                String source=from.getKey();
-                boolean candidate=target.startsWith("L")?source.startsWith("L") || arrays && source.startsWith("["):
-                        target.startsWith("[")?source.startsWith("["):source.equals(target);
-                if(candidate && dispatch.descriptorAssignable(source,target))
-                    out.append("local.get $from i32.const ").append(from.getValue()).append(" i32.eq i32.or\n");
-            }
+            List<Integer> sources=new ArrayList<>();
+            if(target.startsWith("L"))sources.addAll(objectSources.getOrDefault(target,List.of()));
+            else if(!target.startsWith("["))sources.add(position.get(target));
+            if(arrays)for(int i:arraySources)if(dispatch.descriptorAssignable(order.get(i),target))sources.add(i);
+            Collections.sort(sources);
+            for(int i:sources)
+                out.append("local.get $from i32.const ").append(types.get(order.get(i))).append(" i32.eq i32.or\n");
             out.append("return end\n");
         }
         return out.append("unreachable)\n").toString();

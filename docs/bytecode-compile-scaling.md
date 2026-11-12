@@ -307,4 +307,16 @@ The reports are `javaw-bytecode/target/exit-gate/<jar>/report.md` and `blockers.
   - jackson-core: warm compile ≤ 30 s, completes with `-Xmx4g`, `.wasm` ≤ 20 MB;
   - H2: ≤ 120 s, `-Xmx8g`, ≤ 60 MB.
 
-Next costs in the profile of the jackson-core gate: the `$__type_assignable` table (pairwise over every runtime type, 38% of a compile) and per-site dispatch programs during lambda normalization (27%).
+### Library-scale analysis cost (no output change)
+
+At library scale the profile differs from the small fixtures. In the jackson-core gate, 38% of a compile went to the `$__type_assignable` table, which compared every pair of runtime types with string operations. Another 27% went to lambda and string-concatenation normalization: each site built a fresh dispatch program, with its object layouts and an instruction scan for array types. Changes, all output-preserving:
+
+- **`$__type_assignable` rows come from indexes.** An object source is listed under itself and every name in its supertype closure, exactly the targets `isSubtype` accepts (`BytecodeDispatch.assignableObjectTargets`). Array sources are still checked pairwise, but only against array targets and Object/Cloneable/Serializable. Primitive tokens match only themselves. Each row's sources are emitted in the original type order.
+- **Normalization-time dispatches do less.** A program's object layouts are computed on first use. Class-literal validation of an array type makes the type test's checks without computing its id set (`validateArrayType`). A class-name array component gets its id from the sorted class names, the same id the full table gives it, so only array components need the instruction scan.
+
+| Warm compile (median of 3, `-Xmx1g`) | Before | After |
+| --- | --- | --- |
+| jackson-core gate, 70 classes | 6.88 s | 4.55 s |
+| H2 gate, 99 classes | 8.39 s | 4.89 s |
+
+Both modules are byte-identical before and after. All 1,557 `BytecodeCompileOutputs` fingerprints of the prescribed selection match those of v261 (`1e62ac7`), and 638 tests pass. Two independent review passes found no divergence: one on row membership and order, one on laziness, mutation and exception order. The revision is unchanged.
