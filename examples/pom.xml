@@ -62,6 +62,8 @@
                             <excludes>
                                 <exclude>springboot-h2/**</exclude>
                                 <exclude>**/springboot-h2/**</exclude>
+                                <!-- build-and-run.sh compiles a copy of ForeignWasm.java inside foreign-wasm/target. -->
+                                <exclude>foreign-wasm/target/**</exclude>
                             </excludes>
                         </configuration>
                     </execution>
