@@ -2,6 +2,12 @@
 
 A lightweight, high-performance Java-to-WebAssembly compiler that parses Java source files (`.java`) and compiles them directly into standard WebAssembly Text format (`.wat`) and optimized binary modules (`.wasm`). `javaw` delivers an efficient, standalone runtime pipeline supporting browser Document Object Model (DOM) manipulation, HTML5 Canvas 2D / WebGL graphics, WebAssembly Threads and shared memory atomics, WASI standard I/O, asynchronous timers/fetch, generic JavaScript dynamic interop, standard WebAssembly Exception Handling (`try-catch-finally`, `throw`), and selected object-oriented features.
 
+<p align="center">
+  <a href="examples/nebula-run/"><img src="docs/images/nebula-run.png" width="420" alt="Nebula Run: a comet with a glowing trail in a violet neon maze, chased by diamond-shaped drones, with score, sector and lives above the maze"></a>
+</p>
+
+<p align="center"><em><a href="examples/nebula-run/">Nebula Run</a>: an original maze-chase game whose rules run in Java, compiled from <code>javac</code> bytecode to WebAssembly by <code>javaw-bytecode</code> and drawn on a browser canvas through <code>--native-import</code> bindings. The JVM and Wasm runs produce the same 1.2 million draw commands.</em></p>
+
 ## Namespace and license
 
 Java packages use `one.dastec.javaw` (for example,
