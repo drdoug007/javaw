@@ -66,6 +66,8 @@
                                 <exclude>foreign-wasm/target/**</exclude>
                                 <!-- Plain native methods for javaw-bytecode's native imports; build-and-run.sh compiles it with javac. -->
                                 <exclude>foreign-wasm/bytecode/**</exclude>
+                                <!-- Nebula Run is javac + javaw-bytecode output; nebula-run/build.sh builds it. -->
+                                <exclude>nebula-run/**</exclude>
                             </excludes>
                         </configuration>
                     </execution>

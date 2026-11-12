@@ -113,7 +113,7 @@ const java = new WebAssembly.Instance(javaModule,
     { env: { memory }, golib: go.instance.exports, rustlib: rust.instance.exports }).exports;
 ```
 
-Because the import is the other module's exported function itself, a Java call is a direct Wasm-to-Wasm call.
+Because the import is the other module's exported function itself, a Java call is a direct Wasm-to-Wasm call. The imports can equally be plain JavaScript host functions: [`examples/nebula-run`](../examples/nebula-run) binds its canvas, HUD and audio calls this way.
 
 Contract:
 - **Which methods can be bound.** The method must be a `static native` method declared by an input class of the compilation. Bundled-runtime classes cannot be bound, and only bundled-runtime builds (`--exception-runtime`) accept bindings.
