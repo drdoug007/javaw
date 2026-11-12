@@ -19,7 +19,8 @@
 #
 # --cold removes javaw-bytecode/target/wasm-cache first, so wat2wasm output is not reused.
 # Runs offline (mvn -o), like the prescribed validation command. A failing test does not stop the capture.
-# --java-home sets JAVA_HOME for Maven and the test forks. The tests compile fixtures with the running JDK's javac,
+# --java-home sets JAVA_HOME; JAVA_HOME/bin is put first on PATH because the tests start child JVMs as plain "java".
+# The tests compile fixtures with the running JDK's javac,
 # and the pinned ASM (9.7) and Byte Buddy cannot read class files newer than Java 23 (major 67), so the script refuses
 # a newer JDK unless --allow-new-jdk is given. Use a JDK 21, as CI does.
 set -uo pipefail
@@ -44,7 +45,10 @@ while [ $# -gt 0 ]; do
 done
 
 root=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
-if [ -n "$java_home" ]; then export JAVA_HOME=$java_home PATH="$java_home/bin:$PATH"; fi
+[ -n "$java_home" ] && export JAVA_HOME=$java_home
+# Maven runs on JAVA_HOME, but the tests start reference JVMs as plain "java" from PATH, so put JAVA_HOME first.
+# (SDKMAN's "sdk use" sets JAVA_HOME but can leave another JDK earlier on PATH.)
+[ -n "${JAVA_HOME:-}" ] && export PATH="$JAVA_HOME/bin:$PATH"
 feature=$(java -XshowSettings:properties -version 2>&1 | sed -n 's/^ *java.specification.version = //p')
 if [ "${feature:-0}" -gt 23 ] && [ "$allow_new_jdk" = 0 ]; then
     echo "java is JDK $feature: the pinned ASM and Byte Buddy cannot read its class files, so about 66 tests fail early" >&2

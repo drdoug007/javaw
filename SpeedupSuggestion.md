@@ -63,7 +63,7 @@ javaw-bytecode/perf-capture.sh [--label NAME] [--java-home DIR] [--forks F] [--t
                                [-- EXTRA_MAVEN_ARGS...]
 ```
 
-**Use a JDK 21**, as CI does (Temurin 21 or GraalVM CE 21), through `--java-home` or `JAVA_HOME`. The tests compile fixtures with the running JDK's `javac`. The pinned ASM 9.7 and Byte Buddy cannot read class files newer than Java 23, so on JDK 24 or 25 about 66 tests fail almost at once, and the timings are not comparable. The script refuses such a JDK unless `--allow-new-jdk` is given. JDK 17 runs, but 10 tests fail: two use `List.getFirst()`, and the JVM-comparison tests see JDK 17's older formatting of floating-point values, `BigDecimal` and charsets.
+**Use a JDK 21**, as CI does (Temurin 21 or GraalVM CE 21), through `--java-home` or `JAVA_HOME`. The tests compile fixtures with the running JDK's `javac`. The pinned ASM 9.7 and Byte Buddy cannot read class files newer than Java 23, so on JDK 24 or 25 about 66 tests fail almost at once, and the timings are not comparable. The script refuses such a JDK unless `--allow-new-jdk` is given. The script puts `$JAVA_HOME/bin` first on `PATH`, because the tests start reference JVMs as plain `java`. This matters with SDKMAN: `sdk use java 21.0.2-graalce` sets `JAVA_HOME`, but a JDK earlier on `PATH` (for example `/Library/Java/.../graalvm-25.../bin`) still wins for a bare `java`. JDK 17 runs, but 10 tests fail: two use `List.getFirst()`, and the JVM-comparison tests see JDK 17's older formatting of floating-point values, `BigDecimal` and charsets.
 
 Suggested captures (run them on an idle machine, plugged in):
 
