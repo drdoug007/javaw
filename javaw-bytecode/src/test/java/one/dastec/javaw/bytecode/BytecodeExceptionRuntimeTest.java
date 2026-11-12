@@ -166,12 +166,11 @@ class BytecodeExceptionRuntimeTest implements Opcodes {
         init.visitInsn(RETURN);init.visitMaxs(1,1);init.visitEnd();writer.visitEnd();return writer.toByteArray();
     }
 
-    private String jar(boolean reverse) throws Exception {return jar(reverse,false);}
+    private String jar() throws Exception {return jar(false);}
 
-    private String jar(boolean reverse,boolean arithmetic) throws Exception {
+    private String jar(boolean arithmetic) throws Exception {
         List<String> names=new ArrayList<>(List.of("Fixture","Fault","Child","Other","Step","Worker","Broken","LegacyHandled","ConstructorHandled","ConstructorChained","java/lang/Throwable"));
         if(arithmetic) names.add("java/lang/ArithmeticException");
-        if(reverse) Collections.reverse(names);
         ByteArrayOutputStream bytes=new ByteArrayOutputStream();
         try(JarOutputStream jar=new JarOutputStream(bytes)) {
             for(String name:names) {
@@ -229,7 +228,7 @@ class BytecodeExceptionRuntimeTest implements Opcodes {
             const hostFailed=new WebAssembly.Instance(compiled,{env:{memory,__heap_alloc:()=>{throw sentinel;}}}).exports;
             assert.throws(()=>hostFailed['Fixture.implicit'](0),error=>error===sentinel);
             """);
-        execute(jar(false,true),checks.toString());execute(jar(true,true),checks.toString());
+        execute(jar(true),checks.toString());
     }
 
     @Test void validatesOptedInRuntimeAndEmitsTagWithoutExplicitThrowOrHandlers() {
@@ -313,11 +312,10 @@ class BytecodeExceptionRuntimeTest implements Opcodes {
         run.visitInsn(IRETURN);run.visitMaxs(1,0);run.visitEnd();writer.visitEnd();return writer.toByteArray();
     }
 
-    private String referenceJar(boolean reverse,boolean nulls,boolean casts) throws Exception {
+    private String referenceJar(boolean nulls,boolean casts) throws Exception {
         List<String> names=new ArrayList<>(List.of("References","RefFace","RefBox","RefChild","RefOther","RefSpecial","java/lang/Throwable"));
         if(nulls)names.add("java/lang/NullPointerException");
         if(casts)names.add("java/lang/ClassCastException");
-        if(reverse)Collections.reverse(names);
         ByteArrayOutputStream bytes=new ByteArrayOutputStream();
         try(JarOutputStream jar=new JarOutputStream(bytes)) {
             for(String name:names) {
@@ -340,7 +338,7 @@ class BytecodeExceptionRuntimeTest implements Opcodes {
         return BytecodeCompiler.compileJar(new ByteArrayInputStream(bytes.toByteArray()));
     }
 
-    @Test void mapsNullReceiversNullThrowAndClassInterfaceArrayCastsInEitherJarOrder() throws Exception {
+    @Test void mapsNullReceiversNullThrowAndClassInterfaceArrayCasts() throws Exception {
         referenceFixture();Files.write(directory.resolve("RefSpecial.class"),nullSpecial());
         StringBuilder checks=new StringBuilder();
         try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)) {
@@ -375,14 +373,14 @@ class BytecodeExceptionRuntimeTest implements Opcodes {
             const hostFailed=new WebAssembly.Instance(compiled,{env:{memory,__heap_alloc:()=>{throw sentinel;}}}).exports;
             assert.throws(()=>hostFailed['RefSpecial.run'](),error=>error===sentinel);
             """);
-        execute(referenceJar(false,true,true),checks.toString());execute(referenceJar(true,true,true),checks.toString());
+        execute(referenceJar(true,true),checks.toString());
     }
 
     @Test void referenceExceptionDefinitionsAreIndependentOptIns() throws Exception {
         referenceFixture();
         for(boolean nulls:new boolean[]{false,true}) for(boolean casts:new boolean[]{false,true}) {
             if(nulls && casts)continue;
-            String wat=referenceJar(false,nulls,casts);
+            String wat=referenceJar(nulls,casts);
             assertEquals(nulls,wat.contains("(func $__throw_null_pointer"));
             assertEquals(casts,wat.contains("(func $__throw_class_cast"));
             execute(wat,"""
@@ -496,8 +494,8 @@ class BytecodeExceptionRuntimeTest implements Opcodes {
             });
             assert.equal(failed['ArrayFailures.run'](0,0),503);
             """);
-        for(boolean reverse:new boolean[]{false,true}) {
-            List<String> names=new ArrayList<>(definitions.keySet());if(reverse)Collections.reverse(names);
+        {
+            List<String> names=new ArrayList<>(definitions.keySet());
             ByteArrayOutputStream bytes=new ByteArrayOutputStream();
             try(JarOutputStream jar=new JarOutputStream(bytes)) {
                 for(String name:names){jar.putNextEntry(new JarEntry(name+".class"));jar.write(definitions.get(name));jar.closeEntry();}
@@ -617,8 +615,8 @@ class BytecodeExceptionRuntimeTest implements Opcodes {
                 assert.equal(host['ThrowableProgram.traces'](),15);
             }
             """);
-        for(boolean reverse:new boolean[]{false,true}) for(BytecodeCompiler.Memory memory:List.of(BytecodeCompiler.Memory.managed(),BytecodeCompiler.Memory.hostAllocator())) {
-            List<String> names=new ArrayList<>(List.of("ThrowableProgram","Quiet","Resource","SameResource"));if(reverse)Collections.reverse(names);
+        for(BytecodeCompiler.Memory memory:List.of(BytecodeCompiler.Memory.managed(),BytecodeCompiler.Memory.hostAllocator())) {
+            List<String> names=new ArrayList<>(List.of("ThrowableProgram","Quiet","Resource","SameResource"));
             ByteArrayOutputStream bytes=new ByteArrayOutputStream();
             try(JarOutputStream jar=new JarOutputStream(bytes)) {
                 for(String name:names){jar.putNextEntry(new JarEntry(name+".class"));jar.write(Files.readAllBytes(directory.resolve(name+".class")));jar.closeEntry();}
@@ -706,8 +704,8 @@ class BytecodeExceptionRuntimeTest implements Opcodes {
             for(boolean nullReceiver:new boolean[]{false,true})checks.append("assert.equal(e['LinkProgram.virtual'](").append(nullReceiver?1:0).append("),")
                     .append(jvm.getMethod("virtual",boolean.class).invoke(null,nullReceiver)).append(");");
         }
-        for(boolean reverse:new boolean[]{false,true}) {
-            List<String> names=new ArrayList<>(definitions.keySet());if(reverse)Collections.reverse(names);
+        {
+            List<String> names=new ArrayList<>(definitions.keySet());
             ByteArrayOutputStream bytes=new ByteArrayOutputStream();
             try(JarOutputStream jar=new JarOutputStream(bytes)) {
                 for(String name:names){jar.putNextEntry(new JarEntry(name+".class"));jar.write(definitions.get(name));jar.closeEntry();}
@@ -759,7 +757,7 @@ class BytecodeExceptionRuntimeTest implements Opcodes {
         WasmTestSupport.node(script,output);
     }
 
-    @Test void executesTypedHandlersFinallyRethrowLoopsAndCrossMethodUnwindingInEitherJarOrder() throws Exception {
+    @Test void executesTypedHandlersFinallyRethrowLoopsAndCrossMethodUnwinding() throws Exception {
         fixture();
         try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)) {
             Class<?> jvm=loader.loadClass("Fixture");StringBuilder checks=new StringBuilder();
@@ -783,16 +781,14 @@ class BytecodeExceptionRuntimeTest implements Opcodes {
             checks.append("assert.equal(e['Fixture.boundary'](0),").append(jvm.getMethod("boundary",int.class).invoke(null,0)).append(");");
             assertThrows(java.lang.reflect.InvocationTargetException.class,()->jvm.getMethod("boundary",int.class).invoke(null,1));
             checks.append("assert.throws(()=>e['Fixture.boundary'](1),error=>error instanceof WebAssembly.Exception && error.is(e.__java_exception));");
-            for(boolean reverse:new boolean[]{false,true}) {
-                String wat=jar(reverse);
-                assertEquals(1,wat.split(java.util.regex.Pattern.quote("(tag $__java_exception"),-1).length-1);
-                execute(wat,checks.toString());
-            }
+            String wat=jar();
+            assertEquals(1,wat.split(java.util.regex.Pattern.quote("(tag $__java_exception"),-1).length-1);
+            execute(wat,checks.toString());
         }
     }
 
     @Test void exposesUncaughtIdentityAndKeepsTrapsAndHostExceptionsOutsideJavaHandlers() throws Exception {
-        fixture();String wat=jar(false);
+        fixture();String wat=jar();
         execute(wat,"""
             for(let i=0;i<3;i++) {
                 let exception;try{e['Fixture.escape']();assert.fail('expected throw');}catch(error){exception=error;}

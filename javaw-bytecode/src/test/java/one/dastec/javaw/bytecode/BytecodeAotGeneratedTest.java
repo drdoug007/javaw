@@ -25,15 +25,14 @@ class BytecodeAotGeneratedTest implements Opcodes {
         if(fixtureClasspath!=null)options.addAll(List.of("-classpath",fixtureClasspath));
         options.add(file.toString());
         assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,options.toArray(String[]::new)));
-        return jar(false);
+        return jar();
     }
 
-    private byte[] jar(boolean reverse) throws Exception {
+    private byte[] jar() throws Exception {
         List<Path> files;
         try(var paths=Files.walk(directory)) {
             files=new ArrayList<>(paths.filter(path->path.toString().endsWith(".class")).sorted().toList());
         }
-        if(reverse)Collections.reverse(files);
         ByteArrayOutputStream bytes=new ByteArrayOutputStream();
         try(JarOutputStream jar=new JarOutputStream(bytes)) {
             for(Path file:files){jar.putNextEntry(new JarEntry(directory.relativize(file).toString()));jar.write(Files.readAllBytes(file));jar.closeEntry();}
@@ -97,7 +96,7 @@ class BytecodeAotGeneratedTest implements Opcodes {
                 Object expected=jvm.getMethod(method).invoke(null);checks.append("assert.equal(e['Metadata.").append(method).append("'](),").append(expected).append(expected instanceof Long?"n);\n":");\n");
             }
         }
-        for(boolean reverse:new boolean[]{false,true})execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),checks.toString());
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar())),checks.toString());
         assertArrayEquals(generated,Files.readAllBytes(directory.resolve("Generated.class")),"generated artifact must remain unchanged");
     }
 
@@ -205,7 +204,7 @@ class BytecodeAotGeneratedTest implements Opcodes {
             String checks="assert.equal(e['Metadata.spring'](),"+expected.get(0)+");\n"+
                 "assert.equal(e['Metadata.hibernateProxy'](),"+expected.get(1)+");\n"+
                 "assert.equal(e['Metadata.hibernateEnhancement'](),"+expected.get(2)+");\n";
-            for(boolean reverse:new boolean[]{false,true})execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse)),List.of(List.of("Metadata$Service"))),checks);
+            execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar()),List.of(List.of("Metadata$Service"))),checks);
         } finally {try(var paths=Files.walk(tools)){for(Path path:paths.sorted(Comparator.reverseOrder()).toList())Files.delete(path);}}
     }
 

@@ -24,15 +24,14 @@ class BytecodeDeadCodeTest implements Opcodes {
         if(fixtureClasspath!=null)options.addAll(List.of("-classpath",fixtureClasspath));
         options.add(file.toString());
         assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,options.toArray(String[]::new)));
-        return jar(false);
+        return jar();
     }
 
-    private byte[] jar(boolean reverse) throws Exception {
+    private byte[] jar() throws Exception {
         List<Path> files;
         try(var paths=Files.walk(directory)) {
             files=new ArrayList<>(paths.filter(path->path.toString().endsWith(".class")).sorted().toList());
         }
-        if(reverse)Collections.reverse(files);
         ByteArrayOutputStream bytes=new ByteArrayOutputStream();
         try(JarOutputStream jar=new JarOutputStream(bytes)) {
             for(Path file:files){jar.putNextEntry(new JarEntry(directory.relativize(file).toString()));jar.write(Files.readAllBytes(file));jar.closeEntry();}
@@ -44,19 +43,19 @@ class BytecodeDeadCodeTest implements Opcodes {
         Path file=directory.resolve("café/Über.java");Files.createDirectories(file.getParent());
         Files.writeString(file,"package café; public class Über { public static String run(){return \"Ü\"+new java.util.ArrayList<>(java.util.List.of(1,2));} private static int unused(){return new java.util.concurrent.atomic.AtomicReferenceArray<String>(2).length();} }");
         assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,"--release",release,"-encoding","UTF-8","-d",directory.toString(),file.toString()));
-        String wat=BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(false)));
+        String wat=BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar()));
         assertTrue(wat.contains("(export \""+TypeHelper.watString("café.Über.run")+"\")"),"non-ASCII entry point is a root");
         assertTrue(wat.contains("(export \"java.lang.Throwable.toString\")"),"Throwable inspection stays exported");
         assertFalse(wat.contains(TypeHelper.getMethodFunctionName("café/Über","unused","()I")+" "),"unreachable private method is pruned");
         // Interface dispatch helpers call every linked implementation, so only classes outside reachable dispatch are removed.
         assertFalse(wat.contains("(func "+TypeHelper.getMethodFunctionName("java/util/concurrent/atomic/AtomicReferenceArray","length","()I")),"unreachable runtime class is pruned");
         assertTrue(wat.contains("(func "+TypeHelper.getMethodFunctionName("java/util/ArrayList","size","()I")),"reachable runtime class is kept");
-        String retained=BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(false)),Set.of(TypeHelper.getMethodFunctionName("café/Über","unused","()I")));
+        String retained=BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar()),Set.of(TypeHelper.getMethodFunctionName("café/Über","unused","()I")));
         assertTrue(retained.contains("(func "+TypeHelper.getMethodFunctionName("café/Über","unused","()I")),"retained function survives pruning");
         assertTrue(retained.contains("(func "+TypeHelper.getMethodFunctionName("java/util/concurrent/atomic/AtomicReferenceArray","length","()I")),"retained function keeps its callees");
         try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)){
             String expected=(String)loader.loadClass("café.Über").getMethod("run").invoke(null);
-            for(boolean reverse:new boolean[]{false,true})execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),"assert.equal(text(e['café.Über.run']()),"+js(expected)+");\n");
+            execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar())),"assert.equal(text(e['café.Über.run']()),"+js(expected)+");\n");
         }
     }
 
@@ -78,7 +77,7 @@ class BytecodeDeadCodeTest implements Opcodes {
         try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)){
             Class<?> type=loader.loadClass("Metadata");for(String name:names){Object expected=type.getMethod(name).invoke(null);assertions.append("assert.equal(").append(expected instanceof String?"text(e['Metadata.":"e['Metadata.").append(name).append(expected instanceof String?"']()),":"'](),").append(expected instanceof String?js((String)expected):expected).append(");\n");}
         }
-        for(boolean reverse:new boolean[]{false,true})execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),assertions.toString());
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar())),assertions.toString());
     }
 
     private String js(String value) {

@@ -20,15 +20,14 @@ class BytecodeClassMetadataTest implements Opcodes {
         Path file=directory.resolve("Metadata.java");Files.writeString(file,source);
         assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,"-g","--release","17",
                 "-d",directory.toString(),file.toString()));
-        return jar(false);
+        return jar();
     }
 
-    private byte[] jar(boolean reverse) throws Exception {
+    private byte[] jar() throws Exception {
         List<Path> files;
         try(var paths=Files.walk(directory)) {
             files=new ArrayList<>(paths.filter(path->path.toString().endsWith(".class")).sorted().toList());
         }
-        if(reverse)Collections.reverse(files);
         ByteArrayOutputStream bytes=new ByteArrayOutputStream();
         try(JarOutputStream jar=new JarOutputStream(bytes)) {
             for(Path file:files){jar.putNextEntry(new JarEntry(directory.relativize(file).toString()));jar.write(Files.readAllBytes(file));jar.closeEntry();}
@@ -151,7 +150,6 @@ class BytecodeClassMetadataTest implements Opcodes {
         // Direct isolated Class interfaces: Serializable, GenericDeclaration and Type.
         checks.append("assert.equal(e['Metadata.count'](7),3);\n");
         execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar)),checks.toString());
-        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(true))),checks.toString());
     }
 
     @Test void internsDynamicUtf16StringsBeforeLiteralsAndConstantValuesAndPreservesObjectTextDispatch() throws Exception {

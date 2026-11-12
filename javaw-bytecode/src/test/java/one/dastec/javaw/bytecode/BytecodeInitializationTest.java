@@ -24,15 +24,14 @@ class BytecodeInitializationTest {
         Files.writeString(file, source);
         assertEquals(0, ToolProvider.getSystemJavaCompiler().run(null, null, null,
                 "-g", "--release", "17", "-d", directory.toString(), file.toString()));
-        return jar(false);
+        return jar();
     }
 
-    private byte[] jar(boolean reverse) throws Exception {
+    private byte[] jar() throws Exception {
         List<Path> classes;
         try (var files = Files.list(directory)) {
             classes = new ArrayList<>(files.filter(path -> path.toString().endsWith(".class")).sorted().toList());
         }
-        if (reverse) Collections.reverse(classes);
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         try (JarOutputStream jar = new JarOutputStream(bytes)) {
             for (Path file : classes) {
@@ -53,8 +52,7 @@ class BytecodeInitializationTest {
                         .append(expected).append(");\n");
             }
         }
-        for (boolean reverse : new boolean[]{false, true})
-            execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(reverse ? jar(true) : jar)),
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar)),
                     assertions.toString());
     }
 

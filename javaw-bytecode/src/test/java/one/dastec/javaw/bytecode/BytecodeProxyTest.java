@@ -24,15 +24,14 @@ class BytecodeProxyTest implements Opcodes {
         if(fixtureClasspath!=null)options.addAll(List.of("-classpath",fixtureClasspath));
         options.add(file.toString());
         assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,options.toArray(String[]::new)));
-        return jar(false);
+        return jar();
     }
 
-    private byte[] jar(boolean reverse) throws Exception {
+    private byte[] jar() throws Exception {
         List<Path> files;
         try(var paths=Files.walk(directory)) {
             files=new ArrayList<>(paths.filter(path->path.toString().endsWith(".class")).sorted().toList());
         }
-        if(reverse)Collections.reverse(files);
         ByteArrayOutputStream bytes=new ByteArrayOutputStream();
         try(JarOutputStream jar=new JarOutputStream(bytes)) {
             for(Path file:files){jar.putNextEntry(new JarEntry(directory.relativize(file).toString()));jar.write(Files.readAllBytes(file));jar.closeEntry();}
@@ -109,7 +108,7 @@ class BytecodeProxyTest implements Opcodes {
                 .append(js((String)jvm.getMethod(method).invoke(null))).append(");\n");
         }
         checks.append("assert.equal(e['Metadata.rejected'](),1);\n");
-        for(boolean reverse:new boolean[]{false,true})execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse)),List.of(List.of("Metadata$Service","Metadata$Marker"))),checks.toString());
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar()),List.of(List.of("Metadata$Service","Metadata$Marker"))),checks.toString());
     }
 
     @Test void preservesProxyExceptionIntersectionsNullArgumentsAndReturnFailures() throws Exception {
@@ -145,7 +144,7 @@ class BytecodeProxyTest implements Opcodes {
             for(String method:List.of("empty","shapeIdentity"))checks.append("assert.equal(e['Metadata.").append(method).append("'](),")
                 .append(jvm.getMethod(method).invoke(null)).append(");\n");
         }
-        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(false)),List.of(List.of("Metadata$Wide"),List.of("Metadata$Wide","Metadata$Narrow"))),checks.toString());
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar()),List.of(List.of("Metadata$Wide"),List.of("Metadata$Wide","Metadata$Narrow"))),checks.toString());
     }
 
     @Test void diagnosesUnregisteredProxyGenerationBeforeReturningWat() throws Exception {

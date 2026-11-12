@@ -26,15 +26,14 @@ class BytecodeCharsetTest implements Opcodes {
         if(fixtureClasspath!=null)options.addAll(List.of("-classpath",fixtureClasspath));
         options.add(file.toString());
         assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,options.toArray(String[]::new)));
-        return jar(false);
+        return jar();
     }
 
-    private byte[] jar(boolean reverse) throws Exception {
+    private byte[] jar() throws Exception {
         List<Path> files;
         try(var paths=Files.walk(directory)) {
             files=new ArrayList<>(paths.filter(path->path.toString().endsWith(".class")).sorted().toList());
         }
-        if(reverse)Collections.reverse(files);
         ByteArrayOutputStream bytes=new ByteArrayOutputStream();
         try(JarOutputStream jar=new JarOutputStream(bytes)) {
             for(Path file:files){jar.putNextEntry(new JarEntry(directory.relativize(file).toString()));jar.write(Files.readAllBytes(file));jar.closeEntry();}
@@ -311,8 +310,7 @@ class BytecodeCharsetTest implements Opcodes {
             var method=loader.loadClass(fixtureClassName.replace('/','.')).getMethod("run",int.class);
             for(int group=0;group<groups;group++)hashes.add((Integer)method.invoke(null,group));
         }
-        for(boolean reverse:new boolean[]{false,true})
-            execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),hashes.toString());
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar())),hashes.toString());
     }
 
     private void execute(String wat,String expected) throws Exception {

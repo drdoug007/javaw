@@ -98,7 +98,10 @@ public class BytecodeCompiler {
     private static String readAndCompileJar(InputStream jarInputStream, boolean exceptionRuntime,List<List<String>> proxyShapes,Set<String> retainedFunctions,Memory memory) throws IOException {
         JarInputStream jis = new JarInputStream(jarInputStream);
         JarEntry entry;
-        List<ClassNode> classes = new ArrayList<>();
+        // Linked in class-name, then entry-name order: JAR entry order has no JVM meaning, so it must not change the
+        // module or linkage diagnostics such as which duplicate is named. (Class-file parse failures below are still
+        // reported in stream order.) Executable tests therefore compile each fixture JAR in one order.
+        List<Map.Entry<String, ClassNode>> classes = new ArrayList<>();
 
         while ((entry = jis.getNextJarEntry()) != null) {
             if (entry.getName().endsWith(".class") && !entry.getName().equals("module-info.class")) {
@@ -109,11 +112,13 @@ public class BytecodeCompiler {
                     baos.write(buf, 0, r);
                 }
                 ClassNode cn = BytecodeInput.read(baos.toByteArray());
-                classes.add(cn);
+                classes.add(Map.entry(entry.getName(), cn));
             }
         }
 
-        return compileClasses(classes, exceptionRuntime,proxyShapes,retainedFunctions,memory);
+        // A list, not a map, so a malformed stream that repeats an entry name still reaches the duplicate check.
+        classes.sort(Comparator.<Map.Entry<String, ClassNode>, String>comparing(named -> named.getValue().name).thenComparing(Map.Entry::getKey));
+        return compileClasses(new ArrayList<>(classes.stream().map(Map.Entry::getValue).toList()), exceptionRuntime,proxyShapes,retainedFunctions,memory);
     }
 
     private static String compileClasses(List<ClassNode> classes, boolean exceptionRuntime) throws IOException {return compileClasses(classes,exceptionRuntime,List.of());}

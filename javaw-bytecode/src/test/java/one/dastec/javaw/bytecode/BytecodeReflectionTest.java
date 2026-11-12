@@ -24,15 +24,14 @@ class BytecodeReflectionTest implements Opcodes {
         if(fixtureClasspath!=null)options.addAll(List.of("-classpath",fixtureClasspath));
         options.add(file.toString());
         assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,options.toArray(String[]::new)));
-        return jar(false);
+        return jar();
     }
 
-    private byte[] jar(boolean reverse) throws Exception {
+    private byte[] jar() throws Exception {
         List<Path> files;
         try(var paths=Files.walk(directory)) {
             files=new ArrayList<>(paths.filter(path->path.toString().endsWith(".class")).sorted().toList());
         }
-        if(reverse)Collections.reverse(files);
         ByteArrayOutputStream bytes=new ByteArrayOutputStream();
         try(JarOutputStream jar=new JarOutputStream(bytes)) {
             for(Path file:files){jar.putNextEntry(new JarEntry(directory.relativize(file).toString()));jar.write(Files.readAllBytes(file));jar.closeEntry();}
@@ -73,7 +72,7 @@ class BytecodeReflectionTest implements Opcodes {
             }
             """);
         int expected;try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)){expected=(Integer)loader.loadClass("Metadata").getMethod("run").invoke(null);}
-        for(boolean reverse:new boolean[]{false,true})execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),"assert.equal(e['Metadata.run'](),"+expected+");\n");
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar())),"assert.equal(e['Metadata.run'](),"+expected+");\n");
     }
 
     @Test void executesIsolatedUnchangedPinnedSpringReflectionInvocationBodies() throws Exception {
@@ -102,7 +101,7 @@ class BytecodeReflectionTest implements Opcodes {
             assertEquals(4,selected.methods.size());ClassWriter writer=new ClassWriter(0);selected.accept(writer);Path output=directory.resolve("org/springframework/util/ReflectionUtils.class");Files.createDirectories(output.getParent());Files.write(output,writer.toByteArray());
             String annotation="org/springframework/lang/Nullable.class";output=directory.resolve(annotation);Files.createDirectories(output.getParent());Files.write(output,jar.getInputStream(jar.getJarEntry(annotation)).readAllBytes());
         }
-        for(boolean reverse:new boolean[]{false,true})execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),"assert.equal(e['Metadata.run'](),"+expected+");\n");
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar())),"assert.equal(e['Metadata.run'](),"+expected+");\n");
     }
 
     @Test void preservesTypeUseAndTypeVariableAnnotationPaths() throws Exception {
@@ -131,7 +130,7 @@ class BytecodeReflectionTest implements Opcodes {
             }
             """);
         int expected;try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)){expected=(Integer)loader.loadClass("Metadata").getMethod("run").invoke(null);}
-        for(boolean reverse:new boolean[]{false,true})execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),"assert.equal(e['Metadata.run'](),"+expected+");\n");
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar())),"assert.equal(e['Metadata.run'](),"+expected+");\n");
     }
 
     @Test void preservesInitializationFailuresAccessAndIndirectCallerIdentity() throws Exception {
@@ -161,7 +160,7 @@ class BytecodeReflectionTest implements Opcodes {
             }
             """);
         int expected;try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)){expected=(Integer)loader.loadClass("Metadata").getMethod("run").invoke(null);}
-        for(boolean reverse:new boolean[]{false,true})execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),"assert.equal(e['Metadata.run'](),"+expected+");\n");
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar())),"assert.equal(e['Metadata.run'](),"+expected+");\n");
     }
 
     @Test void throwsLazyTypedMalformedAnnotationAndGenericFailures() throws Exception {
@@ -182,7 +181,7 @@ class BytecodeReflectionTest implements Opcodes {
         Path subject=directory.resolve("Metadata$Subject.class");ClassNode type=new ClassNode();new ClassReader(Files.readAllBytes(subject)).accept(type,0);type.visibleAnnotations.get(0).values.set(1,"wrong");ClassWriter writer=new ClassWriter(0);type.accept(writer);Files.write(subject,writer.toByteArray());
         Path generic=directory.resolve("Metadata$Generic.class");type=new ClassNode();new ClassReader(Files.readAllBytes(generic)).accept(type,0);type.fields.get(0).signature="!";writer=new ClassWriter(0);type.accept(writer);Files.write(generic,writer.toByteArray());
         int expected;try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)){expected=(Integer)loader.loadClass("Metadata").getMethod("run").invoke(null);}
-        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(false))),"assert.equal(e['Metadata.run'](),"+expected+");\n");
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar())),"assert.equal(e['Metadata.run'](),"+expected+");\n");
     }
 
     @Test void exposesGenericSignaturesAndNamedAnnotatedParameters() throws Exception {
@@ -209,7 +208,7 @@ class BytecodeReflectionTest implements Opcodes {
             }
             """);
         String checks;try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)){Class<?> jvm=loader.loadClass("Metadata");checks="assert.equal(e['Metadata.run'](),"+jvm.getMethod("run").invoke(null)+");\nassert.equal(text(e['Metadata.typeText']()),"+js((String)jvm.getMethod("typeText").invoke(null))+");\n";}
-        for(boolean reverse:new boolean[]{false,true})execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),checks);
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar())),checks);
     }
 
     @Test void readsUnchangedPinnedJpaAnnotationDeclarationsAndValues() throws Exception {
@@ -232,7 +231,7 @@ class BytecodeReflectionTest implements Opcodes {
             """);
         Map<Path,byte[]> originals=new LinkedHashMap<>();try(JarFile jar=new JarFile(artifact.toFile())){for(String name:List.of("Entity","Table","Column","UniqueConstraint","Index")){String entry="jakarta/persistence/"+name+".class";Path output=directory.resolve(entry);Files.createDirectories(output.getParent());byte[] bytes=jar.getInputStream(jar.getJarEntry(entry)).readAllBytes();Files.write(output,bytes);originals.put(output,bytes);}}
         int expected;try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL(),artifact.toUri().toURL()},null)){expected=(Integer)loader.loadClass("Metadata").getMethod("run").invoke(null);}
-        for(boolean reverse:new boolean[]{false,true})execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),"assert.equal(e['Metadata.run'](),"+expected+");\n");
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar())),"assert.equal(e['Metadata.run'](),"+expected+");\n");
         for(var entry:originals.entrySet())assertArrayEquals(entry.getValue(),Files.readAllBytes(entry.getKey()));
     }
 
@@ -274,7 +273,7 @@ class BytecodeReflectionTest implements Opcodes {
         StringBuilder checks=new StringBuilder();try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)){
             Class<?> jvm=loader.loadClass("Metadata");for(String name:List.of("run","arrays"))checks.append("assert.equal(e['Metadata.").append(name).append("'](),").append(jvm.getMethod(name).invoke(null)).append(");\n");
         }
-        for(boolean reverse:new boolean[]{false,true})execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),checks.toString());
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar())),checks.toString());
     }
 
     @Test void invokesMethodsConstructorsAndFieldsWithAccessAndConversions() throws Exception {
@@ -314,7 +313,7 @@ class BytecodeReflectionTest implements Opcodes {
         StringBuilder checks=new StringBuilder();try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)){
             Class<?> jvm=loader.loadClass("Metadata");for(String name:List.of("run","failures")){Object expected=jvm.getMethod(name).invoke(null);checks.append("assert.equal(e['Metadata.").append(name).append("'](),").append(expected).append(expected instanceof Long?"n);\n":");\n");}
         }
-        for(boolean reverse:new boolean[]{false,true})execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),checks.toString());
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar())),checks.toString());
     }
 
     @Test void discoversThroughMethodReferencesWithoutDirectDiscoveryCalls() throws Exception {
@@ -328,7 +327,7 @@ class BytecodeReflectionTest implements Opcodes {
             }
             """);
         int expected;try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)){expected=(Integer)loader.loadClass("Metadata").getMethod("run").invoke(null);}
-        for(boolean reverse:new boolean[]{false,true})execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),"assert.equal(e['Metadata.run'](),"+expected+");\n");
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar())),"assert.equal(e['Metadata.run'](),"+expected+");\n");
     }
 
     @Test void discoversUnchangedPinnedSpringBootRecordDeclarations() throws Exception {
@@ -355,7 +354,7 @@ class BytecodeReflectionTest implements Opcodes {
         try(JarFile jar=new JarFile(artifact.toFile())){original=jar.getInputStream(jar.getJarEntry(name)).readAllBytes();}
         Path output=directory.resolve(name);Files.createDirectories(output.getParent());Files.write(output,original);
         int expected;try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL(),artifact.toUri().toURL()},null)){expected=(Integer)loader.loadClass("Metadata").getMethod("run").invoke(null);}
-        for(boolean reverse:new boolean[]{false,true})execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),"assert.equal(e['Metadata.run'](),"+expected+");\n");
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar())),"assert.equal(e['Metadata.run'](),"+expected+");\n");
         assertArrayEquals(original,Files.readAllBytes(output));
     }
 
@@ -422,7 +421,7 @@ class BytecodeReflectionTest implements Opcodes {
             for(String method:List.of("discovery","copies","interfaces","discovery"))checks.append("assert.equal(e['Metadata.").append(method).append("'](),").append(jvm.getMethod(method).invoke(null)).append(");\n");
             for(int mode=0;mode<6;mode++)checks.append("assert.equal(e['Metadata.absent'](").append(mode).append("),").append(jvm.getMethod("absent",int.class).invoke(null,mode)).append(");\n");
         }
-        for(boolean reverse:new boolean[]{false,true})execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),checks.toString());
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar())),checks.toString());
     }
 
     @Test void selectsCovariantReturnAndKeepsBridgeAndSyntheticDeclarations() throws Exception {
@@ -441,7 +440,7 @@ class BytecodeReflectionTest implements Opcodes {
             }
             """);
         int expected;try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)){expected=(Integer)loader.loadClass("Metadata").getMethod("run").invoke(null);}
-        for(boolean reverse:new boolean[]{false,true})execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),"assert.equal(e['Metadata.run'](),"+expected+");\n");
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar())),"assert.equal(e['Metadata.run'](),"+expected+");\n");
     }
 
     @Test void rejectsUndeliveredPlatformMetadataAndAllowsDiscoveredInvocation() throws Exception {

@@ -92,15 +92,14 @@ class BytecodeObjectIdentityTest implements Opcodes {
             """);
         assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,"-g","--release","17",
                 "-d",directory.toString(),source.toString()));
-        return jar(false);
+        return jar();
     }
 
-    private byte[] jar(boolean reverse) throws Exception {
+    private byte[] jar() throws Exception {
         List<Path> classes;
         try(var files=Files.list(directory)) {
             classes=new ArrayList<>(files.filter(path->path.toString().endsWith(".class")).sorted().toList());
         }
-        if(reverse)Collections.reverse(classes);
         ByteArrayOutputStream bytes=new ByteArrayOutputStream();
         try(JarOutputStream jar=new JarOutputStream(bytes)) {
             for(Path file:classes){jar.putNextEntry(new JarEntry(file.getFileName().toString()));jar.write(Files.readAllBytes(file));jar.closeEntry();}
@@ -116,8 +115,7 @@ class BytecodeObjectIdentityTest implements Opcodes {
                 checks.append("assert.equal(e['Identity.").append(method).append("'](),")
                         .append(jvm.getMethod(method).invoke(null)).append(");\n");
         }
-        for(boolean reverse:new boolean[]{false,true})
-            execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(reverse?jar(true):jar)),checks.toString());
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar)),checks.toString());
     }
 
     @Test void resolvesInheritedObjectSlotsOnLinkedArrayMarkerInterfaces() throws Exception {

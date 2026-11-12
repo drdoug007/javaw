@@ -25,15 +25,14 @@ class BytecodeMethodTypeTest implements Opcodes {
         if(fixtureClasspath!=null)options.addAll(List.of("-classpath",fixtureClasspath));
         options.add(file.toString());
         assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,options.toArray(String[]::new)));
-        return jar(false);
+        return jar();
     }
 
-    private byte[] jar(boolean reverse) throws Exception {
+    private byte[] jar() throws Exception {
         List<Path> files;
         try(var paths=Files.walk(directory)) {
             files=new ArrayList<>(paths.filter(path->path.toString().endsWith(".class")).sorted().toList());
         }
-        if(reverse)Collections.reverse(files);
         ByteArrayOutputStream bytes=new ByteArrayOutputStream();
         try(JarOutputStream jar=new JarOutputStream(bytes)) {
             for(Path file:files){jar.putNextEntry(new JarEntry(directory.relativize(file).toString()));jar.write(Files.readAllBytes(file));jar.closeEntry();}
@@ -99,7 +98,7 @@ class BytecodeMethodTypeTest implements Opcodes {
             }
             checks.append("assert.equal(e['Metadata.defensive'](),").append(jvm.getMethod("defensive").invoke(null)).append(");\n");
         }
-        for(boolean reverse:new boolean[]{false,true})execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),checks.toString());
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar())),checks.toString());
     }
 
     @Test void preservesSlotLimitsAndTypedFactoryAndTransformationFailures() throws Exception {
@@ -146,7 +145,7 @@ class BytecodeMethodTypeTest implements Opcodes {
                 .append(jvm.getMethod("failure",int.class).invoke(null,index)).append(");\n");
             checks.append("assert.equal(e['Metadata.maximum'](),").append(jvm.getMethod("maximum").invoke(null)).append(");\n");
         }
-        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(false))),checks.toString());
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar())),checks.toString());
     }
 
     @Test void resolvesCanonicalMethodTypeConstantsLazilyWithoutInitializingSignatureClasses() throws Exception {
@@ -180,8 +179,8 @@ class BytecodeMethodTypeTest implements Opcodes {
             assertSame(jvm.getMethod("literal").invoke(null),jvm.getMethod("other").invoke(null));
         }
         checks.append("const value=e['Metadata.literal'](),before=allocated();assert.equal(e['Metadata.other'](),value);assert.equal(allocated(),before);\n");
-        for(boolean reverse:new boolean[]{false,true})execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),checks.toString());
-        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(false))),"""
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar())),checks.toString());
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar())),"""
             failNext();try{e['Metadata.literal']();assert.fail('allocation unexpectedly succeeded');}
             catch(error){assert(error instanceof WebAssembly.Exception);}
             assert(e['Metadata.literal']()>0);assert.equal(e['Metadata.events'](),0);

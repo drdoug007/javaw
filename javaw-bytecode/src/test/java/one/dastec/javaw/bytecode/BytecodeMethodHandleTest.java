@@ -24,15 +24,14 @@ class BytecodeMethodHandleTest implements Opcodes {
         if(fixtureClasspath!=null)options.addAll(List.of("-classpath",fixtureClasspath));
         options.add(file.toString());
         assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,options.toArray(String[]::new)));
-        return jar(false);
+        return jar();
     }
 
-    private byte[] jar(boolean reverse) throws Exception {
+    private byte[] jar() throws Exception {
         List<Path> files;
         try(var paths=Files.walk(directory)) {
             files=new ArrayList<>(paths.filter(path->path.toString().endsWith(".class")).sorted().toList());
         }
-        if(reverse)Collections.reverse(files);
         ByteArrayOutputStream bytes=new ByteArrayOutputStream();
         try(JarOutputStream jar=new JarOutputStream(bytes)) {
             for(Path file:files){jar.putNextEntry(new JarEntry(directory.relativize(file).toString()));jar.write(Files.readAllBytes(file));jar.closeEntry();}
@@ -52,9 +51,9 @@ class BytecodeMethodHandleTest implements Opcodes {
                 }
             }
             """);
-        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(false))),"assert.equal(e['Metadata.lookup'](),1);\n");
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar())),"assert.equal(e['Metadata.lookup'](),1);\n");
         add("constant",new Handle(H_INVOKESTATIC,"Metadata","count","([Ljava/lang/Object;)I",false));
-        String error=assertThrows(IllegalArgumentException.class,()->BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(false)))).getMessage();
+        String error=assertThrows(IllegalArgumentException.class,()->BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar()))).getMessage();
         assertTrue(error.contains("variable-arity method handles"),error);
         assertTrue(error.contains("Metadata.constant"),error);
     }
@@ -118,7 +117,7 @@ class BytecodeMethodHandleTest implements Opcodes {
                 .append(jvm.getMethod("exact",long.class).invoke(null,value)).append("n);\n");
             checks.append("assert.equal(e['Metadata.adapting'](13),").append(jvm.getMethod("adapting",int.class).invoke(null,13)).append(");\n");
         }
-        for(boolean reverse:new boolean[]{false,true})execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),checks.toString());
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar())),checks.toString());
     }
     @Test void executesClosedWorldLookupPrivateLookupAndInterfaceDefaultSpecialCalls() throws Exception {
         fixture("""
@@ -174,7 +173,7 @@ class BytecodeMethodHandleTest implements Opcodes {
             for(int n=0;n<8;n++)checks.append("assert.equal(e['Metadata.failures'](").append(n).append("),")
                 .append(jvm.getMethod("failures",int.class).invoke(null,n)).append(");\n");
         }
-        for(boolean reverse:new boolean[]{false,true})execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),checks.toString());
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar())),checks.toString());
     }
 
     @Test void preservesExactAdaptationFailuresTargetExceptionsAndNullPriority() throws Exception {
@@ -219,7 +218,7 @@ class BytecodeMethodHandleTest implements Opcodes {
                 .append(jvm.getMethod("test",int.class).invoke(null,n)).append(");\n");
             checks.append("assert.equal(e['Metadata.calls'](),").append(jvm.getMethod("calls").invoke(null)).append(");\n");
         }
-        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(false))),checks.toString());
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar())),checks.toString());
     }
 
     private void add(String name,Handle handle) throws Exception {

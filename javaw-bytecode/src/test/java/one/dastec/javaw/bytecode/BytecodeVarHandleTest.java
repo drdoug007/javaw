@@ -24,15 +24,14 @@ class BytecodeVarHandleTest implements Opcodes {
         if(fixtureClasspath!=null)options.addAll(List.of("-classpath",fixtureClasspath));
         options.add(file.toString());
         assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,options.toArray(String[]::new)));
-        return jar(false);
+        return jar();
     }
 
-    private byte[] jar(boolean reverse) throws Exception {
+    private byte[] jar() throws Exception {
         List<Path> files;
         try(var paths=Files.walk(directory)) {
             files=new ArrayList<>(paths.filter(path->path.toString().endsWith(".class")).sorted().toList());
         }
-        if(reverse)Collections.reverse(files);
         ByteArrayOutputStream bytes=new ByteArrayOutputStream();
         try(JarOutputStream jar=new JarOutputStream(bytes)) {
             for(Path file:files){jar.putNextEntry(new JarEntry(directory.relativize(file).toString()));jar.write(Files.readAllBytes(file));jar.closeEntry();}
@@ -74,7 +73,7 @@ class BytecodeVarHandleTest implements Opcodes {
             for(int endian=0;endian<2;endian++)checks.append("assert.equal(e['Metadata.order'](").append(endian).append("),")
                 .append(jvm.getMethod("order",int.class).invoke(null,endian)).append("n);\n");
         }
-        for(boolean reverse:new boolean[]{false,true})execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),checks.toString());
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar())),checks.toString());
     }
 
     @Test void matchesJvmAdaptationModesAndFailurePriorityWithoutPartialStores() throws Exception {
@@ -132,7 +131,7 @@ class BytecodeVarHandleTest implements Opcodes {
             for(String method:List.of("widening","modes"))checks.append("assert.equal(e['Metadata.").append(method).append("'](),")
                 .append(jvm.getMethod(method).invoke(null)).append(");\n");
         }
-        for(boolean reverse:new boolean[]{false,true})execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),checks.toString());
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar())),checks.toString());
     }
 
     @Test void diagnosesOrderedAtomicsAndRuntimeGenerationAtOriginalSites() throws Exception {
@@ -187,7 +186,7 @@ class BytecodeVarHandleTest implements Opcodes {
             for(String method:List.of("order","comparison","failure","uuid"))checks.append("assert.equal(e['Metadata.").append(method).append("'](),")
                 .append(jvm.getMethod(method).invoke(null)).append(method.equals("uuid")?"n);\n":");\n");
         }
-        for(boolean reverse:new boolean[]{false,true})execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),checks.toString());
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar())),checks.toString());
     }
 
     private String js(String value) {

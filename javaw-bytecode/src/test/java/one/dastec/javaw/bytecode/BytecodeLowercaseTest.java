@@ -148,7 +148,7 @@ class BytecodeLowercaseTest implements Opcodes {
              try{"aΣ".toLowerCase(new Locale("th"));throw new Error();}catch(UnsupportedOperationException e){return 7;}
             }}
             """);
-        for(boolean reverse:new boolean[]{false,true})execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),"[7]");
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar())),"[7]");
         for(boolean locale:new boolean[]{false,true}){
             ClassWriter writer=new ClassWriter(0);writer.visit(V17,ACC_PUBLIC,"BadLowercase",null,"java/lang/Object",null);
             MethodVisitor m=writer.visitMethod(ACC_PUBLIC|ACC_STATIC,"run","()Ljava/lang/Object;",null,null);m.visitCode();m.visitLdcInsn("x");if(locale)m.visitInsn(ACONST_NULL);
@@ -216,15 +216,14 @@ class BytecodeLowercaseTest implements Opcodes {
         Path oracle=directory.resolve("CaseOracle.java");Files.writeString(oracle,"public class CaseOracle {public static void main(String[] args)throws Exception{if(Runtime.version().feature()!=17)throw new Error();var method=Class.forName(args[0]).getMethod(\"run\",int.class);System.out.print(\"[\");for(int i=0;i<Integer.parseInt(args[1]);i++){if(i>0)System.out.print(\",\");System.out.print(method.invoke(null,i));}System.out.print(\"]\");}}");
         options.add(file.toString());options.add(oracle.toString());
         assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,options.toArray(String[]::new)));
-        return jar(false);
+        return jar();
     }
 
-    private byte[] jar(boolean reverse) throws Exception {
+    private byte[] jar() throws Exception {
         List<Path> files;
         try(var paths=Files.walk(directory)) {
             files=new ArrayList<>(paths.filter(path->path.toString().endsWith(".class") && !path.getFileName().toString().equals("CaseOracle.class") && !path.toString().contains("javaw/runtime/WordBreaks.class")).sorted().toList());
         }
-        if(reverse)Collections.reverse(files);
         ByteArrayOutputStream bytes=new ByteArrayOutputStream();
         try(JarOutputStream jar=new JarOutputStream(bytes)) {
             for(Path file:files){
@@ -240,8 +239,7 @@ class BytecodeLowercaseTest implements Opcodes {
         assertTrue(Files.isExecutable(java),"A JDK 17 oracle is required (javaw.jdk17.home)");
         run(java.toString(),"-Djava.locale.providers=CLDR","-Duser.language=","-Duser.country=","-Duser.variant=","-cp",directory.toString()+(fixtureClasspath==null?"":File.pathSeparator+fixtureClasspath),"CaseOracle",fixtureClassName,Integer.toString(groups));
         String expected=Files.readString(directory.resolve("command.log")).trim();
-        for(boolean reverse:new boolean[]{false,true})
-            execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),expected);
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar())),expected);
     }
 
     private void run(String... arguments) throws Exception {

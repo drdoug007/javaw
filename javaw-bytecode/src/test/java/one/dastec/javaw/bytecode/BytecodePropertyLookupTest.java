@@ -244,7 +244,7 @@ class BytecodePropertyLookupTest implements Opcodes {
         var collision=assertThrows(IllegalArgumentException.class,()->BytecodeCompiler.compileClassWithExceptionRuntime(reserved.toByteArray()));
         assertTrue(collision.getMessage().contains("runtime redefinition"),collision.getMessage());
         fixture("public class Metadata {public static int run(int group){return System.getProperties().size();}}");
-        assertThrows(IllegalArgumentException.class,()->BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(false))));
+        assertThrows(IllegalArgumentException.class,()->BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar())));
     }
 
     private byte[] fixture(String source) throws Exception {
@@ -254,15 +254,14 @@ class BytecodePropertyLookupTest implements Opcodes {
         options.addAll(List.of("-classpath",directory.toString()));
         options.add(file.toString());options.add(oracle.toString());
         assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,options.toArray(String[]::new)));
-        return jar(false);
+        return jar();
     }
 
-    private byte[] jar(boolean reverse) throws Exception {
+    private byte[] jar() throws Exception {
         List<Path> files;
         try(var paths=Files.walk(directory)) {
             files=new ArrayList<>(paths.filter(path->path.toString().endsWith(".class") && !path.getFileName().toString().equals("CaseOracle.class")).sorted().toList());
         }
-        if(reverse)Collections.reverse(files);
         ByteArrayOutputStream bytes=new ByteArrayOutputStream();
         try(JarOutputStream jar=new JarOutputStream(bytes)) {
             for(Path file:files){
@@ -277,8 +276,7 @@ class BytecodePropertyLookupTest implements Opcodes {
         assertTrue(Files.isExecutable(java),"A JDK 17 oracle is required (javaw.jdk17.home)");
         run(java.toString(),"-Djava.locale.providers=CLDR","-Duser.language=","-Duser.country=","-Duser.variant=","-cp",directory.toString(),"CaseOracle",fixtureClassName,Integer.toString(groups));
         String expected=Files.readString(directory.resolve("command.log")).trim();
-        for(boolean reverse:new boolean[]{false,true})
-            execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),expected);
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar())),expected);
     }
 
     private void run(String... arguments) throws Exception {

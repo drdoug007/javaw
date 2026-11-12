@@ -74,6 +74,21 @@ Known variation: `BytecodeCompatibilityTest.preservesExplicitlyLinkedSystemDefin
 
 With the dispatch, hierarchy and text-scan changes in [the scaling notes](bytecode-compile-scaling.md#per-compile-analysis-cost-no-output-change), the unchanged prescribed command (8 forks) runs 603 tests in 3:08, against 8:12. Compile time falls from 3,010 s to 549 s, a mean of 0.29 s per compilation. Compilation is now 57% of test-class time. The slowest compilations take about 8 s, for two-compile tests over pinned Jackson, ByteBuddy and BigInteger fixtures. A hosted-runner baseline is still unmeasured; see [Local Docker runs](#local-docker-runs) for the routine check.
 
+## Single JAR order (v259)
+
+Most executable tests used to compile their fixture JAR twice, in path order and reversed, and run both modules. A compile-output fingerprint run (`-Djavaw.compileOutputs.dir`) at `1e2ffb6` found that 249 tests compiled the same program twice to byte-identical WAT. Those tests spent 308 s of the run's 555 s of compile time. `BytecodeCompiler` now sorts the classes it reads from a JAR by class name, then entry name, before linking. Entry order therefore cannot change the module, or which duplicate the duplicate-class diagnostic names. Class-file parse failures still happen while reading, so they are reported in stream order. The executable tests compile once, and `BytecodeJarOrderTest` checks order independence: path order, reversed and two rotations, with and without the bundled runtime, plus the duplicate diagnostic.
+
+Measured with `javaw-bytecode/perf-capture.sh` on an Apple M4 Pro (10 performance + 4 efficiency cores), GraalVM CE 21.0.2, Node 24.14, wabt 1.0.42, 8 forks, warm wasm cache:
+
+| Revision | Tests | Wall | CPU | Compilations | Compile time | Mean compile |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| v258 (two runs) | 607 | 96–97 s | 1,006–1,043 s | 1,894 | 555–580 s | 0.29–0.31 s |
+| v259 (two runs) | 610 | 71–72 s | 753–776 s | 1,519 | 361–374 s | 0.24–0.25 s |
+
+Fork counts at v258: 6 forks took 111 s and 10 forks 109 s, against 96 s for the default `0.6C` (8 forks). An empty wasm cache added about 10 s. Node used about 15% of CPU and `wat2wasm` under 2%. Compilation is still about 74% of test-class time.
+
+`perf-capture.sh` needs a JDK 21 (`--java-home` or `JAVA_HOME`; it puts `$JAVA_HOME/bin` first on `PATH` because the tests start reference JVMs as plain `java`). On JDK 24 or later, the pinned ASM 9.7 and Byte Buddy reject the class files the tests compile with the running `javac`. On JDK 17, tests that use `List.getFirst()` and JVM-comparison tests fail.
+
 ## Local Docker runs
 
 `javaw-bytecode/docker/docker-tests.sh` runs the workflow's steps in a local container instead of on a billed GitHub-hosted runner. The image (`javaw-bytecode/docker/Dockerfile`) matches the workflow's environment:

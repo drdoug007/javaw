@@ -25,15 +25,14 @@ class BytecodeDynamicTest implements Opcodes {
         if(fixtureClasspath!=null)options.addAll(List.of("-classpath",fixtureClasspath));
         options.add(file.toString());
         assertEquals(0,ToolProvider.getSystemJavaCompiler().run(null,null,null,options.toArray(String[]::new)));
-        return jar(false);
+        return jar();
     }
 
-    private byte[] jar(boolean reverse) throws Exception {
+    private byte[] jar() throws Exception {
         List<Path> files;
         try(var paths=Files.walk(directory)) {
             files=new ArrayList<>(paths.filter(path->path.toString().endsWith(".class")).sorted().toList());
         }
-        if(reverse)Collections.reverse(files);
         ByteArrayOutputStream bytes=new ByteArrayOutputStream();
         try(JarOutputStream jar=new JarOutputStream(bytes)) {
             for(Path file:files){jar.putNextEntry(new JarEntry(directory.relativize(file).toString()));jar.write(Files.readAllBytes(file));jar.closeEntry();}
@@ -84,7 +83,6 @@ class BytecodeDynamicTest implements Opcodes {
             checks.append("assert.equal(text(e['Metadata.object']()),").append(js((String)jvm.getMethod("object").invoke(null))).append(");\n");
         }
         execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar)),checks.toString());
-        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(true))),checks.toString());
     }
 
     @Test void preservesInitializationArgumentOrderAndPerSiteFactories() throws Exception {
@@ -151,8 +149,7 @@ class BytecodeDynamicTest implements Opcodes {
         try(URLClassLoader loader=new URLClassLoader(new URL[]{directory.toUri().toURL()},null)) {
             assertEquals(12,loader.loadClass("Metadata").getMethod("run").invoke(null));
         }
-        for(boolean reverse:new boolean[]{false,true})
-            execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(reverse))),"assert.equal(e['Metadata.run'](),12);");
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar())),"assert.equal(e['Metadata.run'](),12);");
     }
 
     @Test void executesAlternateMarkerAndBridgeFactories() throws Exception {
@@ -214,7 +211,7 @@ class BytecodeDynamicTest implements Opcodes {
         addConstant("mutableValue","VALUE","I","getStaticFinal",Type.getObjectType("Metadata$Mutable"));
         addConstant("invalidNull","value","I","nullConstant");
         addConstant("mirror","J","Ljava/lang/Class;","primitiveClass");
-        byte[] jar=jar(false);
+        byte[] jar=jar();
         String wat=BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar));
         execute(wat,"""
             assert.equal(e['Metadata.events'](),0);
@@ -358,7 +355,7 @@ class BytecodeDynamicTest implements Opcodes {
             Type.getMethodType("()I"),new Handle(H_INVOKESTATIC,"Metadata","target","(I)I",false),Type.getMethodType("()I"));
         factory.visitInsn(ARETURN);factory.visitMaxs(1,0);factory.visitEnd();type.methods.add(factory);
         ClassWriter writer=new ClassWriter(ClassWriter.COMPUTE_MAXS);type.accept(writer);Files.write(file,writer.toByteArray());
-        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(false))),"""
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar())),"""
             let first;
             for(let attempt=0;attempt<2;attempt++) {
                 try{e['Metadata.factory']();assert.fail('invalid factory linked');}
@@ -509,7 +506,6 @@ class BytecodeDynamicTest implements Opcodes {
                 .append("'](),").append(jvm.getMethod(name).invoke(null)).append(");\n");
         }
         execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar)),checks.toString());
-        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(true))),checks.toString());
     }
 
     @Test void preservesSerializableFactoryMetadataAndJavacReconstruction() throws Exception {
@@ -579,8 +575,7 @@ class BytecodeDynamicTest implements Opcodes {
                 .append(jvm.getMethod(name).invoke(null)).append(");\n");
             checks.append("assert.equal(text(e['Metadata.text']()),").append(js((String)jvm.getMethod("text").invoke(null))).append(");\n");
         }
-        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(false))),checks.toString());
-        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar(true))),checks.toString());
+        execute(BytecodeCompiler.compileJarWithExceptionRuntime(new ByteArrayInputStream(jar())),checks.toString());
     }
     private String sha256(Path file) throws Exception {
         return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(file)));

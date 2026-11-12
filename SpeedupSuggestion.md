@@ -159,3 +159,9 @@ Options, by expected payoff:
 - **Check JAR-order independence once instead of in every test.** Have the compiler put its input classes in a canonical order before linking (if it does not already), and test that ordering directly. Keep the full reverse-order compile in a few dedicated tests. The other tests then compile once. That removes roughly half of the 308 s, about 150 s of CPU, or about 20% of wall time (~96 s → ~77 s). It changes test coverage, so it needs a decision on which tests keep both orders.
 - **Shrink the bundled runtime in each module** (prune unreachable runtime code, or lower the runtime once and reuse it). At about 7.7 million characters of WAT per typical module, this reduces compile, hashing, disk writes and Node instantiation together.
 - **Leave Node and wat2wasm as they are for now.** They are about 15% of CPU together, and the cache already makes wat2wasm negligible.
+
+## Result: one JAR order per test (v259, 2026-11-12)
+
+The first option has been implemented. The compiler links JAR classes in class-name order, the executable tests compile each fixture once, and `BytecodeJarOrderTest` checks order independence. Two captures (`--label jdk21-single-order-final --repeat 2`): **610 tests pass, 71–72 s instead of 96–97 s (−25%)**, 1,519 compilations instead of 1,894, compile time 361–374 s instead of 555–580 s, and CPU 753–776 s instead of 1,006–1,043 s. The estimate was about 77 s. Details are in [docs/bytecode-test-performance.md](docs/bytecode-test-performance.md#single-jar-order-v259).
+
+Compilation is still about 74% of test-class time, so the next lever is the second option, shrinking or reusing the bundled runtime in each module (`Todo.md`: "Reuse the admitted and normalized bundled runtime across compilations").
