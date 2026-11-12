@@ -143,3 +143,35 @@ Evidence of identical output:
 The compiler revision is unchanged, because output is unchanged.
 
 Remaining cost: lowering the reachable methods, reading the generated text back for reachability, and pruning now dominate large modules. The pinned Jackson fixture emits 123 MB of WAT. Admission frame analysis over every linked method and the per-compile runtime normalization remain, and nothing is reused across compilations.
+
+## Deferred runtime text (no output change)
+
+Every bundled-runtime compile used to generate about 24.7 MB of runtime WAT before reachability analysis and pruning, even for `return 41+1`, whose final module is 1.1 MB. That text was then copied into module fields, scanned by the reachability analysis, scanned again by pruning, and mostly dropped. A JFR profile of a warm `String.format` fixture showed text handling, not lowering, taking most of the compile:
+
+- `__type_assignable` generation, which compares every pair of runtime types: 16%. The table is called only through the runtime's `assignable(II)Z` intrinsic, so most modules prune it.
+- `$__text` string constants: 67% of the generated text. There are 5,387 of them, one per string in any linked class, and most of their text is one `i32.store16` line per character.
+
+Two changes defer that text until pruning has decided what the module keeps:
+
+- `BytecodeClasses` emits a one-line `$__type_assignable` stub. After pruning, `BytecodeCompiler` replaces the stub, if it survived, with `typeAssignableWat`.
+- `BytecodeStrings.runtimeWat` writes each constant without its character stores. `charactersWat` adds the stores to the constants that survived, decoding each value from its function name (the inverse of `symbol`) and checking the exact generated header. Builds without the bundled runtime apply it too, because linking the runtime's `ExceptionSupport` enables text constants. A JAR of the runtime definitions compiled without the bundle is rejected the same way before and after.
+
+Neither deferred text refers to a function or global. The reachability analysis and pruning only follow `call`, `return_call`, `ref.func` and global references, so they make the same decisions with or without it.
+
+Results (same machine, warm compiles, median of 10 after 8 warm-ups):
+
+| Fixture | Generated runtime text | Compile |
+| --- | --- | --- |
+| Trivial (`return 41+1`) | 24.7 MB → 13.9 MB | 347 ms → 234 ms |
+| `String.format("%5d|%s", n, List.of(n, n+1))` | 24.7 MB → 13.9 MB | 430 ms → 309 ms |
+
+Prescribed selection (GraalVM CE 21.0.2, 8 forks, two runs each): 71–72 s → 61–62 s. Compile time falls from 361–374 s to 294–299 s (mean 0.24 s → 0.195 s per compilation) and is now 68% of test-class time.
+
+Evidence of identical output: `BytecodeCompileOutputs` fingerprints of all 1,519 compilations in the prescribed selection, before (v259 at `b136465`) and after, match exactly. Every WAT hash and every diagnostic is the same, so the compiler revision is unchanged. `BytecodeStringsTest` rebuilds constants in the old inline form and requires `charactersWat` to restore them exactly. Its values cover the empty string, `_`, one- to four-digit hex units and a surrogate pair. It also checks that a `$__text` function without the generated header is rejected.
+
+Remaining cost, from the same profile after these changes:
+- pruning: 21%, about 9% of it re-scanning module text the reachability analysis already split into fields;
+- admission: 20%, mostly `BytecodeCompatibility.validate` call-target resolution over every linked runtime method;
+- lowering the reachable methods: about 12%;
+- splitting the runtime text into fields: 9%.
+

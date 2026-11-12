@@ -176,8 +176,12 @@ public class BytecodeCompiler {
         try (BytecodeAnalysisCache ignored = BytecodeAnalysisCache.open(linked)) {
             Set<String> instantiated = new HashSet<>();
             String wat = compileLinked(classes, linked, exceptionRuntime, combinedWat, rootExport, retainedFunctions, instantiated);
-            if (!exceptionRuntime) return wat;
-            wat = BytecodeDeadCode.prune(wat, rootExport, retainedFunctions);
+            // Text constants exist whenever the linked classes include the runtime's ExceptionSupport, even unbundled.
+            if (!exceptionRuntime) return BytecodeStrings.charactersWat(wat);
+            wat = BytecodeStrings.charactersWat(BytecodeDeadCode.prune(wat, rootExport, retainedFunctions));
+            int assignable = wat.indexOf(BytecodeClasses.TYPE_ASSIGNABLE_STUB);
+            if (assignable >= 0) wat = wat.substring(0, assignable) + BytecodeClasses.typeAssignableWat(new BytecodeDispatch(linked))
+                    + wat.substring(assignable + BytecodeClasses.TYPE_ASSIGNABLE_STUB.length());
             if (!memory.managedHeap()) return wat;
             // The collector reads only roots that survive pruning, so it is generated for the final module text.
             int end = wat.lastIndexOf(')');

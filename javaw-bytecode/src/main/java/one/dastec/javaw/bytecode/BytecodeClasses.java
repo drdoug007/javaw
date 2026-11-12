@@ -137,6 +137,19 @@ public final class BytecodeClasses {
             }
             out.append("unreachable)\n");
         }
+        // The assignability table compares every pair of runtime types, and most modules never call it. Analysis and
+        // pruning see this stub instead: the table refers to no function or global, so both treat it identically.
+        // BytecodeCompiler swaps in typeAssignableWat only if the stub survives pruning.
+        return out.append(TYPE_ASSIGNABLE_STUB).toString();
+    }
+
+    /** Stands in for {@code $__type_assignable} until pruning has shown that the module keeps it. */
+    static final String TYPE_ASSIGNABLE_STUB = "(func $__type_assignable (param $from i32) (param $to i32) (result i32)\nunreachable)\n";
+
+    /** The {@code $__type_assignable} table that replaces {@link #TYPE_ASSIGNABLE_STUB}. */
+    static String typeAssignableWat(BytecodeDispatch dispatch) {
+        Map<String,Integer> types=dispatch.runtimeTypes();
+        StringBuilder out=new StringBuilder();
         out.append("(func $__type_assignable (param $from i32) (param $to i32) (result i32)\n");
         for(var to:types.entrySet()) {
             out.append("local.get $to i32.const ").append(to.getValue()).append(" i32.eq if\ni32.const 0\n");

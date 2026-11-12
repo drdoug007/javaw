@@ -165,3 +165,12 @@ Options, by expected payoff:
 The first option has been implemented. The compiler links JAR classes in class-name order, the executable tests compile each fixture once, and `BytecodeJarOrderTest` checks order independence. Two captures (`--label jdk21-single-order-final --repeat 2`): **610 tests pass, 71–72 s instead of 96–97 s (−25%)**, 1,519 compilations instead of 1,894, compile time 361–374 s instead of 555–580 s, and CPU 753–776 s instead of 1,006–1,043 s. The estimate was about 77 s. Details are in [docs/bytecode-test-performance.md](docs/bytecode-test-performance.md#single-jar-order-v259).
 
 Compilation is still about 74% of test-class time, so the next lever is the second option, shrinking or reusing the bundled runtime in each module (`Todo.md`: "Reuse the admitted and normalized bundled runtime across compilations").
+
+## Option 2, first stage: deferred runtime text (2026-11-12)
+
+A JFR profile showed most compile time going to generating, scanning and pruning runtime text, not to lowering. Every compile generated about 24.7 MB of runtime WAT, even for `return 41+1`, whose final module is 1.1 MB. Two output-preserving changes now defer the text that cannot affect what is kept: the `$__type_assignable` table, and the per-character stores of string constants. Generated text falls to 13.9 MB, and a warm trivial compile from 347 to 234 ms. **The prescribed selection takes 61–62 s instead of 71–72 s, and 96–97 s before option 1.** All 1,519 compile-output fingerprints are unchanged. Details are in [docs/bytecode-compile-scaling.md](docs/bytecode-compile-scaling.md#deferred-runtime-text-no-output-change).
+
+Next candidates, from the updated profile:
+- pruning re-scans text the reachability analysis has already split into fields (about 9% of a compile);
+- admission validates every linked runtime method on every compile (20%);
+- runtime field splitting (9%).
