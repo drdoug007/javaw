@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Runs the bytecode test selection and bundles its performance statistics for later analysis.
 #
-#   javaw-bytecode/perf-capture.sh [--label NAME] [--forks F] [--test PATTERN] [--repeat N] [--cold]
-#                                  [--core] [--sample-seconds S] [--no-sample] [-- EXTRA_MAVEN_ARGS...]
+#   javaw-bytecode/perf-capture.sh [--label NAME] [--java-home DIR] [--forks F] [--test PATTERN] [--repeat N]
+#                                  [--cold] [--core] [--sample-seconds S] [--no-sample] [--allow-new-jdk]
+#                                  [-- EXTRA_MAVEN_ARGS...]
 #
 # Each run writes to javaw-bytecode/target/perf-runs/<timestamp>-<label>/run-<n>/:
 #   environment.txt     machine, toolchain versions, commit and working-tree state, options
@@ -18,12 +19,17 @@
 #
 # --cold removes javaw-bytecode/target/wasm-cache first, so wat2wasm output is not reused.
 # Runs offline (mvn -o), like the prescribed validation command. A failing test does not stop the capture.
+# --java-home sets JAVA_HOME for Maven and the test forks. The tests compile fixtures with the running JDK's javac,
+# and the pinned ASM (9.7) and Byte Buddy cannot read class files newer than Java 23 (major 67), so the script refuses
+# a newer JDK unless --allow-new-jdk is given. Use a JDK 21, as CI does.
 set -uo pipefail
 
-label=run forks='' test='one.dastec.javaw.bytecode.*Test' repeat=1 cold=0 core=0 sample=2 extra=()
+label=run java_home='' allow_new_jdk=0 forks='' test='one.dastec.javaw.bytecode.*Test' repeat=1 cold=0 core=0 sample=2 extra=()
 while [ $# -gt 0 ]; do
     case "$1" in
         --label) label=$2; shift 2 ;;
+        --java-home) java_home=$2; shift 2 ;;
+        --allow-new-jdk) allow_new_jdk=1; shift ;;
         --forks) forks=$2; shift 2 ;;
         --test) test=$2; shift 2 ;;
         --repeat) repeat=$2; shift 2 ;;
@@ -32,12 +38,19 @@ while [ $# -gt 0 ]; do
         --sample-seconds) sample=$2; shift 2 ;;
         --no-sample) sample=0; shift ;;
         --) shift; extra=("$@"); break ;;
-        -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
+        -h|--help) sed -n '2,24p' "$0"; exit 0 ;;
         *) echo "unknown option $1 (see --help)" >&2; exit 2 ;;
     esac
 done
 
 root=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
+if [ -n "$java_home" ]; then export JAVA_HOME=$java_home PATH="$java_home/bin:$PATH"; fi
+feature=$(java -XshowSettings:properties -version 2>&1 | sed -n 's/^ *java.specification.version = //p')
+if [ "${feature:-0}" -gt 23 ] && [ "$allow_new_jdk" = 0 ]; then
+    echo "java is JDK $feature: the pinned ASM and Byte Buddy cannot read its class files, so about 66 tests fail early" >&2
+    echo "and the timings are not comparable. Pass --java-home <JDK 21>, as CI uses (or --allow-new-jdk to run anyway)." >&2
+    exit 2
+fi
 module="$root/javaw-bytecode"
 stamp=$(date +%Y%m%d-%H%M%S)
 capture="$module/target/perf-runs/$stamp-$label"
@@ -50,7 +63,7 @@ maven=(mvn -o -B -ntp)
 
 environment() {
     echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-    echo "options: label=$label forks=${forks:-pom default} test=$test repeat=$repeat cold=$cold core=$core extra=${extra[*]:-}"
+    echo "options: label=$label java_home=${JAVA_HOME:-unset} forks=${forks:-pom default} test=$test repeat=$repeat cold=$cold core=$core extra=${extra[*]:-}"
     echo "commit: $(git rev-parse HEAD) ($(git log -1 --format=%s))"
     echo "uncommitted diff sha256: $(git diff HEAD | shasum -a 256 | cut -d' ' -f1)"
     echo "--- git status --short"; git status --short
