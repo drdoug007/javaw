@@ -800,7 +800,8 @@ public final class BytecodeDispatch {
         while (!current.equals(resolved.owner)) {
             ClassNode type = linked.get(current);
             if (type == null || path.contains(current))
-                throw new IllegalArgumentException("link the complete receiver superclass chain through " + resolved.owner);
+                throw new IllegalArgumentException("link the complete receiver superclass chain through " + resolved.owner
+                        + ": " + receiver + (type == null ? " reaches unlinked " : " has a cyclic superclass chain at ") + current);
             path.add(current);
             current = type.superName;
             if (current == null) throw new IllegalArgumentException("receiver does not extend " + resolved.owner);

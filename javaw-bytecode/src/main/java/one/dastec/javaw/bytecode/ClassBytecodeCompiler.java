@@ -197,7 +197,9 @@ public class ClassBytecodeCompiler {
         // Locals mapping
         StackToLocalMapper mapper = new StackToLocalMapper(mn.maxLocals, mn.maxStack);
 
-        // Declare locals
+        // Declare locals. The mapper's slots are declared generously (at least 32 locals and 32 stack words, each in all four
+        // types); declarations the body never names are dropped once it is lowered (pruneLocals).
+        int declarations = wat.length();
         for (int i = 0; i < mapper.getMaxLocals(); i++) {
             wat.append("        (local $l_").append(i).append(" i32)\n");
             for (String type : List.of("i64", "f32", "f64"))
@@ -213,6 +215,7 @@ public class ClassBytecodeCompiler {
             for (String type : List.of("i64", "f32", "f64"))
                 wat.append("        (local $__shuffle_").append(type).append("_").append(i).append(" ").append(type).append(")\n");
         }
+        int body = wat.length();
         wat.append("        (local $__state i32)\n");
 
         // Copy parameters to initial local variables
@@ -329,7 +332,31 @@ public class ClassBytecodeCompiler {
         }
         wat.append("        unreachable\n        )\n        unreachable\n");
         if (trace) wat.append("        catch_all\n        call $__trace_exit\n        rethrow 0\n        end\n        unreachable\n");
+        pruneLocals(wat, declarations, body);
         wat.append("    )\n");
+    }
+
+    /**
+     * Keeps only the local declarations in {@code [start, end)} whose names the rest of the function uses. An unused
+     * local is never read, so removing it changes nothing but the module's size: generated methods used to declare
+     * 512 stack words in four types each.
+     */
+    static void pruneLocals(StringBuilder wat, int start, int end) {
+        Set<String> used = new HashSet<>();
+        for (int at = wat.indexOf("$", end); at >= 0; at = wat.indexOf("$", at + 1)) {
+            int stop = at + 1;
+            while (stop < wat.length() && !Character.isWhitespace(wat.charAt(stop)) && wat.charAt(stop) != '(' && wat.charAt(stop) != ')') stop++;
+            used.add(wat.substring(at, stop));
+            at = stop - 1;
+        }
+        StringBuilder kept = new StringBuilder();
+        for (int line = start; line < end; ) {
+            int next = wat.indexOf("\n", line) + 1;
+            int name = wat.indexOf("$", line), space = wat.indexOf(" ", name);
+            if (used.contains(wat.substring(name, space))) kept.append(wat, line, next);
+            line = next;
+        }
+        wat.replace(start, end, kept.toString());
     }
 
     private void setState(StringBuilder wat, BasicBlock target) {

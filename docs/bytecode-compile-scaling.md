@@ -231,3 +231,80 @@ The machine heated up over the suite runs, and both columns drifted upward with 
 Evidence of identical output: all 1,519 `BytecodeCompileOutputs` fingerprints of the prescribed selection match those of the previous commit, which match v259, so the compiler revision is unchanged. Three independent review passes (caller dependence, mutation and memo lifetime, and set and order equivalence against the replaced scans) found no divergence.
 
 Remaining admission cost, in the same profile: `BytecodeCompatibility.validate` takes 8% of a warm compile. Frame analysis takes 9% between admission and lowering, and admission runs it over every linked method. Both are recomputed in every compile. Next for this item: reuse admission results for the unchanged bundled runtime across compilations. A runtime method's admission can depend on user classes: user overrides join its receiver sets, and normalizers rewrite runtime classes. A cross-compilation cache therefore needs a key that covers those inputs.
+
+## Exit gate: whole-library measurement (v261)
+
+`BytecodeExitGate` (in `javaw-bytecode`, run like `DependencyAudit`) compiles a whole library JAR with the bundled runtime:
+
+```
+java -Xmx6g -cp <javaw-bytecode classpath> one.dastec.javaw.bytecode.BytecodeExitGate <jar> <output-dir> [seconds:heap-MB:wat-MB:wasm-MB]
+```
+
+Admission stops at the first diagnostic, so the gate works in rounds:
+1. It attributes each diagnostic to a JAR class:
+   - the diagnostic's owner when that is a JAR class;
+   - the class a generated `Owner$$javaw$...` companion was made for;
+   - otherwise, the JAR classes whose supertypes include a type named in the message that neither the JAR nor the runtime links.
+2. It excludes that class and every JAR class that names it. Admission validates every method, so those cannot link without it.
+3. It compiles again, until the rest compiles.
+
+It then measures the admitted classes: the first compile, a warm median of three, the heap limit the run completed within (with summed heap-pool peaks for information), WAT, `.wasm` (wat2wasm) and the function count. Every public method of an admitted class is exported, so the module is the worst case for that set. It writes `report.md` and `blockers.tsv`, and exits non-zero over budget or when a diagnostic cannot be attributed. `BytecodeExitGateTest` covers attribution, dependent exclusion, the measured subset and the budget check.
+
+### What the first measurement exposed
+
+| Problem | Effect | Fix (v261) |
+| --- | --- | --- |
+| jackson-core is a Multi-Release JAR. Only a root `module-info.class` was skipped, and versioned copies of a class were linked as duplicates | the JAR could not be compiled at all | JARs are read as a Java 17 runtime reads them, the way `DependencyAudit` already selects entries: each class from its highest `META-INF/versions/N` copy with 9 ≤ N ≤ 17, else the base entry. Module descriptors are skipped at any version, and non-MR JARs ignore `META-INF/versions`. `BytecodeMultiReleaseJarTest` runs the selected copy |
+| A failed handle in a generated reflection table named only the table | blockers could not be traced to a library class | the diagnostic names the handle target; an incomplete receiver chain names the receiver and the unlinked or cyclic type |
+| Every lowered method declared at least 32 locals and 32 stack words in four types each (272 declarations). Generated methods (`BytecodeDynamic.finish`) declared 512 stack words, 2,048 locals | 85% of jackson-core's method WAT was local declarations | after lowering, a function keeps only the mapper locals its body names (`ClassBytecodeCompiler.pruneLocals`, `BytecodeLocalsTest`) |
+| Text constants wrote one `i32.store16` per character, about 50 bytes of WAT and 7 bytes of binary each | 73 MB of jackson-core's WAT | each non-empty constant copies its UTF-16LE units from a passive data segment with one `memory.init` (`BytecodeStrings.charactersWat`, `BytecodeStringsTest`). The literals keep only letters, digits, space and `.,-/` unescaped, so a constant can never spell module text that the collector's root and emergency-object scans would match |
+
+Measurements on the same machine (GraalVM CE 21.0.2). The gate reports peak heap as the sum of heap-pool peaks during a warm compile. That figure includes uncollected garbage and varies with GC timing, so the table also gives the smallest `-Xmx` with which the whole gate run completes.
+
+| jackson-core 2.15.4, 70 of 185 classes admitted | Before | v261 |
+| --- | --- | --- |
+| Warm compile | 7.71 s | 6.6–7.0 s |
+| Heap-pool peak (`-Xmx4g`/`-Xmx6g`) | 4,257 MB, at the 4 GB cap | 2,471–3,221 MB |
+| Smallest heap that completes | not measured | `-Xmx768m` (fails at 512 MB) |
+| WAT | 429.0 MB | 110.9 MB |
+| `.wasm` | 31.21 MB | 8.31 MB |
+| Functions | 28,114 | 28,114 |
+
+H2 2.2.224 at v261: 1,049 classes, 44 root blockers, 906 excluded dependents, 99 admitted. The admitted classes compile warm in 8.0–8.6 s. The heap-pool peak is about 2 GB, and the gate completes with `-Xmx768m`. The module is 98.7 MB of WAT and 7.80 MB of `.wasm`, with 30,230 functions.
+
+The smaller fixtures shrink as well: a trivial program from 1.13 MB of WAT to 0.61 MB, and the `String.format` fixture from 18.6 MB to 10.6 MB.
+
+### Blockers
+
+Every root blocker is a missing JDK API, or a construct that an open section 12 item covers. None is a defect in the compiler's handling of supported bytecode.
+- jackson-core (11):
+  - unlinked JDK supertypes: `Externalizable`, `InputStream`, `Reader`, `ConcurrentHashMap`;
+  - reflection tables naming `ByteBuffer`, `ObjectInputStream`, `DataOutput` and `SoftReference`;
+  - a `volatile` field (`FftMultiplier`);
+  - `Class.getPackage` (`VersionUtil`).
+
+  They exclude 104 dependents: an incomplete hierarchy fails every type test, and most of the library refers to `JsonFactory`, which needs I/O.
+- H2 (44):
+  - `java.sql` (JDBC interfaces and exceptions);
+  - NIO channels and locks;
+  - I/O streams and readers;
+  - `java.lang.ref`;
+  - atomics, `ConcurrentHashMap` and `Thread`;
+  - security and crypto;
+  - `java.time` formatting, `BitSet`, `Collator`, `ArrayDeque`;
+  - `System.currentTimeMillis`;
+  - one native/synchronized method;
+  - `javax.tools`, SAX and the optional Lucene integration.
+
+The reports are `javaw-bytecode/target/exit-gate/<jar>/report.md` and `blockers.tsv`.
+
+### Budget
+
+- **Regression ceiling for today's admitted subsets.** Pass `seconds:heap-MB:wat-MB:wasm-MB`. The heap field bounds the heap limit the run must complete within, so run the gate with `-Xmx1g`. The summed pool peaks stay in the report for information only, because pools peak at different times and their sum can exceed the limit:
+  - jackson-core `10:1024:128:10`: warm compile ≤ 10 s, WAT ≤ 128 MB, `.wasm` ≤ 10 MB;
+  - H2 `12:1024:115:9`.
+- **Exit target for the whole JARs, once their blockers are resolved:**
+  - jackson-core: warm compile ≤ 30 s, completes with `-Xmx4g`, `.wasm` ≤ 20 MB;
+  - H2: ≤ 120 s, `-Xmx8g`, ≤ 60 MB.
+
+Next costs in the profile of the jackson-core gate: the `$__type_assignable` table (pairwise over every runtime type, 38% of a compile) and per-site dispatch programs during lambda normalization (27%).

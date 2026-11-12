@@ -46,13 +46,10 @@ public final class DependencyAudit {
                 int version = 0;
                 if (logical.startsWith("META-INF/versions/")) {
                     if (!jar.isMultiRelease()) continue;
-                    String rest = logical.substring("META-INF/versions/".length());
-                    int slash = rest.indexOf('/');
-                    if (slash < 0) continue;
-                    try { version = Integer.parseInt(rest.substring(0, slash)); }
-                    catch (NumberFormatException ignored) { continue; }
+                    // The same versioned-directory rule as BytecodeCompiler.readJar.
+                    version = BytecodeCompiler.versionDirectory(logical);
                     if (version < 9 || version > javaFeature) continue;
-                    logical = rest.substring(slash + 1);
+                    logical = logical.substring(logical.indexOf('/', "META-INF/versions/".length()) + 1);
                 }
                 Selected previous = selected.get(logical);
                 if (previous == null || version > previous.version) selected.put(logical, new Selected(entry, version));

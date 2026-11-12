@@ -75,6 +75,21 @@ public class BytecodeCompiler {
         }
     }
 
+    /** The Java release a JAR is read for: the bundled runtime's (Java 17), which the dependency audit also selects. */
+    static final int RELEASE = 17;
+
+    /**
+     * The N of a {@code META-INF/versions/N/...} entry, or -1 unless N is a canonical decimal number ({@code [1-9][0-9]*})
+     * followed by a path, as the JDK's Multi-Release lookup requires.
+     */
+    static int versionDirectory(String name) {
+        String rest = name.substring("META-INF/versions/".length());
+        int slash = rest.indexOf('/');
+        if (slash <= 0 || slash > 9 || slash == rest.length() - 1 || rest.charAt(0) == '0') return -1;
+        for (int i = 0; i < slash; i++) if (rest.charAt(i) < '0' || rest.charAt(i) > '9') return -1;
+        return Integer.parseInt(rest, 0, slash, 10);
+    }
+
     public static String compileClass(byte[] classBytes) {
         return BytecodeCompileClock.<String, RuntimeException>time(() -> ClassBytecodeCompiler.fromBytes(classBytes).compileToWat());
     }
@@ -153,29 +168,55 @@ public class BytecodeCompiler {
     }
     private static String readAndCompileJar(InputStream jarInputStream, boolean exceptionRuntime,List<List<String>> proxyShapes,Set<String> retainedFunctions,Memory memory,
                                             List<NativeImport> nativeImports) throws IOException {
+        return compileClasses(readJar(jarInputStream), exceptionRuntime,proxyShapes,retainedFunctions,memory,nativeImports);
+    }
+
+    /**
+     * The classes of a JAR, as the compiler links them: Multi-Release entries selected for {@link #RELEASE}, module
+     * descriptors skipped, then sorted by class name and entry name. Each call parses fresh class nodes.
+     */
+    static List<ClassNode> readJar(InputStream jarInputStream) throws IOException {
         JarInputStream jis = new JarInputStream(jarInputStream);
         JarEntry entry;
         // Linked in class-name, then entry-name order: JAR entry order has no JVM meaning, so it must not change the
         // module or linkage diagnostics such as which duplicate is named. (Class-file parse failures below are still
         // reported in stream order.) Executable tests therefore compile each fixture JAR in one order.
-        List<Map.Entry<String, ClassNode>> classes = new ArrayList<>();
-
+        // A Multi-Release JAR is read as a Java RELEASE runtime reads it, the same way DependencyAudit selects entries:
+        // each class comes from its highest META-INF/versions/N copy with 9 <= N <= RELEASE, else from the base entry.
+        // JarInputStream exposes the manifest only when it comes first; like JarFile, accept it anywhere in the archive.
+        java.util.jar.Manifest manifest = jis.getManifest();
+        List<Object[]> read = new ArrayList<>(); // {entry name, logical name, version, bytes}, in stream order
         while ((entry = jis.getNextJarEntry()) != null) {
-            if (entry.getName().endsWith(".class") && !entry.getName().equals("module-info.class")) {
-                ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                byte[] buf = new byte[8192];
-                int r;
-                while ((r = jis.read(buf)) != -1) {
-                    baos.write(buf, 0, r);
-                }
-                ClassNode cn = BytecodeInput.read(baos.toByteArray());
-                classes.add(Map.entry(entry.getName(), cn));
+            String name = entry.getName(), logical = name;
+            if (manifest == null && name.equalsIgnoreCase("META-INF/MANIFEST.MF")) {
+                manifest = new java.util.jar.Manifest(new ByteArrayInputStream(jis.readAllBytes()));
+                continue;
             }
+            int version = 0;
+            if (name.startsWith("META-INF/versions/")) {
+                version = versionDirectory(name);
+                if (version < 9 || version > RELEASE) continue;
+                logical = name.substring(name.indexOf('/', "META-INF/versions/".length()) + 1);
+            }
+            if (!logical.endsWith(".class") || logical.equals("module-info.class")) continue;
+            read.add(new Object[]{name, logical, version, jis.readAllBytes()});
+        }
+        boolean multiRelease = manifest != null
+                && "true".equalsIgnoreCase(manifest.getMainAttributes().getValue("Multi-Release"));
+        Map<String, Integer> newest = new HashMap<>();
+        if (!multiRelease) read.removeIf(item -> (int) item[2] != 0);
+        for (Object[] item : read) newest.merge((String) item[1], (int) item[2], Math::max);
+        List<Map.Entry<String, ClassNode>> classes = new ArrayList<>();
+        for (Object[] item : read) {
+            // Superseded copies are never loaded by the target runtime, so they are neither parsed nor linked. Copies with
+            // the same logical name and version all stay, and reach the duplicate check.
+            if ((int) item[2] != newest.get((String) item[1])) continue;
+            classes.add(Map.entry((String) item[0], BytecodeInput.read((byte[]) item[3])));
         }
 
         // A list, not a map, so a malformed stream that repeats an entry name still reaches the duplicate check.
         classes.sort(Comparator.<Map.Entry<String, ClassNode>, String>comparing(named -> named.getValue().name).thenComparing(Map.Entry::getKey));
-        return compileClasses(new ArrayList<>(classes.stream().map(Map.Entry::getValue).toList()), exceptionRuntime,proxyShapes,retainedFunctions,memory,nativeImports);
+        return new ArrayList<>(classes.stream().map(Map.Entry::getValue).toList());
     }
 
     private static String compileClasses(List<ClassNode> classes, boolean exceptionRuntime) throws IOException {return compileClasses(classes,exceptionRuntime,List.of());}

@@ -33,7 +33,12 @@ final class BytecodeHandles implements Opcodes {
                         invocation(owner,name,descriptor,call.desc,call.name.equals("invokeExact"));
                         method.instructions.set(call,new MethodInsnNode(INVOKESTATIC,owner.name,name,descriptor,(owner.access&ACC_INTERFACE)!=0));
                     }
-                }catch(IllegalArgumentException error){throw BytecodeCompatibility.failure(owner,method,instruction,"method handle",error.getMessage());}
+                }catch(IllegalArgumentException error){
+                    // Name the target: generated tables (reflection, lookups) hold handles for methods of other classes.
+                    String construct=instruction instanceof LdcInsnNode ldc && ldc.cst instanceof Handle target
+                            ?"method handle "+target.getOwner()+"."+target.getName()+target.getDesc():"method handle";
+                    throw BytecodeCompatibility.failure(owner,method,instruction,construct,error.getMessage());
+                }
             }
         }
         classes.addAll(generated);

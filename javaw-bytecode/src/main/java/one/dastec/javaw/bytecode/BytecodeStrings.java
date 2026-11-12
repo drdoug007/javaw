@@ -53,14 +53,16 @@ public final class BytecodeStrings {
     private static final String FUNCTION="(func $__text";
 
     /**
-     * Adds the character stores to every {@code $__text} constant in the module. {@link #runtimeWat} leaves them out:
-     * they are most of the constants' text but refer to no function or global, so reachability and pruning do not need
-     * them. Each value is decoded from its function name, the inverse of {@link #symbol}; only {@link #runtimeWat}
-     * defines functions with that prefix, and each one must have the header it writes.
+     * Adds the characters to every {@code $__text} constant in the module. {@link #runtimeWat} leaves them out: they are
+     * most of the constants' text but refer to no function or global, so reachability and pruning do not need them.
+     * Each value is decoded from its function name, the inverse of {@link #symbol}; only {@link #runtimeWat} defines
+     * functions with that prefix, and each one must have the header it writes. A non-empty value is copied into its
+     * char array from a passive data segment of its UTF-16LE units ({@code memory.init}, 2 bytes per char), and the
+     * segments are appended at the end of the module.
      */
     static String charactersWat(String wat) {
-        StringBuilder out=null;
-        int copied=0;
+        StringBuilder out=null,segments=new StringBuilder();
+        int copied=0,count=0;
         for(int at=wat.indexOf(FUNCTION);at>=0;at=wat.indexOf(FUNCTION,at+1)) {
             int nameStart=at+"(func ".length(),nameEnd=wat.indexOf(' ',nameStart);
             String name=wat.substring(nameStart,nameEnd),value=value(name),global=name+"_cached";
@@ -69,13 +71,35 @@ public final class BytecodeStrings {
             if(header==null || !wat.startsWith(header,nameEnd))
                 throw new IllegalStateException("unexpected text constant function "+name);
             int line=nameEnd+header.length();
-            if(out==null)out=new StringBuilder(wat.length()+wat.length()/2);
+            if(out==null)out=new StringBuilder(wat.length()+wat.length()/4);
             out.append(wat,copied,line);
-            for(int i=0;i<value.length();i++)
-                out.append("local.get $chars i32.const ").append(value.charAt(i)+0).append(" i32.store16 offset=").append(8+i*2).append('\n');
+            if(!value.isEmpty()) {
+                String segment="$__chars_"+count++;
+                out.append("local.get $chars i32.const 8 i32.add i32.const 0 i32.const ").append(value.length()*2)
+                        .append(" memory.init ").append(segment).append('\n');
+                segments.append("(data ").append(segment).append(" \"").append(utf16(value)).append("\")\n");
+            }
             copied=line;
         }
-        return out==null?wat:out.append(wat,copied,wat.length()).toString();
+        if(out==null)return wat;
+        out.append(wat,copied,wat.length());
+        int end=out.lastIndexOf(")");
+        return end<0?out.toString():out.insert(end,segments).toString();
+    }
+
+    /** A WAT string literal body of {@code value}'s UTF-16LE bytes: letters, digits and safe punctuation as is, other bytes escaped. */
+    static String utf16(String value) {
+        StringBuilder text=new StringBuilder(value.length()*4);
+        for(int i=0;i<value.length();i++) {
+            char c=value.charAt(i);
+            for(int b:new int[]{c&255,c>>>8}) {
+                // Letters, digits, space and a few punctuation marks only: a literal must never spell module text such as
+                // "(global $..." that later text scans (the collector's root and emergency-object scans) would match.
+                if(b>='a' && b<='z' || b>='A' && b<='Z' || b>='0' && b<='9' || b==' ' || b=='.' || b==',' || b=='-' || b=='/')text.append((char)b);
+                else text.append('\\').append(Character.forDigit(b>>>4,16)).append(Character.forDigit(b&15,16));
+            }
+        }
+        return text.toString();
     }
 
     /** The value whose {@link #symbol} is {@code name}: {@code _}-separated lowercase hex UTF-16 units; otherwise null. */
