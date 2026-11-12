@@ -346,6 +346,9 @@ Phase 1 source-resolution foundations and source-backed Optional/closures are im
 │   │       └── node-tests
 │   │           ├── package.json           # Node.js test configuration
 │   │           └── test.js                # End-to-end WebAssembly execution & DOM test suite
+├── javaw-unicode-data                 # Java 17 / Unicode 13 tables for the bundled runtime, plus the tests' traversal oracle
+│   ├── pom.xml                        # Runs tools/GenerateJdk17Data.java in generate-resources (no Python)
+│   └── tools                          # GenerateJdk17Data.java (JDK 17 discovery, stamp) and Jdk17Tables.java (the generators)
 ├── javaw-bytecode                     # Bytecode compiler & local repository cache module
 │   ├── pom.xml                        # ASM dependencies (asm, asm-tree, asm-analysis, asm-commons)
 │   └── src
@@ -406,7 +409,7 @@ Phase 1 source-resolution foundations and source-backed Optional/closures are im
 
 - **Java Development Kit (JDK)**: Version 17 or higher
 - **Apache Maven**: Version 3.6 or higher
-- **JDK 17 and Python 3** (for building `javaw-bytecode`): the build derives its Unicode 13 tables from a JDK 17 installation into `target/`. It finds the JDK through `-Djavaw.jdk17.home=<path>`, `JAVA_HOME_17` or, on macOS, `java_home -v 17`; see [generated Unicode tables](docs/bytecode-unicode-case.md#reproducible-data).
+- **JDK 17** (for building `javaw-unicode-data`, which `javaw-bytecode` depends on): the build derives its Unicode 13 tables from a JDK 17 installation into `target/` with Java programs; no Python is needed. It finds the JDK through `-Djavaw.jdk17.home=<path>`, `JAVA_HOME_17` or, on macOS, `java_home -v 17`; see [generated Unicode tables](docs/bytecode-unicode-case.md#reproducible-data).
 - **WABT (`wat2wasm`)** (optional): For compiling `.wat` text to `.wasm` binary modules directly from the CLI or Maven plugin
 - **Binaryen (`wasm-opt`)** (optional): For optimizing `.wasm` binary size and execution speed with `-O3`
 - **Node.js** (optional): For executing the automated end-to-end test suite

@@ -20,6 +20,7 @@
     <modules>
         <module>javaw-core</module>
         <module>javaw-log4j-compat</module>
+        <module>javaw-unicode-data</module>
         <module>javaw-bytecode</module>
         <module>javaw-maven-plugin</module>
         <module>examples</module>
@@ -54,6 +55,11 @@
             <dependency>
                 <groupId>one.dastec</groupId>
                 <artifactId>javaw-bytecode</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>one.dastec</groupId>
+                <artifactId>javaw-unicode-data</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

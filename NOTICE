@@ -9,10 +9,10 @@ Third-party material retains its original licenses:
   exception. Its original copyright header is preserved. The upstream
   license, exception, source hash and adaptation notes are distributed in
   javaw-bytecode/src/main/resources/exception-runtime/legal/fdlibm/.
-- javaw-bytecode/src/main/resources/exception-runtime/javaw/runtime/StringLowerData.java
-  and javaw-bytecode/src/main/resources/exception-runtime/javaw/runtime/WordBreaks.java
+- exception-runtime/javaw/runtime/StringLowerData.java, generated into the javaw-unicode-data jar, and
+  javaw-bytecode/src/main/resources/exception-runtime/javaw/runtime/WordBreaks.java
   contain generated/adapted OpenJDK 17.0.9 word-break and lowercase-context data/code under GPLv2 with the
   Classpath exception. Upstream notices, source, license and reproduction notes
-  are in javaw-bytecode/src/main/resources/exception-runtime/legal/word-break/.
+  are in javaw-unicode-data/src/main/resources/exception-runtime/legal/word-break/.
 - External dependencies, including the pinned runtime-target libraries,
   remain under their respective upstream licenses.

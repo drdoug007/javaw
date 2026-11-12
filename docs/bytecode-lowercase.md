@@ -79,7 +79,7 @@ Artifact SHA-256 values:
 
 ## Reproduction
 
-The `javaw-bytecode` build generates the data into `target/` from a JDK 17 installation (see [generated Unicode tables](bytecode-unicode-case.md#reproducible-data)). Reproduce and validate with:
+The `javaw-unicode-data` build, which `-am` includes ahead of `javaw-bytecode`, generates the data into its `target/` from a JDK 17 installation (see [generated Unicode tables](bytecode-unicode-case.md#reproducible-data)). The generator alone runs as `java --add-opens java.base/sun.text=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED -Djava.locale.providers=CLDR javaw-unicode-data/tools/Jdk17Tables.java string-lowercase --output <file>` with a JDK 17 launcher. Reproduce and validate with:
 
 ```sh
 mvn -o -pl javaw-bytecode -am process-resources -Djavaw.jdk17.home=<jdk-17-home>

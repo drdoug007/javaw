@@ -22,10 +22,10 @@ def main():
     subprocess.run([sys.executable, str(module / 'verify-lock.py')] + (['--online'] if args.online else []), check=True)
     offline = [] if args.online else ['-o']
     with (module / 'target' / 'audit-build.log').open('w') as log:
-        subprocess.run(['mvn'] + offline + ['-pl', 'javaw-bytecode', '-am', '-DskipTests', 'compile'],
-                       cwd=root, stdout=log, stderr=subprocess.STDOUT, check=True)
+        # One reactor invocation, so reactor modules (javaw-core, javaw-unicode-data) resolve to their target/classes
+        # instead of whatever is installed in ~/.m2. Each module writes the classpath file; javaw-bytecode's is last.
         classpath = root / 'javaw-bytecode' / 'target' / 'audit-classpath.txt'
-        subprocess.run(['mvn'] + offline + ['-pl', 'javaw-bytecode',
+        subprocess.run(['mvn'] + offline + ['-pl', 'javaw-bytecode', '-am', '-DskipTests', 'compile',
                        'org.apache.maven.plugins:maven-dependency-plugin:3.6.1:build-classpath',
                        f'-Dmdep.outputFile={classpath}', '-Dmdep.includeScope=runtime'],
                        cwd=root, stdout=log, stderr=subprocess.STDOUT, check=True)

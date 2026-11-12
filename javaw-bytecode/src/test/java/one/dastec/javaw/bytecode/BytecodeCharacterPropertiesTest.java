@@ -122,7 +122,7 @@ class BytecodeCharacterPropertiesTest implements Opcodes {
             """);
         StringBuilder checks=new StringBuilder();
         // --release controls class-file APIs, not the host JVM's newer bounds checks.
-        try(InputStream oracle=getClass().getResourceAsStream("/character-traversal-jdk17.txt")){
+        try(InputStream oracle=getClass().getResourceAsStream("/javaw-unicode-data/character-traversal-jdk17.txt")){
             assertNotNull(oracle);String data=new String(oracle.readAllBytes(),java.nio.charset.StandardCharsets.UTF_8);
             List<String> rows=data.lines().toList();assertEquals(1872,rows.size());
             for(String row:rows){String[] fields=row.split(" ");String arguments=fields[0]+","+fields[1]+","+fields[2];

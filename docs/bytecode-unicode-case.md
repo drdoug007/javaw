@@ -14,7 +14,16 @@ The comparison contract guarantees equality and ordering signs. Nonzero comparis
 
 ## Reproducible data
 
-The tables are not committed. In the `generate-resources` phase, the `javaw-bytecode` build runs `tools/generate-jdk17-data.py`, which derives them from the public Character API of a JDK 17 installation into `target/generated-resources/jdk17`. These are `UnicodeCase.java` from `generate-unicode-case.py`, plus the properties, uppercase and lowercase tables and the test oracle in `target/generated-test-resources/jdk17`. The JDK comes from `-Djavaw.jdk17.home`, `JAVA_HOME_17` (also `_X64`/`_ARM64`) or, on macOS, `java_home -v 17`, and the build fails if none is a JDK 17. Outputs are regenerated only when a generator script or the JDK changes. Each generator takes `--output <file>` and `--check`, which compares with an existing output. The generator rejects other Java feature versions and prints independent whole-domain reference checksums before compressing the mappings into 676 uppercase and 660 lowercase ranges.
+The tables are not committed. They are built by the `javaw-unicode-data` module, which the reactor builds before `javaw-bytecode`. No Python is involved.
+
+- **Generation.** In the `generate-resources` phase, Maven's own JDK runs `javaw-unicode-data/tools/GenerateJdk17Data.java` in single-file source mode, so there is no compile step. It finds a JDK 17 and runs `tools/Jdk17Tables.java <table> --output <file>` on it, once per table and in parallel, with the JVM options each table needs. `Jdk17Tables` derives each table from that JDK's own APIs.
+- **Outputs.** `UnicodeCase.java`, plus the properties, uppercase and lowercase tables, go to `javaw-unicode-data/target/generated-resources/jdk17/exception-runtime/javaw/runtime/`. The test oracle goes to `javaw-unicode-data/character-traversal-jdk17.txt` in the same resource directory, outside the runtime's `exception-runtime/` tree.
+- **Packaging.** The module's one jar carries the tables, with the `legal/word-break` notices, and the oracle. `javaw-bytecode` depends on it. The oracle is in the main jar rather than a test jar, so `-Dmaven.test.skip=true` cannot drop it. `BytecodeExceptionRuntime` loads the tables as `exception-runtime/` classpath resources, and `BytecodeUnicodeDataTest` checks that they and the oracle resolve from the data module.
+- **JDK 17.** It comes from `-Djavaw.jdk17.home`, `JAVA_HOME_17` (also `_X64`/`_ARM64`) or, on macOS, `java_home -v 17`. The build fails if none is a JDK 17.
+- **Regeneration.** Outputs are regenerated only when a tool source or the JDK changes, which a stamp file outside the resource root records.
+- **Checks.** Each table rejects other Java feature versions. The case table prints independent whole-domain reference checksums before compressing the mappings into 676 uppercase and 660 lowercase ranges.
+
+The Java generators replaced the earlier Python scripts. Their output is byte-identical except for one comment line per table, which now names `Jdk17Tables.java`. Line numbers are unchanged, so the compiled runtime classes and every compiler output are the same.
 
 Each range stores a start, end and signed delta. Packed UTF-16 constants avoid thousands of array initializer stores and a large Wasm initializer function. Runtime conversion uses binary search and never delegates to a JavaScript or host Unicode implementation.
 

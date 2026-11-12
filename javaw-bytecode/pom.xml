@@ -16,16 +16,17 @@
         <!-- Settings for the prescribed validation run; see docs/bytecode-test-performance.md. Override with -D. -->
         <javaw.test.forks>0.6C</javaw.test.forks>
         <javaw.test.argLine></javaw.test.argLine>
-        <!-- JDK 17 used to derive the Unicode 13 tables; empty means discover it (JAVA_HOME_17*, macOS java_home). -->
-        <javaw.jdk17.home></javaw.jdk17.home>
-        <javaw.generated.resources>${project.build.directory}/generated-resources/jdk17</javaw.generated.resources>
-        <javaw.generated.testResources>${project.build.directory}/generated-test-resources/jdk17</javaw.generated.testResources>
     </properties>
 
     <dependencies>
         <dependency>
             <groupId>one.dastec</groupId>
             <artifactId>javaw-core</artifactId>
+        </dependency>
+        <dependency>
+            <!-- Java 17 / Unicode 13 tables of the bundled runtime (exception-runtime/ resources) and the tests' oracle. -->
+            <groupId>one.dastec</groupId>
+            <artifactId>javaw-unicode-data</artifactId>
         </dependency>
         <dependency>
             <groupId>org.ow2.asm</groupId>
@@ -56,42 +57,10 @@
     </dependencies>
 
     <build>
-        <!-- Generated Unicode tables are resources like the hand-written runtime sources, but live only in target/. -->
-        <resources>
-            <resource><directory>src/main/resources</directory></resource>
-            <resource><directory>${javaw.generated.resources}</directory></resource>
-        </resources>
-        <testResources>
-            <testResource><directory>src/test/resources</directory></testResource>
-            <testResource><directory>${javaw.generated.testResources}</directory></testResource>
-        </testResources>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-            </plugin>
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>exec-maven-plugin</artifactId>
-                <version>3.1.0</version>
-                <executions>
-                    <execution>
-                        <id>generate-jdk17-data</id>
-                        <phase>generate-resources</phase>
-                        <goals>
-                            <goal>exec</goal>
-                        </goals>
-                        <configuration>
-                            <executable>python3</executable>
-                            <arguments>
-                                <argument>${project.basedir}/tools/generate-jdk17-data.py</argument>
-                                <argument>--java-home=${javaw.jdk17.home}</argument>
-                                <argument>--main-resources=${javaw.generated.resources}</argument>
-                                <argument>--test-resources=${javaw.generated.testResources}</argument>
-                            </arguments>
-                        </configuration>
-                    </execution>
-                </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

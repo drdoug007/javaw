@@ -12,8 +12,9 @@ src/java.base/share/classes/sun/text/resources/BreakIteratorRules.java
 https://github.com/openjdk/jdk17u/tree/jdk-17.0.9%2B9
 Rules source SHA-256: 7ac4cca9f001b7e1e3b9db76a82a899104fcb743947d34ffe012a89bf5466a4b
 
-Reproduce: python3 javaw-bytecode/tools/generate-string-lowercase.py
-  --java-home <JDK-17-home> --check
+Reproduce with a JDK 17 java launcher (the javaw-unicode-data build does this):
+  java --add-opens java.base/sun.text=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED
+       -Djava.locale.providers=CLDR javaw-unicode-data/tools/Jdk17Tables.java string-lowercase --output <file>
 Reflection extracts the forward/backward transition/category/accept/lookahead tables;
 packing changes their representation. The runtime uses an adapted boundary cursor. Dictionary segmentation and public BreakIterator APIs
 are not implemented. No change is made to the original upstream rules.
