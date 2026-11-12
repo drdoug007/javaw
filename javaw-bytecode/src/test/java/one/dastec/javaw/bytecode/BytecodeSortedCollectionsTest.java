@@ -163,7 +163,7 @@ import java.util.*;public class Metadata {public static int run(int g){int h=1;T
     }
     private void execute(String wat,String expected) throws Exception {
         Path input=directory.resolve("metadata.wat"),output=directory.resolve("metadata.wasm"),script=directory.resolve("run.cjs");
-        Files.writeString(input,wat);run(Wat2Wasm.command(input,output,Wat2Wasm.EXCEPTIONS, "--debug-names").toArray(String[]::new));
+        Files.writeString(input,wat);WasmTestSupport.assemble(input,output,Wat2Wasm.EXCEPTIONS, "--debug-names");
         Files.writeString(script,"""
             const fs=require('node:fs'),assert=require('node:assert/strict');
             const compiled=new WebAssembly.Module(fs.readFileSync(process.argv[2]));
@@ -178,6 +178,6 @@ import java.util.*;public class Metadata {public static int run(int g){int h=1;T
                 }}}).exports;
                 assert.equal(allocations,0);assert.equal(e.__gc_heap_bytes?.()??0,0);if(e.__gc_scribble)e.__gc_scribble.value=1;heap=Math.max(heap,e.__exception_heap_base?.value??0);
             """.replace("EXPECTED",expected)+"assert.equal(e['"+fixtureClassName+".run'](group),expected[group],'batch '+group);\n}");
-        run("node",script.toString(),output.toString());
+        WasmTestSupport.node(script,output);
     }
 }

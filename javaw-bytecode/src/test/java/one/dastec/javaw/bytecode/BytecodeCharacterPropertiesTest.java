@@ -1,6 +1,5 @@
 package one.dastec.javaw.bytecode;
 
-import one.dastec.javaw.Wat2Wasm;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.objectweb.asm.*;
@@ -10,7 +9,6 @@ import java.io.*;
 import java.net.*;
 import java.nio.file.*;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 import java.util.jar.*;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -198,30 +196,7 @@ class BytecodeCharacterPropertiesTest implements Opcodes {
         for(char c:value.toCharArray())out.append(String.format("\\u%04x",(int)c));
         return out.append('"').toString();
     }
-    private void run(String... arguments) throws Exception {
-        Path log=directory.resolve("command.log");Process process=new ProcessBuilder(arguments).redirectErrorStream(true).redirectOutput(log.toFile()).start();
-        if(!process.waitFor(60,TimeUnit.SECONDS)){process.destroyForcibly();fail("Command timed out");}
-        assertEquals(0,process.exitValue(),Files.readString(log));
-    }
     private void execute(String wat,String assertions) throws Exception {
-        Path input=directory.resolve("metadata.wat"),output=directory.resolve("metadata.wasm"),script=directory.resolve("run.cjs");
-        Files.writeString(input,wat);run(Wat2Wasm.command(input,output,Wat2Wasm.EXCEPTIONS).toArray(String[]::new));
-        Files.writeString(script,"""
-            const fs=require('node:fs'),assert=require('node:assert/strict');
-            const compiled=new WebAssembly.Module(fs.readFileSync(process.argv[2]));
-            for(let instance=0;instance<2;instance++) {
-                const memory=new WebAssembly.Memory({initial:2});let heap=1024,allocations=0,failAllocation=false;
-                const e=new WebAssembly.Instance(compiled,{env:{memory,__heap_alloc:size=>{
-                    allocations++;if(failAllocation){failAllocation=false;return 0;}
-                    const address=heap;heap+=size;
-                    while(heap>memory.buffer.byteLength)memory.grow(1);
-                    new Uint8Array(memory.buffer,address,size).fill(0x7f);return address;
-                }}}).exports;
-                assert.equal(allocations,0);assert.equal(e.__gc_heap_bytes?.()??0,0);if(e.__gc_scribble)e.__gc_scribble.value=1;heap=Math.max(heap,e.__exception_heap_base?.value??0);
-                function text(pointer){if(!pointer)return null;const view=new DataView(memory.buffer);
-                    const chars=view.getInt32(pointer+4,true),length=view.getInt32(chars+4,true);
-                    let result='';for(let i=0;i<length;i++)result+=String.fromCharCode(view.getUint16(chars+8+2*i,true));return result;}
-            """+assertions+"\n}");
-        run("node",script.toString(),output.toString());
+        WasmTestSupport.execute(directory,wat,assertions);
     }
 }

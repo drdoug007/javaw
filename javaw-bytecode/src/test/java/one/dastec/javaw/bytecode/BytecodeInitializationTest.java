@@ -229,7 +229,7 @@ class BytecodeInitializationTest {
     private void execute(String wat,String assertions) throws Exception {
         Path input=directory.resolve("init.wat"), output=directory.resolve("init.wasm"), script=directory.resolve("run.cjs");
         Files.writeString(input,wat);
-        run(Wat2Wasm.command(input,output,Wat2Wasm.EXCEPTIONS).toArray(String[]::new));
+        WasmTestSupport.assemble(input,output,Wat2Wasm.EXCEPTIONS);
         Files.writeString(script,"""
             const fs=require('node:fs'),assert=require('node:assert/strict');
             const compiled=new WebAssembly.Module(fs.readFileSync(process.argv[2]));
@@ -245,6 +245,6 @@ class BytecodeInitializationTest {
                 assert.equal(allocations,0);assert.equal(e.__gc_heap_bytes?.()??0,0);if(e.__gc_scribble)e.__gc_scribble.value=1;
                 heap=Math.max(heap,e.__exception_heap_base?.value??0);
             """+assertions+"\n}");
-        run("node",script.toString(),output.toString());
+        WasmTestSupport.node(script,output);
     }
 }

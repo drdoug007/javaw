@@ -21,7 +21,7 @@ class BytecodeCompatibilityTest {
     private void execute(String wat,String assertions) throws Exception {
         Path input=directory.resolve("module.wat"), output=directory.resolve("module.wasm");
         Files.writeString(input,wat);
-        run("wat2wasm",input.toString(),"-o",output.toString());
+        WasmTestSupport.assemble(input,output);
         Path script=directory.resolve("run.cjs");
         Files.writeString(script,"""
             const assert=require('node:assert/strict');
@@ -36,7 +36,7 @@ class BytecodeCompatibilityTest {
                 }}});
             const e=instance.exports;
             """+assertions);
-        run("node",script.toString(),output.toString());
+        WasmTestSupport.node(script,output);
     }
 
     private void run(String... command) throws Exception {

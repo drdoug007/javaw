@@ -43,14 +43,14 @@ class BytecodeTopFramesTest implements Opcodes {
     private void execute(ClassNode owner, String assertions) throws Exception {
         Path wat = directory.resolve("top.wat"), wasm = directory.resolve("top.wasm"), script = directory.resolve("top.cjs");
         Files.writeString(wat, BytecodeCompiler.compileClass(bytes(owner)));
-        run("wat2wasm", wat.toString(), "-o", wasm.toString());
+        WasmTestSupport.assemble(wat, wasm);
         Files.writeString(script, """
                 const assert = require('node:assert/strict');
                 const fs = require('node:fs');
                 const e = new WebAssembly.Instance(new WebAssembly.Module(fs.readFileSync(process.argv[2])),
                     {env:{memory:new WebAssembly.Memory({initial:2,maximum:20}),__heap_alloc:()=>1024}}).exports;
                 """ + assertions);
-        run("node", script.toString(), wasm.toString());
+        WasmTestSupport.node(script,wasm);
     }
 
     /** Branches retain a live integer above a value whose type/shape is erased at the join. */

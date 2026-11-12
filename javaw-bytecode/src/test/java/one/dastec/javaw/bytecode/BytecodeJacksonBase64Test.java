@@ -8,7 +8,6 @@ import java.io.*;
 import java.net.*;
 import java.nio.file.*;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 import java.util.jar.*;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -210,14 +209,9 @@ class BytecodeJacksonBase64Test {
         return out.append('"').toString();
     }
 
-    private void run(String... arguments) throws Exception {
-        Path log=directory.resolve("command.log");Process process=new ProcessBuilder(arguments).redirectErrorStream(true).redirectOutput(log.toFile()).start();
-        if(!process.waitFor(60,TimeUnit.SECONDS)){process.destroyForcibly();fail("Command timed out");}
-        assertEquals(0,process.exitValue(),Files.readString(log));
-    }
     private void execute(String wat,String assertions) throws Exception {
         Path input=directory.resolve("metadata.wat"),output=directory.resolve("metadata.wasm"),script=directory.resolve("run.cjs");
-        Files.writeString(input,wat);run(Wat2Wasm.command(input,output,Wat2Wasm.EXCEPTIONS).toArray(String[]::new));
+        Files.writeString(input,wat);WasmTestSupport.assemble(input,output,Wat2Wasm.EXCEPTIONS);
         Files.writeString(script,"""
             const fs=require('node:fs'),assert=require('node:assert/strict');
             const compiled=new WebAssembly.Module(fs.readFileSync(process.argv[2]));
@@ -236,6 +230,6 @@ class BytecodeJacksonBase64Test {
                     const chars=view.getInt32(pointer+4,true),length=view.getInt32(chars+4,true);
                     let result='';for(let i=0;i<length;i++)result+=String.fromCharCode(view.getUint16(chars+8+2*i,true));return result;}
             """+assertions.replace("e['","fresh()['")+"\n}");
-        run("node",script.toString(),output.toString());
+        WasmTestSupport.node(script,output);
     }
 }

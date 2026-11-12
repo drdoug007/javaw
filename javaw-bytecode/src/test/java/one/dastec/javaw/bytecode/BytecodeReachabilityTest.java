@@ -100,7 +100,7 @@ class BytecodeReachabilityTest implements Opcodes {
     private void execute(String wat, String assertions) throws Exception {
         Path input = directory.resolve("reach.wat"), output = directory.resolve("reach.wasm"), script = directory.resolve("run.cjs");
         Files.writeString(input, wat);
-        run(Wat2Wasm.command(input,output,Wat2Wasm.EXCEPTIONS).toArray(String[]::new));
+        WasmTestSupport.assemble(input,output,Wat2Wasm.EXCEPTIONS);
         Files.writeString(script, """
             const fs=require('node:fs'),assert=require('node:assert/strict');
             const memory=new WebAssembly.Memory({initial:2});let heap=1024;
@@ -111,6 +111,6 @@ class BytecodeReachabilityTest implements Opcodes {
                 const chars=view.getInt32(pointer+4,true),length=view.getInt32(chars+4,true);
                 let result='';for(let i=0;i<length;i++)result+=String.fromCharCode(view.getUint16(chars+8+2*i,true));return result;}
             """ + assertions);
-        run("node", script.toString(), output.toString());
+        WasmTestSupport.node(script,output);
     }
 }

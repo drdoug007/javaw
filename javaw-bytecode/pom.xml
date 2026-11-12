@@ -97,13 +97,15 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <!-- Each fork runs whole test classes sequentially; tests also spawn wat2wasm and node processes. -->
+                    <!-- Each fork runs whole test classes sequentially; tests also spawn wat2wasm and a persistent node host. -->
                     <forkCount>${javaw.test.forks}</forkCount>
                     <reuseForks>true</reuseForks>
                     <argLine>${javaw.test.argLine}</argLine>
                     <systemPropertyVariables>
                         <!-- Per-test wall and compile times for test-timings.py (BytecodeTestTimings). -->
                         <javaw.compileTimes.dir>${project.build.directory}/test-timings</javaw.compileTimes.dir>
+                        <!-- wat2wasm binaries keyed by WAT, flags and wabt version (WasmTestSupport). -->
+                        <javaw.wasmCache.dir>${project.build.directory}/wasm-cache</javaw.wasmCache.dir>
                     </systemPropertyVariables>
                 </configuration>
             </plugin>
