@@ -175,3 +175,32 @@ Remaining cost, from the same profile after these changes:
 - lowering the reachable methods: about 12%;
 - splitting the runtime text into fields: 9%.
 
+## Less text for pruning (no output change)
+
+Pruning (`BytecodeDeadCode.prune`) re-split the whole module text into fields, including all of the runtime text the reachability analysis had already split, and most of it was then removed. Two changes reduce that work:
+
+- **Unreached runtime functions are dropped before pruning.** `BytecodeReachability.Result` now also returns the function ids the analysis reached and the runtime text's fields with their spans. When `compileLinked` assembles the module, it substitutes the narrowed trace-capture and class-name regions as before. It also skips each runtime function field the analysis never reached, by the same span pruning removes.
+
+  This is exact because pruning keeps only what the analysis reached. The analysis starts from at least pruning's roots: it treats every non-function field, including every global, as a root, and it takes root exports and retained ids as pruning does. It follows the same `call`, `return_call` and `ref.func` edges. The final text of every function equals the text it analyzed, except the two narrowed regions, which only lose edges.
+
+  To keep the removed spans identical, fields in or across the narrowed regions, fields whose trailing newline is not inside the runtime body, and the array helpers appended after it are left to pruning. If any part of the module contains `call_indirect`, `(table` or `(;`, pruning would return the module unchanged, so nothing is dropped early.
+- **The field splitter jumps between structural characters.** `BytecodeDeadCode.fields` used to read every character. It now jumps between cached `indexOf` positions of `"`, `;`, `(`, `)` and `\`. Generated function bodies have a parenthesis about every 100 characters, and quotes and semicolons are rare. A backslash position is cached too: searching afresh for each string scanned to the end of the text, and made the first version slower than the old loop on an 18 MB module. `BytecodeDeadCodeFieldsTest` compares the splitter with the old loop on 50,000 random token strings, from every start position, and on hand-written cases (escapes at the end, unterminated strings and comments, `(;`, single `;`, stray `)`).
+
+Results (same machine, warm compiles, median of 15 after 8 warm-ups, same build with the old and new splitter):
+
+| Fixture | Before this section | Pre-drop, old splitter | Both changes |
+| --- | --- | --- | --- |
+| Trivial (`return 41+1`) | 234 ms | 219 ms | 206 ms |
+| `String.format` fixture | 309 ms | 318 ms | 294 ms |
+
+Pruning falls from 21% to 13% of a warm compile of the `String.format` fixture. Field splitting falls from about 15% to under 5%. Prescribed selection (GraalVM CE 21.0.2, 8 forks, two runs each): compile time 294–299 s → 284–287 s, wall time 61–62 s → 60–61 s. The suite gains less than the warm benchmark, because its modules vary in size and its forks compete for CPU.
+
+Evidence of identical output: all 1,519 `BytecodeCompileOutputs` fingerprints of the prescribed selection still match v259, so the compiler revision is unchanged.
+
+Remaining cost in the same profile:
+- admission: 24%;
+- lowering the reachable methods: 25%;
+- the references pruning follows through kept fields: 5%;
+- normalization: 6%;
+- runtime helper generation: about 15% (`referenceArrayRuntimeWat`, object and class runtime, collector).
+

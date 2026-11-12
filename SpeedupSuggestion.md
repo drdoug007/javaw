@@ -174,3 +174,9 @@ Next candidates, from the updated profile:
 - pruning re-scans text the reachability analysis has already split into fields (about 9% of a compile);
 - admission validates every linked runtime method on every compile (20%);
 - runtime field splitting (9%).
+
+## Option 2, second stage: less text for pruning (2026-11-12)
+
+Runtime functions the reachability analysis never reached are now dropped before pruning, which would remove them anyway. The field splitter jumps between structural characters instead of reading each one. In warm benchmarks this saves 6–12% per compile, and pruning falls from 21% to 13% of a compile. **In the full test run the gain is smaller: compile time 294–299 s → 284–287 s, wall time 60–61 s.** All 1,519 compile-output fingerprints are unchanged. Details are in [docs/bytecode-compile-scaling.md](docs/bytecode-compile-scaling.md#less-text-for-pruning-no-output-change).
+
+The two largest remaining costs are admission of every linked runtime method (24%) and lowering the reachable methods (25%). Admission reuse across compilations is the open `Todo.md` item. It is riskier than the text changes, because it must reproduce every diagnostic.

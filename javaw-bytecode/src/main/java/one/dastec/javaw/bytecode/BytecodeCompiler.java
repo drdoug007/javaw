@@ -227,12 +227,39 @@ public class BytecodeCompiler {
             instantiated.addAll(reachable.instantiated());
             // Analysis used the complete versions of these lookups; the emitted ones cover only what can occur.
             // Trace capture names sites whose method has a body; class names cover instantiated classes.
-            combinedWat.replace(traces, tracesEnd,
-                    BytecodeTraces.runtimeWat(linked, runtimeDispatch, reachable.lowered()::contains));
-            combinedWat.replace(classNames, classNamesEnd,
-                    BytecodeStrings.classNameWat(linked, runtimeDispatch, reachable.instantiated()::contains));
-            combinedWat.append(reachable.classes()).append(arrays).append(")\n");
-            return combinedWat.toString();
+            String narrowedTraces = BytecodeTraces.runtimeWat(linked, runtimeDispatch, reachable.lowered()::contains);
+            String narrowedNames = BytecodeStrings.classNameWat(linked, runtimeDispatch, reachable.instantiated()::contains);
+            StringBuilder module = new StringBuilder(combinedWat.length() + reachable.classes().length() + arrays.length() + 2);
+            int copied = 0;
+            boolean namesDone = false, tracesDone = false;
+            // Pruning leaves modules with indirect calls, tables or block comments unchanged; keep every field for them.
+            boolean prunable = BytecodeDeadCode.UNPRUNABLE.stream().noneMatch(marker -> combinedWat.indexOf(marker) >= 0
+                    || reachable.classes().contains(marker) || arrays.contains(marker));
+            for (BytecodeDeadCode.Item field : prunable ? reachable.runtimeFields() : List.<BytecodeDeadCode.Item>of()) {
+                // Item spans are in combinedWat's coordinates; the array helpers after it are kept for pruning.
+                if (field.end() > combinedWat.length()) break;
+                if (!namesDone && field.start() >= classNames) {
+                    module.append(combinedWat, copied, classNames).append(narrowedNames);
+                    copied = classNamesEnd; namesDone = true;
+                }
+                if (!tracesDone && field.start() >= traces) {
+                    module.append(combinedWat, copied, traces).append(narrowedTraces);
+                    copied = tracesEnd; tracesDone = true;
+                }
+                // Pruning keeps only functions this analysis reached (it starts from no more roots and follows no more
+                // edges), so an unreached runtime function is dropped now, by the same span pruning would remove. Fields
+                // in or across the narrowed regions, and fields whose newline is not their own, are left to pruning.
+                if (field.function() == null || reachable.reached().contains(field.function()) || field.start() < copied
+                        || field.start() < classNamesEnd && field.end() > classNames
+                        || field.start() < tracesEnd && field.end() > traces
+                        || combinedWat.charAt(field.end() - 1) != '\n') continue;
+                module.append(combinedWat, copied, field.start());
+                copied = field.end();
+            }
+            if (!namesDone) { module.append(combinedWat, copied, classNames).append(narrowedNames); copied = classNamesEnd; }
+            if (!tracesDone) { module.append(combinedWat, copied, traces).append(narrowedTraces); copied = tracesEnd; }
+            module.append(combinedWat, copied, combinedWat.length());
+            return module.append(reachable.classes()).append(arrays).append(")\n").toString();
         }
         for (ClassNode cn : classes) {
             ClassBytecodeCompiler compiler = new ClassBytecodeCompiler(cn);

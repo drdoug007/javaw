@@ -17,8 +17,12 @@ import java.util.function.Predicate;
  */
 final class BytecodeReachability {
     private record Method(ClassBytecodeCompiler compiler, MethodNode method) {}
-    /** Class sections (declarations plus reachable methods, in class and method order), lowered methods and instantiated classes. */
-    record Result(String classes, Set<MethodNode> lowered, Set<String> instantiated) {}
+    /**
+     * Class sections (declarations plus reachable methods, in class and method order), lowered methods, instantiated
+     * classes, every function id the analysis reached, and the fields of the runtime text, spanned in {@code "(module\n" + runtime}.
+     */
+    record Result(String classes, Set<MethodNode> lowered, Set<String> instantiated, Set<String> reached,
+                  List<BytecodeDeadCode.Item> runtimeFields) {}
 
     private final Map<String, Method> methods = new HashMap<>();
     private final Map<String, String> texts = new HashMap<>();
@@ -44,7 +48,7 @@ final class BytecodeReachability {
     private Result run(List<ClassBytecodeCompiler> compilers, String runtime, Predicate<String> rootExport, Set<String> retained) {
         List<String> declarations = new ArrayList<>();
         Predicate<String> receivers = this::receiver;
-        addFields(runtime, rootExport);
+        List<BytecodeDeadCode.Item> runtimeFields = addFields(runtime, rootExport);
         for (ClassBytecodeCompiler compiler : compilers) {
             String text = compiler.declarationsWat();
             declarations.add(text);
@@ -83,10 +87,10 @@ final class BytecodeReachability {
                 bodies.add(method);
             }
         }
-        return new Result(out.toString(), bodies, Collections.unmodifiableSet(instantiated));
+        return new Result(out.toString(), bodies, Collections.unmodifiableSet(instantiated), Collections.unmodifiableSet(reached), runtimeFields);
     }
 
-    private void addFields(String text, Predicate<String> rootExport) {
+    private List<BytecodeDeadCode.Item> addFields(String text, Predicate<String> rootExport) {
         List<BytecodeDeadCode.Item> items = BytecodeDeadCode.items(text);
         if (items == null) throw new IllegalStateException("generated runtime text is not plain WAT");
         for (BytecodeDeadCode.Item item : items) {
@@ -95,6 +99,7 @@ final class BytecodeReachability {
                 if (rootExport.test(item.export())) pending.add(item.exportTarget());
             } else if (item.function() == null) BytecodeDeadCode.references(item.text(), pending);
         }
+        return items;
     }
 
     private void lower(String id) {

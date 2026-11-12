@@ -21,7 +21,9 @@ final class BytecodeDeadCode {
     static final String[] GLOBAL_REFERENCE = {"global.get $", "global.set $", "(global $"};
     /** Globals share the worklist under this prefix; WAT keeps functions and globals in separate namespaces. */
     private static final String GLOBAL_KEY = "global ";
-    private record Field(int start, int end, String function) {}
+    record Field(int start, int end, String function) {}
+    /** Text after which {@link #prune} returns the module unchanged (indirect calls and tables), or cannot parse it. */
+    static final List<String> UNPRUNABLE = List.of("call_indirect", "(table", "(;");
 
     private BytecodeDeadCode() {}
 
@@ -30,7 +32,7 @@ final class BytecodeDeadCode {
         int open = wat.indexOf("(module");
         if (open < 0) return wat;
         List<Field> fields = fields(wat, open + "(module".length());
-        if (fields == null || wat.contains("call_indirect") || wat.contains("(table")) return wat;
+        if (fields == null || wat.contains(UNPRUNABLE.get(0)) || wat.contains(UNPRUNABLE.get(1))) return wat;
         Map<String, Field> nodes = new HashMap<>();
         Map<Field, String> globals = new IdentityHashMap<>();
         Deque<String> pending = new ArrayDeque<>();
@@ -83,8 +85,11 @@ final class BytecodeDeadCode {
         scan(wat, field.start(), field.end(), GLOBAL_REFERENCE, GLOBAL_KEY, pending);
     }
 
-    /** A top-level module field: its function id (null for other fields), its export name and target, and its text. */
-    record Item(String function, String export, String exportTarget, String text) {}
+    /**
+     * A top-level module field: its function id (null for other fields), its export name and target, its text, and its
+     * span in {@code "(module\n" + body}, including a trailing newline, which is the span {@link #prune} removes.
+     */
+    record Item(String function, String export, String exportTarget, String text, int start, int end) {}
 
     /** The top-level fields of module body text (fields without the {@code (module} wrapper); null if not plain WAT. */
     static List<Item> items(String body) {
@@ -98,7 +103,7 @@ final class BytecodeDeadCode {
             Matcher separate = EXPORT.matcher(wat).region(field.start(), field.end());
             if (field.function() != null) { if (inline.lookingAt()) export = inline.group(1); }
             else if (separate.lookingAt()) { export = separate.group(1); target = separate.group(2); }
-            result.add(new Item(field.function(), export, target, wat.substring(field.start(), field.end())));
+            result.add(new Item(field.function(), export, target, wat.substring(field.start(), field.end()), field.start(), field.end()));
         }
         return result;
     }
@@ -138,30 +143,62 @@ final class BytecodeDeadCode {
         return c == ' ' || c == '\t' || c == '\n' || c == '\u000B' || c == '\f' || c == '\r' || c == '(' || c == ')';
     }
 
-    /** Top-level module fields with their trailing newline; null if the text is not plain WAT this pass understands. */
-    private static List<Field> fields(String wat, int position) {
+    /**
+     * Top-level module fields with their trailing newline; null if the text is not plain WAT this pass understands. Only
+     * {@code "}, {@code ;}, {@code (} and {@code )} matter, and function bodies contain few of them, so the scan jumps
+     * between their next occurrences ({@code indexOf}) instead of reading every character. A string ends at the first
+     * quote not consumed by a backslash escape; {@code ;;} comments run to the end of the line; {@code (;} block
+     * comments are not supported.
+     */
+    static List<Field> fields(String wat, int position) {
         List<Field> result = new ArrayList<>();
-        int depth = 0, start = -1;
-        for (int i = position; i < wat.length(); i++) {
-            char c = wat.charAt(i);
+        int length = wat.length(), depth = 0, start = -1;
+        int quote = wat.indexOf('"', position), semicolon = wat.indexOf(';', position),
+                open = wat.indexOf('(', position), close = wat.indexOf(')', position);
+        int escape = wat.indexOf('\\', position); // Cached like the others: a fresh search per string could run to the end.
+        int i = position;
+        while (true) {
+            if (quote >= 0 && quote < i) quote = wat.indexOf('"', i);
+            if (semicolon >= 0 && semicolon < i) semicolon = wat.indexOf(';', i);
+            if (open >= 0 && open < i) open = wat.indexOf('(', i);
+            if (close >= 0 && close < i) close = wat.indexOf(')', i);
+            int next = Math.min(Math.min(earliest(quote), earliest(semicolon)), Math.min(earliest(open), earliest(close)));
+            if (next == Integer.MAX_VALUE) return null;
+            char c = wat.charAt(next);
             if (c == '"') {
-                for (i++; i < wat.length() && wat.charAt(i) != '"'; i++) if (wat.charAt(i) == '\\') i++;
-            } else if (c == ';' && i + 1 < wat.length() && wat.charAt(i + 1) == ';') {
-                while (i < wat.length() && wat.charAt(i) != '\n') i++;
-            } else if (c == '(' && i + 1 < wat.length() && wat.charAt(i + 1) == ';') {
-                return null;
+                // The first quote after the opening one that no backslash escape consumes ends the string.
+                int j = next + 1;
+                while (true) {
+                    int endQuote = wat.indexOf('"', j);
+                    if (escape >= 0 && escape < j) escape = wat.indexOf('\\', j);
+                    if (endQuote < 0) return null;
+                    if (escape >= 0 && escape < endQuote) { j = escape + 2; continue; }
+                    i = endQuote + 1;
+                    break;
+                }
+            } else if (c == ';') {
+                if (next + 1 < length && wat.charAt(next + 1) == ';') {
+                    int newline = wat.indexOf('\n', next);
+                    if (newline < 0) return null;
+                    i = newline + 1;
+                } else i = next + 1;
             } else if (c == '(') {
-                if (depth++ == 0) start = i;
-            } else if (c == ')') {
+                if (next + 1 < length && wat.charAt(next + 1) == ';') return null;
+                if (depth++ == 0) start = next;
+                i = next + 1;
+            } else {
                 if (depth == 0) return result;
                 if (--depth == 0) {
-                    int end = i + 1;
-                    if (end < wat.length() && wat.charAt(end) == '\n') end++;
+                    int end = next + 1;
+                    if (end < length && wat.charAt(end) == '\n') end++;
                     Matcher name = NAME.matcher(wat).region(start, end);
                     result.add(new Field(start, end, name.lookingAt() ? name.group(1) : null));
                 }
+                i = next + 1;
             }
         }
-        return null;
     }
+
+    /** An {@code indexOf} result, with "not found" ordered after every position. */
+    private static int earliest(int index) { return index < 0 ? Integer.MAX_VALUE : index; }
 }
