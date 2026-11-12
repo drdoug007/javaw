@@ -81,9 +81,17 @@ final class BytecodeCompatibility {
                         "recompile class initializers with the modern ()V descriptor");
             if (method.name.equals("<clinit>") && !BytecodeExceptionRuntime.enabled(linked))
                 throw failure(owner, method, null, "class initializer", "select the bundled exception runtime for automatic single-threaded class initialization");
-            if (!method.name.equals("<clinit>") && (method.access & (Opcodes.ACC_NATIVE | Opcodes.ACC_SYNCHRONIZED)) != 0)
-                throw failure(owner, method, null, "native/synchronized method", "provide a supported source or explicit host adapter");
+            if (!method.name.equals("<clinit>") && ((method.access & Opcodes.ACC_SYNCHRONIZED) != 0
+                    || (method.access & Opcodes.ACC_NATIVE) != 0 && BytecodeNatives.binding(method) == null))
+                throw failure(owner, method, null, "native/synchronized method", (method.access & Opcodes.ACC_SYNCHRONIZED) == 0
+                        && (method.access & Opcodes.ACC_STATIC) != 0
+                        ? "bind a static native method with primitive values to a Wasm import (--native-import), or provide a supported source or explicit host adapter"
+                        : "provide a supported source or explicit host adapter");
             if (!method.name.equals("<clinit>") && (method.access & Opcodes.ACC_ABSTRACT) != 0) continue;
+            if (BytecodeNatives.binding(method) != null) {
+                if ((method.access & Opcodes.ACC_PUBLIC) != 0) exports.add(method.name);
+                continue;
+            }
             if ((method.access & Opcodes.ACC_PUBLIC) != 0 && !exports.add(method.name) && !BytecodeExceptionRuntime.enabled(linked))
                 throw failure(owner, method, null, "overloaded public export", "use unique public entry-point names");
             if (!method.tryCatchBlocks.isEmpty()) {

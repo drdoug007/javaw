@@ -64,6 +64,8 @@
                                 <exclude>**/springboot-h2/**</exclude>
                                 <!-- build-and-run.sh compiles a copy of ForeignWasm.java inside foreign-wasm/target. -->
                                 <exclude>foreign-wasm/target/**</exclude>
+                                <!-- Plain native methods for javaw-bytecode's native imports; build-and-run.sh compiles it with javac. -->
+                                <exclude>foreign-wasm/bytecode/**</exclude>
                             </excludes>
                         </configuration>
                     </execution>

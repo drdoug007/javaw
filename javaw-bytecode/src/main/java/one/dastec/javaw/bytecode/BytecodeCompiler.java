@@ -32,6 +32,49 @@ public class BytecodeCompiler {
         }
     }
 
+    /**
+     * Binds the static native method {@code owner.method descriptor} (internal or binary class name) to the Wasm import
+     * {@code module.field}. Bundled-runtime builds only. Parameters and the result must be primitive Java values (or a void
+     * result), so the host can pass another module's export directly; see docs/foreign-wasm-modules.md.
+     */
+    public record NativeImport(String owner, String method, String descriptor, String module, String field) {
+        public NativeImport {
+            Objects.requireNonNull(owner, "owner"); Objects.requireNonNull(method, "method"); Objects.requireNonNull(descriptor, "descriptor");
+            Objects.requireNonNull(module, "module"); Objects.requireNonNull(field, "field");
+            owner = owner.replace('.', '/');
+            // '(' and '=' are legal in JVM names but not in the command-line form, which must parse back from toString.
+            if (!BytecodeDeclarations.validClassName(owner) || !BytecodeDeclarations.validMemberName(method, true) || method.startsWith("<")
+                    || (owner + method).indexOf('(') >= 0 || (owner + method).indexOf('=') >= 0
+                    || !BytecodeDeclarations.validDescriptor(descriptor, true))
+                throw new IllegalArgumentException("native import needs a class name, a method name and a method descriptor: "
+                        + owner + "." + method + descriptor);
+            for (String name : List.of(module, field))
+                if (name.isEmpty() || !java.nio.charset.StandardCharsets.UTF_8.newEncoder().canEncode(name))
+                    throw new IllegalArgumentException("native import module and field names must be non-empty, well-formed Unicode: "
+                            + owner + "." + method + descriptor);
+            if (module.indexOf(':') >= 0)
+                throw new IllegalArgumentException("native import module names cannot contain ':', which separates the field in the command-line form: "
+                        + module);
+        }
+
+        /** Parses {@code pkg.Owner.method(desc)=module:field}; without {@code :field} the field is the method name. */
+        public static NativeImport parse(String specification) {
+            int equals = specification.indexOf('='), open = specification.indexOf('(');
+            int dot = open < 0 ? -1 : specification.lastIndexOf('.', open);
+            if (equals < 0 || open < 0 || dot < 0 || equals < open)
+                throw new IllegalArgumentException("native import must look like pkg.Owner.method(II)I=module:field: " + specification);
+            String target = specification.substring(equals + 1);
+            int colon = target.indexOf(':');
+            String method = specification.substring(dot + 1, open);
+            return new NativeImport(specification.substring(0, dot), method, specification.substring(open, equals),
+                    colon < 0 ? target : target.substring(0, colon), colon < 0 ? method : target.substring(colon + 1));
+        }
+
+        @Override public String toString() {
+            return owner.replace('/', '.') + "." + method + descriptor + "=" + module + ":" + field;
+        }
+    }
+
     public static String compileClass(byte[] classBytes) {
         return BytecodeCompileClock.<String, RuntimeException>time(() -> ClassBytecodeCompiler.fromBytes(classBytes).compileToWat());
     }
@@ -71,6 +114,16 @@ public class BytecodeCompiler {
         return compileJar(input,true,proxyShapes,retainedFunctions,memory);
     }
 
+    /** Binds static native methods to Wasm imports; see {@link NativeImport}. */
+    public static String compileJarWithExceptionRuntime(InputStream input,List<List<String>> proxyShapes,Set<String> retainedFunctions,Memory memory,
+                                                        List<NativeImport> nativeImports) throws IOException {
+        return BytecodeCompileClock.time(() -> readAndCompileJar(input,true,proxyShapes,retainedFunctions,memory,nativeImports));
+    }
+
+    public static String compileJarWithExceptionRuntime(InputStream input,NativeImport... nativeImports) throws IOException {
+        return compileJarWithExceptionRuntime(input,List.of(),Set.of(),Memory.managed(),List.of(nativeImports));
+    }
+
     public static String compileClassWithExceptionRuntime(byte[] bytes,Memory memory) throws IOException {
         return BytecodeCompileClock.time(() -> compileClasses(new ArrayList<>(List.of(BytecodeInput.read(bytes))),true,List.of(),Set.of(),memory));
     }
@@ -96,6 +149,10 @@ public class BytecodeCompiler {
         return BytecodeCompileClock.time(() -> readAndCompileJar(jarInputStream,exceptionRuntime,proxyShapes,retainedFunctions,memory));
     }
     private static String readAndCompileJar(InputStream jarInputStream, boolean exceptionRuntime,List<List<String>> proxyShapes,Set<String> retainedFunctions,Memory memory) throws IOException {
+        return readAndCompileJar(jarInputStream,exceptionRuntime,proxyShapes,retainedFunctions,memory,List.of());
+    }
+    private static String readAndCompileJar(InputStream jarInputStream, boolean exceptionRuntime,List<List<String>> proxyShapes,Set<String> retainedFunctions,Memory memory,
+                                            List<NativeImport> nativeImports) throws IOException {
         JarInputStream jis = new JarInputStream(jarInputStream);
         JarEntry entry;
         // Linked in class-name, then entry-name order: JAR entry order has no JVM meaning, so it must not change the
@@ -118,7 +175,7 @@ public class BytecodeCompiler {
 
         // A list, not a map, so a malformed stream that repeats an entry name still reaches the duplicate check.
         classes.sort(Comparator.<Map.Entry<String, ClassNode>, String>comparing(named -> named.getValue().name).thenComparing(Map.Entry::getKey));
-        return compileClasses(new ArrayList<>(classes.stream().map(Map.Entry::getValue).toList()), exceptionRuntime,proxyShapes,retainedFunctions,memory);
+        return compileClasses(new ArrayList<>(classes.stream().map(Map.Entry::getValue).toList()), exceptionRuntime,proxyShapes,retainedFunctions,memory,nativeImports);
     }
 
     private static String compileClasses(List<ClassNode> classes, boolean exceptionRuntime) throws IOException {return compileClasses(classes,exceptionRuntime,List.of());}
@@ -129,14 +186,22 @@ public class BytecodeCompiler {
         return compileClasses(classes,exceptionRuntime,proxyShapes,retainedFunctions,exceptionRuntime ? Memory.managed() : Memory.hostAllocator());
     }
     static String compileClasses(List<ClassNode> classes, boolean exceptionRuntime,List<List<String>> proxyShapes,Set<String> retainedFunctions,Memory memory) throws IOException {
-        return BytecodeCompileClock.time(() -> link(classes,exceptionRuntime,proxyShapes,retainedFunctions,memory));
+        return compileClasses(classes,exceptionRuntime,proxyShapes,retainedFunctions,memory,List.of());
     }
-    private static String link(List<ClassNode> classes, boolean exceptionRuntime,List<List<String>> proxyShapes,Set<String> retainedFunctions,Memory memory) throws IOException {
+    static String compileClasses(List<ClassNode> classes, boolean exceptionRuntime,List<List<String>> proxyShapes,Set<String> retainedFunctions,Memory memory,
+                                 List<NativeImport> nativeImports) throws IOException {
+        return BytecodeCompileClock.time(() -> link(classes,exceptionRuntime,proxyShapes,retainedFunctions,memory,nativeImports));
+    }
+    private static String link(List<ClassNode> classes, boolean exceptionRuntime,List<List<String>> proxyShapes,Set<String> retainedFunctions,Memory memory,
+                               List<NativeImport> nativeImports) throws IOException {
         if (memory.managedHeap() && !exceptionRuntime)
             throw new IllegalArgumentException("the managed heap requires the bundled exception runtime");
         Set<String> roots = new HashSet<>();
         // Export names are emitted as escaped WAT strings; compare roots in the same form.
         for (ClassNode type : classes) roots.add(TypeHelper.watString(type.name.replace('/', '.') + "."));
+        // Bindings name input classes only, so they are checked before the bundled runtime is added.
+        BytecodeNatives.bind(classes, nativeImports, exceptionRuntime, memory.managedHeap());
+        List<ClassNode> inputs = List.copyOf(classes);
         if (exceptionRuntime) {
             Map<String, ClassNode> runtime = BytecodeExceptionRuntime.definitions();
             for (ClassNode type : classes)
@@ -159,6 +224,8 @@ public class BytecodeCompiler {
         combinedWat.append(memory.importWat());
         if (!memory.managedHeap())
             combinedWat.append("    (import \"env\" \"__heap_alloc\" (func $__heap_alloc (param i32) (result i32)))\n");
+        // Imports precede every definition in WAT text.
+        combinedWat.append(BytecodeNatives.importsWat(inputs));
 
         if (classes.stream().anyMatch(ClassBytecodeCompiler::usesFloatingRemainder))
             combinedWat.append(FloatingPointSupport.remainderFunctionsWat());
@@ -291,7 +358,7 @@ public class BytecodeCompiler {
     }
 
     public static void main(String[] args) {
-        boolean exceptionRuntime=false,hostAllocator=false,managedHeap=false;Integer initialPages=null,maximumPages=null;List<List<String>> proxyShapes=new ArrayList<>();int option=0;
+        boolean exceptionRuntime=false,hostAllocator=false,managedHeap=false;Integer initialPages=null,maximumPages=null;List<List<String>> proxyShapes=new ArrayList<>();List<NativeImport> nativeImports=new ArrayList<>();int option=0;
         while(option<args.length) {
             if(args[option].equals("--exception-runtime"))exceptionRuntime=true;
             else if(args[option].equals("--host-allocator"))hostAllocator=true;
@@ -300,17 +367,19 @@ public class BytecodeCompiler {
                 String[] pages=args[option].substring("--memory-pages=".length()).split(":",-1);
                 initialPages=Integer.valueOf(pages[0]);if(pages.length>1)maximumPages=Integer.valueOf(pages[1]);
             }
+            else if(args[option].startsWith("--native-import="))nativeImports.add(NativeImport.parse(args[option].substring("--native-import=".length())));
             else if(args[option].startsWith("--aot-proxy="))proxyShapes.add(List.of(args[option].substring("--aot-proxy=".length()).split(",",-1)));
             else break;
             option++;
         }
         args=Arrays.copyOfRange(args,option,args.length);
         if (args.length == 0 || "--help".equals(args[0]) || "-h".equals(args[0])) {
-            System.out.println("Usage: java one.dastec.javaw.bytecode.BytecodeCompiler [--exception-runtime] [--host-allocator] [--memory-pages=initial[:maximum]] [--aot-proxy=Interface,Other] <jar-or-class-file> [output-wat-file]");
+            System.out.println("Usage: java one.dastec.javaw.bytecode.BytecodeCompiler [--exception-runtime] [--host-allocator] [--memory-pages=initial[:maximum]] [--aot-proxy=Interface,Other] [--native-import=pkg.Owner.method(II)I=module:field] <jar-or-class-file> [output-wat-file]");
             return;
         }
         try {
             if(!exceptionRuntime && !proxyShapes.isEmpty())throw new IllegalArgumentException("AOT proxies require --exception-runtime");
+            if(!exceptionRuntime && !nativeImports.isEmpty())throw new IllegalArgumentException("native imports require --exception-runtime");
             if(hostAllocator && managedHeap)throw new IllegalArgumentException("--host-allocator and --managed-heap conflict");
             if(!exceptionRuntime && (hostAllocator || managedHeap || initialPages!=null))throw new IllegalArgumentException("memory options require --exception-runtime");
             Memory memory=new Memory(initialPages==null?2:initialPages,maximumPages,exceptionRuntime && !hostAllocator);
@@ -326,12 +395,13 @@ public class BytecodeCompiler {
             String wat;
             if (file.getName().endsWith(".jar")) {
                 try (FileInputStream fis = new FileInputStream(file)) {
-                    wat = compileJar(fis, exceptionRuntime,proxyShapes,Set.of(),memory);
+                    wat = exceptionRuntime ? compileJarWithExceptionRuntime(fis,proxyShapes,Set.of(),memory,nativeImports)
+                            : compileJar(fis, false,proxyShapes,Set.of(),memory);
                 }
             } else if (file.getName().endsWith(".class")) {
                 try (FileInputStream fis = new FileInputStream(file)) {
                     byte[] bytes = fis.readAllBytes();
-                    wat = exceptionRuntime ? BytecodeCompileClock.time(() -> compileClasses(new ArrayList<>(List.of(BytecodeInput.read(bytes))),true,proxyShapes,Set.of(),memory)) : compileClass(bytes);
+                    wat = exceptionRuntime ? BytecodeCompileClock.time(() -> compileClasses(new ArrayList<>(List.of(BytecodeInput.read(bytes))),true,proxyShapes,Set.of(),memory,nativeImports)) : compileClass(bytes);
                 }
             } else {
                 System.err.println("Unsupported file type: " + file.getName());

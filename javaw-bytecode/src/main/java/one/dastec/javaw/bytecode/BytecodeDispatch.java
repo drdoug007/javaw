@@ -647,8 +647,8 @@ public final class BytecodeDispatch {
         }
         if (resolved == null)
             throw new IllegalArgumentException("link a matching static declaration; interface static methods are not inherited");
-        if ((resolved.method.access & Opcodes.ACC_STATIC) == 0
-                || (resolved.method.access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_NATIVE)) != 0)
+        if ((resolved.method.access & Opcodes.ACC_STATIC) == 0 || (resolved.method.access & Opcodes.ACC_ABSTRACT) != 0
+                || (resolved.method.access & Opcodes.ACC_NATIVE) != 0 && BytecodeNatives.binding(resolved.method) == null)
             throw new IllegalArgumentException("static call requires a concrete non-native static declaration");
         checkMemberAccess(resolved); // Member visibility is identical; static calls have no receiver restriction.
         return TypeHelper.getMethodFunctionName(resolved.owner, call.name, call.desc);

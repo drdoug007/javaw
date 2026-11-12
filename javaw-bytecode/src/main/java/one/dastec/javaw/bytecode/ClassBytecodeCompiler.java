@@ -85,7 +85,8 @@ public class ClassBytecodeCompiler {
     List<MethodNode> loweredMethods() {
         List<MethodNode> result = new ArrayList<>();
         for (MethodNode mn : classNode.methods)
-            if (mn.name.equals("<clinit>") || (mn.access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_NATIVE)) == 0) result.add(mn);
+            if (mn.name.equals("<clinit>") || (mn.access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_NATIVE)) == 0
+                    || BytecodeNatives.binding(mn) != null) result.add(mn);
         return result;
     }
 
@@ -102,7 +103,7 @@ public class ClassBytecodeCompiler {
         objectSizes = layouts.sizes();
         for (MethodNode mn : loweredMethods()) {
             exportName(mn);
-            frames(mn);
+            if (BytecodeNatives.binding(mn) == null) frames(mn); // a bound native has no code
         }
     }
 
@@ -182,6 +183,12 @@ public class ClassBytecodeCompiler {
             wat.append(" (result ").append(retType).append(")");
         }
         wat.append("\n");
+
+        BytecodeNatives.Binding binding = BytecodeNatives.binding(mn);
+        if (binding != null) {
+            wat.append(BytecodeNatives.bodyWat(binding, mn, dispatch.initializationCall(classNode.name))).append("    )\n");
+            return;
+        }
 
         var frames = frames(mn);
 
