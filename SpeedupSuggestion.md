@@ -104,7 +104,7 @@ Notes:
 - Failing tests do not stop the capture. The exit status is recorded in `wall.txt`.
 - `--test` narrows the selection, for example `--test 'one.dastec.javaw.bytecode.BytecodeJackson*Test'` to profile only the slowest classes.
 
-## First results (2026-11-12)
+## First results (2026-11-12, superseded by the JDK 21 results below)
 
 Machine: Apple M4 Pro (10 performance + 4 efficiency cores, 48 GB), Node 24.14, wabt 1.0.42, at `a69441e` plus the uncommitted `WasmTestSupport` work (wat2wasm cache, persistent Node worker host). There is no JDK 21 on this machine. The first four captures ran on Oracle GraalVM 25 and have 66 early failures (see above), so their test-class time is understated. The JDK 17 run has 10 failures, mostly assertion failures after the test had executed, so it is the most representative of these captures.
 
@@ -131,4 +131,31 @@ Suggested order of work, by expected payoff:
 - Reduce compilations per test where tests compile the same program twice (most of the slowest tests have 2 compiles).
 - Leave Node and wat2wasm as they are until compile time has dropped. They become worth replacing only once compilation is no longer about 75% of the time.
 
-Next captures to make on a JDK 21: `--label jdk21-baseline --repeat 2`, `--label jdk21-cold --cold`, and `--forks 6` and `--forks 10` to find the best fork count between the 4 and 8 measured.
+
+## JDK 21 results (2026-11-12)
+
+GraalVM CE 21.0.2 through SDKMAN, on the same machine and working tree as above. **All 607 tests pass in every capture.**
+
+| Capture | Wall | Cores used | Test-class time | Compile time | Mean compile | CPU: java / node / wat2wasm |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| 8 forks (`0.6C`), warm cache, run 1 | 96 s | 10.5 | 700 s | 555 s (79%) | 0.29 s | 81% / 15% / 0.2% |
+| 8 forks, warm cache, run 2 | 97 s | 10.8 | 718 s | 580 s (81%) | 0.31 s | 81% / 15% / 0.0% |
+| 8 forks, cold cache | 107 s | 10.5 | 796 s | 579 s (73%) | 0.31 s | 80% / 15% / 1.5% |
+| 6 forks, warm cache | 111 s | 8.4 | 618 s | 499 s (81%) | 0.26 s | 77% / 16% / 0.0% |
+| 10 forks, warm cache | 109 s | 11.5 | 975 s | 775 s (79%) | 0.41 s | 79% / 14% / 0.0% |
+
+There are 1,894 compilations per run. Per compilation, the median is 0.46 s, the 90th percentile 0.81 s and the maximum 6.1 s.
+
+Findings:
+
+1. **The pom default of 8 forks is the best setting.** 6 forks are 15% slower, because cores sit idle. 10 forks are 13% slower: each compile takes 0.41 s instead of 0.30 s as forks contend for the 10 performance cores, which outweighs the extra parallelism.
+2. **An empty wasm cache costs about 10 s (+11%).** The warm cache already removes nearly all `wat2wasm` time.
+3. **The bytecode compiler is about 80% of test time, and Node is 15% of CPU.** This confirms the earlier conclusion: GraalWasm or in-memory Wasm could save at most about 15% of wall time. Lowering compile cost is the lever.
+4. **Compiles of the same program in both JAR orders take over half of compile time.** A second capture used the compile-output fingerprints (`-- -Djavaw.compileOutputs.dir=.../target/compile-outputs`, still 607 passing tests, 97 s). It recorded 1,894 compilations: 958 produced WAT and 936 ended in an expected diagnostic. Only 702 of the WAT outputs are distinct. 249 tests compile the same program twice and get byte-identical WAT. They spend 308 s (55% of compile time), and 228 of the 384 tests that produce two WAT outputs are like this. The pattern is `for (boolean reverse : new boolean[]{false, true}) execute(compileJar(jar(reverse)), expected)`. It appears 119 times in 65 test classes and checks that the compiler's output does not depend on JAR entry order. The tests that only expect diagnostics are cheap: 73 tests and 598 compilations take 20 s in total.
+5. **The generated modules are large.** WAT output has a median of 7.7 million characters, a 90th percentile of 23 million and a maximum of 124 million, about 11 GB of WAT text per run. This is mostly the bundled runtime. Compile time correlates with WAT size (r = 0.49, about 48 ms per million characters).
+
+Options, by expected payoff:
+
+- **Check JAR-order independence once instead of in every test.** Have the compiler put its input classes in a canonical order before linking (if it does not already), and test that ordering directly. Keep the full reverse-order compile in a few dedicated tests. The other tests then compile once. That removes roughly half of the 308 s, about 150 s of CPU, or about 20% of wall time (~96 s → ~77 s). It changes test coverage, so it needs a decision on which tests keep both orders.
+- **Shrink the bundled runtime in each module** (prune unreachable runtime code, or lower the runtime once and reuse it). At about 7.7 million characters of WAT per typical module, this reduces compile, hashing, disk writes and Node instantiation together.
+- **Leave Node and wat2wasm as they are for now.** They are about 15% of CPU together, and the cache already makes wat2wasm negligible.
