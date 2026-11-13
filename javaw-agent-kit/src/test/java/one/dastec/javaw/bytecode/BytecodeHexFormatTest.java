@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T12: java.util.HexFormat. Expected values come from the JVM; see tasks/T12-hex-format.md. */
-@Tag("agent-pending")
 class BytecodeHexFormatTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.util.Arrays;
