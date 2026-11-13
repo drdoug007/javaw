@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T11: java.util.BitSet bulk operations, equality, hashing, cloning and array conversions. */
-@Tag("agent-pending")
 class BytecodeBitSetBulkTest extends KitDifferential {
     private static final String HELPERS = """
                 static BitSet of(int... indexes){BitSet bits=new BitSet();for(int index:indexes)bits.set(index);return bits;}
