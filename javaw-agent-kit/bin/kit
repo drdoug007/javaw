@@ -713,7 +713,8 @@ def cmd_block(args):
                       % (task_id, reason, patch.relative_to(ROOT), previous))
     set_status(task_id, "blocked")
     git("add", "--", str(report.relative_to(ROOT)), str(QUEUE.relative_to(ROOT)))
-    git("commit", "-m", "chore(agent-kit): block %s (%s)\n\n%s\n" % (task_id, meta["title"], reason))
+    git("commit", "-m", "chore(agent-kit): block %s (%s)\n\n%s\n\nAttempted-by: %s via javaw-agent-kit\n"
+        % (task_id, meta["title"], reason, os.environ.get("KIT_MODEL", "local model")))
     print("BLOCKED %s. Attempt saved to %s. STOP NOW: do not write or edit any more files." % (task_id, patch.relative_to(ROOT)))
     return True
 

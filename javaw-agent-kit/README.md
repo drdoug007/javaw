@@ -70,7 +70,19 @@ OMLX_API_KEY=<your oMLX key> javaw-agent-kit/bin/run-local --tasks 3
 
 Useful options are `--task T05`, `--model NAME`, `--context TOKENS`, `--timeout MINUTES`, `--resume` (continue a
 retried task from its saved attempt) and `--dry-run`, which prints the session command and permission settings
-without running anything. Each session:
+without running anything.
+
+To give blocked tasks another go, usually with a stronger model, use `--retry`. It runs `kit retry` on each
+task and then a fresh session that continues from the saved attempt (`--fresh` starts over instead):
+
+```
+OMLX_API_KEY=<your oMLX key> javaw-agent-kit/bin/run-local --retry --model Qwen3.8-27B-oQ4e-mtp --timeout 240
+OMLX_API_KEY=<your oMLX key> javaw-agent-kit/bin/run-local --retry T06 --fresh --model gemma-4-31B-it-oQ4e-mtp
+```
+
+A bare `--retry` (or `--retry all`) means every blocked task, in queue order. `kit finish` and `kit block` record
+the model in their commits. Dense ~30B models are smarter than the 3B-active Qwen3-Coder but generate a few
+times more slowly, so allow a longer `--timeout`. Each session:
 
 - runs in `dontAsk` mode;
 - may edit only its task's files and run only `bin/kit` plus read-only shell commands;

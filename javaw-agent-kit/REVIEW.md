@@ -64,7 +64,9 @@ Review before anything reaches `main`.
   again. Use `--resume` only if the attempt was heading the right way.
 - **The task needed a file it was not allowed to change.** Widen `allow:` if that is safe, or do that part
   yourself.
-- **The task is too hard for the model.** Finish it yourself from the patch.
+- **The task is too hard for the model.** Retry it with a stronger local model
+  (`bin/run-local --retry TNN --model NAME`, adding `--fresh` if the attempt went the wrong way), or finish it
+  yourself from the patch.
 
 ## Merging
 
