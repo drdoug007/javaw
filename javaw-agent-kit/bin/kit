@@ -54,6 +54,8 @@ REGRESSION = ["KitHarnessSelfTest", "BytecodeExceptionRuntimeTest", "BytecodeArr
               "BytecodeMapTest", "BytecodeCollectionFactoriesTest", "BytecodeStringsTest", "BytecodeSortedCollectionsTest"]
 # Files every task may touch. The revision files may change only on their revision line (bin/kit finish edits them).
 ALWAYS_ALLOWED = [REGISTRY, CACHE_METADATA, BASELINE, "javaw-agent-kit/tasks/QUEUE.md", "javaw-agent-kit/reports/*"]
+# Files only the reviewer adds to a task commit (`kit review` accepts them, agent-time `kit guard` does not).
+REVIEWER_ALLOWED = ["Todo.md", "Readme.md"]
 # Never treated as task changes (IDE settings and user files are preserved, never committed).
 IGNORED = [".idea/*", "*.iml", ".DS_Store"]
 FORBIDDEN_IN_RUNTIME = [
@@ -299,7 +301,8 @@ def check(task_id, meta, view, review=False):
     """Returns the guard-rail problems of the changes in `view` for the task described by `meta`."""
     problems = []
     files = view.files()
-    allowed = meta["allow"] + ALWAYS_ALLOWED
+    # REVIEW.md step 4: the reviewer amends the task commit with its Todo.md and Readme.md lines; agents may not.
+    allowed = meta["allow"] + ALWAYS_ALLOWED + (REVIEWER_ALLOWED if review else [])
     tests = [TEST_DIR + test + ".java" for test in meta["tests"]]
     for path in files:
         if review and path in tests:

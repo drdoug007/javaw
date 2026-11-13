@@ -38,6 +38,9 @@ Review before anything reaches `main`.
      `javaw-agent-kit`), and what remains open.
    - Add one line to `Readme.md` where the other bytecode runtime APIs are listed.
    - Review the agent's `docs/bytecode-<slug>.md`.
+   - Amend these into the task commit (`git commit --amend`), so each task stays one complete commit. If you
+     fix the agent's code, add a `Review:` paragraph to the message. `kit review` accepts `Todo.md` and
+     `Readme.md` changes in a task commit; agent-time `kit guard` does not. Re-run `kit review` afterwards.
 5. **Validate** on the merged result:
 
    ```
