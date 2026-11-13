@@ -638,6 +638,15 @@ def cmd_finish(args):
         fail("task tests fail")
     print("== 4/7 compiler revision")
     revision = bump_revision(task_id, meta["slug"])
+    doc = ROOT / "docs" / ("bytecode-%s.md" % meta["slug"])
+    if doc.exists():
+        # Agents copy the template's `<slug>-vN` literally or guess v1; write the real revision.
+        short = revision.replace("1.0-SNAPSHOT-", "")
+        text = doc.read_text()
+        fixed = re.sub(r"`(?:1\.0-SNAPSHOT-)?%s-v(?:N|\d+)`" % re.escape(meta["slug"]), "`%s`" % short, text)
+        if fixed != text:
+            doc.write_text(fixed)
+            print("docs: revision in %s set to %s" % (doc.relative_to(ROOT), short))
     print("== 5/7 full bytecode suite + kit tests (about 1-2 minutes)")
     if not run_tests(["one.dastec.javaw.bytecode.*Test"], "full", modules="javaw-bytecode,javaw-agent-kit",
                      include_pending=False, forks=os.environ.get("KIT_FORKS")):
