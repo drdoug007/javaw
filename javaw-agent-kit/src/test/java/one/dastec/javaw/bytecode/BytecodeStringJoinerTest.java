@@ -86,7 +86,8 @@ class BytecodeStringJoinerTest extends KitDifferential {
         public class Fixture {
             static String npe(Runnable action){
                 try{action.run();return "no exception";}
-                catch(NullPointerException e){return "NPE:"+e.getMessage();}
+                // A null message must not print as the text "null", or the two would look the same.
+                catch(NullPointerException e){return e.getMessage()==null?"NPE without message":"NPE:"+e.getMessage();}
             }
             public static String nullDelimiter(){return npe(()->new StringJoiner(null));}
             public static String nullDelimiterWithAffixes(){return npe(()->new StringJoiner(null,"[","]"));}

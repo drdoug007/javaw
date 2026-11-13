@@ -42,8 +42,8 @@ None. Do not add other public methods (no `isEmpty`, no `equals`/`hashCode` over
   `The prefix must not be null`, `The delimiter must not be null`, `The suffix must not be null`.
   So `new StringJoiner(null, null, null)` reports the prefix, and `new StringJoiner(null)` reports the delimiter.
 - `setEmptyValue(null)` throws `NullPointerException("The empty value must not be null")` and keeps the old
-  empty value. `merge(null)` throws a `NullPointerException` whose message is `null`
-  (use `Objects.requireNonNull(other)`).
+  empty value. `merge(null)` throws a `NullPointerException` with no message: `getMessage()`
+  returns null. Use `Objects.requireNonNull(other)` without a message argument.
 - Arguments are copied with `toString()` when they are given. Later changes to a `StringBuilder` passed as the
   delimiter, prefix, suffix, element or empty value do not change the joiner.
 - `add(null)` appends the text `"null"` (`String.valueOf(newElement)`). `add`, `setEmptyValue` and `merge`
