@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T07: java.util.EmptyStackException and a monitor-free java.util.Vector. */
-@Tag("agent-pending")
 class BytecodeVectorTest extends KitDifferential {
     private static final String HELPERS = """
                 static String failure(Runnable action){
