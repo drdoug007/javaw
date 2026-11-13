@@ -11,7 +11,7 @@
 | T04 | Queue and Deque interfaces; LinkedList implements Deque | - | done |
 | T05 | ArrayDeque | T04 | done |
 | T06 | AbstractQueue and PriorityQueue | T04 | done |
-| T07 | EmptyStackException and Vector | - | blocked |
+| T07 | EmptyStackException and Vector | - | todo |
 | T08 | Stack | T07 | todo |
 | T09 | Collections.synchronized wrappers | - | todo |
 | T10 | BitSet: single-bit and search operations | - | todo |
