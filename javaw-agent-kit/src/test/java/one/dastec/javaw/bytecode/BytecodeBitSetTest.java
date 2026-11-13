@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T10: java.util.BitSet single-bit, range, search and size operations. */
-@Tag("agent-pending")
 class BytecodeBitSetTest extends KitDifferential {
     @Test void matchesSingleBitOperations() throws Exception {
         matchesJvm("""

@@ -14,7 +14,7 @@
 | T07 | EmptyStackException and Vector | - | done |
 | T08 | Stack | T07 | done |
 | T09 | Collections.synchronized wrappers | - | done |
-| T10 | BitSet: single-bit and search operations | - | todo |
+| T10 | BitSet: single-bit and search operations | - | done |
 | T11 | BitSet: bulk operations, equality and conversions | T10 | todo |
 | T12 | HexFormat | - | todo |
 | T13 | MessageDigest with SHA-256 | - | todo |
