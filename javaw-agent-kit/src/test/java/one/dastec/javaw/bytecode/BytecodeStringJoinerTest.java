@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T01: java.util.StringJoiner. Every fixture method checks one behaviour so a failure names the broken member. */
-@Tag("agent-pending")
 class BytecodeStringJoinerTest extends KitDifferential {
     private static final String BUILDING = """
         import java.util.*;
