@@ -6,7 +6,7 @@
 | ID | Task | Depends | Status |
 |----|------|---------|--------|
 | T01 | StringJoiner | - | done |
-| T02 | StringTokenizer | - | blocked |
+| T02 | StringTokenizer | - | todo |
 | T03 | ArrayList index failure messages | - | todo |
 | T04 | Queue and Deque interfaces; LinkedList implements Deque | - | todo |
 | T05 | ArrayDeque | T04 | todo |
