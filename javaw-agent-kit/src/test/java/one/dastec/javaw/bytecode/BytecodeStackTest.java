@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T08: java.util.Stack on top of the T07 Vector. */
-@Tag("agent-pending")
 class BytecodeStackTest extends KitDifferential {
     private static String fixture(String body) {
         return "import java.util.*;\npublic class Fixture {\n" + """
