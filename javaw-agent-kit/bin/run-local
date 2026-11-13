@@ -66,7 +66,9 @@ def prompt(task_id, spec):
             f"until it prints PASS, write javaw-agent-kit/reports/{task_id}.md, then run "
             f"`javaw-agent-kit/bin/kit finish {task_id}`.\n"
             f"If you are stuck after 6 fix attempts on the same failure, run "
-            f"`javaw-agent-kit/bin/kit block {task_id} \"reason\"`. Do only this task, then stop.")
+            f"`javaw-agent-kit/bin/kit block {task_id} \"reason\"`. Do only this task.\n"
+            f"After `kit finish` or `kit block` prints its result, STOP IMMEDIATELY: do not write, edit or run anything "
+            f"else, and do not run `kit block` twice.")
 
 
 def environment(args):
@@ -170,7 +172,7 @@ def main():
         settings_file = log_dir / "session-settings.json"
         settings_file.write_text(json.dumps(settings(meta), indent=2))
         command = ["claude", "-p", prompt(task_id, spec), "--settings", str(settings_file),
-                   "--permission-mode", "dontAsk", "--disallowedTools", "Agent", "LSP", "WebFetch", "WebSearch",
+                   "--permission-mode", "dontAsk", "--disallowedTools", "Agent", "LSP", "WebFetch", "WebSearch", "Skill",
                    "--model", args.model, "--output-format", "text"]
         if args.dry_run:
             print(json.dumps(command, indent=1))

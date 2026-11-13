@@ -40,6 +40,16 @@ The details a model gets wrong: formats, edge cases, exception types and message
 
 - Example classes to copy from, helpers that exist, and pitfalls found when the task was calibrated.
 
+## Failure hints
+
+`kit check` prints a hint right under the failure when a listed fixture fails. Put one line per symptom:
+`fixtureA, fixtureB: what is wrong and which method to fix`. Local models follow these much better than
+hints in the prose above.
+
+```kit-hints
+someFixture, otherFixture: <symptom> means <method> is wrong; <exact fix rule>.
+```
+
 ## Docs
 
 Create `docs/bytecode-<slug>.md` with this skeleton (fill in the brackets):

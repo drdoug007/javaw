@@ -94,7 +94,8 @@ Copy [tasks/_TEMPLATE.md](tasks/_TEMPLATE.md), write the test first (extend `Kit
 
 1. Implement a reference solution in a scratch worktree.
 2. Confirm that `kit check` passes and `kit guard` is clean with only the allowed files changed.
-3. Record the pitfalls you hit in the task's Hints.
+3. Record the pitfalls you hit in the task's Hints. For pitfalls tied to a fixture, also add a line to its
+   ```` ```kit-hints ```` block, which `kit check` prints under that failure.
 4. Throw the reference away.
 
 Good tasks are one JDK class or a small family of 50–300 lines, with behaviour the JVM can check

@@ -115,6 +115,14 @@ None. `asIterator()` comes from the existing `Enumeration` default method; do no
 - Calibration: an ~80-line class (four fields, the two helpers above) passed the first `kit check`, and the
   full suite stayed green. No other runtime file needs to change.
 
+## Failure hints
+
+```kit-hints
+returnsEachDelimiterAsToken, changeWithReturnDelims: delimiters are missing from the tokens, so skipDelimiters is skipping them. Change its loop to `while (!returnDelims && start < str.length() && delimiters.indexOf(str.charAt(start)) >= 0) start++;` (when returnDelims is true it must return start unchanged). scanToken is probably already right.
+nullString: the 3-argument constructor must throw NullPointerException when str is null. Add `if (str == null) throw new NullPointerException();` as its first statement.
+nullDelimitersEmptyInputCount: countTokens must check `index < str.length()` BEFORE calling skipDelimiters, so an empty string with null delimiters returns 0 instead of throwing.
+```
+
 ## Docs
 
 Create `docs/bytecode-string-tokenizer.md` with this skeleton (fill in the brackets):

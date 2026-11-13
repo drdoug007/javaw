@@ -21,6 +21,10 @@ Run every command from the repository root (`/Volumes/SanDisk/javaw`).
 7. `javaw-agent-kit/bin/kit check T01`: runs the task's tests and prints a short summary.
    - `PASS`: go to step 8.
    - `FAIL`: read the message, fix **the runtime source**, and run check again.
+   - If the check prints `== HINT for ...`, do exactly what the hint says first. It was written for that
+     failure.
+   - Fix with small `Edit`s to the method the failure points at. After the first version, do not rewrite the
+     whole file with `Write`: that throws away fixes that already worked.
    - Every check ends with an **attempt history** that the kit keeps for you. Read it: it tells you what
      already failed, even after your context was compacted. If it says the same failure repeated, change
      your approach instead of making the same edit again.
@@ -62,7 +66,7 @@ javaw-agent-kit/bin/kit block T01 "one sentence: what fails and what you tried"
 ```
 
 That saves your attempt as a patch, restores the files and marks the task blocked, so a reviewer can pick
-it up. Then stop, or move on to `kit next` if you were asked to do several tasks.
+it up. **Then stop.** Do not write the report, docs or anything else after blocking, and never block twice.
 
 ## The report (`javaw-agent-kit/reports/T01.md`)
 

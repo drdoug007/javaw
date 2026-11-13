@@ -217,15 +217,35 @@ def summarize(log, limit=60):
     return signatures or ["unknown failure"]
 
 
-def run_tests(tests, label, history=None, **kwargs):
+def run_tests(tests, label, history=None, hints=None, **kwargs):
     code, log = maven(tests, label, **kwargs)
     if code == 0:
         print("PASS: " + ", ".join(tests))
         record(history, "PASS")
         return True
     print("FAIL: " + ", ".join(tests))
-    record(history, ", ".join(summarize(log)))
+    signatures = summarize(log)
+    shown = set()
+    for signature in signatures:
+        for fixtures, hint in (hints or []):
+            if signature in fixtures and hint not in shown:
+                shown.add(hint)
+                print("")
+                print("== HINT for %s (from the task file; follow it exactly):" % signature)
+                print("   " + hint)
+    record(history, ", ".join(signatures))
     return False
+
+
+def task_hints(task_id):
+    """Fixture-specific hints from the task file's ```kit-hints block: `fixtureA, fixtureB: hint text`."""
+    block = re.search(r"```kit-hints\n(.*?)```", task_file(task_id).read_text(), re.S)
+    hints = []
+    for line in (block.group(1).splitlines() if block else []):
+        if ":" in line:
+            names, text = line.split(":", 1)
+            hints.append(({n.strip() for n in names.split(",") if n.strip()}, text.strip()))
+    return hints
 
 
 def record(history, outcome):
@@ -548,7 +568,7 @@ def cmd_start(args):
         else:
             print("Could not apply the previous attempt; starting fresh.\n" + applied.stderr.strip()[:500])
     print("Read the spec: %s" % task_file(task_id).relative_to(ROOT))
-    print("Tests to make pass: %s" % ", ".join(meta["tests"]))
+    print("Tests to make pass (read them; do not edit them): %s" % ", ".join(TEST_DIR + t + ".java" for t in meta["tests"]))
     print("Files you may change: %s (+ reports/%s.md)" % (", ".join(meta["allow"]), task_id))
     print("Register new runtime classes with `javaw-agent-kit/bin/kit register <path under exception-runtime>`.")
     return True
@@ -558,7 +578,8 @@ def cmd_check(args):
     if not args:
         fail("usage: kit check T01")
     meta = task_meta(args[0])
-    return run_tests(meta["tests"], "check-" + args[0], history=STATE / args[0] / "history.txt")
+    return run_tests(meta["tests"], "check-" + args[0], history=STATE / args[0] / "history.txt",
+                     hints=task_hints(args[0]))
 
 
 def cmd_regress(_):
@@ -645,15 +666,21 @@ def cmd_block(args):
         fail('usage: kit block T01 "reason"')
     task_id, reason = args[0], " ".join(args[1:])
     meta = task_meta(task_id)
+    if {r["id"]: r["status"] for r in queue_rows()}.get(task_id) == "blocked":
+        fail("%s is already blocked. Stop now: do not change any more files." % task_id)
     base = start_commit(task_id)
     files = WorkingTree(base).files()
     patch = STATE / task_id / "attempt.patch"
+    number = 1 + len(list((STATE / task_id).glob("attempt-*.patch")))
     untracked = set(git("ls-files", "--others", "--exclude-standard").splitlines())
     for path in files:
         if path in untracked:
             git("add", "-N", "--", path)
     work = [f for f in files if not (f.startswith("javaw-agent-kit/reports/") or f == "javaw-agent-kit/tasks/QUEUE.md")]
-    patch.write_text(git("diff", base, "--", *work) if work else "")
+    diff = git("diff", base, "--", *work) if work else ""
+    (STATE / task_id / ("attempt-%d.patch" % number)).write_text(diff)
+    if diff.strip():
+        patch.write_text(diff)  # the latest non-empty attempt; `kit start --resume` applies it
     for path in files:
         if path in untracked:
             git("rm", "--cached", "-q", "--", path)
@@ -670,7 +697,7 @@ def cmd_block(args):
     set_status(task_id, "blocked")
     git("add", "--", str(report.relative_to(ROOT)), str(QUEUE.relative_to(ROOT)))
     git("commit", "-m", "chore(agent-kit): block %s (%s)\n\n%s\n" % (task_id, meta["title"], reason))
-    print("BLOCKED %s. Attempt saved to %s. Move on with `kit next`." % (task_id, patch.relative_to(ROOT)))
+    print("BLOCKED %s. Attempt saved to %s. STOP NOW: do not write or edit any more files." % (task_id, patch.relative_to(ROOT)))
     return True
 
 
