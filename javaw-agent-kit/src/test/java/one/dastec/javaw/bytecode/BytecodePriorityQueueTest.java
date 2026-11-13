@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T06: java.util.AbstractQueue and java.util.PriorityQueue (binary heap). */
-@Tag("agent-pending")
 class BytecodePriorityQueueTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.util.*;

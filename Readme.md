@@ -2117,3 +2117,5 @@ ArrayList index failure messages (v264): ArrayList index, insert-position, `subL
 Queue and Deque (v265): `java.util.Queue` and `java.util.Deque` are linked and `LinkedList` implements `Deque`, with JVM/Wasm evidence in `BytecodeQueueDequeTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-queue-deque.md). Implemented by the local agent. Core-JDK linkage is now 1,194 declared / 9 missing-member / 134 missing-owner signatures.
 
 ArrayDeque (v266): `java.util.ArrayDeque` is linked, with JVM/Wasm evidence in `BytecodeArrayDequeTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-array-deque.md). Implemented by the local agent; the reviewer fixed `addAll(this)`. Core-JDK linkage is now 1,212 declared / 9 missing-member / 116 missing-owner signatures.
+
+PriorityQueue (v267): `java.util.AbstractQueue` and `java.util.PriorityQueue` are linked, with JVM/Wasm evidence in `BytecodePriorityQueueTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-priority-queue.md). Implemented by the local agent; the reviewer added `PriorityQueue.add`. Core-JDK linkage is now 1,217 declared / 9 missing-member / 111 missing-owner signatures.
