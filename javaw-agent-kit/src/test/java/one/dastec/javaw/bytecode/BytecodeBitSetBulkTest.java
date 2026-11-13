@@ -105,6 +105,26 @@ class BytecodeBitSetBulkTest extends KitDifferential {
             "equality","hashCodes","hashMatchesEquals","cloneIsDeep","cloneOfEmpty");
     }
 
+    /** Review of T11: clone trims a non-sticky original (and so the copy) to its in-use words, as the JDK does. */
+    @Test void cloneTrimsUnlessSizeIsSticky() throws Exception {
+        matchesJvm("""
+            import java.util.*;
+            public class Fixture {
+            """+HELPERS+"""
+                static String sizes(BitSet original){BitSet copy=(BitSet)original.clone();return original.size()+"/"+copy.size()+"/"+copy.equals(original);}
+                public static String defaultConstructor(){return sizes(new BitSet());}
+                public static String grownThenCleared(){BitSet b=new BitSet();b.set(1000);b.clear(1000);return sizes(b);}
+                public static String stickyUnused(){return sizes(new BitSet(2000));}
+                public static String stickyInUse(){BitSet b=new BitSet(2000);b.set(5);return sizes(b);}
+                public static String stickyLostByGrowth(){BitSet b=new BitSet(64);b.set(1000);b.clear(1000);return sizes(b);}
+                public static String stickyLostByOr(){BitSet b=new BitSet(128);b.or(of(500));b.clear(500);return sizes(b);}
+                public static String valueOfIsNotSticky(){BitSet b=BitSet.valueOf(new long[]{1,2});b.clear(65);return sizes(b);}
+            }
+            """,
+            "defaultConstructor","grownThenCleared","stickyUnused","stickyInUse","stickyLostByGrowth","stickyLostByOr",
+            "valueOfIsNotSticky");
+    }
+
     @Test void matchesArrayConversions() throws Exception {
         matchesJvm("""
             import java.util.*;
