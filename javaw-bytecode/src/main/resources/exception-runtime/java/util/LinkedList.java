@@ -1,7 +1,7 @@
 package java.util;
 
-/** Doubly linked list. Deque/Queue interfaces are not linked yet; their LinkedList methods are class members only. */
-public class LinkedList<E> extends AbstractSequentialList<E> implements List<E>,Cloneable,java.io.Serializable{
+/** Doubly linked list. LinkedList implements java.util.Deque (and so java.util.Queue) since revision queue-deque. */
+public class LinkedList<E> extends AbstractSequentialList<E> implements List<E>,Deque<E>,Cloneable,java.io.Serializable{
  private static final class Node<E>{E item;Node<E> next,prev;Node(Node<E> prev,E item,Node<E> next){this.prev=prev;this.item=item;this.next=next;}}
  transient int size;transient Node<E> first,last;
  public LinkedList(){}

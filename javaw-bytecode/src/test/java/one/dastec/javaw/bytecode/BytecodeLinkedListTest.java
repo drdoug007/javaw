@@ -86,9 +86,7 @@ class BytecodeLinkedListTest implements Opcodes {
             """);compare(List.of("run","failures"));
     }
 
-    @Test void rejectsUnusedUnlinkedDequeMembers() {
-        rejectsUnused("java/util/Deque","addFirst","(Ljava/lang/Object;)V",INVOKEINTERFACE,true);
-        rejectsUnused("java/util/Queue","offer","(Ljava/lang/Object;)Z",INVOKEINTERFACE,true);
+    @Test void rejectsUnusedUnlinkedSequencedMembers() {
         rejectsUnused("java/util/LinkedList","reversed","()Ljava/util/LinkedList;",INVOKEVIRTUAL,false);
     }
 

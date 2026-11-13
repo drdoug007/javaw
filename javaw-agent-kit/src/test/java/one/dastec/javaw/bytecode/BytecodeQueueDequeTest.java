@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T04: java.util.Queue and java.util.Deque are linked, and LinkedList is used through them. */
-@Tag("agent-pending")
 class BytecodeQueueDequeTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.util.*;
