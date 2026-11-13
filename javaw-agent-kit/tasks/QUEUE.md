@@ -7,7 +7,7 @@
 |----|------|---------|--------|
 | T01 | StringJoiner | - | done |
 | T02 | StringTokenizer | - | done |
-| T03 | ArrayList index failure messages | - | todo |
+| T03 | ArrayList index failure messages | - | done |
 | T04 | Queue and Deque interfaces; LinkedList implements Deque | - | todo |
 | T05 | ArrayDeque | T04 | todo |
 | T06 | AbstractQueue and PriorityQueue | T04 | todo |

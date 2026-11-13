@@ -2,7 +2,7 @@ package java.util;
 public class ArrayList<E> extends AbstractList<E> implements List<E>,RandomAccess,Cloneable,java.io.Serializable{
  private Object[] elements;private int count;private boolean defaultCapacity;
  public ArrayList(){elements=new Object[0];defaultCapacity=true;}
- public ArrayList(int capacity){if(capacity<0)throw new IllegalArgumentException();elements=new Object[capacity];}
+ public ArrayList(int capacity){if(capacity<0)throw new IllegalArgumentException("Illegal Capacity: "+capacity);elements=new Object[capacity];}
  public ArrayList(Collection<? extends E> values){Object[] source=values.toArray();elements=new Object[source.length];System.arraycopy(source,0,elements,0,source.length);count=source.length;}
  public int size(){return count;}
  private void capacity(int minimum){if(minimum<=elements.length)return;int grown=elements.length+elements.length/2;if(defaultCapacity && grown<10)grown=10;if(grown<minimum)grown=minimum;if(grown<0)throw new OutOfMemoryError();Object[] replacement=new Object[grown];System.arraycopy(elements,0,replacement,0,count);elements=replacement;defaultCapacity=false;}

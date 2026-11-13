@@ -1,13 +1,11 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /**
  * T03: ArrayList (and its subList view and iterators) failures must carry the exact JDK 17/21 exception messages.
  * Every fixture method returns "SimpleClassName:message" so a mismatch names the member and the message.
  */
-@Tag("agent-pending")
 class BytecodeArrayListIndexMessagesTest extends KitDifferential {
     private static final String HELPERS = """
             import java.util.*;

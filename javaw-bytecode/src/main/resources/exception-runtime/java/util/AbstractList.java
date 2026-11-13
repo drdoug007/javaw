@@ -1,8 +1,8 @@
 package java.util;
 public abstract class AbstractList<E> extends AbstractCollection<E> implements List<E>{
  protected int modCount;protected AbstractList(){}
- protected final void index(int index){if(index<0 || index>=size())throw new IndexOutOfBoundsException();}
- protected final void position(int index){if(index<0 || index>size())throw new IndexOutOfBoundsException();}
+ protected final void index(int index){if(index<0 || index>=size())throw new IndexOutOfBoundsException("Index "+index+" out of bounds for length "+size());}
+ protected final void position(int index){if(index<0 || index>size())throw new IndexOutOfBoundsException("Index: "+index+", Size: "+size());}
  public E set(int index,E value){throw new UnsupportedOperationException();}public void add(int index,E value){throw new UnsupportedOperationException();}public E remove(int index){throw new UnsupportedOperationException();}
  public boolean add(E value){add(size(),value);return true;}
  public int indexOf(Object value){ListIterator<E> iterator=listIterator();while(iterator.hasNext())if(Objects.equals(value,iterator.next()))return iterator.previousIndex();return -1;}
@@ -22,7 +22,7 @@ public abstract class AbstractList<E> extends AbstractCollection<E> implements L
  }
  public boolean equals(Object other){if(other==this)return true;if(!(other instanceof List))return false;Iterator<?> right=((List<?>)other).iterator();for(E value:this)if(!right.hasNext() || !Objects.equals(value,right.next()))return false;return !right.hasNext();}
  public int hashCode(){int hash=1;for(E value:this)hash=31*hash+Objects.hashCode(value);return hash;}
- public List<E> subList(int start,int end){if(start<0 || end>size())throw new IndexOutOfBoundsException();if(start>end)throw new IllegalArgumentException();return this instanceof RandomAccess?new RandomView<E>(this,start,end):new View<E>(this,start,end);}
+ public List<E> subList(int start,int end){if(start<0)throw new IndexOutOfBoundsException("fromIndex = "+start);if(end>size())throw new IndexOutOfBoundsException("toIndex = "+end);if(start>end)throw new IllegalArgumentException("fromIndex("+start+") > toIndex("+end+")");return this instanceof RandomAccess?new RandomView<E>(this,start,end):new View<E>(this,start,end);}
  private static class View<E> extends AbstractList<E>{
   final AbstractList<E> parent;final int offset;int length,expected;
   View(AbstractList<E> parent,int start,int end){this.parent=parent;offset=start;length=end-start;expected=parent.modCount;}
