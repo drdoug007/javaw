@@ -160,6 +160,44 @@ class BytecodeSynchronizedCollectionsTest extends KitDifferential {
             """), "basics", "defaults", "putAllAndClear", "equality", "viewsWriteThrough", "viewIteratorRemove", "nullKeysAndValues");
     }
 
+    /** Review of T09: toArray(IntFunction) forwards, map views are cached, and sublists keep the wrapper's RandomAccess. */
+    @Test void reviewedForwardingCachingAndSubLists() throws Exception {
+        matchesJvm(fixture("""
+                static class Tracking extends ArrayList<String>{
+                    Tracking(){super(List.of("a","b"));}
+                    public <T> T[] toArray(java.util.function.IntFunction<T[]> generator){T[] out=generator.apply(1);return out;}
+                }
+                /** RandomAccess, but its sublists are not; and the reverse. */
+                static class RandomParent extends ArrayList<String>{
+                    RandomParent(){super(List.of("a","b","c"));}
+                    public List<String> subList(int a,int b){return new LinkedList<>(super.subList(a,b));}
+                }
+                static class SequentialParent extends AbstractSequentialList<String>{
+                    final LinkedList<String> items=new LinkedList<>(List.of("a","b","c"));
+                    public ListIterator<String> listIterator(int i){return items.listIterator(i);}
+                    public int size(){return items.size();}
+                    public List<String> subList(int a,int b){return new ArrayList<>(items.subList(a,b));}
+                }
+                public static String toArrayGenerator(){
+                    String[] out=Collections.synchronizedList(new Tracking()).toArray(String[]::new);
+                    String[] plain=Collections.synchronizedCollection(new ArrayList<>(List.of("x","y"))).toArray(String[]::new);
+                    return out.length+"|"+Arrays.toString(plain);
+                }
+                public static String cachedMapViews(){
+                    Map<String,Integer> m=Collections.synchronizedMap(new HashMap<>(Map.of("a",1)));
+                    Collection<Integer> v=m.values();m.put("b",2);
+                    return (m.keySet()==m.keySet())+","+(m.values()==m.values())+","+(m.entrySet()==m.entrySet())+","
+                        +m.values().equals(m.values())+","+(m.values().hashCode()==m.values().hashCode())+"|"+v.size()+"|"+new TreeSet<>(m.keySet());
+                }
+                public static String subListRandomAccess(){
+                    List<String> fromRandom=Collections.synchronizedList(new RandomParent()).subList(0,2);
+                    List<String> fromSequential=Collections.synchronizedList(new SequentialParent()).subList(0,2);
+                    List<String> nested=Collections.synchronizedList(new ArrayList<>(List.of("a","b","c"))).subList(0,3).subList(1,2);
+                    return (fromRandom instanceof RandomAccess)+","+(fromSequential instanceof RandomAccess)+","+(nested instanceof RandomAccess)+"|"+fromRandom+fromSequential+nested;
+                }
+            """), "toArrayGenerator", "cachedMapViews", "subListRandomAccess");
+    }
+
     @Test void nullBackingCollections() throws Exception {
         matchesJvm(fixture("""
                 public static String nulls(){
