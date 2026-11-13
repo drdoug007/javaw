@@ -1,0 +1,483 @@
+#!/usr/bin/env python3
+"""Task runner and guard rails for the javaw local-agent kit.
+
+Run from anywhere inside the repository:
+
+    javaw-agent-kit/bin/kit doctor          check JDK 21, wat2wasm, node, Maven, branch
+    javaw-agent-kit/bin/kit next            show the next task whose dependencies are done
+    javaw-agent-kit/bin/kit start T01       begin a task (records the starting commit)
+    javaw-agent-kit/bin/kit check T01       run the task's tests; prints a short failure summary
+    javaw-agent-kit/bin/kit regress         run a small regression subset (about 15 s)
+    javaw-agent-kit/bin/kit guard T01       verify the changes respect the task's guard rails
+    javaw-agent-kit/bin/kit finish T01      guard + tests + full suite + revision bump + audit + commit
+    javaw-agent-kit/bin/kit block T01 "why" give up: save the attempt as a patch, restore files, mark blocked
+    javaw-agent-kit/bin/kit status          show the queue
+
+Exit status is 0 on success and 1 on any failure, so a failed check is never mistaken for success.
+"""
+import fnmatch
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+KIT = Path(__file__).resolve().parent.parent
+ROOT = KIT.parent
+TASKS = KIT / "tasks"
+QUEUE = TASKS / "QUEUE.md"
+REPORTS = KIT / "reports"
+STATE = KIT / "target" / "kit"
+WORK_BRANCH = "agent-kit/work"
+JDK21 = Path.home() / ".sdkman" / "candidates" / "java" / "21.0.2-graalce"
+RUNTIME = "javaw-bytecode/src/main/resources/exception-runtime/"
+REGISTRY = "javaw-bytecode/src/main/java/one/dastec/javaw/bytecode/BytecodeExceptionRuntime.java"
+CACHE_METADATA = "javaw-bytecode/src/main/java/one/dastec/javaw/bytecode/cache/CacheMetadata.java"
+BASELINE = "runtime-target/audit-baseline.json"
+REGRESSION = ["KitHarnessSelfTest", "BytecodeExceptionRuntimeTest", "BytecodeArrayListTest", "BytecodeLinkedListTest",
+              "BytecodeMapTest", "BytecodeCollectionFactoriesTest", "BytecodeStringsTest", "BytecodeSortedCollectionsTest"]
+# Files every task may touch. The revision files may change only on their revision line (bin/kit finish edits them).
+ALWAYS_ALLOWED = [REGISTRY, CACHE_METADATA, BASELINE, "javaw-agent-kit/tasks/QUEUE.md", "javaw-agent-kit/reports/*"]
+# Never treated as task changes (IDE settings and user files are preserved, never committed).
+IGNORED = [".idea/*", "*.iml", ".DS_Store"]
+FORBIDDEN_IN_RUNTIME = [
+    (r"\bsynchronized\b", "synchronized is rejected by admission; write single-threaded code"),
+    (r"\bvolatile\b", "volatile fields are rejected by admission"),
+    (r"\bnative\b", "native methods cannot be implemented in runtime sources"),
+    (r"^\s*assert\b", "assert statements are not supported"),
+    (r"System\.(out|err|in|currentTimeMillis|nanoTime|exit|getenv)\b", "this System member is not available in Wasm"),
+    (r"\bThread\b", "threads are not available"),
+    (r"Math\.random|new\s+Random\b", "no entropy source is available"),
+    (r"@Disabled|@Tag\(", "test annotations do not belong in runtime sources"),
+]
+
+
+def fail(message):
+    print("KIT FAILED: " + message)
+    sys.exit(1)
+
+
+def git(*args, check=True):
+    result = subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True)
+    if check and result.returncode != 0:
+        fail("git " + " ".join(args) + "\n" + result.stderr.strip())
+    return result.stdout
+
+
+def java_env():
+    env = dict(os.environ)
+    home = Path(env.get("KIT_JAVA_HOME", str(JDK21)))
+    env["JAVA_HOME"] = str(home)
+    env["PATH"] = str(home / "bin") + os.pathsep + env.get("PATH", "")
+    return env
+
+
+# ---------------------------------------------------------------- tasks and queue
+
+def task_file(task_id):
+    matches = sorted(TASKS.glob(task_id + "-*.md"))
+    if len(matches) != 1:
+        fail("no single task file tasks/%s-*.md (found %d). Use an ID from `kit status`." % (task_id, len(matches)))
+    return matches[0]
+
+
+def task_meta(task_id):
+    text = task_file(task_id).read_text()
+    block = re.search(r"```kit\n(.*?)```", text, re.S)
+    if not block:
+        fail("task file has no ```kit metadata block")
+    meta = {"allow": [], "depends": []}
+    for line in block.group(1).splitlines():
+        if ":" not in line:
+            continue
+        key, value = (part.strip() for part in line.split(":", 1))
+        if key == "allow":
+            meta["allow"].append(value)
+        elif key == "depends":
+            meta["depends"] = [d.strip() for d in value.split(",") if d.strip() and d.strip() != "-"]
+        else:
+            meta[key] = value
+    for key in ("id", "slug", "title", "tests"):
+        if key not in meta:
+            fail("task metadata is missing '%s'" % key)
+    meta["tests"] = [t.strip() for t in meta["tests"].split(",") if t.strip()]
+    return meta
+
+
+def queue_rows():
+    rows = []
+    for line in QUEUE.read_text().splitlines():
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) >= 4 and re.fullmatch(r"T\d+", cells[0]):
+            rows.append({"id": cells[0], "title": cells[1], "depends": cells[2], "status": cells[3]})
+    return rows
+
+
+def set_status(task_id, status):
+    lines = QUEUE.read_text().splitlines(keepends=True)
+    for index, line in enumerate(lines):
+        cells = line.split("|")
+        if len(cells) >= 6 and cells[1].strip() == task_id:
+            cells[4] = " %s " % status
+            lines[index] = "|".join(cells)
+    QUEUE.write_text("".join(lines))
+
+
+def deps_done(row, rows):
+    status = {r["id"]: r["status"] for r in rows}
+    deps = [d.strip() for d in row["depends"].split(",") if d.strip() and d.strip() != "-"]
+    return all(status.get(d) == "done" for d in deps)
+
+
+# ---------------------------------------------------------------- maven
+
+def maven(tests, label, modules="javaw-agent-kit", include_pending=True, forks=None):
+    STATE.mkdir(parents=True, exist_ok=True)
+    log = STATE / ("mvn-%s.log" % label)
+    command = ["mvn", "-o", "-pl", modules, "-am", "-Dtest=" + ",".join(tests),
+               "-Dsurefire.failIfNoSpecifiedTests=false", "-DtrimStackTrace=true"]
+    if include_pending:
+        command.append("-Dkit.excludedGroups=none")
+    if forks:
+        command.append("-Djavaw.test.forks=" + forks)
+    command.append("test")
+    print("running: " + " ".join(command))
+    print("(full log: %s)" % log.relative_to(ROOT))
+    with open(log, "w") as out:
+        code = subprocess.run(command, cwd=ROOT, env=java_env(), stdout=out, stderr=subprocess.STDOUT).returncode
+    return code, log
+
+
+def summarize(log, limit=60):
+    """Prints the useful part of a Maven run: test counts and the first lines of each failure, no stack frames."""
+    text = Path(log).read_text(errors="replace")
+    reports = sorted((ROOT).glob("*/target/surefire-reports/*.txt"), key=lambda p: p.stat().st_mtime, reverse=True)
+    printed = 0
+    for line in text.splitlines():
+        if re.search(r"Tests run:.*(Fail|Err)", line) and "<<<" in line:
+            print(line.strip())
+    for report in reports:
+        if report.stat().st_mtime + 600 < Path(log).stat().st_mtime:
+            continue
+        body = report.read_text(errors="replace")
+        if "FAILURE!" not in body and "ERROR!" not in body:
+            continue
+        print("---- " + report.name)
+        for line in body.splitlines():
+            if re.match(r"\s+at ", line) or line.startswith("\tat ") or not line.strip():
+                continue
+            print(line[:400])
+            printed += 1
+            if printed >= limit:
+                print("... (truncated; see the report file above)")
+                return
+    if printed == 0:
+        # Not a test failure: a compile error or a Maven problem. Show the [ERROR] lines.
+        errors = [l for l in text.splitlines() if l.startswith("[ERROR]") and "Help 1" not in l and l.strip() != "[ERROR]"]
+        for line in errors[:limit]:
+            print(line[:400])
+
+
+def run_tests(tests, label, **kwargs):
+    code, log = maven(tests, label, **kwargs)
+    if code == 0:
+        print("PASS: " + ", ".join(tests))
+        return True
+    print("FAIL: " + ", ".join(tests))
+    summarize(log)
+    return False
+
+
+# ---------------------------------------------------------------- guard rails
+
+def start_commit(task_id):
+    marker = STATE / task_id / "start"
+    if not marker.exists():
+        fail("task %s was not started; run `kit start %s` first" % (task_id, task_id))
+    return marker.read_text().strip()
+
+
+def changed_files(base):
+    files = set(git("diff", "--name-only", base).split())
+    untracked = set(git("ls-files", "--others", "--exclude-standard").split())
+    baseline = STATE / "untracked-before"
+    before = set(baseline.read_text().split()) if baseline.exists() else set()
+    files |= untracked - before
+    return sorted(f for f in files if not any(fnmatch.fnmatch(f, pattern) for pattern in IGNORED))
+
+
+def added_lines(base, path):
+    if path in git("ls-files", "--others", "--exclude-standard").split():
+        return (ROOT / path).read_text(errors="replace").splitlines() if (ROOT / path).exists() else []
+    diff = git("diff", "-U0", base, "--", path)
+    return [l[1:] for l in diff.splitlines() if l.startswith("+") and not l.startswith("+++")]
+
+
+def changed_lines(base, path):
+    diff = git("diff", "-U0", base, "--", path)
+    return [l for l in diff.splitlines() if l[:1] in "+-" and not l.startswith(("+++", "---"))]
+
+
+def guard(task_id, quiet=False):
+    meta = task_meta(task_id)
+    base = start_commit(task_id)
+    problems = []
+    files = changed_files(base)
+    allowed = meta["allow"] + ALWAYS_ALLOWED
+    for path in files:
+        if not any(fnmatch.fnmatch(path, pattern) for pattern in allowed):
+            problems.append("%s is outside this task's allowed files. Undo that change (allowed: %s)"
+                            % (path, ", ".join(meta["allow"])))
+        if path.endswith((".wat", ".wasm", ".class", ".map")):
+            problems.append("%s is generated output; generated files belong in target/ only" % path)
+    for path in files:
+        if path.startswith(RUNTIME) and path.endswith(".java") and (ROOT / path).exists():
+            for number, line in enumerate(added_lines(base, path), 1):
+                code = re.sub(r"//.*|\"(?:\\.|[^\"\\])*\"", "", line)
+                for pattern, why in FORBIDDEN_IN_RUNTIME:
+                    if re.search(pattern, code):
+                        problems.append("%s: added line uses a forbidden construct (%s): %s" % (path, why, line.strip()[:120]))
+    for path in files:
+        if path.startswith(RUNTIME) and path.endswith(".java") and (ROOT / path).exists():
+            name = Path(path).stem
+            registry = (ROOT / REGISTRY).read_text()
+            relative = path[len(RUNTIME):]
+            top_level = re.search(r"^\s*(public\s+)?(abstract\s+|final\s+|sealed\s+)*(class|interface|enum|record|@interface)\s+" + re.escape(name) + r"\b",
+                                  (ROOT / path).read_text(), re.M)
+            if top_level and not re.search(r"\b" + re.escape(name) + r"\b", registry) and relative not in registry:
+                problems.append("%s is not registered in %s; unregistered runtime sources are silently ignored" % (path, REGISTRY))
+    if REGISTRY in files:
+        for line in changed_lines(base, REGISTRY):
+            body = line[1:]
+            if not re.search(r"paths\.add\(|List\.of\(|NAMES|^\s*\+\s*\"|\.split\(", body):
+                problems.append("%s: only registration lines may change, not: %s" % (REGISTRY, body.strip()[:120]))
+    for path, pattern in ((CACHE_METADATA, r"COMPILER_VERSION"), (BASELINE, r"compilerRevision")):
+        if path in files:
+            for line in changed_lines(base, path):
+                if not re.search(pattern, line):
+                    problems.append("%s: only the revision line may change (bin/kit finish does it): %s" % (path, line[1:].strip()[:120]))
+    for test in meta["tests"]:
+        source = KIT / "src" / "test" / "java" / "one" / "dastec" / "javaw" / "bytecode" / (test + ".java")
+        if not source.exists():
+            problems.append("task test %s is missing" % source.relative_to(ROOT))
+    if problems:
+        print("GUARD FAILED for %s:" % task_id)
+        for problem in problems:
+            print("  - " + problem)
+        return False
+    if not quiet:
+        print("GUARD OK for %s (%d changed files: %s)" % (task_id, len(files), ", ".join(files) or "none"))
+    return True
+
+
+# ---------------------------------------------------------------- commands
+
+def cmd_doctor(_):
+    ok = True
+    env = java_env()
+    try:
+        version = subprocess.run(["java", "-version"], env=env, capture_output=True, text=True).stderr
+    except FileNotFoundError:
+        version = ""
+    if '"21.' not in version:
+        print("JDK 21 not found at %s (set KIT_JAVA_HOME). The bytecode suite fails on JDK 24+." % env["JAVA_HOME"])
+        ok = False
+    for tool in ("mvn", "wat2wasm", "node", "git"):
+        if not shutil.which(tool, path=env["PATH"]):
+            print("missing tool: " + tool)
+            ok = False
+    branch = git("rev-parse", "--abbrev-ref", "HEAD").strip()
+    print("branch: %s (tasks are committed on %s)" % (branch, WORK_BRANCH))
+    print("doctor: " + ("OK" if ok else "PROBLEMS FOUND"))
+    return ok
+
+
+def cmd_status(_):
+    rows = queue_rows()
+    for row in rows:
+        ready = row["status"] == "todo" and deps_done(row, rows)
+        print("%-4s %-8s %s%s" % (row["id"], row["status"], row["title"], "   <- ready" if ready else ""))
+    return True
+
+
+def cmd_next(args):
+    rows = queue_rows()
+    for row in rows:
+        if row["status"] in ("todo", "in-progress") and deps_done(row, rows):
+            if args and args[0] == "--id":
+                print(row["id"])
+            else:
+                print("NEXT TASK: %s  %s" % (row["id"], row["title"]))
+                print("spec:      %s" % task_file(row["id"]).relative_to(ROOT))
+                print("then run:  javaw-agent-kit/bin/kit start %s" % row["id"])
+            return True
+    print("No task is ready. Every remaining task is done, blocked, or waiting on a blocked dependency.")
+    return False
+
+
+def cmd_start(args):
+    if not args:
+        fail("usage: kit start T01")
+    task_id = args[0]
+    meta = task_meta(task_id)
+    rows = {r["id"]: r for r in queue_rows()}
+    if task_id not in rows:
+        fail("%s is not in tasks/QUEUE.md" % task_id)
+    if rows[task_id]["status"] == "done":
+        fail("%s is already done" % task_id)
+    missing = [d for d in meta["depends"] if rows.get(d, {}).get("status") != "done"]
+    if missing:
+        fail("%s depends on unfinished tasks: %s" % (task_id, ", ".join(missing)))
+    if not cmd_doctor([]):
+        fail("fix the environment first")
+    branch = git("rev-parse", "--abbrev-ref", "HEAD").strip()
+    if branch != WORK_BRANCH:
+        dirty = [f for f in git("status", "--porcelain").splitlines() if not any(fnmatch.fnmatch(f[3:], p) for p in IGNORED)]
+        tracked_dirty = [f for f in dirty if not f.startswith("??")]
+        if tracked_dirty:
+            fail("uncommitted tracked changes; commit or stash them before switching to %s:\n%s" % (WORK_BRANCH, "\n".join(tracked_dirty)))
+        exists = git("rev-parse", "--verify", "--quiet", WORK_BRANCH, check=False).strip()
+        git("switch", WORK_BRANCH) if exists else git("switch", "-c", WORK_BRANCH)
+    (STATE / task_id).mkdir(parents=True, exist_ok=True)
+    marker = STATE / task_id / "start"
+    if not marker.exists():
+        marker.write_text(git("rev-parse", "HEAD").strip())
+    baseline = STATE / "untracked-before"
+    if not baseline.exists() or rows[task_id]["status"] != "in-progress":
+        baseline.write_text("\n".join(git("ls-files", "--others", "--exclude-standard").split()))
+    set_status(task_id, "in-progress")
+    print("STARTED %s on branch %s from %s" % (task_id, WORK_BRANCH, marker.read_text()[:10]))
+    print("Read the spec: %s" % task_file(task_id).relative_to(ROOT))
+    print("Tests to make pass: %s" % ", ".join(meta["tests"]))
+    print("Files you may change: %s (+ registration in BytecodeExceptionRuntime.java, + reports/%s.md)"
+          % (", ".join(meta["allow"]), task_id))
+    return True
+
+
+def cmd_check(args):
+    if not args:
+        fail("usage: kit check T01")
+    meta = task_meta(args[0])
+    return run_tests(meta["tests"], "check-" + args[0])
+
+
+def cmd_regress(_):
+    return run_tests(REGRESSION, "regress")
+
+
+def cmd_guard(args):
+    if not args:
+        fail("usage: kit guard T01")
+    return guard(args[0])
+
+
+def bump_revision(task_id, slug):
+    """Sets the revision to <slug>-v<N+1>, where N is the revision at the task's starting commit (safe to rerun)."""
+    base = start_commit(task_id)
+    started = re.search(r'COMPILER_VERSION = "1\.0-SNAPSHOT-[a-z0-9-]+-v(\d+)"', git("show", "%s:%s" % (base, CACHE_METADATA)))
+    metadata = ROOT / CACHE_METADATA
+    text = metadata.read_text()
+    current = re.search(r'COMPILER_VERSION = "([^"]+)"', text)
+    if not started or not current:
+        fail("cannot find COMPILER_VERSION in " + CACHE_METADATA)
+    new = "1.0-SNAPSHOT-%s-v%d" % (slug, int(started.group(1)) + 1)
+    metadata.write_text(text.replace(current.group(0), 'COMPILER_VERSION = "%s"' % new))
+    baseline = ROOT / BASELINE
+    baseline_text = baseline.read_text()
+    revision = re.search(r'"compilerRevision": "([^"]+)"', baseline_text)
+    if not revision:
+        fail("cannot find compilerRevision in " + BASELINE)
+    baseline.write_text(baseline_text.replace(revision.group(0), '"compilerRevision": "%s"' % new))
+    print("revision: %s -> %s" % (current.group(1), new))
+    return new
+
+
+def cmd_finish(args):
+    if not args:
+        fail("usage: kit finish T01")
+    task_id = args[0]
+    meta = task_meta(task_id)
+    report = REPORTS / (task_id + ".md")
+    print("== 1/7 guard rails")
+    if not guard(task_id):
+        fail("fix the guard problems above, then run finish again")
+    print("== 2/7 report")
+    if not report.exists() or len(report.read_text().strip()) < 80:
+        fail("write %s first (see AGENT.md: what you implemented, what you left out, anything surprising)" % report.relative_to(ROOT))
+    print("== 3/7 task tests")
+    if not run_tests(meta["tests"], "finish-" + task_id):
+        fail("task tests fail")
+    print("== 4/7 compiler revision")
+    revision = bump_revision(task_id, meta["slug"])
+    print("== 5/7 full bytecode suite + kit tests (about 1-2 minutes)")
+    if not run_tests(["one.dastec.javaw.bytecode.*Test"], "full", modules="javaw-bytecode,javaw-agent-kit",
+                     include_pending=False, forks=os.environ.get("KIT_FORKS")):
+        fail("the full suite fails; a runtime change broke something else. Fix it, or `kit block` if it is not yours")
+    print("== 6/7 dependency audit baseline")
+    audit = subprocess.run(["python3", "runtime-target/audit.py", "--check-baseline"], cwd=ROOT, env=java_env(),
+                           capture_output=True, text=True)
+    if audit.returncode != 0:
+        print((audit.stdout + audit.stderr)[-3000:])
+        fail("audit baseline check failed. Do NOT refresh the baseline; report it with `kit block`")
+    print("== 7/7 commit")
+    for test in meta["tests"]:
+        source = KIT / "src" / "test" / "java" / "one" / "dastec" / "javaw" / "bytecode" / (test + ".java")
+        text = source.read_text()
+        source.write_text(re.sub(r'^\s*@Tag\("agent-pending"\)\s*\n', "", text, flags=re.M))
+    set_status(task_id, "done")
+    base = start_commit(task_id)
+    files = changed_files(base)
+    files += [str(s.relative_to(ROOT)) for s in (KIT / "src/test/java/one/dastec/javaw/bytecode").glob("*.java")
+              if git("diff", "--name-only", "--", str(s.relative_to(ROOT))).strip()]
+    git("add", "--", *sorted(set(files)))
+    model = os.environ.get("KIT_MODEL", "local model")
+    message = "feat(bytecode): %s (agent kit %s, %s)\n\n%s\n\nAssisted-by: %s via javaw-agent-kit\n" % (
+        meta["title"], task_id, revision.rsplit("-", 1)[-1], report.read_text().strip()[:1500], model)
+    git("commit", "-m", message)
+    print("DONE %s: committed %s on %s. Next: `kit next`." % (task_id, git("rev-parse", "--short", "HEAD").strip(), WORK_BRANCH))
+    return True
+
+
+def cmd_block(args):
+    if len(args) < 2:
+        fail('usage: kit block T01 "reason"')
+    task_id, reason = args[0], " ".join(args[1:])
+    meta = task_meta(task_id)
+    base = start_commit(task_id)
+    files = changed_files(base)
+    patch = STATE / task_id / "attempt.patch"
+    untracked = set(git("ls-files", "--others", "--exclude-standard").split())
+    for path in files:
+        if path in untracked:
+            git("add", "-N", "--", path)
+    patch.write_text(git("diff", base, "--", *files) if files else "")
+    for path in files:
+        if path in untracked:
+            git("rm", "--cached", "-q", "--", path)
+            (ROOT / path).unlink(missing_ok=True)
+        elif path.startswith("javaw-agent-kit/reports/") or path == "javaw-agent-kit/tasks/QUEUE.md":
+            continue
+        else:
+            git("checkout", base, "--", path)
+    REPORTS.mkdir(exist_ok=True)
+    report = REPORTS / (task_id + ".md")
+    previous = report.read_text() if report.exists() else ""
+    report.write_text("# %s BLOCKED\n\nReason: %s\n\nAttempt saved to %s (not committed).\n\n%s"
+                      % (task_id, reason, patch.relative_to(ROOT), previous))
+    set_status(task_id, "blocked")
+    git("add", "--", str(report.relative_to(ROOT)), str(QUEUE.relative_to(ROOT)))
+    git("commit", "-m", "chore(agent-kit): block %s (%s)\n\n%s\n" % (task_id, meta["title"], reason))
+    print("BLOCKED %s. Attempt saved to %s. Move on with `kit next`." % (task_id, patch.relative_to(ROOT)))
+    return True
+
+
+COMMANDS = {"doctor": cmd_doctor, "status": cmd_status, "next": cmd_next, "start": cmd_start, "check": cmd_check,
+            "regress": cmd_regress, "guard": cmd_guard, "finish": cmd_finish, "block": cmd_block}
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2 or sys.argv[1] not in COMMANDS:
+        print(__doc__)
+        sys.exit(1)
+    sys.exit(0 if COMMANDS[sys.argv[1]](sys.argv[2:]) else 1)

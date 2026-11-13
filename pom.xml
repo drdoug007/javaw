@@ -22,6 +22,7 @@
         <module>javaw-log4j-compat</module>
         <module>javaw-unicode-data</module>
         <module>javaw-bytecode</module>
+        <module>javaw-agent-kit</module>
         <module>javaw-maven-plugin</module>
         <module>examples</module>
         <module>examples/springboot-h2</module>

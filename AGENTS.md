@@ -12,6 +12,10 @@
 - Update `Readme.md` and `Todo.md` with completed behavior, validation, and remaining limitations. Keep detailed runtime contracts in `docs/`.
 - Commit each completed task. Preserve unrelated working-tree changes, including IDE settings.
 
+## Local agent kit
+
+- `javaw-agent-kit/` holds tasks, guard rails and pre-written tests for a local offline model. An agent working a kit task follows `javaw-agent-kit/AGENT.md`, which narrows these instructions to that task. Review its `agent-kit/work` commits with `javaw-agent-kit/REVIEW.md` before merging.
+
 ## Compiler architecture
 
 - `javaw-core` is the source compiler and runtime; `javaw-bytecode` handles class/JAR input. Source facades do not establish third-party bytecode compatibility.
@@ -22,6 +26,6 @@
 ## Validation
 
 - Tests and builds write generated sources and outputs (`.wat`, `.wasm`, source maps, copied runtime scripts) under `target/` directories, never into the source tree. Do not commit generated modules.
-- For bytecode changes run `mvn -o -pl javaw-bytecode -am -Dtest='one.dastec.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false test`.
+- For bytecode changes run `mvn -o -pl javaw-bytecode,javaw-agent-kit -am -Dtest='one.dastec.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false test` on JDK 21 (the suite fails on JDK 24+). `javaw-agent-kit` holds finished agent-kit task tests; pending ones are tagged `agent-pending` and excluded.
 - Use malformed ASM fixtures for admission checks and executable javac-to-Wasm comparisons for supported behavior. Runtime tests require `wat2wasm` and Node.
 - Run `python3 runtime-target/audit.py --check-baseline` when changing admission or the compiler revision. Review generated reports before refreshing `runtime-target/audit-baseline.json`; a revision-only change should leave inventory counts unchanged.

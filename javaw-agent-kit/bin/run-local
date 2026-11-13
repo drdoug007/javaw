@@ -1,0 +1,158 @@
+#!/usr/bin/env python3
+"""Runs kit tasks unattended with a local model served by oMLX, one fresh Claude Code session per task.
+
+    OMLX_API_KEY=... javaw-agent-kit/bin/run-local [--model NAME] [--tasks N] [--task T01] [--timeout MINUTES]
+
+Each session gets a per-task permission allowlist (dontAsk mode: anything not listed is denied). The session may
+edit only that task's allowed files, read anything, and run only `bin/kit` plus read-only shell commands. If a
+session ends without `kit finish`, the runner blocks the task (its attempt is saved as a patch) and moves on.
+Logs: javaw-agent-kit/target/kit/<ID>/session.log.
+"""
+import argparse
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+KIT = Path(__file__).resolve().parent.parent
+ROOT = KIT.parent
+sys.path.insert(0, str(KIT / "bin"))
+KIT_TOOL = KIT / "bin" / "kit"
+
+READ_ONLY_BASH = ["git status", "git diff", "git log", "git show", "ls", "cat", "head", "tail", "wc", "grep", "rg",
+                  "find", "sed -n", "unzip -p", "unzip -l", "javap"]
+
+
+def kit(*args, capture=True):
+    result = subprocess.run([sys.executable, str(KIT_TOOL), *args], cwd=ROOT, capture_output=capture, text=True)
+    return result.returncode, (result.stdout if capture else "")
+
+
+def task_meta(task_id):
+    import importlib.machinery, importlib.util
+    loader = importlib.machinery.SourceFileLoader("kit_tool", str(KIT_TOOL))
+    spec = importlib.util.spec_from_loader("kit_tool", loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module.task_meta(task_id), module.task_file(task_id), module
+
+
+def settings(meta):
+    editable = ["javaw-bytecode/src/main/resources/exception-runtime/**",
+                "javaw-bytecode/src/main/java/one/dastec/javaw/bytecode/BytecodeExceptionRuntime.java",
+                "javaw-agent-kit/reports/**"] + meta["allow"]
+    allow = ["Read", "Glob", "Grep", "TodoWrite"]
+    # "//" + absolute path: a single leading "/" would be relative to this settings file, which lives in target/.
+    allow += ["Edit(/%s)" % (ROOT / path) for path in editable]
+    allow += ["Bash(javaw-agent-kit/bin/kit:*)", "Bash(./javaw-agent-kit/bin/kit:*)"]
+    allow += ["Bash(%s:*)" % command for command in READ_ONLY_BASH]
+    protected = ["javaw-agent-kit/src/**", "javaw-agent-kit/bin/**", "javaw-agent-kit/tasks/**", "javaw-agent-kit/*.md",
+                 "javaw-bytecode/src/main/java/one/dastec/javaw/bytecode/cache/**", "runtime-target/**"]
+    deny = ["Edit(/%s)" % (ROOT / path) for path in protected if not any(path == a for a in meta["allow"])]
+    deny += ["Bash(git commit:*)", "Bash(git checkout:*)", "Bash(git reset:*)",
+            "Bash(git stash:*)", "Bash(git push:*)", "Bash(rm:*)", "WebFetch", "WebSearch"]
+    return {"permissions": {"allow": allow, "deny": deny, "defaultMode": "dontAsk"},
+            "useAutoModeDuringPlan": False}
+
+
+def prompt(task_id, spec):
+    return (f"You are the local agent for the javaw project. Your task is {task_id}; it is already started.\n"
+            f"1. Read javaw-agent-kit/AGENT.md and javaw-agent-kit/RULES.md.\n"
+            f"2. Read the task file {spec.relative_to(ROOT)} completely, then the test classes it names.\n"
+            f"3. Follow the loop in AGENT.md from step 5: implement, run `javaw-agent-kit/bin/kit check {task_id}` "
+            f"until it prints PASS, write javaw-agent-kit/reports/{task_id}.md, then run "
+            f"`javaw-agent-kit/bin/kit finish {task_id}`.\n"
+            f"If you are stuck after 6 fix attempts on the same failure, run "
+            f"`javaw-agent-kit/bin/kit block {task_id} \"reason\"`. Do only this task, then stop.")
+
+
+def environment(args):
+    env = dict(os.environ)
+    base = "http://%s:%s" % (args.host, args.port)
+    env.update({
+        "ANTHROPIC_BASE_URL": base,
+        "ANTHROPIC_AUTH_TOKEN": args.api_key or "omlx",
+        "ANTHROPIC_API_KEY": "",
+        "ANTHROPIC_MODEL": args.model,
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": args.model,
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": args.model,
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": args.model,
+        "CLAUDE_CODE_SUBAGENT_MODEL": args.model,
+        "CLAUDE_CODE_ATTRIBUTION_HEADER": "0",
+        "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+        "API_TIMEOUT_MS": "3000000",
+        "KIT_MODEL": args.model,
+    })
+    if args.context:
+        env["CLAUDE_CODE_AUTO_COMPACT_WINDOW"] = str(args.context)
+        env["CLAUDE_CODE_MAX_CONTEXT_TOKENS"] = str(args.context)
+    return env
+
+
+def status_of(task_id):
+    for line in (KIT / "tasks" / "QUEUE.md").read_text().splitlines():
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if cells and cells[0] == task_id and len(cells) >= 4:
+            return cells[3]
+    return None
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--model", default=os.environ.get("KIT_MODEL", "Qwen3-Coder-30B-A3B-Instruct-MLX-4bit"))
+    parser.add_argument("--api-key", default=os.environ.get("OMLX_API_KEY"))
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", default="8000")
+    parser.add_argument("--context", type=int, default=int(os.environ.get("KIT_CONTEXT", "0")) or None,
+                        help="the model's configured context window in tokens (enables auto-compaction)")
+    parser.add_argument("--tasks", type=int, default=1, help="how many tasks to attempt (default 1)")
+    parser.add_argument("--task", help="attempt this task ID instead of `kit next`")
+    parser.add_argument("--timeout", type=int, default=120, help="minutes per session (default 120)")
+    parser.add_argument("--dry-run", action="store_true", help="print the session command and settings, run nothing")
+    args = parser.parse_args()
+
+    for attempt in range(args.tasks):
+        if args.task and attempt == 0:
+            task_id = args.task
+        else:
+            code, out = kit("next", "--id")
+            if code != 0:
+                print("No ready task left.")
+                return 0
+            task_id = out.strip()
+        meta, spec, _ = task_meta(task_id)
+        log_dir = KIT / "target" / "kit" / task_id
+        log_dir.mkdir(parents=True, exist_ok=True)
+        settings_file = log_dir / "session-settings.json"
+        settings_file.write_text(json.dumps(settings(meta), indent=2))
+        command = ["claude", "-p", prompt(task_id, spec), "--settings", str(settings_file),
+                   "--permission-mode", "dontAsk", "--disallowedTools", "Agent", "LSP", "WebFetch", "WebSearch",
+                   "--model", args.model, "--output-format", "text"]
+        if args.dry_run:
+            print(json.dumps(command, indent=1))
+            print(settings_file.read_text())
+            return 0
+        code, out = kit("start", task_id)
+        print(out)
+        if code != 0:
+            print("Could not start %s; stopping." % task_id)
+            return 1
+        log = log_dir / "session.log"
+        print("== %s: session running (log: %s)" % (task_id, log.relative_to(ROOT)))
+        with open(log, "w") as out_file:
+            try:
+                subprocess.run(command, cwd=ROOT, env=environment(args), stdout=out_file, stderr=subprocess.STDOUT,
+                               timeout=args.timeout * 60)
+            except subprocess.TimeoutExpired:
+                out_file.write("\n[run-local] session timed out after %d minutes\n" % args.timeout)
+        status = status_of(task_id)
+        print("== %s: %s" % (task_id, status))
+        if status not in ("done", "blocked"):
+            kit("block", task_id, "local session ended without kit finish; see target/kit/%s/session.log" % task_id,
+                capture=False)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>one.dastec</groupId>
+        <artifactId>javaw</artifactId>
+        <version>1.0-SNAPSHOT</version>
+    </parent>
+
+    <!--
+      Task kit for a local (offline) coding agent. It holds directions (AGENT.md, RULES.md), task specifications
+      (tasks/), guard-rail scripts (bin/kit) and pre-written differential tests. The tests live in package
+      one.dastec.javaw.bytecode so the prescribed bytecode selection pattern matches them. A pending task's test is
+      tagged "agent-pending" and is excluded from normal builds; `bin/kit check` runs it on demand and
+      `bin/kit finish` removes the tag once the task passes, so it becomes a permanent regression test.
+    -->
+    <artifactId>javaw-agent-kit</artifactId>
+
+    <properties>
+        <!-- Pending task tests fail until the agent implements them; `bin/kit check` clears this. -->
+        <kit.excludedGroups>agent-pending</kit.excludedGroups>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>one.dastec</groupId>
+            <artifactId>javaw-bytecode</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <excludedGroups>${kit.excludedGroups}</excludedGroups>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
