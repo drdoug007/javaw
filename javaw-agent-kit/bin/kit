@@ -140,14 +140,29 @@ def queue_rows():
     return rows
 
 
-def set_status(task_id, status):
-    lines = QUEUE.read_text().splitlines(keepends=True)
+def with_status(text, task_id, status):
+    lines = text.splitlines(keepends=True)
     for index, line in enumerate(lines):
         cells = line.split("|")
         if len(cells) >= 6 and cells[1].strip() == task_id:
             cells[4] = " %s " % status
             lines[index] = "|".join(cells)
-    QUEUE.write_text("".join(lines))
+    return "".join(lines)
+
+
+def set_status(task_id, status):
+    QUEUE.write_text(with_status(QUEUE.read_text(), task_id, status))
+
+
+def stage_queue_row(task_id):
+    """Stages QUEUE.md with only this task's row changed from HEAD. Another task's uncommitted status (say one that
+    was interrupted while in progress) stays in the working copy instead of riding along in this task's commit."""
+    path = str(QUEUE.relative_to(ROOT))
+    status = next(r["status"] for r in queue_rows() if r["id"] == task_id)
+    staged = with_status(git("show", "HEAD:" + path), task_id, status)
+    blob = subprocess.run(["git", "hash-object", "-w", "--stdin"], cwd=ROOT, input=staged, capture_output=True,
+                          text=True, check=True).stdout.strip()
+    git("update-index", "--cacheinfo", "100644,%s,%s" % (blob, path))
 
 
 def deps_done(row, rows):
@@ -671,10 +686,12 @@ def cmd_finish(args):
     files = WorkingTree(base).files()
     files += [str(s.relative_to(ROOT)) for s in (KIT / "src/test/java/one/dastec/javaw/bytecode").glob("*.java")
               if git("diff", "--name-only", "--", str(s.relative_to(ROOT))).strip()]
-    git("add", "--", *sorted(set(files)))
+    queue = str(QUEUE.relative_to(ROOT))
+    git("add", "--", *sorted(set(files) - {queue}))
+    stage_queue_row(task_id)
     model = os.environ.get("KIT_MODEL", "local model")
     message = "feat(bytecode): %s (agent kit %s, %s)\n\n%s\n\nAssisted-by: %s via javaw-agent-kit\n" % (
-        meta["title"], task_id, revision.rsplit("-", 1)[-1], report.read_text().strip()[:1500], model)
+        meta["title"], task_id, revision.rsplit("-", 1)[-1], report_summary(report, task_id), model)
     git("commit", "-m", message)
     print("DONE %s: committed %s on %s. Next: `kit next`." % (task_id, git("rev-parse", "--short", "HEAD").strip(), WORK_BRANCH))
     return True
@@ -714,7 +731,8 @@ def cmd_block(args):
     report.write_text("# %s BLOCKED\n\nReason: %s\n\nAttempt saved to %s (not committed).\n\n%s"
                       % (task_id, reason, patch.relative_to(ROOT), previous))
     set_status(task_id, "blocked")
-    git("add", "--", str(report.relative_to(ROOT)), str(QUEUE.relative_to(ROOT)))
+    git("add", "--", str(report.relative_to(ROOT)))
+    stage_queue_row(task_id)
     git("commit", "-m", "chore(agent-kit): block %s (%s)\n\n%s\n\nAttempted-by: %s via javaw-agent-kit\n"
         % (task_id, meta["title"], reason, os.environ.get("KIT_MODEL", "local model")))
     print("BLOCKED %s. Attempt saved to %s. STOP NOW: do not write or edit any more files." % (task_id, patch.relative_to(ROOT)))
@@ -760,6 +778,18 @@ def cmd_register(args):
     return True
 
 
+REPORT_LIMIT = 4000
+
+
+def report_summary(report, task_id):
+    """The report for the commit message: whole if short, otherwise cut at a paragraph so no sentence is broken."""
+    text = report.read_text().strip()
+    if len(text) <= REPORT_LIMIT:
+        return text
+    cut = text.rfind("\n\n", 0, REPORT_LIMIT)
+    return text[:cut if cut > 0 else REPORT_LIMIT].rstrip() + "\n\n(Report shortened; see javaw-agent-kit/reports/%s.md.)" % task_id
+
+
 def cmd_retry(args):
     """Reviewer: puts a blocked task back in the queue. The saved attempt stays available to `kit start --resume`."""
     if not args:
@@ -777,7 +807,7 @@ def cmd_retry(args):
         git("rm", "-q", "-f", "--", str(report.relative_to(ROOT)))
     set_status(task_id, "todo")
     (STATE / task_id / "start").unlink(missing_ok=True)
-    git("add", "--", str(QUEUE.relative_to(ROOT)))
+    stage_queue_row(task_id)
     git("commit", "-m", "chore(agent-kit): retry %s\n" % task_id)
     patch = STATE / task_id / "attempt.patch"
     print("QUEUED %s again. The blocked report is in %s." % (task_id, archive.relative_to(ROOT)))

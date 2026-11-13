@@ -233,6 +233,13 @@ def main():
                                timeout=args.timeout * 60)
             except subprocess.TimeoutExpired:
                 out_file.write("\n[run-local] session timed out after %d minutes\n" % args.timeout)
+            except KeyboardInterrupt:
+                # Block the task rather than leave it in progress: its QUEUE.md row would otherwise stay uncommitted.
+                out_file.write("\n[run-local] interrupted\n")
+                print("\n== %s: interrupted; blocking it (`--retry %s` runs it again)" % (task_id, task_id))
+                kit("block", task_id, "run-local was interrupted; see target/kit/%s/session.log" % task_id,
+                    capture=False)
+                return 130
         status = status_of(task_id)
         print("== %s: %s" % (task_id, status))
         if status not in ("done", "blocked"):
