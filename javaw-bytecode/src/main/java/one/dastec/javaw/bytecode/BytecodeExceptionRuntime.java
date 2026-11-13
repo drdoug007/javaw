@@ -99,6 +99,14 @@ public final class BytecodeExceptionRuntime {
             paths.add("java/lang/invoke/VarHandle.java");
             paths.add("java/nio/ByteOrder.java");
             for(String name:List.of("Charset","StandardCharsets","IllegalCharsetNameException","UnsupportedCharsetException"))paths.add("java/nio/charset/"+name+".java");
+            paths.add("java/security/GeneralSecurityException.java");
+            paths.add("java/security/NoSuchAlgorithmException.java");
+            paths.add("java/security/DigestException.java");
+            paths.add("java/security/MessageDigestSpi.java");
+            paths.add("java/security/MessageDigest.java");
+            paths.add("javaw/runtime/Digests.java");
+            paths.add("javaw/runtime/BlockDigest.java");
+            paths.add("javaw/runtime/Sha256.java");
             paths.add("javaw/runtime/ExceptionSupport.java");
             paths.add("javaw/runtime/ReflectionSupport.java");
             paths.add("javaw/runtime/Decimal.java");

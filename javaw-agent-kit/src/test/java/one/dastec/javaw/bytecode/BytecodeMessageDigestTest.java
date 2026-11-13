@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T13: java.security.MessageDigest with SHA-256. Expected values come from the JVM; see tasks/T13-message-digest.md. */
-@Tag("agent-pending")
 class BytecodeMessageDigestTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.nio.charset.StandardCharsets;
