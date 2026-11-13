@@ -20,8 +20,9 @@ ROOT = KIT.parent
 sys.path.insert(0, str(KIT / "bin"))
 KIT_TOOL = KIT / "bin" / "kit"
 
-READ_ONLY_BASH = ["git status", "git diff", "git log", "git show", "ls", "cat", "head", "tail", "wc", "grep", "rg",
-                  "find", "sed -n", "unzip -p", "unzip -l", "javap"]
+# Read-only commands only (no find: -delete/-exec; no cat/head/tail: the Read tool covers them).
+READ_ONLY_BASH = ["git status", "git diff", "git log", "git show", "ls", "wc", "grep", "rg", "sed -n", "unzip -p",
+                  "unzip -l", "javap"]
 
 
 def kit(*args, capture=True):
@@ -31,6 +32,7 @@ def kit(*args, capture=True):
 
 def task_meta(task_id):
     import importlib.machinery, importlib.util
+    sys.dont_write_bytecode = True
     loader = importlib.machinery.SourceFileLoader("kit_tool", str(KIT_TOOL))
     spec = importlib.util.spec_from_loader("kit_tool", loader)
     module = importlib.util.module_from_spec(spec)
@@ -39,8 +41,7 @@ def task_meta(task_id):
 
 
 def settings(meta):
-    editable = ["javaw-bytecode/src/main/resources/exception-runtime/**",
-                "javaw-bytecode/src/main/java/one/dastec/javaw/bytecode/BytecodeExceptionRuntime.java",
+    editable = ["javaw-bytecode/src/main/java/one/dastec/javaw/bytecode/BytecodeExceptionRuntime.java",
                 "javaw-agent-kit/reports/**"] + meta["allow"]
     allow = ["Read", "Glob", "Grep", "TodoWrite"]
     # "//" + absolute path: a single leading "/" would be relative to this settings file, which lives in target/.

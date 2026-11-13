@@ -11,3 +11,4 @@ dependency-reduced-pom.xml
 # Copies of javaw-runtime.js are build outputs; the source is javaw-core/src/main/resources/javaw-runtime.js.
 examples/javaw-runtime.js
 examples/springboot-h2/javaw-runtime.js
+__pycache__/

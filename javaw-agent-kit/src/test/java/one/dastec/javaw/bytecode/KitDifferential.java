@@ -160,7 +160,11 @@ public abstract class KitDifferential implements Opcodes {
     private static String js(String value) {
         if(value==null)return "null";
         StringBuilder out=new StringBuilder("\"");
-        for(char c:value.toCharArray())out.append(String.format("\\u%04x",(int)c));
+        // Printable ASCII stays readable in failure output; everything else is escaped.
+        for(char c:value.toCharArray()) {
+            if(c>=0x20 && c<0x7f && c!='"' && c!='\\')out.append(c);
+            else out.append(String.format("\\u%04x",(int)c));
+        }
         return out.append('"').toString();
     }
 

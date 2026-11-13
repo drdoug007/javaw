@@ -1,0 +1,136 @@
+# T10 BitSet: single-bit and search operations
+
+```kit
+id: T10
+slug: bitset
+title: link java.util.BitSet single-bit, range and search operations
+tests: BytecodeBitSetTest
+depends: -
+allow: javaw-bytecode/src/main/resources/exception-runtime/java/util/BitSet.java
+allow: docs/bytecode-bitset.md
+```
+
+## Goal
+
+Add `java.util.BitSet` to the bundled runtime: single bits, ranges, searches, `length`/`size`/`cardinality` and
+`toString`. H2 and jackson-core/databind use it (`CoreJdkCoverage` lists `BitSet`; it is a missing owner today).
+Bulk operations, `equals`/`hashCode`/`clone` and conversions are task T11 and must NOT be added now.
+
+## Members to implement
+
+```
+public class BitSet implements Cloneable, java.io.Serializable
+public BitSet()                       // one word (64 bits)
+public BitSet(int nbits)              // ceil(nbits/64) words
+public boolean get(int bitIndex)
+public void set(int bitIndex)
+public void set(int bitIndex, boolean value)
+public void set(int fromIndex, int toIndex)     // bits fromIndex..toIndex-1
+public void clear(int bitIndex)
+public void clear(int fromIndex, int toIndex)
+public void clear()
+public void flip(int bitIndex)
+public int nextSetBit(int fromIndex)
+public int nextClearBit(int fromIndex)
+public int previousSetBit(int fromIndex)
+public int previousClearBit(int fromIndex)
+public int length()
+public int size()
+public boolean isEmpty()
+public int cardinality()
+public String toString()
+```
+
+## Members to leave out
+
+`get(int,int)` and `stream()` (the test checks both are rejected). Also leave out everything T11 adds: `or`,
+`and`, `xor`, `andNot`, `intersects`, `equals`, `hashCode`, `clone`, `toByteArray`, `toLongArray`, `valueOf`.
+Do not add `flip(int,int)` or `set(int,int,boolean)` either.
+
+## JDK behaviour to match
+
+- Storage: `long[] words`, bit `i` is bit `i % 64` of `words[i / 64]` (`i >> 6`), plus `int wordsInUse` = number
+  of words up to and including the last non-zero word. `length()`, `isEmpty()`, searches and `toString` use
+  `wordsInUse`, never `words.length`.
+- `size()` = `64 * words.length`. `new BitSet()` has 1 word (size 64). `new BitSet(n)` has `(n + 63) / 64`
+  words (size 0 for n=0, 64 for 1..64, 128 for 65..128, 192 for 130).
+- Growth (only `set`, `set(int,boolean)` with true, `set(int,int)` and `flip` grow): when word `w` is needed and
+  `words.length <= w`, the new length is `max(2 * words.length, w + 1)`. Examples: `new BitSet()` then
+  `set(100)` -> size 128; `set(1000)` -> 1024; `new BitSet(0)` then `set(5)` -> 64; `new BitSet(130)` then
+  `set(200)` -> 384. `set(10,300)` on a new BitSet needs word 4 -> size 320.
+- `clear(...)`, `set(i,false)` and `get(...)` never grow: `get` past the end returns false, `clear` past the end
+  does nothing. `clear()` zeroes the bits but keeps `size()`.
+- `set(i,i)` and `clear(i,i)` (empty range) do nothing and do not grow.
+- After clearing the highest bit, `wordsInUse` must shrink (walk down while `words[wordsInUse-1]==0`), so
+  `length()` and `isEmpty()` are right.
+- `length()` = index of the highest set bit + 1, or 0. `cardinality()` = sum of `Long.bitCount(word)`.
+- `nextSetBit(from)`: first set bit `>= from`, or -1. `nextClearBit(from)`: first clear bit `>= from`; a
+  `from` past the in-use words returns `from` itself.
+- `previousSetBit(from)`: last set bit `<= from`, or -1. `previousClearBit(from)`: last clear bit `<= from`, or
+  -1; a `from` past the in-use words returns `from`. Both return -1 for `from == -1`.
+- `toString()`: `"{}"`, `"{5}"`, `"{1, 3, 5}"` (comma and one space).
+
+Exceptions (type and message are checked; every check happens before anything changes):
+
+| Call | Exception | Message |
+|---|---|---|
+| `new BitSet(-1)` | `NegativeArraySizeException` | `nbits < 0: -1` |
+| `get/set/clear/flip` with a negative index | `IndexOutOfBoundsException` | `bitIndex < 0: <bitIndex>`, e.g. `get(-1)` -> `bitIndex < 0: -1`, `set(-2,true)` -> `bitIndex < 0: -2`, `flip(-3)` -> `bitIndex < 0: -3` |
+| range with `fromIndex < 0` | `IndexOutOfBoundsException` | `fromIndex < 0: -1` |
+| range with `toIndex < 0` | `IndexOutOfBoundsException` | `toIndex < 0: -2` |
+| range with `fromIndex > toIndex` | `IndexOutOfBoundsException` | `fromIndex: 5 > toIndex: 2` |
+| `nextSetBit(-1)`, `nextClearBit(-1)` | `IndexOutOfBoundsException` | `fromIndex < 0: -1` |
+| `previousSetBit(-2)`, `previousClearBit(-2)` | `IndexOutOfBoundsException` | `fromIndex < -1: -2` |
+
+Range checks run in this order: fromIndex < 0, then toIndex < 0, then fromIndex > toIndex. So `set(-1,-5)`
+reports `fromIndex < 0: -1`.
+
+## Steps
+
+1. Create `javaw-bytecode/src/main/resources/exception-runtime/java/util/BitSet.java` (package `java.util`).
+2. Fields `private long[] words; private int wordsInUse;`. Private helpers: `wordIndex(int bit)` = `bit >> 6`,
+   `ensureWords(int count)` (growth rule above), `recalculateWordsInUse()`, `checkRange(int from,int to)`.
+3. Write the members above. Do the single-bit ones first, then ranges, then searches, then `toString`.
+4. Register it: in `javaw-bytecode/src/main/java/one/dastec/javaw/bytecode/BytecodeExceptionRuntime.java`, find
+   the `List.of(...)` line containing `"LinkedList"` and add `"BitSet"` right after `"LinkedList"`, i.e.
+   `..."ArrayList","LinkedList","BitSet","Collections",...`.
+5. `javaw-agent-kit/bin/kit check T10` until PASS. Then write the docs file and the report, and `kit finish T10`.
+
+## Hints
+
+- Masks: `1L << bit` uses only the low 6 bits of `bit` in Java, so `1L << 70 == 1L << 6`. For ranges use
+  `-1L << from` (bits from..63 of the first word) and `-1L >>> -to` (bits 0..(to-1)%64 of the last word, `to`
+  exclusive). When first and last word are the same, AND the two masks.
+- In range code compute `endWord = wordIndex(to - 1)` (to is exclusive). `set(64,128)` touches only word 1.
+- `nextSetBit`: mask the first word with `words[w] & (-1L << from)`, then scan up; answer is
+  `w * 64 + Long.numberOfTrailingZeros(word)`. `nextClearBit`: same with `~words[w]`.
+- `previousSetBit`: mask with `words[w] & (-1L >>> -(from + 1))`, scan down, answer is
+  `(w + 1) * 64 - 1 - Long.numberOfLeadingZeros(word)`. If `w >= wordsInUse`, start from the last in-use word
+  (set) or return `from` (clear).
+- `nextSetBit` past `wordsInUse` returns -1 (do not read beyond `wordsInUse`). `nextClearBit` that runs off
+  the last in-use word returns `wordsInUse * 64`.
+- `clear(from,to)`: return early if `wordIndex(from) >= wordsInUse`; if `to` reaches past the in-use words,
+  clamp `to = length()` first and set `endWord = wordsInUse - 1` (or compute `endWord` only after clamping).
+  Never index past `wordsInUse - 1`. Then recalculate `wordsInUse`.
+- `flip` and `clear` must recalculate `wordsInUse` (a flip can clear the top bit). `set` only raises it.
+- Grow with `Arrays.copyOf(words, newLength)` (exists for `long[]`).
+- `set(i,false)` must call `clear(i)`, which never grows: in `noGrowth`, `set(700,false)` leaves `size()` at 64.
+  In `setWithBoolean`, `set(70,true)` grows it to 128.
+- `Long.bitCount`, `Long.numberOfTrailingZeros`, `Long.numberOfLeadingZeros` and `Math.max` exist in the runtime.
+  Use a plain loop and `StringBuilder` for `toString`.
+- Do not add `equals`/`hashCode`/`clone` yet; T11 tests them. Implementing `Cloneable` with no `clone` is fine.
+
+## Docs
+
+Create `docs/bytecode-bitset.md` with this skeleton (fill in the brackets):
+
+    # Bytecode BitSet
+
+    Revision `bitset-vN` links java.util.BitSet (single bits, ranges, searches) in the bundled exception runtime.
+
+    Contract:
+
+    - <behaviour: storage, size/growth rule, search results, toString format, exception messages>
+
+    Evidence: `BytecodeBitSetTest` compares Java 17 javac fixtures on the JVM and in Wasm (both JAR orders, two
+    fresh instances). `BitSet.get(int,int)` and `BitSet.stream()` are rejected before WAT generation.

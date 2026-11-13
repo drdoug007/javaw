@@ -1707,6 +1707,14 @@ mvn test
 
 The browser test suite (`AppBrowserTest.java`) launches a headless browser using Microsoft Playwright, loads the compiled Java WebAssembly application, and verifies live DOM rendering, styling, and event dispatching.
 
+### Local agent kit (`javaw-agent-kit`)
+
+`javaw-agent-kit` lets a local offline model, such as Qwen3-Coder-30B in Claude Code through oMLX, implement
+small bytecode-runtime JDK classes. The tests are written and calibrated in advance, and guard rails keep
+the agent inside each task's files. See [its README](javaw-agent-kit/README.md). Finished task tests become
+regression tests in the kit module, so bytecode validation runs `-pl javaw-bytecode,javaw-agent-kit` on
+JDK 21.
+
 ### End-to-End Node.js & DOM Integration Tests
 
 Run the Node.js test suite to verify binary execution, string decoding, threads/atomics, WebAssembly exception handling, dynamic JavaScript interop, WASI streams, and interactive DOM mutations:

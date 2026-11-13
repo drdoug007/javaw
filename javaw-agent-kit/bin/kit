@@ -166,7 +166,8 @@ def summarize(log, limit=60):
             continue
         print("---- " + report.name)
         for line in body.splitlines():
-            if re.match(r"\s+at ", line) or line.startswith("\tat ") or not line.strip():
+            if re.match(r"\s+at ", line) or line.startswith("\tat ") or not line.strip() or "{let value;try{" in line \
+                    or re.fullmatch(r"\s*\^+\s*", line) or line.startswith(("node:internal", "Node.js v")):
                 continue
             print(line[:400])
             printed += 1
@@ -200,19 +201,44 @@ def start_commit(task_id):
 
 
 def changed_files(base):
-    files = set(git("diff", "--name-only", base).split())
-    untracked = set(git("ls-files", "--others", "--exclude-standard").split())
+    files = set(git("diff", "--name-only", base).splitlines())
+    untracked = set(git("ls-files", "--others", "--exclude-standard").splitlines())
     baseline = STATE / "untracked-before"
-    before = set(baseline.read_text().split()) if baseline.exists() else set()
+    before = set(baseline.read_text().splitlines()) if baseline.exists() else set()
     files |= untracked - before
     return sorted(f for f in files if not any(fnmatch.fnmatch(f, pattern) for pattern in IGNORED))
 
 
 def added_lines(base, path):
-    if path in git("ls-files", "--others", "--exclude-standard").split():
+    if path in git("ls-files", "--others", "--exclude-standard").splitlines():
         return (ROOT / path).read_text(errors="replace").splitlines() if (ROOT / path).exists() else []
     diff = git("diff", "-U0", base, "--", path)
     return [l[1:] for l in diff.splitlines() if l.startswith("+") and not l.startswith("+++")]
+
+
+def strip_comments(line, in_comment):
+    """Removes string/char literals and // and /* */ comments; returns the code and whether a block comment is open."""
+    code, index = [], 0
+    while index < len(line):
+        if in_comment:
+            end = line.find("*/", index)
+            if end < 0:
+                return "".join(code), True
+            index, in_comment = end + 2, False
+            continue
+        match = re.compile(r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'|//|/\*').search(line, index)
+        if not match:
+            code.append(line[index:])
+            break
+        code.append(line[index:match.start()])
+        if match.group() == "//":
+            break
+        if match.group() == "/*":
+            in_comment = True
+        index = match.end()
+    if not in_comment and re.match(r"\s*\*", line) and not code:
+        return "", False
+    return "".join(code), in_comment
 
 
 def changed_lines(base, path):
@@ -234,8 +260,9 @@ def guard(task_id, quiet=False):
             problems.append("%s is generated output; generated files belong in target/ only" % path)
     for path in files:
         if path.startswith(RUNTIME) and path.endswith(".java") and (ROOT / path).exists():
+            in_comment = False
             for number, line in enumerate(added_lines(base, path), 1):
-                code = re.sub(r"//.*|\"(?:\\.|[^\"\\])*\"", "", line)
+                code, in_comment = strip_comments(line, in_comment)
                 for pattern, why in FORBIDDEN_IN_RUNTIME:
                     if re.search(pattern, code):
                         problems.append("%s: added line uses a forbidden construct (%s): %s" % (path, why, line.strip()[:120]))
@@ -327,7 +354,8 @@ def cmd_start(args):
         fail("%s is not in tasks/QUEUE.md" % task_id)
     if rows[task_id]["status"] == "done":
         fail("%s is already done" % task_id)
-    missing = [d for d in meta["depends"] if rows.get(d, {}).get("status") != "done"]
+    queue_deps = [d.strip() for d in rows[task_id]["depends"].split(",") if d.strip() and d.strip() != "-"]
+    missing = [d for d in sorted(set(meta["depends"]) | set(queue_deps)) if rows.get(d, {}).get("status") != "done"]
     if missing:
         fail("%s depends on unfinished tasks: %s" % (task_id, ", ".join(missing)))
     if not cmd_doctor([]):
@@ -346,7 +374,7 @@ def cmd_start(args):
         marker.write_text(git("rev-parse", "HEAD").strip())
     baseline = STATE / "untracked-before"
     if not baseline.exists() or rows[task_id]["status"] != "in-progress":
-        baseline.write_text("\n".join(git("ls-files", "--others", "--exclude-standard").split()))
+        baseline.write_text(git("ls-files", "--others", "--exclude-standard"))
     set_status(task_id, "in-progress")
     print("STARTED %s on branch %s from %s" % (task_id, WORK_BRANCH, marker.read_text()[:10]))
     print("Read the spec: %s" % task_file(task_id).relative_to(ROOT))
@@ -424,8 +452,10 @@ def cmd_finish(args):
     print("== 7/7 commit")
     for test in meta["tests"]:
         source = KIT / "src" / "test" / "java" / "one" / "dastec" / "javaw" / "bytecode" / (test + ".java")
-        text = source.read_text()
-        source.write_text(re.sub(r'^\s*@Tag\("agent-pending"\)\s*\n', "", text, flags=re.M))
+        text = re.sub(r'^[ \t]*@Tag\("agent-pending"\)[ \t]*\n', "", source.read_text(), flags=re.M)
+        if "@Tag(" not in text:
+            text = re.sub(r'^import org\.junit\.jupiter\.api\.Tag;\n', "", text, flags=re.M)
+        source.write_text(text)
     set_status(task_id, "done")
     base = start_commit(task_id)
     files = changed_files(base)
@@ -448,11 +478,12 @@ def cmd_block(args):
     base = start_commit(task_id)
     files = changed_files(base)
     patch = STATE / task_id / "attempt.patch"
-    untracked = set(git("ls-files", "--others", "--exclude-standard").split())
+    untracked = set(git("ls-files", "--others", "--exclude-standard").splitlines())
     for path in files:
         if path in untracked:
             git("add", "-N", "--", path)
-    patch.write_text(git("diff", base, "--", *files) if files else "")
+    work = [f for f in files if not (f.startswith("javaw-agent-kit/reports/") or f == "javaw-agent-kit/tasks/QUEUE.md")]
+    patch.write_text(git("diff", base, "--", *work) if work else "")
     for path in files:
         if path in untracked:
             git("rm", "--cached", "-q", "--", path)

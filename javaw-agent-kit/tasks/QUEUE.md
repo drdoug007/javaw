@@ -19,4 +19,4 @@
 | T12 | HexFormat | - | todo |
 | T13 | MessageDigest with SHA-256 | - | todo |
 | T14 | MessageDigest SHA-1, MD5 and SHA-512 | T13 | todo |
-| T15 | SecretKeySpec and Mac (HMAC) | T12, T13 | todo |
+| T15 | SecretKeySpec and Mac (HMAC) | T12, T13, T14 | todo |
