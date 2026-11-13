@@ -6,24 +6,32 @@ Review before anything reaches `main`.
 
 ## Per task
 
-1. **Re-run the guard from `main`'s copy of the kit.** The agent could have changed its own copy of `bin/kit`.
+1. **Check the guard rails with `main`'s copy of the kit.** The agent could have changed its own copy of
+   `bin/kit` or its task's `allow:` list, so run the copy from `main`, from anywhere in the repository:
 
    ```
-   git show main:javaw-agent-kit/bin/kit > /tmp/kit-main && python3 /tmp/kit-main guard TNN
+   git show main:javaw-agent-kit/bin/kit > /tmp/kit-main && python3 /tmp/kit-main review
    ```
 
-   Alternatively, check that the commit touches only the files the task allows:
-   `git show --stat <commit>`. In particular, nothing under `javaw-agent-kit/src` except the removed
-   `@Tag("agent-pending")` line, and nothing under `javaw-agent-kit/bin` or `tasks/` except `QUEUE.md`.
+   This checks every commit on `agent-kit/work` that is not on `main`. Pass commit IDs to check only those,
+   or `--trusted-ref REF` to compare against another branch. For each task commit, it reads the task's
+   `allow:` list from `main`, not from the branch. It checks the commit against its parent and requires:
+   - only allowed files, registration lines, and the revision lines change;
+   - the task test changes only by losing its `agent-pending` tag;
+   - there are no forbidden constructs and no unregistered runtime classes;
+   - the revision is `<slug>-v<parent + 1>`, the same in both files;
+   - `QUEUE.md` changes only in the task's own row.
+
+   Block commits may touch only the report and `QUEUE.md`.
 2. **Read the runtime code**, not only the test result. Look for:
    - special-casing of test values;
    - members the task said to leave out;
    - large verbatim JDK copies;
    - `jdk.internal` references;
    - quadratic algorithms where the JDK is linear.
-3. **Check the revision.** It must be `1.0-SNAPSHOT-<slug>-vN` with N one more than `main`'s, and it must match
-   in both `CacheMetadata.java` and `runtime-target/audit-baseline.json`. If several tasks are merged in one
-   go, renumber them so each commit is one step up.
+3. **Check the revision when merging several tasks.** `review` checks each commit against its own parent,
+   so consecutive tasks on the branch are already numbered one step apart. If `main` gained a revision bump
+   since the branch was cut, renumber them while rebasing.
 4. **Write the documentation the agent does not write.**
    - Add one line to `Todo.md` under the matching section 12 item (e.g. the collection or text families), in
      the style of the LinkedList (v252) entry: revision, behaviour, evidence (`<Test>` in

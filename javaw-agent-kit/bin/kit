@@ -12,6 +12,8 @@ Run from anywhere inside the repository:
     javaw-agent-kit/bin/kit finish T01      guard + tests + full suite + revision bump + audit + commit
     javaw-agent-kit/bin/kit block T01 "why" give up: save the attempt as a patch, restore files, mark blocked
     javaw-agent-kit/bin/kit status          show the queue
+    javaw-agent-kit/bin/kit review [COMMIT...] [--trusted-ref main]
+                                            reviewer: check agent commits against task specs on main
 
 Exit status is 0 on success and 1 on any failure, so a failed check is never mistaken for success.
 """
@@ -24,7 +26,19 @@ import subprocess
 import sys
 from pathlib import Path
 
-KIT = Path(__file__).resolve().parent.parent
+def _locate_kit():
+    """The kit next to this script, or (for a copy such as /tmp/kit-main) the kit in the current git checkout."""
+    here = Path(__file__).resolve().parent.parent
+    if (here / "tasks" / "QUEUE.md").exists():
+        return here
+    top = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True).stdout.strip()
+    if top and (Path(top) / "javaw-agent-kit" / "tasks" / "QUEUE.md").exists():
+        return Path(top) / "javaw-agent-kit"
+    print("KIT FAILED: run this from inside the javaw repository (cannot find javaw-agent-kit/tasks/QUEUE.md)")
+    sys.exit(1)
+
+
+KIT = _locate_kit()
 ROOT = KIT.parent
 TASKS = KIT / "tasks"
 QUEUE = TASKS / "QUEUE.md"
@@ -84,7 +98,10 @@ def task_file(task_id):
 
 
 def task_meta(task_id):
-    text = task_file(task_id).read_text()
+    return parse_meta(task_file(task_id).read_text())
+
+
+def parse_meta(text):
     block = re.search(r"```kit\n(.*?)```", text, re.S)
     if not block:
         fail("task file has no ```kit metadata block")
@@ -200,20 +217,53 @@ def start_commit(task_id):
     return marker.read_text().strip()
 
 
-def changed_files(base):
-    files = set(git("diff", "--name-only", base).splitlines())
-    untracked = set(git("ls-files", "--others", "--exclude-standard").splitlines())
-    baseline = STATE / "untracked-before"
-    before = set(baseline.read_text().splitlines()) if baseline.exists() else set()
-    files |= untracked - before
-    return sorted(f for f in files if not any(fnmatch.fnmatch(f, pattern) for pattern in IGNORED))
+class WorkingTree:
+    """Changes in the working tree (tracked and new untracked files) since the task's starting commit."""
+
+    def __init__(self, base):
+        self.base = base
+
+    def files(self):
+        files = set(git("diff", "--name-only", self.base).splitlines())
+        untracked = set(git("ls-files", "--others", "--exclude-standard").splitlines())
+        baseline = STATE / "untracked-before"
+        before = set(baseline.read_text().splitlines()) if baseline.exists() else set()
+        files |= untracked - before
+        return sorted(f for f in files if not any(fnmatch.fnmatch(f, pattern) for pattern in IGNORED))
+
+    def content(self, path):
+        return (ROOT / path).read_text(errors="replace") if (ROOT / path).exists() else None
+
+    def changed_lines(self, path):
+        if path in git("ls-files", "--others", "--exclude-standard").splitlines():
+            text = self.content(path)
+            return ["+" + line for line in text.splitlines()] if text is not None else []
+        diff = git("diff", "-U0", self.base, "--", path)
+        return [l for l in diff.splitlines() if l[:1] in "+-" and not l.startswith(("+++", "---"))]
 
 
-def added_lines(base, path):
-    if path in git("ls-files", "--others", "--exclude-standard").splitlines():
-        return (ROOT / path).read_text(errors="replace").splitlines() if (ROOT / path).exists() else []
-    diff = git("diff", "-U0", base, "--", path)
-    return [l[1:] for l in diff.splitlines() if l.startswith("+") and not l.startswith("+++")]
+class Commit(WorkingTree):
+    """Changes made by one commit, compared with its first parent."""
+
+    def __init__(self, commit):
+        self.commit = git("rev-parse", "--verify", commit + "^{commit}").strip()
+        super().__init__(git("rev-parse", self.commit + "^").strip())
+
+    def files(self):
+        files = git("diff", "--name-only", self.base, self.commit).splitlines()
+        return sorted(f for f in files if not any(fnmatch.fnmatch(f, pattern) for pattern in IGNORED))
+
+    def content(self, path):
+        result = subprocess.run(["git", "show", "%s:%s" % (self.commit, path)], cwd=ROOT, capture_output=True, text=True)
+        return result.stdout if result.returncode == 0 else None
+
+    def changed_lines(self, path):
+        diff = git("diff", "-U0", self.base, self.commit, "--", path)
+        return [l for l in diff.splitlines() if l[:1] in "+-" and not l.startswith(("+++", "---"))]
+
+
+def added_lines(view, path):
+    return [l[1:] for l in view.changed_lines(path) if l.startswith("+")]
 
 
 def strip_comments(line, in_comment):
@@ -241,62 +291,123 @@ def strip_comments(line, in_comment):
     return "".join(code), in_comment
 
 
-def changed_lines(base, path):
-    diff = git("diff", "-U0", base, "--", path)
-    return [l for l in diff.splitlines() if l[:1] in "+-" and not l.startswith(("+++", "---"))]
+TEST_DIR = "javaw-agent-kit/src/test/java/one/dastec/javaw/bytecode/"
+UNTAG_LINE = re.compile(r'^[-+]\s*(@Tag\("agent-pending"\)|import org\.junit\.jupiter\.api\.Tag;)?\s*$')
 
 
-def guard(task_id, quiet=False):
-    meta = task_meta(task_id)
-    base = start_commit(task_id)
+def check(task_id, meta, view, review=False):
+    """Returns the guard-rail problems of the changes in `view` for the task described by `meta`."""
     problems = []
-    files = changed_files(base)
+    files = view.files()
     allowed = meta["allow"] + ALWAYS_ALLOWED
+    tests = [TEST_DIR + test + ".java" for test in meta["tests"]]
     for path in files:
+        if review and path in tests:
+            # kit finish removes the agent-pending tag (and the then-unused import); nothing else may change.
+            for line in view.changed_lines(path):
+                if not UNTAG_LINE.match(line):
+                    problems.append("%s: the task test was edited, not just untagged: %s" % (path, line.strip()[:120]))
+            continue
         if not any(fnmatch.fnmatch(path, pattern) for pattern in allowed):
             problems.append("%s is outside this task's allowed files. Undo that change (allowed: %s)"
                             % (path, ", ".join(meta["allow"])))
         if path.endswith((".wat", ".wasm", ".class", ".map")):
             problems.append("%s is generated output; generated files belong in target/ only" % path)
+    registry = view.content(REGISTRY) or ""
     for path in files:
-        if path.startswith(RUNTIME) and path.endswith(".java") and (ROOT / path).exists():
-            in_comment = False
-            for number, line in enumerate(added_lines(base, path), 1):
-                code, in_comment = strip_comments(line, in_comment)
-                for pattern, why in FORBIDDEN_IN_RUNTIME:
-                    if re.search(pattern, code):
-                        problems.append("%s: added line uses a forbidden construct (%s): %s" % (path, why, line.strip()[:120]))
-    for path in files:
-        if path.startswith(RUNTIME) and path.endswith(".java") and (ROOT / path).exists():
-            name = Path(path).stem
-            registry = (ROOT / REGISTRY).read_text()
-            relative = path[len(RUNTIME):]
-            top_level = re.search(r"^\s*(public\s+)?(abstract\s+|final\s+|sealed\s+)*(class|interface|enum|record|@interface)\s+" + re.escape(name) + r"\b",
-                                  (ROOT / path).read_text(), re.M)
-            if top_level and not re.search(r"\b" + re.escape(name) + r"\b", registry) and relative not in registry:
-                problems.append("%s is not registered in %s; unregistered runtime sources are silently ignored" % (path, REGISTRY))
+        text = view.content(path)
+        if not (path.startswith(RUNTIME) and path.endswith(".java") and text is not None):
+            continue
+        in_comment = False
+        for line in added_lines(view, path):
+            code, in_comment = strip_comments(line, in_comment)
+            for pattern, why in FORBIDDEN_IN_RUNTIME:
+                if re.search(pattern, code):
+                    problems.append("%s: added line uses a forbidden construct (%s): %s" % (path, why, line.strip()[:120]))
+        name, relative = Path(path).stem, path[len(RUNTIME):]
+        top_level = re.search(r"^\s*(public\s+)?(abstract\s+|final\s+|sealed\s+)*(class|interface|enum|record|@interface)\s+"
+                              + re.escape(name) + r"\b", text, re.M)
+        if top_level and not re.search(r"\b" + re.escape(name) + r"\b", registry) and relative not in registry:
+            problems.append("%s is not registered in %s; unregistered runtime sources are silently ignored" % (path, REGISTRY))
     if REGISTRY in files:
-        for line in changed_lines(base, REGISTRY):
+        for line in view.changed_lines(REGISTRY):
             body = line[1:]
             if not re.search(r"paths\.add\(|List\.of\(|NAMES|^\s*\+\s*\"|\.split\(", body):
                 problems.append("%s: only registration lines may change, not: %s" % (REGISTRY, body.strip()[:120]))
     for path, pattern in ((CACHE_METADATA, r"COMPILER_VERSION"), (BASELINE, r"compilerRevision")):
         if path in files:
-            for line in changed_lines(base, path):
+            for line in view.changed_lines(path):
                 if not re.search(pattern, line):
                     problems.append("%s: only the revision line may change (bin/kit finish does it): %s" % (path, line[1:].strip()[:120]))
-    for test in meta["tests"]:
-        source = KIT / "src" / "test" / "java" / "one" / "dastec" / "javaw" / "bytecode" / (test + ".java")
-        if not source.exists():
-            problems.append("task test %s is missing" % source.relative_to(ROOT))
+    for test in tests:
+        if view.content(test) is None:
+            problems.append("task test %s is missing" % test)
+    if review:
+        problems += check_revision(meta, view)
+        problems += check_queue(task_id, view, "done")
+        if (view.content(TEST_DIR + meta["tests"][0] + ".java") or "").find('@Tag("agent-pending")') >= 0:
+            problems.append("the task test is still tagged agent-pending, so it does not run as a regression test")
+    return problems
+
+
+def revision_of(text, pattern):
+    match = re.search(pattern, text or "")
+    return match.group(1) if match else None
+
+
+def check_revision(meta, view):
+    """A finished task bumps both revision files to <slug>-v<parent + 1>."""
+    metadata_pattern, baseline_pattern = r'COMPILER_VERSION = "([^"]+)"', r'"compilerRevision": "([^"]+)"'
+    before = subprocess.run(["git", "show", "%s:%s" % (view.base, CACHE_METADATA)], cwd=ROOT, capture_output=True, text=True).stdout
+    old = revision_of(before, metadata_pattern)
+    new = revision_of(view.content(CACHE_METADATA), metadata_pattern)
+    in_baseline = revision_of(view.content(BASELINE), baseline_pattern)
+    problems = []
+    old_number = int(old.rsplit("-v", 1)[1]) if old and "-v" in old else None
+    expected = "1.0-SNAPSHOT-%s-v%d" % (meta["slug"], old_number + 1) if old_number is not None else None
+    if new != expected:
+        problems.append("compiler revision is %s; expected %s (one step up from %s)" % (new, expected, old))
+    if in_baseline != new:
+        problems.append("audit-baseline.json compilerRevision %s does not match CacheMetadata %s" % (in_baseline, new))
+    return problems
+
+
+def check_queue(task_id, view, status):
+    """QUEUE.md may change only in the task's own status cell."""
+    problems = []
+    for line in view.changed_lines("javaw-agent-kit/tasks/QUEUE.md"):
+        cells = [c.strip() for c in line[1:].strip().strip("|").split("|")]
+        if not cells or cells[0] != task_id:
+            problems.append("QUEUE.md: a row other than %s changed: %s" % (task_id, line[1:].strip()[:120]))
+        elif line.startswith("+") and cells[-1] != status:
+            problems.append("QUEUE.md: %s is marked %s, expected %s" % (task_id, cells[-1], status))
+    return problems
+
+
+def report(task_id, problems, files, label="GUARD"):
     if problems:
-        print("GUARD FAILED for %s:" % task_id)
+        print("%s FAILED for %s:" % (label, task_id))
         for problem in problems:
             print("  - " + problem)
         return False
-    if not quiet:
-        print("GUARD OK for %s (%d changed files: %s)" % (task_id, len(files), ", ".join(files) or "none"))
+    print("%s OK for %s (%d changed files: %s)" % (label, task_id, len(files), ", ".join(files) or "none"))
     return True
+
+
+def guard(task_id, quiet=False):
+    meta = task_meta(task_id)
+    view = WorkingTree(start_commit(task_id))
+    problems = check(task_id, meta, view)
+    return report(task_id, problems, view.files()) if (problems or not quiet) else True
+
+
+def trusted_task_meta(task_id, ref):
+    """Task metadata as committed on `ref`, so a reviewed branch cannot widen its own allow-list."""
+    names = git("ls-tree", "--name-only", ref, "javaw-agent-kit/tasks/").splitlines()
+    matches = [n for n in names if re.fullmatch(r"javaw-agent-kit/tasks/%s-.*\.md" % re.escape(task_id), n)]
+    if len(matches) != 1:
+        fail("%s has no single task file for %s" % (ref, task_id))
+    return parse_meta(git("show", "%s:%s" % (ref, matches[0])))
 
 
 # ---------------------------------------------------------------- commands
@@ -458,7 +569,7 @@ def cmd_finish(args):
         source.write_text(text)
     set_status(task_id, "done")
     base = start_commit(task_id)
-    files = changed_files(base)
+    files = WorkingTree(base).files()
     files += [str(s.relative_to(ROOT)) for s in (KIT / "src/test/java/one/dastec/javaw/bytecode").glob("*.java")
               if git("diff", "--name-only", "--", str(s.relative_to(ROOT))).strip()]
     git("add", "--", *sorted(set(files)))
@@ -476,7 +587,7 @@ def cmd_block(args):
     task_id, reason = args[0], " ".join(args[1:])
     meta = task_meta(task_id)
     base = start_commit(task_id)
-    files = changed_files(base)
+    files = WorkingTree(base).files()
     patch = STATE / task_id / "attempt.patch"
     untracked = set(git("ls-files", "--others", "--exclude-standard").splitlines())
     for path in files:
@@ -504,8 +615,44 @@ def cmd_block(args):
     return True
 
 
+def cmd_review(args):
+    """Checks agent commits (default: every commit on the work branch that is not on the trusted ref)."""
+    ref = "main"
+    if "--trusted-ref" in args:
+        index = args.index("--trusted-ref")
+        ref = args[index + 1]
+        args = args[:index] + args[index + 2:]
+    git("rev-parse", "--verify", ref)
+    commits = args or list(reversed(git("rev-list", "%s..%s" % (ref, WORK_BRANCH)).split()))
+    if not commits:
+        print("Nothing to review: %s has no commits that are not on %s." % (WORK_BRANCH, ref))
+        return True
+    ok = True
+    for commit in commits:
+        view = Commit(commit)
+        subject = git("log", "-1", "--format=%s", view.commit).strip()
+        short = view.commit[:10]
+        task = re.search(r"agent kit (T\d+)|block (T\d+)", subject)
+        if not task:
+            print("REVIEW SKIPPED %s: not a kit commit (%s)" % (short, subject))
+            continue
+        task_id = task.group(1) or task.group(2)
+        print("== %s %s" % (short, subject))
+        if task.group(2):
+            files = view.files()
+            problems = ["%s: a block commit may change only the report and QUEUE.md" % f for f in files
+                        if f not in ("javaw-agent-kit/tasks/QUEUE.md", "javaw-agent-kit/reports/%s.md" % task_id)]
+            problems += check_queue(task_id, view, "blocked")
+        else:
+            problems = check(task_id, trusted_task_meta(task_id, ref), view, review=True)
+        ok = report(task_id, problems, view.files(), label="REVIEW") and ok
+    if ok:
+        print("Guard rails hold. Now read the runtime code itself (REVIEW.md step 2).")
+    return ok
+
+
 COMMANDS = {"doctor": cmd_doctor, "status": cmd_status, "next": cmd_next, "start": cmd_start, "check": cmd_check,
-            "regress": cmd_regress, "guard": cmd_guard, "finish": cmd_finish, "block": cmd_block}
+            "regress": cmd_regress, "guard": cmd_guard, "review": cmd_review, "finish": cmd_finish, "block": cmd_block}
 
 if __name__ == "__main__":
     if len(sys.argv) < 2 or sys.argv[1] not in COMMANDS:
