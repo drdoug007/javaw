@@ -62,7 +62,10 @@ All of these work on the in-use words (`wordsInUse` from T10), never on `words.l
   Note `>>` (signed), not `>>>`. An empty set hashes to 1234.
 - `clone()`: `(BitSet) super.clone()` inside `try { ... } catch (CloneNotSupportedException e) { throw new
   InternalError(e); }`, then give the copy its own array (`copy.words = words.clone()`). Changing the copy must
-  not change the original. `size()` of a clone is not tested.
+  not change the original. Before copying, the JDK trims the ORIGINAL's array to `wordsInUse` words unless the
+  set's size is "sticky" (see the `sizeIsSticky` hint), so both the original and the copy can shrink:
+  `new BitSet().clone()` leaves both at size 0, `new BitSet(); set(1000); clear(1000); clone()` too, while
+  `new BitSet(2000)` keeps size 2048 through a clone. Not covered by the test yet, but match it.
 - `toLongArray()`: a new array of exactly `wordsInUse` longs (`Arrays.copyOf(words, wordsInUse)`).
 - `toByteArray()`: little-endian bytes of the in-use words, length `(length() + 7) / 8`. Byte `k` is bits
   `8k..8k+7`: `(byte) (words[k / 8] >>> (8 * (k % 8)))`. Empty set -> `new byte[0]`. `{7}` -> `[-128]`,
@@ -107,6 +110,12 @@ All of these work on the in-use words (`wordsInUse` from T10), never on `words.l
   with a value difference, not a rejection. That is expected.
 - `Arrays.copyOf(long[],int)`, `long[].clone()`, `System.arraycopy`, `Math.min/max` exist in the runtime.
 - `InternalError(Throwable)` and `CloneNotSupportedException` exist; `ArrayList.clone()` shows the pattern.
+- `sizeIsSticky` (for `clone`): add `private transient boolean sizeIsSticky;` to BitSet. Set it to `true` in
+  T10's `BitSet(int nbits)` constructor only; `BitSet()` and the private `valueOf` constructor leave it `false`.
+  Set it back to `false` in T10's growth helper, inside the branch that actually allocates a bigger array (the
+  user's chosen size is gone once the set grows). Then start `clone()` with
+  `if (!sizeIsSticky && wordsInUse != words.length) words = Arrays.copyOf(words, wordsInUse);` before
+  `super.clone()`. None of this changes what T10's members return, so `BytecodeBitSetTest` still passes.
 
 ## Failure hints
 
