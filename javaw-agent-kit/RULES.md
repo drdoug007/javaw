@@ -13,7 +13,8 @@ diagnostic, never a silent pass.
   prove that every class and member you use is really in the runtime.
 - **Admission checks every runtime method, even ones nothing calls.** One bad method breaks every bytecode
   test, not just yours.
-- A class must be **registered** or it is silently ignored:
+- A class must be **registered** or it is silently ignored. Run
+  `javaw-agent-kit/bin/kit register java/util/Name.java`; it makes the edit below for you:
   - `java/lang/Name.java`: add `Name` to the `NAMES` string at the top of
     `javaw-bytecode/src/main/java/one/dastec/javaw/bytecode/BytecodeExceptionRuntime.java`.
   - `java/util/Name.java`: add `"Name"` to the `List.of(...)` line that already lists `"LinkedList"` in the

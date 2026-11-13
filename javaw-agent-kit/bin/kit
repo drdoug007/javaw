@@ -5,13 +5,17 @@ Run from anywhere inside the repository:
 
     javaw-agent-kit/bin/kit doctor          check JDK 21, wat2wasm, node, Maven, branch
     javaw-agent-kit/bin/kit next            show the next task whose dependencies are done
-    javaw-agent-kit/bin/kit start T01       begin a task (records the starting commit)
-    javaw-agent-kit/bin/kit check T01       run the task's tests; prints a short failure summary
+    javaw-agent-kit/bin/kit start T01 [--resume]
+                                            begin a task (records the starting commit; --resume reapplies a saved attempt)
+    javaw-agent-kit/bin/kit check T01       run the task's tests; prints a short failure summary and attempt history
+    javaw-agent-kit/bin/kit register java/util/Foo.java
+                                            register a new runtime source in BytecodeExceptionRuntime.java
     javaw-agent-kit/bin/kit regress         run a small regression subset (about 15 s)
     javaw-agent-kit/bin/kit guard T01       verify the changes respect the task's guard rails
     javaw-agent-kit/bin/kit finish T01      guard + tests + full suite + revision bump + audit + commit
     javaw-agent-kit/bin/kit block T01 "why" give up: save the attempt as a patch, restore files, mark blocked
     javaw-agent-kit/bin/kit status          show the queue
+    javaw-agent-kit/bin/kit retry T02       reviewer: queue a blocked task again (then `start T02 --resume`)
     javaw-agent-kit/bin/kit review [COMMIT...] [--trusted-ref main]
                                             reviewer: check agent commits against task specs on main
 
@@ -169,13 +173,17 @@ def maven(tests, label, modules="javaw-agent-kit", include_pending=True, forks=N
     return code, log
 
 
+NOISE = re.compile(r"^\s*(node:assert|throw new AssertionError|generatedMessage:|code: 'ERR_ASSERTION'|operator:|diff:|\}$"
+                   r"|\+ actual - expected|[+-] '|org\.opentest4j\.AssertionFailedError:?\s*$|node:internal|Node\.js v)")
+
+
 def summarize(log, limit=60):
-    """Prints the useful part of a Maven run: test counts and the first lines of each failure, no stack frames."""
+    """Prints the useful part of a Maven run (no stack frames or Node noise) and returns the failure signatures."""
     text = Path(log).read_text(errors="replace")
     reports = sorted((ROOT).glob("*/target/surefire-reports/*.txt"), key=lambda p: p.stat().st_mtime, reverse=True)
-    printed = 0
+    printed, signatures = 0, []
     for line in text.splitlines():
-        if re.search(r"Tests run:.*(Fail|Err)", line) and "<<<" in line:
+        if re.search(r"Tests run:.*(Fail|Err)", line) and "<<<" in line and " in " in line:
             print(line.strip())
     for report in reports:
         if report.stat().st_mtime + 600 < Path(log).stat().st_mtime:
@@ -186,28 +194,61 @@ def summarize(log, limit=60):
         print("---- " + report.name)
         for line in body.splitlines():
             if re.match(r"\s+at ", line) or line.startswith("\tat ") or not line.strip() or "{let value;try{" in line \
-                    or re.fullmatch(r"\s*\^+\s*", line) or line.startswith(("node:internal", "Node.js v")):
+                    or re.fullmatch(r"\s*\^+\s*", line) or NOISE.match(line) or line.startswith(("Test set:", "-----")) \
+                    or re.match(r"Tests run: .* in ", line):
                 continue
-            print(line[:400])
-            printed += 1
-            if printed >= limit:
+            fixture = re.search(r"Fixture\.(\w+)\(\)", line)
+            if fixture and fixture.group(1) not in signatures:
+                signatures.append(fixture.group(1))
+            rejected = re.search(r"\.java:\d+: (\S+): unsupported", line)
+            if rejected and rejected.group(1) not in signatures:
+                signatures.append("rejected " + rejected.group(1))
+            if printed < limit:
+                print(line[:400])
+            elif printed == limit:
                 print("... (truncated; see the report file above)")
-                return
+            printed += 1
     if printed == 0:
         # Not a test failure: a compile error or a Maven problem. Show the [ERROR] lines.
         errors = [l for l in text.splitlines() if l.startswith("[ERROR]") and "Help 1" not in l and l.strip() != "[ERROR]"]
         for line in errors[:limit]:
             print(line[:400])
+        signatures.append("build error")
+    return signatures or ["unknown failure"]
 
 
-def run_tests(tests, label, **kwargs):
+def run_tests(tests, label, history=None, **kwargs):
     code, log = maven(tests, label, **kwargs)
     if code == 0:
         print("PASS: " + ", ".join(tests))
+        record(history, "PASS")
         return True
     print("FAIL: " + ", ".join(tests))
-    summarize(log)
+    record(history, ", ".join(summarize(log)))
     return False
+
+
+def record(history, outcome):
+    """Appends one attempt to the task's history and prints it, so the agent keeps track across context compaction."""
+    if history is None:
+        return
+    history.parent.mkdir(parents=True, exist_ok=True)
+    attempts = history.read_text().splitlines() if history.exists() else []
+    attempts.append(outcome)
+    history.write_text("\n".join(attempts) + "\n")
+    print("")
+    print("== Attempt history (kept by kit, survives context compaction): %d checks so far" % len(attempts))
+    for number, line in list(enumerate(attempts, 1))[-6:]:
+        print("   %2d: %s" % (number, "PASS" if line == "PASS" else "FAIL " + line[:200]))
+    repeats = 0
+    for line in reversed(attempts):
+        if line != outcome:
+            break
+        repeats += 1
+    if outcome != "PASS" and repeats >= 3:
+        print("== The same failure %d times in a row: your recent edits did not change it." % repeats)
+        print("   Stop editing the same lines. Re-read the spec section for the failing behaviour, compare expected")
+        print("   and actual character by character, and change your approach. At 6 in a row, run `kit block`.")
 
 
 # ---------------------------------------------------------------- guard rails
@@ -461,13 +502,15 @@ def cmd_next(args):
 def cmd_start(args):
     if not args:
         fail("usage: kit start T01")
-    task_id = args[0]
+    task_id, resume = args[0], "--resume" in args[1:]
     meta = task_meta(task_id)
     rows = {r["id"]: r for r in queue_rows()}
     if task_id not in rows:
         fail("%s is not in tasks/QUEUE.md" % task_id)
     if rows[task_id]["status"] == "done":
         fail("%s is already done" % task_id)
+    if rows[task_id]["status"] == "blocked":
+        fail("%s is blocked; a reviewer runs `kit retry %s` to queue it again" % (task_id, task_id))
     queue_deps = [d.strip() for d in rows[task_id]["depends"].split(",") if d.strip() and d.strip() != "-"]
     missing = [d for d in sorted(set(meta["depends"]) | set(queue_deps)) if rows.get(d, {}).get("status") != "done"]
     if missing:
@@ -484,17 +527,29 @@ def cmd_start(args):
         git("switch", WORK_BRANCH) if exists else git("switch", "-c", WORK_BRANCH)
     (STATE / task_id).mkdir(parents=True, exist_ok=True)
     marker = STATE / task_id / "start"
-    if not marker.exists():
+    fresh = rows[task_id]["status"] != "in-progress" or not marker.exists()
+    if fresh:
         marker.write_text(git("rev-parse", "HEAD").strip())
+        history = STATE / task_id / "history.txt"
+        if history.exists() and not resume:
+            history.rename(STATE / task_id / "history-previous.txt")
     baseline = STATE / "untracked-before"
     if not baseline.exists() or rows[task_id]["status"] != "in-progress":
         baseline.write_text(git("ls-files", "--others", "--exclude-standard"))
     set_status(task_id, "in-progress")
     print("STARTED %s on branch %s from %s" % (task_id, WORK_BRANCH, marker.read_text()[:10]))
+    patch = STATE / task_id / "attempt.patch"
+    if resume and fresh and patch.exists() and patch.stat().st_size:
+        applied = subprocess.run(["git", "apply", "--whitespace=nowarn", str(patch)], cwd=ROOT, capture_output=True, text=True)
+        if applied.returncode == 0:
+            print("RESUMED from the previous attempt (%s). Run `kit check %s` first to see where it stands."
+                  % (patch.relative_to(ROOT), task_id))
+        else:
+            print("Could not apply the previous attempt; starting fresh.\n" + applied.stderr.strip()[:500])
     print("Read the spec: %s" % task_file(task_id).relative_to(ROOT))
     print("Tests to make pass: %s" % ", ".join(meta["tests"]))
-    print("Files you may change: %s (+ registration in BytecodeExceptionRuntime.java, + reports/%s.md)"
-          % (", ".join(meta["allow"]), task_id))
+    print("Files you may change: %s (+ reports/%s.md)" % (", ".join(meta["allow"]), task_id))
+    print("Register new runtime classes with `javaw-agent-kit/bin/kit register <path under exception-runtime>`.")
     return True
 
 
@@ -502,7 +557,7 @@ def cmd_check(args):
     if not args:
         fail("usage: kit check T01")
     meta = task_meta(args[0])
-    return run_tests(meta["tests"], "check-" + args[0])
+    return run_tests(meta["tests"], "check-" + args[0], history=STATE / args[0] / "history.txt")
 
 
 def cmd_regress(_):
@@ -618,6 +673,70 @@ def cmd_block(args):
     return True
 
 
+def cmd_register(args):
+    """Adds a runtime source to BytecodeExceptionRuntime.java, so agents need not read or hand-edit that file."""
+    if not args:
+        fail("usage: kit register java/util/StringTokenizer.java   (path under %s)" % RUNTIME)
+    relative = args[0].split("exception-runtime/", 1)[-1].lstrip("/")
+    if not relative.endswith(".java") or not (ROOT / RUNTIME / relative).exists():
+        fail("%s%s does not exist; create the source file first" % (RUNTIME, relative))
+    registry = ROOT / REGISTRY
+    text = registry.read_text()
+    name = Path(relative).stem
+    if ('"%s"' % relative) in text:
+        print("already registered: " + relative)
+        return True
+    if relative == "java/lang/%s.java" % name:
+        if re.search(r'"[^"]*\b%s\b[^"]*"' % re.escape(name), text.split("private BytecodeExceptionRuntime()")[0]):
+            print("already registered: " + relative)
+            return True
+        new_text = text.replace('UnsatisfiedLinkError").split(" ");', 'UnsatisfiedLinkError %s").split(" ");' % name, 1)
+    elif relative == "java/util/%s.java" % name:
+        line = next((l for l in text.splitlines() if '"LinkedList"' in l and 'paths.add("java/util/"' in l), None)
+        if line is None:
+            fail("cannot find the java/util registration line; register it by hand")
+        if re.search(r'"%s"' % re.escape(name), line):
+            print("already registered: " + relative)
+            return True
+        new_text = text.replace(line, line.replace('))paths.add("java/util/"', ',"%s"))paths.add("java/util/"' % name, 1), 1)
+    else:
+        anchor = next((l for l in text.splitlines() if 'paths.add("javaw/runtime/ExceptionSupport.java");' in l), None)
+        if anchor is None:
+            fail("cannot find the ExceptionSupport registration line; register it by hand")
+        indent = anchor[:len(anchor) - len(anchor.lstrip())]
+        new_text = text.replace(anchor, '%spaths.add("%s");\n%s' % (indent, relative, anchor), 1)
+    if new_text == text:
+        fail("could not register %s; register it by hand" % relative)
+    registry.write_text(new_text)
+    print("registered: " + relative)
+    return True
+
+
+def cmd_retry(args):
+    """Reviewer: puts a blocked task back in the queue. The saved attempt stays available to `kit start --resume`."""
+    if not args:
+        fail("usage: kit retry T02")
+    task_id = args[0]
+    rows = {r["id"]: r for r in queue_rows()}
+    if rows.get(task_id, {}).get("status") != "blocked":
+        fail("%s is not blocked" % task_id)
+    report = REPORTS / (task_id + ".md")
+    archive = STATE / task_id / "blocked-report.md"
+    archive.parent.mkdir(parents=True, exist_ok=True)
+    if report.exists():
+        archive.write_text(report.read_text())
+        git("rm", "-q", "--", str(report.relative_to(ROOT)))
+    set_status(task_id, "todo")
+    (STATE / task_id / "start").unlink(missing_ok=True)
+    git("add", "--", str(QUEUE.relative_to(ROOT)))
+    git("commit", "-m", "chore(agent-kit): retry %s\n" % task_id)
+    patch = STATE / task_id / "attempt.patch"
+    print("QUEUED %s again. The blocked report is in %s." % (task_id, archive.relative_to(ROOT)))
+    if patch.exists() and patch.stat().st_size:
+        print("To continue from the saved attempt: `kit start %s --resume` (or run-local --task %s --resume)." % (task_id, task_id))
+    return True
+
+
 def cmd_review(args):
     """Checks agent commits (default: every commit on the work branch that is not on the trusted ref)."""
     ref = "main"
@@ -635,13 +754,20 @@ def cmd_review(args):
         view = Commit(commit)
         subject = git("log", "-1", "--format=%s", view.commit).strip()
         short = view.commit[:10]
-        task = re.search(r"agent kit (T\d+)|block (T\d+)", subject)
+        task = re.search(r"agent kit (T\d+)|block (T\d+)|retry (T\d+)", subject)
         if not task:
             print("REVIEW SKIPPED %s: not a kit commit (%s)" % (short, subject))
             continue
-        task_id = task.group(1) or task.group(2)
+        task_id = task.group(1) or task.group(2) or task.group(3)
         print("== %s %s" % (short, subject))
-        if task.group(2):
+        if task.group(3):
+            files = view.files()
+            problems = ["%s: a retry commit may change only QUEUE.md and remove the blocked report" % f for f in files
+                        if f not in ("javaw-agent-kit/tasks/QUEUE.md", "javaw-agent-kit/reports/%s.md" % task_id)]
+            if view.content("javaw-agent-kit/reports/%s.md" % task_id) is not None and "javaw-agent-kit/reports/%s.md" % task_id in files:
+                problems.append("a retry commit may only delete the blocked report, not change it")
+            problems += check_queue(task_id, view, "todo")
+        elif task.group(2):
             files = view.files()
             problems = ["%s: a block commit may change only the report and QUEUE.md" % f for f in files
                         if f not in ("javaw-agent-kit/tasks/QUEUE.md", "javaw-agent-kit/reports/%s.md" % task_id)]
@@ -655,7 +781,7 @@ def cmd_review(args):
 
 
 COMMANDS = {"doctor": cmd_doctor, "status": cmd_status, "next": cmd_next, "start": cmd_start, "check": cmd_check,
-            "regress": cmd_regress, "guard": cmd_guard, "review": cmd_review, "finish": cmd_finish, "block": cmd_block}
+            "regress": cmd_regress, "guard": cmd_guard, "review": cmd_review, "register": cmd_register, "retry": cmd_retry, "finish": cmd_finish, "block": cmd_block}
 
 if __name__ == "__main__":
     if len(sys.argv) < 2 or sys.argv[1] not in COMMANDS:

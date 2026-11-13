@@ -15,10 +15,15 @@ Run every command from the repository root (`/Volumes/SanDisk/javaw`).
 4. Read the task's test in `javaw-agent-kit/src/test/java/one/dastec/javaw/bytecode/`. It shows exactly what
    is called.
 5. Look at the example classes the task file names. Copy their style.
-6. Write the runtime class(es) and register them (the task file says where).
+6. Write the runtime class(es). Register each new top-level class with
+   `javaw-agent-kit/bin/kit register java/util/Name.java` (the path under `exception-runtime/`). Do not read
+   or hand-edit `BytecodeExceptionRuntime.java`; it is long and the command does it for you.
 7. `javaw-agent-kit/bin/kit check T01`: runs the task's tests and prints a short summary.
    - `PASS`: go to step 8.
    - `FAIL`: read the message, fix **the runtime source**, and run check again.
+   - Every check ends with an **attempt history** that the kit keeps for you. Read it: it tells you what
+     already failed, even after your context was compacted. If it says the same failure repeated, change
+     your approach instead of making the same edit again.
 8. Write `javaw-agent-kit/reports/T01.md` (see below).
 9. `javaw-agent-kit/bin/kit finish T01`: checks the guard rails, runs all tests, bumps the compiler
    revision, runs the audit and commits. If it fails, fix the problem and run finish again.
@@ -49,7 +54,7 @@ Run every command from the repository root (`/Volumes/SanDisk/javaw`).
 
 ## When you are stuck
 
-If the same failure repeats after **6 attempts at a fix**, or a fix needs a file the task does not allow,
+If the attempt history shows the same failure **6 times in a row**, or a fix needs a file the task does not allow,
 stop guessing:
 
 ```

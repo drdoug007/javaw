@@ -35,8 +35,12 @@ to prove the tests pass with only the allowed files changed, and then thrown awa
 - JDK 21 at `~/.sdkman/candidates/java/21.0.2-graalce`, or set `KIT_JAVA_HOME`. The bytecode suite fails on
   JDK 24+ (ASM 9.7 cannot read class file version 68). `bin/kit` sets `JAVA_HOME` itself.
 - `mvn`, `wat2wasm` (wabt) and `node` on `PATH`, and a populated `~/.m2`. Everything runs with `-o`.
-- oMLX serving the model, with a context window of at least 48K. 64K or more works better, because Claude
-  Code's own prompt is large.
+- oMLX serving the model with a context window of **at least 128K tokens** (Qwen3-Coder-30B supports 256K).
+  Claude Code's own prompt and tool definitions take about 25K tokens, and Claude Code will not compact below
+  100K. With a 64K window the first attempt at T02 compacted five times and lost track of its own edits.
+  `bin/run-local` reads the served length from oMLX and uses `min(131072, served)` unless you pass
+  `--context`. It refuses anything under 100K. At 131072 tokens the KV cache is about 12 GB, so the 4-bit
+  model (about 17 GB) fits comfortably in 48 GB.
 
 Check with `javaw-agent-kit/bin/kit doctor`.
 
@@ -61,11 +65,12 @@ for each task: small models do much better with a fresh context.
 ### Unattended (one fresh session per task)
 
 ```
-OMLX_API_KEY=<your oMLX key> javaw-agent-kit/bin/run-local --tasks 3 --context 65536
+OMLX_API_KEY=<your oMLX key> javaw-agent-kit/bin/run-local --tasks 3
 ```
 
-Useful options are `--task T05`, `--model NAME`, `--timeout MINUTES` and `--dry-run`, which prints the
-session command and permission settings without running anything. Each session:
+Useful options are `--task T05`, `--model NAME`, `--context TOKENS`, `--timeout MINUTES`, `--resume` (continue a
+retried task from its saved attempt) and `--dry-run`, which prints the session command and permission settings
+without running anything. Each session:
 
 - runs in `dontAsk` mode;
 - may edit only its task's files and run only `bin/kit` plus read-only shell commands;

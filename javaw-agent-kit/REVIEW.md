@@ -22,7 +22,8 @@ Review before anything reaches `main`.
    - the revision is `<slug>-v<parent + 1>`, the same in both files;
    - `QUEUE.md` changes only in the task's own row.
 
-   Block commits may touch only the report and `QUEUE.md`.
+   Block commits may touch only the report and `QUEUE.md`. Retry commits may only set the task back to
+   `todo` and delete its blocked report.
 2. **Read the runtime code**, not only the test result. Look for:
    - special-casing of test values;
    - members the task said to leave out;
@@ -56,7 +57,11 @@ Review before anything reaches `main`.
 `javaw-agent-kit/reports/TNN.md` gives the reason. `javaw-agent-kit/target/kit/TNN/attempt.patch` and
 `session.log` hold the attempt. Typical outcomes:
 
-- **The spec was unclear.** Improve the task's Hints, set its status back to `todo`, and let the agent retry.
+- **The session ran out of context or time.** The task is fine. Run `kit retry TNN` to queue it again, then
+  `bin/run-local --task TNN --resume` to continue from the saved attempt. `kit check` keeps an attempt history
+  across sessions.
+- **The spec was unclear.** Improve the task's Hints on `main`, then `kit retry TNN` and let the agent try
+  again. Use `--resume` only if the attempt was heading the right way.
 - **The task needed a file it was not allowed to change.** Widen `allow:` if that is safe, or do that part
   yourself.
 - **The task is too hard for the model.** Finish it yourself from the patch.
