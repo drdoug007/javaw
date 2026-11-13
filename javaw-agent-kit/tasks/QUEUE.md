@@ -9,7 +9,7 @@
 | T02 | StringTokenizer | - | done |
 | T03 | ArrayList index failure messages | - | done |
 | T04 | Queue and Deque interfaces; LinkedList implements Deque | - | done |
-| T05 | ArrayDeque | T04 | blocked |
+| T05 | ArrayDeque | T04 | todo |
 | T06 | AbstractQueue and PriorityQueue | T04 | blocked |
 | T07 | EmptyStackException and Vector | - | blocked |
 | T08 | Stack | T07 | todo |
