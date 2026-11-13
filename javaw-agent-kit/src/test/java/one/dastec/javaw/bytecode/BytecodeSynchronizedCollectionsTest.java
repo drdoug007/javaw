@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T09: monitor-free Collections.synchronizedCollection/Set/List/Map delegating views. */
-@Tag("agent-pending")
 class BytecodeSynchronizedCollectionsTest extends KitDifferential {
     private static String fixture(String body) {
         return "import java.util.*;\nimport java.util.stream.*;\npublic class Fixture {\n" + """

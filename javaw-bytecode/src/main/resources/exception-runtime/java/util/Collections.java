@@ -14,6 +14,10 @@ public final class Collections{
  public static <T>List<T> unmodifiableList(List<? extends T> source){return UnmodifiableViews.list(source);}
  public static <T>Set<T> unmodifiableSet(Set<? extends T> source){return new UnmodifiableViews.SetView<T>(source);}
  public static <K,V>Map<K,V> unmodifiableMap(Map<? extends K,? extends V> source){return new UnmodifiableViews.MapView<K,V>(source);}
+ public static <T>Collection<T> synchronizedCollection(Collection<T> c){return SynchronizedViews.collection(c);}
+ public static <T>Set<T> synchronizedSet(Set<T> s){return SynchronizedViews.set(s);}
+ public static <T>List<T> synchronizedList(List<T> list){return SynchronizedViews.list(list);}
+ public static <K,V>Map<K,V> synchronizedMap(Map<K,V> m){return SynchronizedViews.map(m);}
  public static final List EMPTY_LIST=new Frozen<Object>(new Object[0]);
  public static final Set EMPTY_SET=new SmallSet<Object>(new Object[0]);
  public static final Map EMPTY_MAP=new SmallMap<Object,Object>(new HashMap<Object,Object>());

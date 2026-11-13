@@ -13,7 +13,7 @@
 | T06 | AbstractQueue and PriorityQueue | T04 | done |
 | T07 | EmptyStackException and Vector | - | done |
 | T08 | Stack | T07 | done |
-| T09 | Collections.synchronized wrappers | - | todo |
+| T09 | Collections.synchronized wrappers | - | done |
 | T10 | BitSet: single-bit and search operations | - | todo |
 | T11 | BitSet: bulk operations, equality and conversions | T10 | todo |
 | T12 | HexFormat | - | todo |
