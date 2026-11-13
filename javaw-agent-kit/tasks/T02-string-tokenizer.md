@@ -90,6 +90,11 @@ None. `asIterator()` comes from the existing `Enumeration` default method; do no
 
 ## Hints
 
+- **If `returnDelims` tests fail with delimiters missing** (for example `<a><b><c>` where `<a><,><b>...` is
+  expected), the bug is in `skipDelimiters`, not `scanToken`. With `returnDelims == true`, `skipDelimiters`
+  must return `start` unchanged, because the delimiters are tokens and must reach `scanToken`. A local model
+  missed this in two sessions by editing only `scanToken`.
+
 - Before you start, `kit check T02` fails with `FIX THE RUNTIME: the bytecode compiler rejected the fixture`
   naming `java/util/StringTokenizer`. That is expected.
 - The JDK caches a `newPosition` in `hasMoreTokens()` and has a `delimsChanged` flag. You do NOT need either:

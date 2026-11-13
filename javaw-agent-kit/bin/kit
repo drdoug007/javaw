@@ -247,8 +247,9 @@ def record(history, outcome):
         repeats += 1
     if outcome != "PASS" and repeats >= 3:
         print("== The same failure %d times in a row: your recent edits did not change it." % repeats)
-        print("   Stop editing the same lines. Re-read the spec section for the failing behaviour, compare expected")
-        print("   and actual character by character, and change your approach. At 6 in a row, run `kit block`.")
+        print("   Stop editing the same lines: the bug is often in a DIFFERENT method from the one you keep changing.")
+        print("   Take the failing fixture's input and trace it by hand through EVERY method it passes through,")
+        print("   checking each against the spec's Steps. Then re-read the Hints. At 6 in a row, run `kit block`.")
 
 
 # ---------------------------------------------------------------- guard rails
@@ -724,8 +725,9 @@ def cmd_retry(args):
     archive = STATE / task_id / "blocked-report.md"
     archive.parent.mkdir(parents=True, exist_ok=True)
     if report.exists():
+        # The working copy may hold notes the agent added after `kit block`; keep them in the archive.
         archive.write_text(report.read_text())
-        git("rm", "-q", "--", str(report.relative_to(ROOT)))
+        git("rm", "-q", "-f", "--", str(report.relative_to(ROOT)))
     set_status(task_id, "todo")
     (STATE / task_id / "start").unlink(missing_ok=True)
     git("add", "--", str(QUEUE.relative_to(ROOT)))
