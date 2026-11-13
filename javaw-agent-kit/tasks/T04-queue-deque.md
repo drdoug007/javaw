@@ -105,6 +105,18 @@ LinkedList already declares every Deque member (look at it: `addFirst` ... `desc
 - Calibration: the reference passed on the first `kit check`. The whole task is ~20 lines; do not over-build it.
 - `kit regress`/`kit finish` include `BytecodeLinkedListTest`; they fail until the step 1 test edit is done.
 
+## Failure hints
+
+`kit check` prints the matching line under a failure. Follow it first.
+
+```kit-hints
+queueMembers: if you have not done spec step 1 yet, do it now. In BytecodeLinkedListTest delete the two lines `rejectsUnused("java/util/Deque","addFirst",...)` and `rejectsUnused("java/util/Queue","offer",...)`, keep the `reversed` line, and rename the method to `rejectsUnusedUnlinkedSequencedMembers`. That is the only test edit allowed. Without it `kit regress`/`kit finish` fail with "Expected java.lang.IllegalArgumentException to be thrown, but nothing was thrown". Never fix that by changing LinkedList or Deque.
+queueMembers, dequeEndMembers, dequeSearchAndIteration, interfaceTypesAndUserImplementations: only if the message says the compiler rejected the fixture with `link a complete acyclic type hierarchy: java/util/Queue` (or Deque): create Queue.java and Deque.java in exception-runtime/java/util and insert `"Queue","Deque",` right after `"List",` in the List.of(...) line of BytecodeExceptionRuntime.java (do not edit that file by hand: run `javaw-agent-kit/bin/kit register <path under exception-runtime>` for each new file, which makes exactly this edit) (Queue before Deque). If it instead says `unsupported ... call java/util/Deque.X(...)` (or Queue.X), add that abstract method X to the interface with the exact signature from the spec's Members list. Copy every Deque member from that list; no imports, no default methods.
+queueMembers, dequeEndMembers, dequeSearchAndIteration, interfaceTypesAndUserImplementations: if every test fails with "Cannot build bytecode exception runtime", read the javac error after it. Usually a Deque/Queue signature does not match LinkedList's: `name clash: addAll(Collection<E>) in Deque` means you must write `boolean addAll(Collection<? extends E> c);`. Copy each signature exactly from the spec's Members list. No imports are needed.
+types, widening, queueBasics, dequeAddEnds, occurrences: if Fixture.queueBasics(), dequeAddEnds() or occurrences() threw an uncaught exception in Wasm, or types returned `false,false,true,true,false,false` instead of `true,true,true,true,false,false`, the LinkedList class declaration is missing Deque. It must read `public class LinkedList<E> extends AbstractSequentialList<E> implements List<E>,Deque<E>,Cloneable,java.io.Serializable{`. Change only that line and its comment, not LinkedList's methods.
+rejectsUnlinkedSequencedMembers: "Admission accepted a call to java/util/Deque.reversed..." (or LinkedList.reversed) means Deque or LinkedList now has reversed(), a default method, or SequencedCollection. Remove them. Queue and Deque contain only abstract methods, with no `default` and no reversed(). If it instead says "must name the caller's source line; got: Cannot build bytecode exception runtime", fix the javac error printed after that text first.
+```
+
 ## Docs
 
 Create `docs/bytecode-queue-deque.md`:

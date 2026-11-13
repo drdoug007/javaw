@@ -97,6 +97,21 @@ No registration edit is needed: both files are already registered.
   and `Stream.toList`; their messages change from `null` to the new text. No existing test depends on the old
   `null`, and the full suite passed in calibration.
 
+## Failure hints
+
+`kit check` prints the matching line under a failure. Follow it first.
+
+```kit-hints
+getEmpty, getPastEnd, getNegative, getMinValue, setPastEnd, setNegative, removePastEnd, removeEmpty, sizeAfterGrowth, inBounds: get/set/remove must print 'IndexOutOfBoundsException:Index 2 out of bounds for length 2' (Wasm shows null or the wrong format). Fix the shared helper AbstractList.index(int), not ArrayList.get/set/remove: keep its condition `index<0 || index>=size()` and throw `new IndexOutOfBoundsException("Index "+index+" out of bounds for length "+size())` (word Index, a space, no colon). Use string +, never Objects.checkIndex or String.format: neither is in the runtime.
+addAtPastEnd, addAtNegative, addAllAtPastEnd, addAllAtNegativeEmpty, listIteratorPastEnd, listIteratorNegative, addAtEnd, addAllAtEnd, listIteratorAtEnd: insert positions use the OTHER format 'Index: 5, Size: 2'. Fix AbstractList.position(int): keep its condition `index<0 || index>size()` (index==size() is legal) and throw `new IndexOutOfBoundsException("Index: "+index+", Size: "+size())`. Do not reuse the index() message here.
+addAllAtNullCollection: expected 'IndexOutOfBoundsException:Index: 3, Size: 2', not a NullPointerException. In ArrayList.addAll(int,Collection) and AbstractList.addAll(int,Collection) keep position(index) as the FIRST statement, before values.toArray() or the for loop.
+subListNegativeFrom, subListToPastEnd, subListFromAfterTo, subListBothBad, subListFromPastSize, subListNegativeAndInverted, subListEmptyAtEnd: in AbstractList.subList(int start,int end) replace the combined check with three separate ifs in this exact order: start<0 throws IndexOutOfBoundsException("fromIndex = "+start); end>size() throws IndexOutOfBoundsException("toIndex = "+end); start>end throws IllegalArgumentException("fromIndex("+start+") > toIndex("+end+")"). So on size 2, subList(3,5) is 'toIndex = 5', subList(3,2) is the IllegalArgumentException, subList(-2,-3) is 'fromIndex = -2', and subList(2,2) is legal. Keep the return line unchanged.
+viewGet, viewSet, viewRemove, viewAdd, viewAddAll, viewListIterator, viewSubList, viewSubListInverted, nestedViewGet: a subList view must print its OWN size (view() has size 2, so 'Index 2 out of bounds for length 2' and 'Index: 3, Size: 2'). If the view still prints null, you put the message in ArrayList instead of AbstractList.index/position/subList; inside those helpers call size(), never a field. View already calls these helpers, so do not edit View.
+iteratorNextEmpty, iteratorRemoveFirst, listIteratorPreviousAtStart, listIteratorSetFirst, iteratorAfterAdd, viewAfterParentAdd: these must stay 'NoSuchElementException:null', 'IllegalStateException:null' and 'ConcurrentModificationException:null', exactly as on the JVM. Remove any message you added to the throws in AbstractList.Cursor (next, previous, remove, set, check) or View.check; only index, position, subList and ArrayList(int) get messages.
+negativeCapacity, zeroCapacity: expected 'IllegalArgumentException:Illegal Capacity: -1'. Fix the ArrayList(int capacity) constructor: keep the check `capacity<0` (0 is legal) and throw `new IllegalArgumentException("Illegal Capacity: "+capacity)` (capital I and C, colon, one space).
+leavesOutRemoveRangeAndObjectsCheckIndex: this fails when ArrayList.removeRange(int,int) or Objects.checkIndex(int,int) has become linked. Do not add or call either one (and do not use String.format); build the messages with string + inside AbstractList.index/position.
+```
+
 ## Docs
 
 Create `docs/bytecode-arraylist-index-messages.md` with this skeleton (fill in the brackets):

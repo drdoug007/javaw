@@ -43,7 +43,8 @@ The details a model gets wrong: formats, edge cases, exception types and message
 ## Failure hints
 
 `kit check` prints a hint right under the failure when a listed fixture fails. Put one line per symptom:
-`fixtureA, fixtureB: what is wrong and which method to fix`. Local models follow these much better than
+`fixtureA, fixtureB: what is wrong and which method to fix`. Names are fixture methods (`Fixture.x()`) or
+JUnit `@Test` method names; `kit lint` checks that they exist. Local models follow these much better than
 hints in the prose above.
 
 ```kit-hints

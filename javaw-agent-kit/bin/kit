@@ -15,6 +15,7 @@ Run from anywhere inside the repository:
     javaw-agent-kit/bin/kit finish T01      guard + tests + full suite + revision bump + audit + commit
     javaw-agent-kit/bin/kit block T01 "why" give up: save the attempt as a patch, restore files, mark blocked
     javaw-agent-kit/bin/kit status          show the queue
+    javaw-agent-kit/bin/kit lint [T03 ...]  check task files and their kit-hints against the tests
     javaw-agent-kit/bin/kit retry T02       reviewer: queue a blocked task again (then `start T02 --resume`)
     javaw-agent-kit/bin/kit review [COMMIT...] [--trusted-ref main]
                                             reviewer: check agent commits against task specs on main
@@ -208,6 +209,10 @@ def summarize(log, limit=60):
             elif printed == limit:
                 print("... (truncated; see the report file above)")
             printed += 1
+        # JUnit @Test method names come after the more specific fixture names (kit-hints may name either).
+        for failed in re.finditer(r"^\S+Test\.(\w+) -- Time elapsed.*<<< (?:FAILURE|ERROR)!", body, re.M):
+            if failed.group(1) not in signatures:
+                signatures.append(failed.group(1))
     if printed == 0:
         # Not a test failure: a compile error or a Maven problem. Show the [ERROR] lines.
         errors = [l for l in text.splitlines() if l.startswith("[ERROR]") and "Help 1" not in l and l.strip() != "[ERROR]"]
@@ -225,14 +230,17 @@ def run_tests(tests, label, history=None, hints=None, **kwargs):
         return True
     print("FAIL: " + ", ".join(tests))
     signatures = summarize(log)
-    shown = set()
+    shown, matched = [], []
     for signature in signatures:
         for fixtures, hint in (hints or []):
-            if signature in fixtures and hint not in shown:
-                shown.add(hint)
-                print("")
-                print("== HINT for %s (from the task file; follow it exactly):" % signature)
-                print("   " + hint)
+            if signature in fixtures and hint not in [h for _, h in matched]:
+                matched.append((signature, hint))
+    for signature, hint in matched[:3]:  # a few at a time keeps a small model's context free
+        print("")
+        print("== HINT for %s (from the task file; follow it exactly):" % signature)
+        print("   " + hint)
+    if len(matched) > 3:
+        print("== %d more hints apply; fix the ones above first and they will show on the next check." % (len(matched) - 3))
     record(history, ", ".join(signatures))
     return False
 
@@ -809,8 +817,49 @@ def cmd_review(args):
     return ok
 
 
+def cmd_lint(args):
+    """Checks task files: metadata, queue rows, test classes, and that every kit-hints name is a fixture or test method."""
+    ok = True
+    rows = {r["id"]: r for r in queue_rows()}
+    for path in sorted(TASKS.glob("T*-*.md")):
+        task_id = path.name.split("-", 1)[0]
+        if args and task_id not in args:
+            continue
+        problems = []
+        meta = parse_meta(path.read_text())
+        if meta["id"] != task_id:
+            problems.append("metadata id %s does not match the file name" % meta["id"])
+        if task_id not in rows:
+            problems.append("no row in QUEUE.md")
+        else:
+            queue_deps = {d.strip() for d in rows[task_id]["depends"].split(",") if d.strip() and d.strip() != "-"}
+            if queue_deps != set(meta["depends"]):
+                problems.append("depends differ: QUEUE.md %s, task file %s" % (sorted(queue_deps), sorted(meta["depends"])))
+        sources = ""
+        for test in meta["tests"]:
+            source = ROOT / (TEST_DIR + test + ".java")
+            if not source.exists():
+                problems.append("missing test " + TEST_DIR + test + ".java")
+            else:
+                sources += source.read_text()
+        names = set(re.findall(r"public static \w+(?:<[^>]*>)? (\w+)\(\)", sources))
+        names |= set(re.findall(r"@Test\s+(?:public\s+)?void\s+(\w+)\(", sources))
+        hints = task_hints(task_id)
+        for fixtures, text in hints:
+            if not text:
+                problems.append("a kit-hints line has no hint text")
+            for name in fixtures:
+                if name not in names:
+                    problems.append("kit-hints names %r, which is not a fixture or test method in %s" % (name, ", ".join(meta["tests"])))
+        print("%s %s: %d hints%s" % ("FAIL" if problems else "ok  ", task_id, len(hints), "" if problems else ""))
+        for problem in problems:
+            print("     - " + problem)
+        ok = ok and not problems
+    return ok
+
+
 COMMANDS = {"doctor": cmd_doctor, "status": cmd_status, "next": cmd_next, "start": cmd_start, "check": cmd_check,
-            "regress": cmd_regress, "guard": cmd_guard, "review": cmd_review, "register": cmd_register, "retry": cmd_retry, "finish": cmd_finish, "block": cmd_block}
+            "regress": cmd_regress, "guard": cmd_guard, "review": cmd_review, "register": cmd_register, "retry": cmd_retry, "lint": cmd_lint, "finish": cmd_finish, "block": cmd_block}
 
 if __name__ == "__main__":
     if len(sys.argv) < 2 or sys.argv[1] not in COMMANDS:

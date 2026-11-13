@@ -71,6 +71,19 @@ Vector either). The test checks both are rejected. Do not edit `Vector.java`.
   does not use `super.clone()`. Do not add `clone` to `Stack` and do not edit `Vector.java`: stop and report it.
 - Do not add `synchronized` (the JDK has it on `pop`, `peek`, `search`); guard rejects the keyword.
 
+## Failure hints
+
+`kit check` prints the matching line under a failure. Follow it first.
+
+```kit-hints
+stackOperations, search, inheritedVectorMembers: if FIX THE RUNTIME says `link the descriptor class/interface java/util/Stack` (or another link message naming java/util/Stack), Stack is not registered: in BytecodeExceptionRuntime.java (do not edit that file by hand: run `javaw-agent-kit/bin/kit register <path under exception-runtime>` for each new file, which makes exactly this edit), on the List.of(...) line that contains "Vector", insert "Stack", right after "Vector",. If it says `link a matching instance method in the declaring hierarchy` or `link a matching special declaration`, one of public Stack(), push, pop, peek, empty, search is missing, not public, or misspelled.
+emptyFailures, drainedFailures, failureIsCatchable: an empty stack must throw EmptyStackException ("EmptyStackException: null"), not ArrayIndexOutOfBoundsException. peek starts with `if (size() == 0) throw new EmptyStackException();` and pop starts with `E top = peek();` before calling removeElementAt(size() - 1).
+popOrder, peekDoesNotRemove, pushAfterPop, listView, pushReturnsItem: the top of the stack is the END of the vector. push is `addElement(item); return item;` (return the argument, even null), peek returns `elementAt(size() - 1)` without removing, pop removes with `removeElementAt(size() - 1)`. Never insert at or remove index 0.
+distances, duplicatesUseTopmost, nulls, emptySearch, usesEquals: search is 1-based from the top and uses the topmost match: `int i = lastIndexOf(o); return i >= 0 ? size() - i : -1;` (after pushing a,b,c: c=1, b=2, a=3, absent=-1). Vector.lastIndexOf already handles null and equals; do not use == or indexOf.
+manyPushes, iteratesBottomToTop, failFast, positionalFailures, equalsVector, clearAndReuse: Stack must have no fields and no overrides beyond the six members: delete any own array, size counter, iterator, toString, equals or clear and call the inherited addElement, elementAt, removeElementAt, lastIndexOf and size(), so capacity (10, 20, 40), modCount and the exception messages come from Vector. If Stack already has only the six members and this still fails, the bug is in T07's Vector.java, which you must not edit: run kit block T08 with the failing fixture name.
+cloneIsStack: do not add clone to Stack and do not edit Vector.java. If this fails with ClassCastException or getClass()==Stack.class is false, T07's Vector.clone does not use super.clone(): stop and run kit block T08 "Vector.clone does not use super.clone()".
+```
+
 ## Docs
 
 Create `docs/bytecode-stack.md` with this skeleton (fill in the brackets):

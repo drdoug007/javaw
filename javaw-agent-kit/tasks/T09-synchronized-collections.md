@@ -95,6 +95,20 @@ package-private `(…, Object mutex)` overloads either.
 - Runtime interfaces are small; list them before writing (`grep -o "default [^{]*" java/util/Map.java`).
   `Collection` has no `parallelStream` here, so do not override it.
 
+## Failure hints
+
+`kit check` prints the matching line under a failure. Follow it first.
+
+```kit-hints
+synchronizedCollection, synchronizedSet, synchronizedList, synchronizedMap, nullBackingCollections: if FIX THE RUNTIME says `unsupported static call java/util/Collections.synchronizedList` (or synchronizedCollection, synchronizedSet, synchronizedMap), that factory is missing from the existing Collections.java: add it next to unmodifiableMap, e.g. `public static <T> List<T> synchronizedList(List<T> list){return SynchronizedViews.list(list);}` and likewise the other three. If it says `Cannot build bytecode exception runtime` with `cannot find symbol` for SynchronizedViews, register it: in BytecodeExceptionRuntime.java (do not edit that file by hand: run `javaw-agent-kit/bin/kit register <path under exception-runtime>` for each new file, which makes exactly this edit), on the List.of(...) line that contains "UnmodifiableViews", insert "SynchronizedViews", right after "UnmodifiableViews",.
+synchronizedCollection, synchronizedSet, synchronizedList, synchronizedMap, nullBackingCollections: if it says `Cannot build bytecode exception runtime` with `is not abstract and does not override abstract method m(...)`, add that one forwarding method to the named view class, copying its exact signature from the runtime interface (java/util/Collection.java, List.java or Map.java). With `incompatible types` on add or put, type the backing field exactly (`final Collection<E> c`, `final Map<K,V> m`), never `? extends E`.
+identityEquality, listEquality, setEquality, equality, wrappingTwice: CollectionView must NOT override equals or hashCode (identity, so expected true,false,false,false). SetView, ListView and MapView must override both: `public boolean equals(Object o) { return this == o || c.equals(o); }` and `public int hashCode() { return c.hashCode(); }` (use list in ListView, m in MapView).
+randomAccess: synchronizedList and subList must share one factory: `static <E> List<E> list(List<E> l) { Objects.requireNonNull(l); return l instanceof RandomAccess ? new RandomListView<E>(l) : new ListView<E>(l); }`, and ListView.subList is `return SynchronizedViews.list(list.subList(a, b));` (RandomListView only adds implements RandomAccess). Expected true,false,true,false.
+viewIteratorRemove, viewsWriteThrough: MapView.keySet() must return `new SetView<K>(m.keySet())` and entrySet() `new SetView<Map.Entry<K,V>>(m.entrySet())` (Sets, so keySet().equals(Set.of()) is true); values() returns `new CollectionView<V>(m.values())`. Never copy them into a new HashSet or ArrayList: removals and Entry.setValue must reach the backing map.
+writesThrough, iteratorWritesThrough, clearAndStream, subListWritesThrough, listIterators, bulkAndDefaults, defaults: every view method is one forwarding line such as `return c.add(value);`, `return c.iterator();`, `return list.listIterator(index);`, `return m.merge(key, value, f);`. Never copy the backing collection, do not extend AbstractCollection/AbstractList/AbstractMap, and also forward toString, forEach, removeIf, stream, spliterator, replaceAll, sort and every Map default method.
+nulls, listFailuresDelegate, wrapsUnmodifiable: each view constructor (and SynchronizedViews.list) must call Objects.requireNonNull on the backing collection so all four factories throw NullPointerException. Do not check indexes or mutability yourself: get/remove/add/set just forward, so IndexOutOfBoundsException and UnsupportedOperationException come from the backing list.
+```
+
 ## Docs
 
 Create `docs/bytecode-synchronized-collections.md` with this skeleton (fill in the brackets):
