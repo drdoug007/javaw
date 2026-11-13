@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T05: java.util.ArrayDeque, a resizable ring buffer that rejects null elements. */
-@Tag("agent-pending")
 class BytecodeArrayDequeTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.util.*;

@@ -2115,3 +2115,5 @@ StringTokenizer (v263): `java.util.StringTokenizer` is linked, with JVM/Wasm evi
 ArrayList index failure messages (v264): ArrayList index, insert-position, `subList` and capacity failures carry the JDK exception messages, with JVM/Wasm evidence in `BytecodeArrayListIndexMessagesTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-arraylist-index-messages.md). The local agent implemented it unaided, with the kit's per-failure hints.
 
 Queue and Deque (v265): `java.util.Queue` and `java.util.Deque` are linked and `LinkedList` implements `Deque`, with JVM/Wasm evidence in `BytecodeQueueDequeTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-queue-deque.md). Implemented by the local agent. Core-JDK linkage is now 1,194 declared / 9 missing-member / 134 missing-owner signatures.
+
+ArrayDeque (v266): `java.util.ArrayDeque` is linked, with JVM/Wasm evidence in `BytecodeArrayDequeTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-array-deque.md). Implemented by the local agent; the reviewer fixed `addAll(this)`. Core-JDK linkage is now 1,212 declared / 9 missing-member / 116 missing-owner signatures.
