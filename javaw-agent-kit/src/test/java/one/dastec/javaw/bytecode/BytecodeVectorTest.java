@@ -256,6 +256,24 @@ class BytecodeVectorTest extends KitDifferential {
                 "listIterator", "addAllVariants", "subListWritesThrough", "bulkRemoval");
     }
 
+    /** Review of T07: JDK modCount points, remove(Object)/contains/isEmpty, and addAll(int,..) checking the index first. */
+    @Test void reviewedModCountAndChecks() throws Exception {
+        matchesJvm(fixture("""
+                static String afterNext(Vector<String> v,Runnable change){
+                    Iterator<String> it=v.iterator();
+                    try{change.run();}catch(RuntimeException ignored){}
+                    return type(()->it.next());
+                }
+                public static String removeElementMiss(){Vector<String> v=abc();return afterNext(v,()->v.removeElement("zz"))+"|"+v;}
+                public static String removeObjectMiss(){Vector<String> v=abc();return afterNext(v,()->v.remove((Object)"zz"))+"|"+v;}
+                public static String removeIndexFailure(){Vector<String> v=abc();return afterNext(v,()->v.remove(5))+"|"+v;}
+                public static String removeObjectHit(){Vector<String> v=abc();v.add("b");boolean r=v.remove((Object)"b");return r+"|"+v+"|"+v.contains("b")+v.contains("q")+"|"+v.isEmpty()+new Vector<String>().isEmpty();}
+                public static String containsNull(){Vector<String> v=abc();boolean before=v.contains(null);v.add(null);return before+"|"+v.contains(null)+"|"+v.remove((Object)null)+"|"+v;}
+                public static String addAllBadIndexNull(){return failure(()->new Vector<String>().addAll(5,null));}
+            """), "removeElementMiss", "removeObjectMiss", "removeIndexFailure", "removeObjectHit", "containsNull",
+                "addAllBadIndexNull");
+    }
+
     @Test void leavesOutResizingMembers() {
         rejectsUnusedCall("java/util/Vector", "setSize", "(I)V", INVOKEVIRTUAL, false);
         rejectsUnusedCall("java/util/Vector", "<init>", "(II)V", INVOKESPECIAL, false);

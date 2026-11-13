@@ -188,6 +188,23 @@ class BytecodeArrayDequeTest extends KitDifferential {
         matchesJvm(FIXTURE,"cloneCopy","arrays","collectionMembers","types");
     }
 
+    /** Review of T05: addAll(this) terminates, adding the original elements before the JDK's CME. */
+    @Test void addAllSelf() throws Exception {
+        matchesJvm("""
+            import java.util.*;
+            public class Fixture {
+                public static String addAllSelf(){
+                    ArrayDeque<String> d=new ArrayDeque<>(List.of("a","b"));
+                    try{d.addAll(d);return "none "+d;}catch(RuntimeException e){return e.getClass().getSimpleName()+" "+d+" "+d.size();}
+                }
+                public static String addAllSelfEmpty(){
+                    ArrayDeque<String> d=new ArrayDeque<>();
+                    try{return d.addAll(d)+" "+d;}catch(RuntimeException e){return e.getClass().getSimpleName()+" "+d;}
+                }
+            }
+            ""","addAllSelf","addAllSelfEmpty");
+    }
+
     @Test void rejectsUnlinkedSequencedMembers() {
         rejectsUnusedCall("java/util/ArrayDeque","reversed","()Ljava/util/Deque;",INVOKEVIRTUAL,false);
     }

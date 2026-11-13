@@ -219,6 +219,27 @@ class BytecodePriorityQueueTest extends KitDifferential {
         matchesJvm(FIXTURE,"userAbstractQueue","types");
     }
 
+    /** Review of T06: add returns offer's result, and a PriorityQueue argument contributes comparator(). */
+    @Test void addAndCopiedComparator() throws Exception {
+        matchesJvm("""
+            import java.util.*;
+            public class Fixture {
+                static class Refusing extends PriorityQueue<Integer>{public boolean offer(Integer e){return false;}}
+                static class Reversed extends PriorityQueue<Integer>{public Comparator<? super Integer> comparator(){return Comparator.reverseOrder();}}
+                public static String addUsesOffer(){
+                    Refusing q=new Refusing();
+                    try{return q.add(1)+" "+q.size();}catch(RuntimeException e){return e.getClass().getSimpleName()+":"+e.getMessage();}
+                }
+                public static String copiedComparator(){
+                    Reversed source=new Reversed();
+                    PriorityQueue<Integer> copy=new PriorityQueue<>((Collection<Integer>)source);
+                    copy.add(1);copy.add(3);copy.add(2);
+                    return (copy.comparator()!=null)+" "+copy.poll()+copy.poll()+copy.poll();
+                }
+            }
+            ""","addUsesOffer","copiedComparator");
+    }
+
     @Test void rejectsUnlinkedCopyConstructors() {
         rejectsUnusedCall("java/util/PriorityQueue","<init>","(Ljava/util/SortedSet;)V",INVOKESPECIAL,false);
         rejectsUnusedCall("java/util/PriorityQueue","<init>","(Ljava/util/PriorityQueue;)V",INVOKESPECIAL,false);
