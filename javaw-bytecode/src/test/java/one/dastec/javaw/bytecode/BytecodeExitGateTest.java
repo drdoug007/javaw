@@ -35,7 +35,7 @@ class BytecodeExitGateTest implements Opcodes {
         Path jar = directory.resolve("library.jar"), output = directory.resolve("gate");
         try (JarOutputStream out = new JarOutputStream(Files.newOutputStream(jar))) {
             // Blocked extends a JDK type the bundled runtime does not link; User refers to it; Free is independent.
-            for (var entry : Map.of("lib/Blocked.class", type("lib/Blocked", "java/io/Reader", null),
+            for (var entry : Map.of("lib/Blocked.class", type("lib/Blocked", "java/net/Socket", null),
                     "lib/User.class", type("lib/User", "java/lang/Object", "lib/Blocked"),
                     "lib/Free.class", type("lib/Free", "java/lang/Object", null)).entrySet()) {
                 out.putNextEntry(new JarEntry(entry.getKey())); out.write(entry.getValue()); out.closeEntry();
@@ -44,7 +44,7 @@ class BytecodeExitGateTest implements Opcodes {
         assertTrue(BytecodeExitGate.run(jar, output, new BytecodeExitGate.Budget(600, 64 * 1024, 1024, 1024)));
         String report = Files.readString(output.resolve("report.md")), blockers = Files.readString(output.resolve("blockers.tsv"));
         assertTrue(report.contains("JAR classes (after Multi-Release selection for Java 17): 3. Root blockers: 1. Excluded dependents: 1. Admitted: 1."), report);
-        assertTrue(report.contains("`lib/Blocked`") && report.contains("java/io/Reader"), report);
+        assertTrue(report.contains("`lib/Blocked`") && report.contains("java/net/Socket"), report);
         assertTrue(blockers.contains("lib/User\tlib/Blocked\t"), blockers);
         assertTrue(Files.size(output.resolve("module.wasm")) > 0);
         assertTrue(Files.readString(output.resolve("module.wat")).contains("(export \"lib.Free.run\")"));
@@ -55,7 +55,7 @@ class BytecodeExitGateTest implements Opcodes {
     @Test void failsWhenNothingIsLeftToMeasure() throws Exception {
         Path jar = directory.resolve("blocked.jar"), output = directory.resolve("none");
         try (JarOutputStream out = new JarOutputStream(Files.newOutputStream(jar))) {
-            out.putNextEntry(new JarEntry("lib/Blocked.class")); out.write(type("lib/Blocked", "java/io/Reader", null)); out.closeEntry();
+            out.putNextEntry(new JarEntry("lib/Blocked.class")); out.write(type("lib/Blocked", "java/net/Socket", null)); out.closeEntry();
         }
         assertFalse(BytecodeExitGate.run(jar, output, null));
         assertTrue(Files.readString(output.resolve("report.md")).contains("Nothing was measured"));
