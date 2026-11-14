@@ -28,3 +28,4 @@
 | T21 | Dictionary and Hashtable | - | done |
 | T22 | Properties on top of Hashtable | T21 | todo |
 | T23 | Properties.load from Reader and InputStream | T22, T20, T18 | todo |
+| T24 | FilterOutputStream, DataOutput and DataOutputStream | - | todo |
