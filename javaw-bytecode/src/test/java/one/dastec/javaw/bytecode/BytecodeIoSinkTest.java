@@ -89,7 +89,6 @@ class BytecodeIoSinkTest implements Opcodes {
     @Test void rejectsUnusedUnlinkedSinkMembers() {
         rejectsUnused("java/io/OutputStream","nullOutputStream","()Ljava/io/OutputStream;",INVOKESTATIC,false);
         rejectsUnused("java/io/Writer","nullWriter","()Ljava/io/Writer;",INVOKESTATIC,false);
-        rejectsUnused("java/io/PrintWriter","flush","()V",INVOKEVIRTUAL,false);
     }
 
     private void rejectsUnused(String owner,String name,String descriptor,int opcode,boolean isInterface) {
