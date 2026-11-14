@@ -2139,3 +2139,5 @@ MessageDigest algorithms (v275): the built-in table adds MD5, SHA-1, SHA-384 and
 HMAC (v276): `javax.crypto.Mac` (HMAC over MD5, SHA-1, SHA-256, SHA-384 and SHA-512) and `SecretKeySpec` are linked, with JVM/Wasm evidence in `BytecodeHmacTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-hmac.md). Implemented by the local agent; the reviewer matched the JDK's provider-choice message, long-key re-init and key erasure. This is bytecode-path support; javaw-core's source path does not have it yet.
 
 Checksums (v277): `java.util.zip.Checksum`, `CRC32` and `Adler32` are linked, with JVM/Wasm evidence in `BytecodeChecksumTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-checksums.md). Implemented by the local agent unaided.
+
+Base64 (v278): `java.util.Base64` encoders and decoders (basic, URL and MIME) are linked without `wrap` and the `ByteBuffer` overloads, with JVM/Wasm evidence in `BytecodeBase64Test` (in `javaw-agent-kit`); see [the contract](docs/bytecode-base64.md). Implemented by the local agent; the reviewer fixed two MIME decoder edge cases.
