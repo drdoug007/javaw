@@ -61,6 +61,33 @@ class BytecodeInputStreamTest extends KitDifferential {
             public void write(int b){out.append(b&0xff).append(' ');}
         }
 
+        /** Records every read(byte[],int,int) as len@off/b.length; throws once closed, like a checked stream. */
+        class Logged extends InputStream {
+            final StringBuilder log=new StringBuilder(); final int size; final int step; int pos; boolean closed;
+            Logged(int size,int step){this.size=size;this.step=step;}
+            public int read() throws IOException {if(closed)throw new IOException("Stream closed");return pos<size?pos++&0xff:-1;}
+            public int read(byte[] b,int off,int len) throws IOException {
+                log.append(len).append('@').append(off).append('/').append(b.length).append(' ');
+                if(closed)throw new IOException("Stream closed");
+                if(len==0)return 0;
+                if(pos>=size)return -1;
+                int n=Math.min(Math.min(len,step),size-pos);
+                for(int i=0;i<n;i++)b[off+i]=(byte)(pos+i);
+                pos+=n;return n;
+            }
+            public void close(){closed=true;}
+        }
+        /** Records each write(byte[],int,int) as off+len and throws on the failAt-th call (0 never fails). */
+        class ChunkSink extends OutputStream {
+            final StringBuilder log=new StringBuilder(); final int failAt; int calls;
+            ChunkSink(int failAt){this.failAt=failAt;}
+            public void write(int b){log.append("w1 ");}
+            public void write(byte[] b,int off,int len) throws IOException {
+                log.append(off).append('+').append(len).append(' ');
+                if(++calls==failAt)throw new IOException("sink full");
+            }
+        }
+
         public class Fixture {
             interface Op{Object run() throws Exception;}
             static String t(Op op){
@@ -216,6 +243,32 @@ class BytecodeInputStreamTest extends KitDifferential {
                         +";"+t(()->in.skip(1))+";"+t(()->{in.skipNBytes(0);return "ok";})+";"+t(()->in.transferTo(new Sink()))+";"+t(()->in.transferTo(null))
                         +";"+t(()->InputStream.nullInputStream().read());
             }
+
+            public static String readNBytesZeroLengthReads(){
+                Logged closed=new Logged(3,10);closed.close();
+                Logged empty=new Logged(3,10),exact=new Logged(10,10),shortSrc=new Logged(4,2),eof=new Logged(0,10);
+                String s=t(()->closed.readNBytes(0))+"|"+closed.log+"|"+t(()->empty.readNBytes(0))+"|"+empty.log;
+                s+="|"+t(()->exact.readNBytes(5))+"|"+exact.log+"|"+t(()->shortSrc.readNBytes(6))+"|"+shortSrc.log;
+                return s+"|"+t(()->eof.readNBytes(4))+"|"+eof.log;
+            }
+            public static String readNBytesChunks(){
+                Logged big=new Logged(20000,7000),all=new Logged(16384,16384),rest=new Logged(5,3);
+                String s=t(()->sum(big.readNBytes(18000)))+"|"+big.log+"|"+t(()->sum(all.readAllBytes()))+"|"+all.log;
+                byte[] b=new byte[8];
+                return s+"|"+t(()->rest.readNBytes(b,1,6)+Arrays.toString(b))+"|"+rest.log+"|"+t(()->rest.readNBytes(b,0,0))+"|"+rest.log;
+            }
+            public static String transferToBufferSize(){
+                Logged in=new Logged(20000,20000);ChunkSink out=new ChunkSink(0);
+                return t(()->in.transferTo(out))+"|"+in.log+"|"+out.log;
+            }
+            public static String baisTransferChunks(){
+                byte[] data=new byte[140000];data[131072]=5;
+                ByteArrayInputStream ok=new ByteArrayInputStream(data),fail=new ByteArrayInputStream(data,3,139990),first=new ByteArrayInputStream(data);
+                ChunkSink a=new ChunkSink(0),b=new ChunkSink(2),c=new ChunkSink(1);
+                String s=t(()->ok.transferTo(a))+"|"+a.log+"|"+ok.available();
+                s+="|"+t(()->fail.transferTo(b))+"|"+b.log+"|"+fail.available()+","+fail.read();
+                return s+"|"+t(()->first.transferTo(c))+"|"+c.log+"|"+first.available();
+            }
         }
         """;
 
@@ -241,5 +294,9 @@ class BytecodeInputStreamTest extends KitDifferential {
 
     @Test void nullInputStream() throws Exception {
         matchesJvm(FIXTURE, "nullStreamOpen", "nullStreamClosed");
+    }
+
+    @Test void bulkReadsFollowJdkCallSequence() throws Exception {
+        matchesJvm(FIXTURE, "readNBytesZeroLengthReads", "readNBytesChunks", "transferToBufferSize", "baisTransferChunks");
     }
 }

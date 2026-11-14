@@ -92,9 +92,12 @@ call it; do not make it private or public). Example: `read(new byte[4], 2, 3)` g
   at `-1`. If one of those later calls throws an **`IOException`**, catch it, stop, and return the count read so far
   (the first call's exception propagates; other exception types always propagate). Return the count.
 - `readNBytes(len)`: `len < 0` throws `IllegalArgumentException("len < 0")`. Otherwise read until `len` bytes or
-  end of stream by calling `read(byte[], int, int)` in a loop (the JDK uses buffers of at most 16384 bytes and then
-  joins them; any buffer size works as long as you never allocate `len` bytes up front, because
-  `readAllBytes()` is `readNBytes(Integer.MAX_VALUE)`). Returns an array exactly as long as what was read
+  end of stream with exactly JDK 21's `read(byte[], int, int)` calls: fill fresh chunks of
+  `min(remaining, 16384)` bytes, calling `read(chunk, nread, min(chunk.length - nread, remaining))` until a call
+  returns `<= 0`, and repeat while the last result was `>= 0` and `remaining > 0`; then join the chunks. So
+  `readNBytes(0)` calls `read(chunk, 0, 0)` once, and a full chunk or a satisfied request ends with one more
+  zero-length call (a subclass sees these calls). Never allocate `len` bytes up front, because `readAllBytes()` is
+  `readNBytes(Integer.MAX_VALUE)`. Returns an array exactly as long as what was read
   (`new byte[0]` at end of stream). `readNBytes(int)` and `readNBytes(byte[], int, int)` catch nothing: in the
   test's `Failing(true)` (returns 'a', 'b', then throws `IOException("boom")`), `readAllBytes()` throws
   `IOException: boom`, because the first bulk read returns 2 and the second bulk read's first `read()` throws.
@@ -110,8 +113,8 @@ call it; do not make it private or public). Example: `read(new byte[4], 2, 3)` g
   `read()` calls from the `ns == 0` branch, then the fourth).
 - `available()` returns `0`; `close()` and `mark(int)` do nothing; `markSupported()` is `false`; `reset()` throws
   `new IOException("mark/reset not supported")`.
-- `transferTo(out)`: `Objects.requireNonNull(out, "out")` (message `out`), then loop: `read(buffer, 0,
-  buffer.length)`; stop when it returns a negative value, otherwise `out.write(buffer, 0, read)` and add to the
+- `transferTo(out)`: `Objects.requireNonNull(out, "out")` (message `out`), then loop over a 16384-byte buffer: `read(buffer, 0,
+  16384)`; stop when it returns a negative value, otherwise `out.write(buffer, 0, read)` and add to the
   total. Returns the total as a `long`.
 
 `InputStream.nullInputStream()` returns a fresh anonymous subclass with a private `boolean closed` field.
@@ -144,7 +147,8 @@ call it; do not make it private or public). Example: `read(new byte[4], 2, 3)` g
   advance `pos`.
 - `readAllBytes()`: `Arrays.copyOfRange(buf, pos, count)` and `pos = count`.
 - `readNBytes(b, off, len)`: `n = read(b, off, len)`, returns `n == -1 ? 0 : n`.
-- `transferTo(out)`: `len = count - pos`; if `len > 0`, `out.write(buf, pos, len)` and `pos = count`; return `len`.
+- `transferTo(out)`: `len = count - pos`; write `buf[pos..count)` in `out.write(buf, pos, n)` calls of at most
+  131072 bytes, advancing `pos` after each call (a write that throws leaves the earlier chunks consumed); return `len`.
   There is no null check: at end of stream `transferTo(null)` returns `0`; with bytes left it throws
   `NullPointerException` from the `out.write` call.
 - `skip(n)`: `k = count - pos`; if `n < k` then `k = n < 0 ? 0 : n`; `pos += (int) k`; return `k`.
@@ -178,15 +182,14 @@ call it; do not make it private or public). Example: `read(new byte[4], 2, 3)` g
 - `java.util.Arrays.copyOf(byte[], int)`, `Arrays.copyOfRange(byte[], int, int)`, `Objects.requireNonNull(T)` and
   `Objects.requireNonNull(T, String)` exist in the runtime. `Objects.checkFromIndexSize` does **not**. Use
   `java.util.Objects`/`java.util.Arrays` with an import or the full name.
-- `readNBytes(int)`: a simple version is a growing buffer: start with `byte[] buf = new byte[Math.min(len, 8192)]`,
-  call `read(buf, total, Math.min(buf.length - total, len - total))`, grow with `Arrays.copyOf(buf, ...)` when it
-  is full and `total < len`, stop at `-1` or `total == len`, and return `Arrays.copyOf(buf, total)` (or `buf` when
-  the lengths match). Do not call `read(buf, total, 0)` in a loop: the default returns `0` for a zero length and
-  you would loop forever. The test reads 40000 bytes, so the growing branch is exercised.
+- `readNBytes(int)`: keep the chunks in a small `byte[][]` that you grow by hand (no `ArrayList`), and copy them
+  into one array of the total length at the end (return the single chunk when there is only one). The inner loop
+  stops on a `0` result, so the zero-length calls end it rather than loop forever. The test reads 40000 and
+  140000 bytes, so several chunks are exercised.
 - The `nullInputStream` stream is an anonymous class (`return new InputStream() { private boolean closed; ... };`).
   Anonymous classes need no registration. It must not be a shared static instance.
 - Never use `synchronized` or `volatile`: the JDK has them on most `ByteArrayInputStream` methods and on `closed`.
-- `transferTo` in `InputStream` uses a buffer (any size, e.g. 8192) and `out.write(buffer, 0, n)`; the existing
+- `transferTo` in `InputStream` uses a 16384-byte buffer and `out.write(buffer, 0, n)`; the existing
   `OutputStream.write(byte[], int, int)` loops over `write(int)`, which the test's sink implements.
 - Do not paste the JDK's `assert pos == count;` (assert is forbidden) or its `Math.addExact` overflow guard (not
   needed); `transferred += read` is enough.
@@ -212,7 +215,8 @@ skipNBytes, baisSkipNBytes: skipNBytes(n) loops while n > 0: ns = skip(n); 0 < n
 eofException: EOFException extends IOException and has exactly two constructors, `EOFException()` (message null) and `EOFException(String s) { super(s); }`.
 baisRead, baisRange: ByteArrayInputStream.read() returns `buf[pos++] & 0xff` (255, not -1, for byte -1); read(b, off, len) returns -1 when pos >= count EVEN for len == 0, else 0 for len == 0; the (buf, offset, length) constructor sets pos = offset, mark = offset, count = Math.min(offset + length, buf.length) with no range check.
 baisSkip, baisBulk: ByteArrayInputStream.skip(n): `long k = count - pos; if (n < k) k = n < 0 ? 0 : n; pos += (int) k; return k;` (skip(-5) is 0, skip(100) clamps to what is left, skip(Long.MAX_VALUE) on 4 bytes is 4); readNBytes(b, off, len) returns 0 (not -1) at end of stream; readAllBytes() copies buf[pos..count) and sets pos = count.
-baisTransfer: ByteArrayInputStream.transferTo(out): `int len = count - pos; if (len > 0) { out.write(buf, pos, len); pos = count; } return len;` with no null check, so transferTo(null) at end of stream returns 0.
+baisTransfer, baisTransferChunks: ByteArrayInputStream.transferTo(out): `int len = count - pos;` then write in chunks of at most 131072 bytes, `out.write(buf, pos, n); pos += n;` after each chunk, and return len; no null check, so transferTo(null) at end of stream returns 0.
+readNBytesZeroLengthReads, readNBytesChunks, transferToBufferSize: readNBytes(int) makes JDK 21's exact read calls (chunks of min(remaining, 16384), inner loop until a call returns <= 0, so readNBytes(0) calls read(b, 0, 0) and a full chunk ends with a zero-length call); InputStream.transferTo reads with read(buffer, 0, 16384).
 baisMarkReset: ByteArrayInputStream.markSupported() is true, mark(limit) sets `mark = pos`, reset() sets `pos = mark` (before any mark() that is the constructor's offset, 0 here), close() does nothing and reading still works afterwards.
 protectedFields, bufferIsShared: ByteArrayInputStream must have the fields `protected byte[] buf; protected int pos; protected int mark = 0; protected int count;` and every method must read them on each call (a subclass changes pos and count directly); the constructor keeps the caller's array (no copy), readAllBytes returns a copy.
 nullStreamOpen, nullStreamClosed: nullInputStream() returns a NEW anonymous InputStream with `private boolean closed`; read(b, off, len) does the range check, then returns 0 for len == 0 even when closed, then ensureOpen (`new IOException("Stream closed")`), then -1; readNBytes(-1) throws IllegalArgumentException("len < 0") before ensureOpen; readNBytes(b, off, len) does the range check then ensureOpen then returns 0; skipNBytes(n) does ensureOpen and then throws `new EOFException()` only for n > 0; transferTo(null) uses `Objects.requireNonNull(out)` with NO message (getMessage() null) before ensureOpen.
