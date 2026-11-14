@@ -32,3 +32,4 @@
 | T25 | FilterInputStream, DataInput and DataInputStream | T18, T24 | todo |
 | T26 | StringWriter and CharArrayWriter | - | todo |
 | T27 | PrintWriter over a Writer | T26 | todo |
+| T28 | AtomicInteger and AtomicLong | - | todo |
