@@ -390,6 +390,17 @@
             }
 
             try {
+                for (const sec of WebAssembly.Module.customSections(module, 'javaw_wc_components')) {
+                    let jsonStr = decodeUtf8(new Uint8Array(sec));
+                    const first = jsonStr.indexOf('[');
+                    if (first >= 0) jsonStr = jsonStr.substring(first);
+                    this.componentDefinitions = (this.componentDefinitions || []).concat(JSON.parse(jsonStr));
+                }
+            } catch (e) {
+                console.warn('Error reading custom section javaw_wc_components:', e);
+            }
+
+            try {
                 const exportSections = WebAssembly.Module.customSections(module, 'javaw_js_exports');
                 if (exportSections && exportSections.length > 0) {
                     for (const sec of exportSections) {
@@ -779,6 +790,112 @@
         setInstance(instance) {
             this.instance = instance;
             this.bindExportedClasses();
+            this.defineComponents();
+        }
+
+        // Custom elements from @CustomElement classes (docs/web-components.md). Each element owns a handle
+        // scope that retains its Java peer; lifecycle reactions call the WebComponent dispatch exports.
+        componentRegistry() {
+            const view = this.doc && this.doc.defaultView;
+            const registry = (view && view.customElements) || (typeof customElements !== 'undefined' ? customElements : null);
+            const base = (view && view.HTMLElement) || (typeof HTMLElement !== 'undefined' ? HTMLElement : null);
+            return registry && base ? { registry, base } : null;
+        }
+
+        defineComponents() {
+            const definitions = this.componentDefinitions || [];
+            if (definitions.length === 0) return;
+            const host = this.componentRegistry();
+            if (!host) {
+                // Workers and DOM-less hosts have no custom element registry; components stay undefined there.
+                console.warn('[JAVAW] no customElements registry; ' + definitions.length + ' component(s) not defined');
+                return;
+            }
+            for (const def of definitions) {
+                try {
+                    if (host.registry.get(def.tag)) throw new Error('Custom element ' + def.tag + ' is already defined');
+                    host.registry.define(def.tag, this.componentClass(def, host.base));
+                } catch (err) {
+                    // One failing definition (a tag taken by another script, or an upgrade whose constructor throws)
+                    // must not leave the remaining components undefined.
+                    this.reportCallbackError(err, 'define ' + def.tag);
+                }
+            }
+            this.pendingComponentError = undefined;
+        }
+
+        componentClass(def, Base) {
+            const runtime = this;
+            const exports = this.instance.exports;
+            const observed = Object.freeze([...def.observedAttributes]);
+            const call = (element, what, fn) => {
+                const state = element.__javawComponent;
+                if (!state) return;
+                try { fn(state); } catch (err) { runtime.reportCallbackError(err, def.tag + ' ' + what); }
+            };
+            const ensureRoot = (element, state) => {
+                if (state.rootHandle) return;
+                const root = element.shadowRoot || element.attachShadow({ mode: 'open' });
+                runtime.setScopeRoot(state.scope, root);
+                state.rootHandle = runtime.getOrCreateHandle(root);
+                exports.__wc_attach(state.peer, state.hostHandle, state.rootHandle);
+            };
+            const Component = class extends Base {
+                static get observedAttributes() { return observed; }
+                constructor() {
+                    super();
+                    let peer;
+                    try {
+                        peer = exports[def.factory]();
+                    } catch (err) {
+                        // Browsers report a constructor exception inside createElement instead of rethrowing it;
+                        // createComponent rethrows it so Java's catch sees the original exception.
+                        runtime.pendingComponentError = err;
+                        throw err;
+                    }
+                    const scope = runtime.createHandleScope(this, { peer });
+                    const state = { peer, scope, hostHandle: runtime.getOrCreateHandle(this), rootHandle: 0 };
+                    Object.defineProperty(this, '__javawComponent', { value: state, configurable: true });
+                    exports.__wc_attach(peer, state.hostHandle, 0);
+                }
+                connectedCallback() {
+                    if (runtime.unconnectedComponents) runtime.unconnectedComponents.delete(this);
+                    call(this, 'connected', state => { ensureRoot(this, state); exports.__wc_connected(state.peer); });
+                }
+                disconnectedCallback() {
+                    call(this, 'disconnected', state => exports.__wc_disconnected(state.peer));
+                }
+                adoptedCallback() {
+                    call(this, 'adopted', state => exports.__wc_adopted(state.peer));
+                }
+                attributeChangedCallback(name, oldValue, newValue) {
+                    call(this, 'attributeChanged', state => exports.__wc_attributeChanged(state.peer,
+                        runtime.writeString(name),
+                        oldValue === null ? 0 : runtime.writeString(oldValue),
+                        newValue === null ? 0 : runtime.writeString(newValue)));
+                }
+            };
+            Object.defineProperty(Component, 'name', { value: def.className });
+            return Component;
+        }
+
+        // new X() in Java for a component class: construct through the registry so the element owns the peer.
+        createComponent(tag) {
+            if (!this.doc) throw new Error('No document to create <' + tag + '>');
+            this.pendingComponentError = undefined;
+            let element;
+            try {
+                element = this.doc.createElement(tag);
+            } finally {
+                const pending = this.pendingComponentError;
+                this.pendingComponentError = undefined;
+                if (pending !== undefined && !(element && element.__javawComponent)) throw pending;
+            }
+            const state = element.__javawComponent;
+            if (!state) throw new Error('<' + tag + '> is not a defined javaw component');
+            // Java holds only the peer; keep the element alive until it is first connected.
+            (this.unconnectedComponents || (this.unconnectedComponents = new Set())).add(element);
+            return state.peer;
         }
 
         getMemory(name) {
@@ -935,6 +1052,18 @@
             const sel = this.readString(ptr, len);
             const el = this.doc ? this.doc.querySelector(sel) : null;
             return this.getOrCreateHandle(el);
+        }
+
+        el_querySelector(handle, ptr, len) {
+            const root = this.getElement(handle);
+            const sel = this.readString(ptr, len);
+            return this.getOrCreateHandle(root && typeof root.querySelector === 'function' ? root.querySelector(sel) : null);
+        }
+
+        el_querySelectorAll(handle, ptr, len) {
+            const root = this.getElement(handle);
+            const sel = this.readString(ptr, len);
+            return this.writeHandleArray(root && typeof root.querySelectorAll === 'function' ? Array.from(root.querySelectorAll(sel)) : []);
         }
 
         querySelectorAll(ptr, len) {
@@ -1127,6 +1256,17 @@
             return scope;
         }
 
+        // Creates an element owned by the scope of `host`, so it gets a scoped handle even while detached.
+        createScopedElement(host, tag) {
+            if (!host) throw new Error('WebComponent.createElement is not available in the constructor');
+            const scope = host.__javawScope;
+            if (!scope || scope.released) this.elementReleased();
+            const element = (host.ownerDocument || this.doc).createElement(tag);
+            // Weak, so a node that leaves the shadow tree (a portal appended to the body) does not pin the component.
+            Object.defineProperty(element, '__javawScopeOwner', { value: new WeakRef(scope), configurable: true });
+            return element;
+        }
+
         setScopeRoot(scope, root) {
             scope.root = root;
         }
@@ -1134,6 +1274,8 @@
         scopeFor(node) {
             if (!this.scopedHandles) return null;
             let scope = node.__javawScope;
+            // Nodes created for a scope before they are attached (WebComponent.createElement).
+            if ((!scope || scope.released) && node.__javawScopeOwner) scope = node.__javawScopeOwner.deref();
             if ((!scope || scope.released) && typeof node.getRootNode === 'function') {
                 const root = node.getRootNode();
                 const owner = root && root.host && root.host.__javawScope;
@@ -1237,8 +1379,10 @@
             const runtime = this;
             // A listener belongs to the scope of its node, whichever handle was used to add it.
             const scope = this.scopeFor(el);
+            // A scoped listener holds its scope weakly: a node that outlives its component must not pin it.
+            const scopeRef = scope ? new WeakRef(scope) : null;
             const fn = scope
-                ? function (event) { if (!scope.released) runtime.invokeListener(closurePtr, kind, event, type); }
+                ? function (event) { const live = scopeRef.deref(); if (live && !live.released) runtime.invokeListener(closurePtr, kind, event, type); }
                 : function (event) { runtime.invokeListener(closurePtr, kind, event, type); };
             listeners.set(key, fn);
             if (scope) {
@@ -1246,7 +1390,7 @@
                 // but still held by JS then dispatches to a listener that does nothing.
                 scope.listeners.set(fn, { el, type, fn, ptr: closurePtr, key });
                 scope.held.closures.add(closurePtr);
-                this.listenerOwners.set(fn, scope);
+                this.listenerOwners.set(fn, scopeRef); // weak: the node holds fn, fn must not hold the scope
             } else if (this.callbackFinalizer) {
                 this.callbackFinalizer.register(fn, closurePtr, fn);
             }
@@ -1263,11 +1407,14 @@
             if (!fn) return;
             listeners.delete(key);
             if (typeof el.removeEventListener === 'function') el.removeEventListener(type, fn);
-            const owner = this.listenerOwners.get(fn);
-            if (owner) {
+            const ownerRef = this.listenerOwners.get(fn);
+            const owner = ownerRef && ownerRef.deref();
+            if (ownerRef) {
                 this.listenerOwners.delete(fn);
-                owner.listeners.delete(fn);
-                owner.held.closures.delete(closurePtr);
+                if (owner) {
+                    owner.listeners.delete(fn);
+                    owner.held.closures.delete(closurePtr);
+                }
             } else if (this.callbackFinalizer) {
                 this.callbackFinalizer.unregister(fn);
             }
@@ -2428,6 +2575,8 @@
                     addEventListenerCallback: (handle, tp, tl, ptr, kind) => this.addEventListenerCallback(handle, tp, tl, ptr, kind),
                     removeEventListenerCallback: (handle, tp, tl, ptr, kind) => this.removeEventListenerCallback(handle, tp, tl, ptr, kind),
                     js_asElement: (h) => this.js_asElement(h),
+                    el_querySelector: (h, p, l) => this.el_querySelector(h, p, l),
+                    el_querySelectorAll: (h, p, l) => this.el_querySelectorAll(h, p, l),
                     setTimeout: (hp, hl, d) => this.setTimeout(hp, hl, d),
                     clearTimeout: (id) => this.clearTimeout(id),
                     setInterval: (hp, hl, d) => this.setInterval(hp, hl, d),

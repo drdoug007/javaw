@@ -75,6 +75,24 @@ class LambdaSupportTest {
             """,false).getWasm();
         OverloadResolutionTest.execute(wasm, "assert.equal(e.test(), 1);");
     }
+    @Test void lambdasCallInheritedMethodsOnTheirLexicalReceiver() throws Exception {
+        byte[] wasm = JavacToWasm.compile("App.java", """
+            class Base {
+                public int base;
+                public Base() {}
+                public int value() { return base; }
+                public static int twice(int n) { return n * 2; }
+            }
+            class Sub extends Base {
+                public Sub(int b) { base = b; }
+                public Supplier<Integer> reader() { return () -> value() + twice(1); }
+            }
+            class App {
+                public static int test() { Sub s = new Sub(5); Supplier<Integer> r = s.reader(); s.base = 7; return r.get(); }
+            }
+            """,false).getWasm();
+        OverloadResolutionTest.execute(wasm, "assert.equal(e.test(), 9);");
+    }
     @Test void rejectsMutatedCaptures() {
         var error = assertThrows(IllegalArgumentException.class, () -> JavacToWasm.compile("Bad.java", "class Bad { public static int test() { int n=1; Supplier<Integer> f=()->n; n++; return f.get(); } }",false));
         assertTrue(error.getMessage().contains("effectively final"),error.getMessage());

@@ -29,6 +29,7 @@ The global handle table (`handleMap`/`reverseMap`) holds every element it has ha
 An instance-bound listener ([DOM event listeners](dom-event-listeners.md)) registered on a node with a scoped handle belongs to its scope:
 
 - Ownership follows the node, whichever handle (scoped or an older global one) was used to add or remove the listener.
+- Its JS function, and the runtime's record of which scope owns it, refer to the scope through a `WeakRef`. A node that outlives its component, such as a portal left in the document, therefore does not keep the scope alive.
 - Its JS function checks `scope.released` and does nothing once the scope is released. A node that JS still holds after release therefore dispatches to a listener that does nothing.
 - The scope releases the listener's closure on release or finalization, unless `removeEventListener` released it first. Scoped listeners are not registered with the per-function finalizer, so a closure is never released twice.
 

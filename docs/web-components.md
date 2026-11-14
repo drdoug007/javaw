@@ -1,6 +1,6 @@
 # Web components from Java classes (design contract)
 
-Status: **design only. Nothing in this document is implemented.** It records the agreed authoring model and the runtime contracts an implementation must satisfy. Milestones and their evidence are tracked in [Todo.md section 15](../Todo.md#15-web-components-from-java-classes-browser-interop-track). The track sits outside the AGENTS.md goal order and does not take priority over compiler correctness or library execution.
+Status: **partly implemented.** Both prerequisites and an M1 subset are done; see [Implementation status](#implementation-status). The rest of this document records the agreed authoring model and the runtime contracts an implementation must satisfy. Milestones and their evidence are tracked in [Todo.md section 15](../Todo.md#15-web-components-from-java-classes-browser-interop-track). The track sits outside the AGENTS.md goal order and does not take priority over compiler correctness or library execution.
 
 The aim is a Lit-like authoring experience in Java. A class annotated `@CustomElement` becomes a native browser custom element with reactive fields, declarative templates, scoped styles and typed events. Lit relies on TypeScript; this design relies on the Java type system and the javaw whole-program compiler instead.
 
@@ -12,7 +12,56 @@ Agreed decisions:
 
 Semantics follow Lit wherever Lit has an equivalent. Each deliberate difference is listed in [Differences from Lit](#differences-from-lit).
 
+## Implementation status
+
+Implemented (M1 subset; evidence in `javaw-components` `CustomElementTest` and `ComponentDiagnosticsTest`):
+- **Module and hook.** A `javaw-components` module holds the API and a compiler extension. The extension plugs into `javaw-core` through the `one.dastec.javaw.spi.SourceExtension` `ServiceLoader` hook. A program that imports `one.dastec.javaw.components` without the extension on the compiler classpath gets a compile error.
+- **Annotations and diagnostics.**
+  - `@CustomElement(value, observedAttributes)` is checked at compile time: the tag name rules, duplicate tags, a `WebComponent` superclass, a concrete class, a no-argument constructor, lowercase observed attribute names, and the reserved type names.
+  - Writes to `@Query` fields and the field rules are also diagnosed.
+- **`WebComponent` hooks.** It provides `connected`, `disconnected`, `adopted`, `attributeChanged`, `host()`, `renderRoot()` (a `ShadowRoot`) and `createElement(tag)`.
+- **`@Query` fields.** Reads are lowered to `renderRoot().querySelector(selector)`.
+  - Java scoping decides which names are reads of the field. Locals declared earlier in an enclosing block, for, for-each and try-resource variables, catch parameters and lambda parameters all shadow it.
+  - A pattern variable with the same name, `other.field`, and reads from nested classes are compile errors.
+- **Registration.** The runtime defines each tag from the `javaw_wc_components` custom section. Each element's constructor creates its Java object and a handle scope that retains it. The open shadow root is attached on first connection and kept across reconnection. Elements that are parsed, created, or already in the document (upgraded) all work.
+- **`new X()`** creates the element through the registry and returns its Java object.
+  - A Java exception thrown by the component's constructor reaches the caller's `catch`. Browsers report a custom element constructor exception inside `createElement` instead of rethrowing it, so the runtime rethrows the original exception itself.
+  - Constructor references (`X::new`) and `new Sub()` for a `WebComponent` subclass without `@CustomElement` are compile errors.
+  - A component created with `new X()` stays alive until it is first connected, even if only Java references it. A created component that is never attached is therefore never reclaimed. After its first connection it follows normal element lifetime. Once a component is detached and unreachable from JS, Java-held references see `IllegalStateException("element released")`.
+  - `new X();` as a statement is allowed.
+- **Errors in lifecycle hooks** go to `reportError` without affecting other components.
+- **Reclaiming removed components.** After 300 create, click and remove cycles, every scope is finalized. Live bytes and the global handle table stay level.
+  - Nodes from `createElement` that are attached outside the shadow tree (a tooltip appended to the body) keep working while the component lives. They do not pin it once it is removed: such nodes and their listeners refer to the scope only weakly.
+- **`define` failures are isolated.** If one definition fails, for example because another script already took the tag or an upgraded element's constructor throws, the failure is reported and the remaining tags are still defined.
+- **Fully qualified API names** (`@one.dastec.javaw.components.CustomElement`, `extends one.dastec.javaw.components.WebComponent`) work without imports.
+- **The extension stays out of unrelated code.** It activates only for programs that import or name the components package. A program with its own `CustomElement` annotation type or `WebComponent` class is left alone.
+- **Fixes in `javaw-core`.** M1 needed these changes:
+  - `Element.querySelector` and `querySelectorAll` on elements and shadow roots;
+  - JLS 15.18.1 `null` String concatenation, including `+ null` and `s += null` (`NullStringConcatenationTest`);
+  - DOM string literals with escape sequences, which compiled to `""` before;
+  - lambdas that call inherited methods without qualification (`() -> host()`) now keep their lexical receiver (`LambdaSupportTest`).
+
+Differences from the plan below, decided during M1:
+- **Constructor rule.** It is enforced by `host()` and `renderRoot()` being `null` during the Java constructor, not by a runtime DOM-access check. The constructor therefore cannot reach its own element.
+- **`createElement`.** Use `WebComponent.createElement(tag)` instead of `DOM.createElement`. It gives the node a handle in the component's scope even while it is detached. `DOM.createElement` would enter the node in the global table and pin the whole component.
+- **Registration and runtime placement.** Elements are registered by `javaw-runtime.js` from a custom section. The component runtime lives in `javaw-runtime.js` rather than a separate script. The generated `<module>.components.js` ES module, manifest and `.d.ts` remain M6.
+- **Nested component classes** are rejected for now. Only top-level classes are supported.
+
+Known compiler gaps that affect components (Todo section 13): field initializers do not run yet, so assign initial values in the constructor. `+=` on a String field concatenates only for locals and statics.
+
+Known M1 limitations:
+- **Scope growth.** A live component's scope keeps every node it has handed to Java, and those nodes' listener closures, until the component is released. A long-lived component that repeatedly replaces its own DOM therefore grows (see [DOM handle scopes](dom-handle-scopes.md#limitations)). M3's renderer will release handles for the DOM it removes.
+- **`adopted` is untested.** The hook is wired, but happy-dom 21.0.4 never calls `adoptedCallback`, so it waits for the Chromium smoke test.
+- **Multi-file diagnostics.** In a build with several files, the "extension missing" diagnostic for an import names the first file.
+
+Not yet implemented in M1:
+- typed event subclasses (`MouseEvent` and others);
+- a compile-time diagnostic for components used from worker entry points;
+- the opt-in Chromium smoke test, which is needed for upgrade-time attribute reactions because happy-dom skips them.
+
 ## Contents
+
+- [Implementation status](#implementation-status)
 
 - [Authoring model](#authoring-model)
 - [Template language](#template-language)

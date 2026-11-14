@@ -18,6 +18,8 @@ public class DomHelper {
                 addTerminalImports(mName, imports);
             } else if (DomCallbackSupport.mayBeCallbackListenerCall(call) && mName.equals("removeEventListener")) {
                 imports.add("removeEventListener");
+            } else if (isElementQuery(call)) {
+                imports.add("el_" + mName);
             } else if (isDomStaticMethod(mName) || isDomInstanceMethod(mName)) {
                 if (mName.equals("drawImage") && call.getArguments().size() > 5) {
                     imports.add("drawImageFull");
@@ -450,6 +452,15 @@ public class DomHelper {
                 mName.equals("addEventListener");
     }
 
+    /** {@code element.querySelector(sel)} / {@code querySelectorAll(sel)} on an element or shadow root, not on {@code DOM}. */
+    public static boolean isElementQuery(MethodCallExpr call) {
+        String name = call.getNameAsString();
+        if (!name.equals("querySelector") && !name.equals("querySelectorAll")) return false;
+        if (call.getScope().isEmpty() || call.getArguments().size() != 1) return false;
+        String scope = call.getScope().get().toString();
+        return !scope.equals("DOM") && !scope.endsWith(".DOM");
+    }
+
     public static void emitDomImports(Set<String> domImports, StringBuilder watOutput) {
         if (domImports.contains("getElementById")) {
             watOutput.append("  (import \"dom\" \"getElementById\" (func $dom_getElementById (param i32 i32) (result i32)))\n");
@@ -462,6 +473,12 @@ public class DomHelper {
         }
         if (domImports.contains("querySelector")) {
             watOutput.append("  (import \"dom\" \"querySelector\" (func $dom_querySelector (param i32 i32) (result i32)))\n");
+        }
+        if (domImports.contains("el_querySelector")) {
+            watOutput.append("  (import \"dom\" \"el_querySelector\" (func $dom_el_querySelector (param i32 i32 i32) (result i32)))\n");
+        }
+        if (domImports.contains("el_querySelectorAll")) {
+            watOutput.append("  (import \"dom\" \"el_querySelectorAll\" (func $dom_el_querySelectorAll (param i32 i32 i32) (result i32)))\n");
         }
         if (domImports.contains("querySelectorAll")) {
             watOutput.append("  (import \"dom\" \"querySelectorAll\" (func $dom_querySelectorAll (param i32 i32) (result i32)))\n");

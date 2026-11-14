@@ -953,6 +953,20 @@ This section is the source compiler's goal-1 track. It runs in parallel with sec
     - Evidence: `SourceRuntimeSupportTest.bindsInstanceofPatternsAndRecognizesStringTargets` and `rejectsConstructsThatWouldOtherwiseBeSilentlyOmitted`; the full `javaw-core` suite passes (142 tests, zero failures, errors or skips).
     - Remaining for the parent: method calls to unknown names still emit `call $name` and fail only in `wat2wasm`; statement-level and linker omissions are not yet audited; `Object.clone` copies stay untagged.
   - [ ] Source `StringBuilder` values and arrays carry no runtime tag. Converted to `Object` or `CharSequence`, they are treated as strings by `equals`/`hashCode`/`toString` and by collection keys: `CharSequence c = new StringBuilder("ab"); c.toString()` gives a one-character result. Tag them so runtime helpers can tell them apart, or reject the conversion with a diagnostic.
+  - [ ] (Blocks web components M2.) Field initializers are silently dropped.
+    - **Static fields:** any initializer except an integer, double or boolean literal leaves the global at 0 or `null`. That covers string literals, concatenations, method calls, `new` and lambdas, because `JavacToWasm` global collection folds only those three literal kinds. For example, `static String label = "init";` reads as `null`.
+    - **Instance fields:** no initializer runs at all, not even literals. For example, `class H { private int n = 3; }` gives `new H().n == 0`. A probe returned `0,0,0` for `3`, `1` and `4`.
+    - **Fix:**
+      - Instance initializers and initializer blocks must run in declaration order in every constructor that does not call `this(...)`, right after the superclass constructor.
+      - Static initializers must run in declaration order during class initialization.
+      - Until then, reject them with a diagnostic.
+    - Found while testing the web components track. The M1 tests assign in constructors instead.
+  - [x] JLS 15.18.1: a `null` String operand of `+` or `+=` converted to `""` instead of `"null"`. Non-literal String operands now go through a null check to the pooled `"null"`, as boxed operands already did. Evidence: `NullStringConcatenationTest` (local, method-result, field, constructor and compound-assignment cases, with JVM-derived expected values). A `null` non-String reference operand (`"" + obj`) still goes through `__str_from_i32` and prints the pointer; that is part of the open untagged-value item above.
+  - [ ] String `+=` concatenates only for simple local and static targets with a String right-hand side.
+    - **Other targets:** instance fields (`text += s`, `this.text += s`, `h.text += s`), `Type.field += s` and array elements go through `emitCompoundOperation` and emit `i32.add` on pointers, which gives wrong text.
+    - **Non-String right-hand sides:** `s += 1` and `s += 'c'` give wrong text, and `s += 1.5` fails in `wat2wasm`.
+    - **Fix:** choose the string path from the target's type and route every target kind through `translateStringToStack` plus the null check. Found by the web components M1 review.
+  - [ ] DOM intrinsic string arguments (`translateDomStringArg`) look up the string pool by the literal's escaped source text, so a literal with an escape sequence compiles to an empty string. For example, `el.querySelector("#\\31 23")` passes `""`. Look up the unescaped value. Found by the web components M1 review.
 - [ ] Maintain an executable compatibility suite and link README claims to tested cases.
   - [x] Link supported assertion/byte-stream/bytecode claims to executable tests in README and the compatibility matrix. Broader framework/runtime coverage remains pending.
   - [ ] Audit the remaining published compatibility claims against current source/bytecode and end-to-end gates; add missing coverage and update evidence links as the runtime/framework milestones expand. Keep this maintenance gate open while those coverage gaps remain.
@@ -997,7 +1011,51 @@ Lit-style custom elements authored in Java: `@CustomElement` classes, `@Property
       - Light-DOM and global-table nodes keep the existing permanent lifetime.
       - The collector policy at `__wc_flush` stays off until M2.
   - [x] Offline test DOM: happy-dom 21.0.4 and its runtime dependencies vendored, test-only and pruned to 4.9 MB, under [test-vendor/node](test-vendor/node/README.md), with a pinned lockfile, `update.sh` and NOTICE entries. A smoke test confirms custom elements, shadow roots, `getRootNode` and `adoptedStyleSheets`. Known deviation: an upgrade of an element already in the document skips the initial `attributeChangedCallback`s (Chromium smoke coverage).
-  - [ ] M1 imperative custom element: `javaw-components` module and the new DOM surface (event types, `EventListener`, `Element.querySelector`, `ShadowRoot`); `@CustomElement` and tag diagnostics; `new X()` rewritten to `WebComponent.create`; lifecycle reactions and `observedAttributes`; shadow root, `host()`, `renderRoot()`, `@Query`; registration and upgrade of pre-existing elements; main-thread check; error sink. Executable happy-dom test.
+  - [ ] M1 imperative custom element ([status](docs/web-components.md#implementation-status)).
+    - [x] `javaw-components` module, with the `SourceExtension` `ServiceLoader` hook in `javaw-core` and a diagnostic when the extension is missing.
+    - [x] `@CustomElement` with tag, duplicate-tag and class-rule diagnostics.
+    - [x] `WebComponent` lifecycle reactions, `host()`, `renderRoot()` (`ShadowRoot`), scoped `createElement(tag)` and `observedAttributes`.
+    - [x] `@Query` read lowering and its field rules.
+    - [x] `new X()` creates the element through the registry.
+    - [x] Registration from the `javaw_wc_components` section: upgrade, parse and create paths; the shadow root is attached on first connection and kept across reconnection.
+    - [x] Lifecycle errors go to `reportError`.
+    - [x] `Element`/`ShadowRoot` `querySelector` and `querySelectorAll`.
+    - [x] Evidence:
+      - `CustomElementTest` (happy-dom):
+        - lifecycle order;
+        - per-instance clicks;
+        - attribute add, change and remove, including `null`;
+        - reconnection keeping the shadow root and its DOM;
+        - Java `new Counter()`;
+        - error isolation;
+        - no global handles;
+        - 300 removed components all finalized, with live bytes and global handles level. A mutation that puts the host in the global table fails this test.
+      - `CustomElementTest.constructorExceptionsReachJavaCatchBlocks`: Java `catch` works both with happy-dom and with browser-style `createElement`, which reports the exception instead of rethrowing it. A mutation that drops the rethrow fails this test.
+      - `CustomElementTest.queriesPortalsAndJavaHeldComponents`:
+        - `querySelectorAll` and light-DOM `querySelector`;
+        - `@Query` with a quoted selector;
+        - a component held only by Java survives until it is first connected;
+        - 50 removed components whose tooltip nodes stay in the body are all finalized.
+
+        Mutations that make the scope owner strong, or that drop the pin on unconnected components, fail this test.
+      - `CustomElementTest.oneFailingDefinitionDoesNotStopTheOthers`.
+      - `ComponentDiagnosticsTest`:
+        - tag and class rules;
+        - constructor references and subclasses without `@CustomElement`;
+        - `@Query` scoping, checked on the rewritten source: earlier locals, later locals, for-each, catch and lambda parameters;
+        - pattern-variable, `other.field` and nested-class diagnostics;
+        - unrelated `WebComponent` types left alone.
+      - `SourceExtensionTest`.
+    - [ ] Typed event subclasses (`MouseEvent`, `KeyboardEvent`, `InputEvent`, `FocusEvent`, `PointerEvent`, `SubmitEvent`, `CustomEvent`) and `EventListener<E>` typing per event name.
+    - [ ] Main-thread rule: a compile-time diagnostic for components reachable from worker entry points. For now the runtime warns and skips registration when no `customElements` registry exists.
+    - [ ] Opt-in Chromium smoke test, covering upgrade-time attribute reactions that happy-dom skips.
+    - [ ] Static nested component classes. Only top-level classes are supported now.
+    - [ ] `adopted` hook coverage: happy-dom never calls `adoptedCallback` (Chromium smoke test).
+    - [ ] Scope growth: a live component keeps every node it has handed to Java until it is released. This is addressed by M3's renderer; see the docs.
+    - Also fixed in `javaw-core` for M1:
+      - DOM string literals with escapes;
+      - `+ null` and `s += null`;
+      - inherited methods called without qualification in lambdas.
   - [ ] M2 reactive fields: `private` field rules; the write rewrite and its helpers (assignment, compound assignment with narrowing, `++`/`--`, typed receivers, diagnostics for complex receivers) with JVM-versus-Wasm comparisons; change detection; initial `Changes`; the `__wc_flush` lifecycle, `updateComplete`; attribute conversion and reflection during update; generated JS accessors, property marshalling including the `TypeError` path, and pre-upgrade property capture.
   - [ ] M3 template language v1: raw-source scanner and `Parts` rewrite with offset map; build-time tokenizer and position diagnostics; child, attribute (including multi-part), boolean, property (known components via `PropertyKey`) and event parts; `javaw_wc_templates` section; runtime marker walk per template id; renderer with value comparison in Wasm (zero host calls for unchanged updates) and listener liveness; differential tests against lit-html.
   - [ ] M4 lists and directives: `Iterable` children, keyed `repeat` (two-ended scan, DOM identity preserved across moves, duplicate-key reporting), `when`, `classMap`, `styleMap`, `ref`, `nothing()`.

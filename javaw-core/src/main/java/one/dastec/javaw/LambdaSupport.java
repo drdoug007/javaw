@@ -321,8 +321,17 @@ final class LambdaSupport {
                 use.replace(new FieldAccessExpr(new NameExpr(statik ? owner.getNameAsString() : "__owner"),field));
             }
         }
-        for (MethodCallExpr call : body.findAll(MethodCallExpr.class)) if (call.getScope().isEmpty() && !owner.getMethodsByName(call.getNameAsString()).isEmpty()) {
-            boolean statik = owner.getMethodsByName(call.getNameAsString()).stream().allMatch(MethodDeclaration::isStatic);
+        for (MethodCallExpr call : body.findAll(MethodCallExpr.class)) if (call.getScope().isEmpty()) {
+            boolean statik;
+            if (!owner.getMethodsByName(call.getNameAsString()).isEmpty())
+                statik = owner.getMethodsByName(call.getNameAsString()).stream().allMatch(MethodDeclaration::isStatic);
+            else {
+                // Methods inherited from a source superclass keep the lexical receiver too.
+                var inherited = registry.methodCandidates(owner.getNameAsString(), call.getNameAsString());
+                if (inherited.isEmpty()) continue;
+                statik = inherited.stream().allMatch(MethodModel::isStatic);
+                if (statik) { call.setScope(new NameExpr(inherited.get(0).getClassName())); continue; }
+            }
             needsThis |= !statik; call.setScope(new NameExpr(statik ? owner.getNameAsString() : "__owner"));
         }
         if (needsThis) {

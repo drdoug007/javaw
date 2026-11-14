@@ -21,6 +21,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -479,6 +480,49 @@ public class JavacToWasm {
         return generateWat(cu, null, "Source.java");
     }
 
+    private static final List<one.dastec.javaw.spi.SourceExtension> EXTENSIONS = loadExtensions();
+
+    private static List<one.dastec.javaw.spi.SourceExtension> loadExtensions() {
+        List<one.dastec.javaw.spi.SourceExtension> loaded = new ArrayList<>();
+        java.util.ServiceLoader.load(one.dastec.javaw.spi.SourceExtension.class, JavacToWasm.class.getClassLoader()).forEach(loaded::add);
+        return List.copyOf(loaded);
+    }
+
+    /** Source diagnostics for {@link one.dastec.javaw.spi.SourceExtension}s, in the compiler's usual format. */
+    public static IllegalArgumentException sourceError(com.github.javaparser.ast.Node node, String message) {
+        return JavaSourcePreparation.error(node, message);
+    }
+
+    /** Runs the discovered source extensions; returns their custom sections in order. */
+    private static Map<String, String> runExtensions(CompilationUnit cu, String sourceName) {
+        Map<String, String> sections = new LinkedHashMap<>();
+        Set<String> owned = new HashSet<>();
+        for (var extension : EXTENSIONS) {
+            owned.addAll(extension.packages());
+            extension.prepare(cu, (name, payload) -> {
+                if (sections.putIfAbsent(name, payload) != null) throw new IllegalStateException("Duplicate custom section " + name);
+            });
+        }
+        String pkg = "one.dastec.javaw.components";
+        if (!owned.contains(pkg)) {
+            List<com.github.javaparser.ast.Node> uses = new ArrayList<>();
+            for (var imported : cu.getImports())
+                if (imported.getNameAsString().equals(pkg) || imported.getNameAsString().startsWith(pkg + ".")) uses.add(imported);
+            for (var type : cu.findAll(com.github.javaparser.ast.type.ClassOrInterfaceType.class))
+                if (type.getScope().map(Object::toString).filter(pkg::equals).isPresent()) uses.add(type);
+            for (var annotation : cu.findAll(com.github.javaparser.ast.expr.AnnotationExpr.class))
+                if (annotation.getNameAsString().startsWith(pkg + ".")) uses.add(annotation);
+            if (!uses.isEmpty()) {
+                var use = uses.get(0);
+                String message = "Uses " + pkg + " but the javaw-components compiler extension is not on the compiler classpath";
+                if (use instanceof com.github.javaparser.ast.ImportDeclaration)
+                    throw new IllegalArgumentException(sourceName + use.getBegin().map(p -> ":" + p.line + ":" + p.column).orElse("") + ": " + message);
+                throw JavaSourcePreparation.error(use, message);
+            }
+        }
+        return sections;
+    }
+
     public static String generateWat(CompilationUnit cu, SourceMapGenerator sourceMapGen, String sourceName) {
         StringBuilder watOutput = new StringBuilder();
         watOutput.append("(module\n");
@@ -487,6 +531,8 @@ public class JavacToWasm {
         JavaSourcePreparation.markSource(cu, sourceName);
         JavaSourcePreparation.normalizeTypes(cu, JavaSourcePreparation.typeNames(List.of(cu)));
         SourceRuntimeSupport.prepare(cu);
+        Map<String, String> extensionSections = runExtensions(cu, sourceName);
+        JavaSourcePreparation.normalizeTypes(cu, JavaSourcePreparation.typeNames(List.of(cu)));
         ReflectionSupport reflection = ReflectionSupport.prepare(cu);
         SpringWebSupport springWeb = SpringWebSupport.lower(cu);
         DecimalSupport.addTypes(cu);
@@ -540,6 +586,11 @@ public class JavacToWasm {
                     .append(SourceMapGenerator.escapeRawCustomSectionPayload(exportsJson))
                     .append("\")\n");
         }
+
+        for (var section : extensionSections.entrySet())
+            watOutput.append("  (@custom \"").append(section.getKey()).append("\" \"")
+                    .append(SourceMapGenerator.escapeRawCustomSectionPayload(section.getValue()))
+                    .append("\")\n");
 
         List<String> jsCodeBlocks = JsAnnotationHelper.collectJsCodeBlocks(cu);
         if (!jsCodeBlocks.isEmpty()) {

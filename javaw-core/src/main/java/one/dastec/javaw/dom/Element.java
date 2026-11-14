@@ -92,6 +92,16 @@ public class Element {
     public void setHeight(int height) {
     }
 
+    /** The first descendant matching {@code selector}, or {@code null}. */
+    public Element querySelector(String selector) {
+        return null;
+    }
+
+    /** All descendants matching {@code selector}, in document order. */
+    public Element[] querySelectorAll(String selector) {
+        return new Element[0];
+    }
+
     /** Calls the static exported function named {@code handlerMethod}, without a receiver or event. */
     public void addEventListener(String event, String handlerMethod) {
     }
