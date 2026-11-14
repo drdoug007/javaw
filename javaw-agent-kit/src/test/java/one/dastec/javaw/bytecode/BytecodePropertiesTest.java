@@ -1,6 +1,5 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -9,7 +8,6 @@ import org.junit.jupiter.api.Test;
  * except propertyNames(), which returns a fresh Hashtable's keys() and uses keys that never share a bucket.
  * See tasks/T22-properties.md.
  */
-@Tag("agent-pending")
 class BytecodePropertiesTest extends KitDifferential {
     private static final String HELPERS = """
                 static String failure(Runnable action){

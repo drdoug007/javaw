@@ -1,35 +1,69 @@
-# Bytecode system properties and wrapper lookups
+# Bytecode Properties
 
-Properties are explicit string state isolated to each Wasm instance. The store starts empty; it does not import JVM defaults, operating-system environment, Node globals or browser state. Applications can initialize supported properties using System.setProperty. System.getProperties/setProperties, security-manager permission checks, host seeding, concurrent access, and reflective discovery of System members remain unsupported. This is separate from source-backed facades and complete framework execution.
+Revision `properties-v283` links `java.util.Properties` in the bundled exception runtime, as a subclass of the
+monitor-free runtime `Hashtable` that keeps its entries in the inherited table.
 
-Exact static System.getProperty (both overloads), setProperty and clearProperty calls and static handles are normalized to the bundled store before admission. A linked System definition suppresses this normalization. Other System APIs retain existing admission/intrinsic behavior; arraycopy and identityHashCode keep their current contracts. Redefinition of the bundled property store is rejected.
+Contract:
 
-BytecodePropertyLookupTest compares Java 17 JVM results with Wasm in both JAR orders and two fresh instances whose allocator fills memory with nonzero bytes. Fixtures use dedicated javaw.test.* keys, not JVM platform defaults. Wasm-only checks prove the empty initial platform store and per-instance property isolation.
+- Constructors: `Properties()`, `Properties(int)` and `Properties(Properties)` all call the `Hashtable()`
+  constructor (the capacity is not observable); `Properties(int n)` throws a message-less
+  `IllegalArgumentException` when `n < 0` (not `Hashtable`'s `"Illegal Capacity"` message). Only
+  `Properties(Properties)` assigns the `protected Properties defaults` field; `null` is allowed and means no
+  defaults.
+- Defaults chain and the String-only rule: `getProperty(key)` reads the own table with `super.get(key)` (the
+  overridable `get` is never called) and counts a non-`String` value as absent; when the own value is missing or
+  not a `String` it asks `defaults.getProperty(key)` (virtual) and recurses to the root. `getProperty(key, d)`
+  calls the one-argument `getProperty` (virtual) and returns `d` when it yields `null`. The defaults object is
+  live: later changes to it are visible. `get`, `containsKey`, `size`, `isEmpty`, `toString` and `equals` never
+  look at the defaults, and the defaults entries are not entries of this table.
+- `setProperty(key, value)` is `return put(key, value)` — a virtual call, so a subclass that overrides `put`
+  sees it; it returns the previous value (which may be a non-`String`) and throws `NullPointerException` from
+  `put` for a null key or value.
+- `propertyNames()` copies, into a fresh `Hashtable<String,Object>`, the defaults' names (recursively, first)
+  and then the own entries, and returns `h.keys()` — a real `Hashtable` enumeration (past the end it throws
+  `NoSuchElementException: Hashtable Enumerator`). The copy walks the overridable `entrySet()`, so a subclass
+  that hides entries changes the names; a non-`String` key anywhere in the chain throws `ClassCastException`,
+  non-`String` values are kept, and an already-returned enumeration is a snapshot.
+  `stringPropertyNames()` fills a fresh `HashMap<String,String>` the same way but keeps an entry only when both
+  key and value are `String`s (others are skipped silently, and a non-`String` own value does not remove a
+  defaults entry), and returns `Collections.unmodifiableSet(h.keySet())` — `add`, `remove`, `clear` and
+  `iterator().remove()` throw `UnsupportedOperationException` with a null message.
+- ConcurrentHashMap rules copied from the JDK: `remove(key, value)` throws `NullPointerException` for a null
+  key and returns `false` (not an exception) when the value is null; `merge(key, value, f)` throws
+  `NullPointerException` when the key, the value or the function is null (before looking at the table) and
+  otherwise delegates to `Hashtable.merge`; `forEach(action)` is not fail-fast — after
+  `Objects.requireNonNull(action)` (even when empty) it walks a snapshot of `super.keySet()` and re-reads each
+  value with `super.get`, so removing visited or other keys never throws `ConcurrentModificationException` and
+  a removed key is skipped; `equals(o)` is the `ConcurrentHashMap` algorithm over the `Hashtable`'s own entries
+  with no `o == this` shortcut and no size check; `toString()` walks `super.entrySet()` and never calls
+  `size()` or the overridable `entrySet()`.
+- Virtual versus non-virtual calls: `setProperty` → `put` (virtual), `getProperty(k, d)` → `getProperty(k)`
+  (virtual), `defaults.getProperty(k)` (virtual), `enumerate`/`enumerateStringProperties` → `entrySet()`
+  (virtual); `getProperty` reads `super.get`, `putAll` writes with `super.put` after a `t.size()` presize call
+  (so an overridden `put` is never called and the source map sees exactly `size` then `entrySet`), `forEach`
+  uses `super.keySet`/`super.get`, `toString`/`equals` use `super.entrySet`, and `remove(k, v)`/`merge` delegate
+  to `super`. `toString`, `equals`, `hashCode`, `isEmpty`, `forEach` and `clone` therefore log nothing against a
+  recording subclass; only `equals(o)` calls `get`/`entrySet` on its argument.
+- Inherited unchanged from `Hashtable`: `put`, `get`, `remove(k)`, `containsKey`, `contains`, `size`, `isEmpty`,
+  `keys`, `elements`, `keySet`, `values`, `entrySet`, `clear`, `clone` (which shares the `defaults` object),
+  `hashCode`, `putIfAbsent`, `replace`, `computeIfAbsent`, `computeIfPresent`, `compute`, `getOrDefault`,
+  `replaceAll`. No `rehash()` is declared (the JDK's is a no-op).
 
-Completed subsets:
+Known differences from the JDK (not covered by the test): the JDK 9+ keeps its entries in a private
+`ConcurrentHashMap`, so multi-entry iteration order of `keySet()`, `values()`, `entrySet()`, `keys()`,
+`elements()`, `toString()` and `forEach` follows the runtime `Hashtable` instead of the `ConcurrentHashMap`, and so does `propertyNames()` when names
+share a `Hashtable` bucket, because it fills its fresh `Hashtable` in this object's `entrySet()` order;
+view iterators and `keys()`/`elements()` are fail-fast `Hashtable` enumerators (with
+`"Hashtable Enumerator"` messages) where the JDK's are weakly consistent; `compute*`/`replaceAll` functions
+that modify the table throw `ConcurrentModificationException` as in `Hashtable`; `keySet()` returns the same
+cached view each time; and `forEach` visits a snapshot of the keys, so keys added by the action are never
+visited (the JDK may visit them). The inherited `getOrDefault`, `containsValue` and the `keySet()`/`values()` views
+also call a subclass's overridden `get`, `containsKey`, `contains` or `remove`, where the JDK forwards them to
+its internal map.
 
-- v190: Explicit per-instance System string property reads, defaults, writes and removal, exact static calls and handles, key/null failures and fresh-instance isolation.
-- v191: Boolean.getBoolean case-insensitive true parsing and false fallback for absent values and invalid keys.
-- v192: Integer.getInteger nullable lookup with decimal/hexadecimal/octal decoding and malformed/overflow fallback.
-- v193: Integer.getInteger primitive default overload and small-value cache identity.
-- v194: Integer.getInteger boxed default overload preserving fallback identity and null.
-- v195: Long.getLong nullable lookup with decimal/hexadecimal/octal decoding and malformed/overflow fallback.
-- v196: Long.getLong primitive default overload and small-value cache identity.
-- v197: Long.getLong boxed default overload preserving fallback identity and null.
-- v198: Pinned Spring CGLIB property-dependent class initialization and naming execution.
+Left out (for later tasks): `load(Reader)`/`load(InputStream)` (T23), `store`/`save` (they write the current
+date, which the runtime forbids), `list` (no print streams in the runtime) and the XML methods (no XML).
 
-Pinned execution uses original, unmodified `org.springframework.cglib.core.DefaultNamingPolicy`, `NamingPolicy` and `Predicate` class files from Spring Core 6.1.5 (SHA-256 `476dac28509b3f47d0b5e895a639fa75ac2218f074ce214e44832a836c469f7e`). The JVM oracle and Wasm execute those same classes. Separate JVM processes and fresh Wasm instances cover both initial values of `org.springframework.cglib.test.stressHashCodes`, class-initialization capture after later property mutation, deterministic naming, Java package prefix handling, collision callbacks, equality and hash codes. This proves this selected naming-policy path; CGLIB class generation, proxies, the complete Spring container and security-manager behavior remain outside the claim.
-- v199: Malformed property call and handle admission, unsupported platform APIs and runtime redefinition rejection.
-
-Wrapper lookups decode the stored string using Integer.decode/Long.decode, including decimal, hexadecimal and octal prefixes. Missing properties, invalid keys and malformed/overflow values return false, null or the supplied fallback as the JDK specifies. Boxed fallbacks retain identity, and decoded small values use wrapper caches. Property writes and removal return the previous string value. Empty values are retained; null keys/values and empty keys follow Java failure types and precedence.
-
-Malformed ASM fixtures cover wrong descriptors, virtual/interface misuse, malformed static handles, handles nested in dynamic constants/bootstrap arguments, and invalid unused wrapper calls. Diagnostics identify the source, line, method and required static descriptor. Bundled-store redefinition and unsupported System.getProperties are rejected. The store uses a sequential linked list; removal unlinks entries but does not establish bytecode heap reclamation or bounded-memory behavior.
-
-Validation at v199: all ten new property tests and all 490 tests in the required offline bytecode suite pass, with zero failures, errors or skips. The final audit baseline check passes: 63 pinned JARs, 26,625 classes, 734 resources, 1,008 declared signatures, 27 missing members and 302 missing owners. Only the compiler revision changes in the inventory baseline; three audited wrapper signature gaps close in the linkage report. These counts are whole-JAR inventory, not runtime reachability or complete framework support.
-
-Reproduce the suite (the optional fork/JIT flags control the host test processes; the differential oracle remains Java 17):
-
-```sh
-mvn -o -pl javaw-bytecode -am -Dtest='one.dastec.javaw.bytecode.*Test' -Dsurefire.failIfNoSpecifiedTests=false -DforkCount=4 -DreuseForks=true -DargLine=-XX:-UseJVMCICompiler test
-python3 runtime-target/audit.py --check-baseline
-```
+Evidence: `BytecodePropertiesTest` compares Java 17 javac fixtures on the JVM and in Wasm (both JAR orders, two
+fresh instances). `Properties.rehash()` and `Properties.loadFromXML(InputStream)` are rejected before WAT
+generation.
