@@ -222,6 +222,37 @@ class BytecodeMessageDigestTest extends KitDifferential {
                 String c;try{plain.clone();c="cloned";}catch(CloneNotSupportedException e){c=name(e);}
                 return a+","+b+","+hex(plain.digest())+","+hex(cloneable.digest())+","+c+","+plain.toString().trim()+","+cloneable.toString().trim();
             }
+            // DigestBase order: len == 0 returns before the range check; a bad output offset fails before hashing.
+            public static String engineRanges(){
+                StringBuilder out=new StringBuilder();
+                try{
+                    MessageDigest md=MessageDigest.getInstance("SHA-256");
+                    md.update(new byte[4],-1,0);out.append(md.toString().trim()).append(';');
+                    try{md.update(new byte[8],-1,4);}catch(ArrayIndexOutOfBoundsException e){out.append(name(e)).append(':').append(e.getMessage()).append(';');}
+                    md.reset();md.update(ascii("abc"));
+                    try{md.digest(new byte[40],-1,32);}catch(DigestException e){out.append(name(e)).append(':').append(e.getMessage()).append(';');}
+                    out.append(md.toString().trim()).append(';').append(hex(md.digest()).equals(sha("abc")));
+                }catch(NoSuchAlgorithmException e){out.append("unexpected");}
+                return out.toString();
+            }
+            // MessageDigest.digest() leaves resetting to the engine, so a non-resetting engine keeps its state.
+            static final class Lazy extends MessageDigest {
+                int n,resets;
+                Lazy(){super("LAZY");}
+                protected void engineUpdate(byte input){n++;}
+                protected void engineUpdate(byte[] input,int offset,int len){n+=len;}
+                protected byte[] engineDigest(){return new byte[]{(byte)n};}
+                protected void engineReset(){resets++;n=0;}
+                int into(byte[] buf,int offset,int len) throws DigestException{return engineDigest(buf,offset,len);}
+            }
+            public static String nonResettingSubclass(){
+                Lazy md=new Lazy();
+                md.update(new byte[5]);
+                String first=hex(md.digest()),second=hex(md.digest(new byte[2]));
+                String spi;
+                try{spi="returned "+md.into(new byte[3],3,1);}catch(DigestException e){spi=name(e)+":"+e.getMessage();}
+                return first+","+second+","+md.resets+","+spi+","+md.toString().trim();
+            }
         }
         """;
 
@@ -243,6 +274,10 @@ class BytecodeMessageDigestTest extends KitDifferential {
 
     @Test void userSubclassDefaults() throws Exception {
         matchesJvm(FIXTURE, "userDigestIntoBuffer", "digestLengthFallback");
+    }
+
+    @Test void engineRangesAndResetsFollowTheJdk() throws Exception {
+        matchesJvm(FIXTURE, "engineRanges", "nonResettingSubclass");
     }
 
     @Test void leavesProviderAndByteBufferMembersUnlinked() {
