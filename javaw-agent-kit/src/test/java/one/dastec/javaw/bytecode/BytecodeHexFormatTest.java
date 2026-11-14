@@ -113,6 +113,8 @@ class BytecodeHexFormatTest extends KitDifferential {
                 try{HexFormat.ofDelimiter(null);}catch(NullPointerException e){out.append("d:").append(e.getMessage()).append(';');}
                 try{HexFormat.of().withPrefix(null);}catch(NullPointerException e){out.append("p:").append(e.getMessage()).append(';');}
                 try{HexFormat.of().withSuffix(null);}catch(NullPointerException e){out.append("s:").append(e.getMessage()).append(';');}
+                try{HexFormat.fromHexDigits(null,0,0);}catch(NullPointerException e){out.append("i:").append(e.getMessage()).append(';');}
+                try{HexFormat.fromHexDigitsToLong(null,0,0);}catch(NullPointerException e){out.append("l:").append(e.getMessage()).append(';');}
                 return out.toString();
             }
         }
