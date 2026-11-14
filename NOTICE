@@ -14,5 +14,10 @@ Third-party material retains its original licenses:
   contain generated/adapted OpenJDK 17.0.9 word-break and lowercase-context data/code under GPLv2 with the
   Classpath exception. Upstream notices, source, license and reproduction notes
   are in javaw-unicode-data/src/main/resources/exception-runtime/legal/word-break/.
+- test-vendor/node/node_modules contains test-only copies of happy-dom 21.0.4
+  (MIT) and its dependencies entities 7.0.1 (BSD-2-Clause), whatwg-mimetype
+  3.0.0 (MIT), ws 8.23.0 (MIT) and buffer-image-size 0.6.4 (MIT). Each keeps
+  its upstream LICENSE file; see test-vendor/node/README.md. They are not
+  distributed in javaw artifacts.
 - External dependencies, including the pinned runtime-target libraries,
   remain under their respective upstream licenses.

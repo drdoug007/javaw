@@ -509,7 +509,7 @@ Limitations:
 
 ## Open questions
 
-1. How to provide happy-dom, lit-html and an optional Chromium offline: vendored test-only copies with NOTICE entries (happy-dom is MIT, lit-html is BSD-3), or a pinned npm cache that the test harness resolves?
+1. **Decided:** test DOM libraries are vendored as pinned, test-only copies with NOTICE entries. happy-dom 21.0.4 is in [`test-vendor/node`](../test-vendor/node/README.md); lit-html will be added the same way for M3. Chromium stays opt-in through a local binary.
 2. Should a `@Property` field with no attribute converter need an explicit `attribute = Property.NONE`, or is the implicit JS-property-only behaviour acceptable?
 3. Should `updateComplete` also be exposed to JS as a promise on the element, as Lit does, for TypeScript test code?
 4. Should `null` in an attribute part follow Lit (`""`) instead of removing the attribute?
