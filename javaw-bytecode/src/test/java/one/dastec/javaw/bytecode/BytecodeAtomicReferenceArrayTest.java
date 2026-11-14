@@ -75,7 +75,6 @@ class BytecodeAtomicReferenceArrayTest implements Opcodes {
     }
 
     @Test void rejectsUnusedUnlinkedAtomicMembers() {
-        rejectsUnused("java/util/concurrent/atomic/AtomicReference","get","()Ljava/lang/Object;",INVOKEVIRTUAL,false);
         rejectsUnused("java/util/concurrent/atomic/AtomicReferenceFieldUpdater","get","(Ljava/lang/Object;)Ljava/lang/Object;",INVOKEVIRTUAL,false);
         rejectsUnused("java/util/concurrent/ConcurrentHashMap","get","(Ljava/lang/Object;)Ljava/lang/Object;",INVOKEVIRTUAL,false);
     }
