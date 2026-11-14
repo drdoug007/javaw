@@ -1080,6 +1080,91 @@
             }
         }
 
+        // Instance-bound listeners. The closure pointer is retained while the listener is registered and
+        // released by removeEventListenerCallback or, if the element is collected first, by finalization.
+        listenerRegistry(el) {
+            if (!this.callbackListeners) {
+                this.callbackListeners = new WeakMap();
+                this.callbackFinalizer = typeof FinalizationRegistry === 'function'
+                    ? new FinalizationRegistry(ptr => { try { this.release(ptr); } catch (ignored) {} })
+                    : null;
+            }
+            let byKey = this.callbackListeners.get(el);
+            if (!byKey) {
+                byKey = new Map();
+                this.callbackListeners.set(el, byKey);
+            }
+            return byKey;
+        }
+
+        addEventListenerCallback(handle, typePtr, typeLen, closurePtr, kind) {
+            const el = this.getElement(handle);
+            if (!el || typeof el.addEventListener !== 'function' || !closurePtr) return;
+            const type = this.readString(typePtr, typeLen);
+            const listeners = this.listenerRegistry(el);
+            const key = type + '\u0000' + closurePtr;
+            if (listeners.has(key)) return; // Same listener object and type: ignored, as in the DOM.
+            this.retain(closurePtr);
+            const runtime = this;
+            const fn = function (event) { runtime.invokeListener(closurePtr, kind, event, type); };
+            listeners.set(key, fn);
+            if (this.callbackFinalizer) this.callbackFinalizer.register(fn, closurePtr, fn);
+            el.addEventListener(type, fn);
+        }
+
+        removeEventListenerCallback(handle, typePtr, typeLen, closurePtr, kind) {
+            const el = this.getElement(handle);
+            if (!el || !this.callbackListeners) return;
+            const type = this.readString(typePtr, typeLen);
+            const listeners = this.callbackListeners.get(el);
+            const key = type + '\u0000' + closurePtr;
+            const fn = listeners && listeners.get(key);
+            if (!fn) return;
+            listeners.delete(key);
+            if (typeof el.removeEventListener === 'function') el.removeEventListener(type, fn);
+            if (this.callbackFinalizer) this.callbackFinalizer.unregister(fn);
+            this.release(closurePtr);
+        }
+
+        invokeListener(closurePtr, kind, event, type) {
+            const exports = this.instance && this.instance.exports;
+            if (!exports) return;
+            let eventHandle = 0;
+            let temporary = false;
+            try {
+                if (kind === 1) {
+                    temporary = !this.reverseMap.has(event);
+                    eventHandle = this.getOrCreateHandle(event);
+                    exports.__javaw_eventListener(closurePtr, eventHandle);
+                } else {
+                    exports.__javaw_runListener(closurePtr);
+                }
+            } catch (err) {
+                this.reportCallbackError(err, type);
+            } finally {
+                // An Event is valid only while its listener runs.
+                if (temporary) this.releaseHandle(eventHandle);
+            }
+        }
+
+        releaseHandle(handle) {
+            if (!handle || !this.handleMap.has(handle)) return;
+            const value = this.handleMap.get(handle);
+            this.handleMap.delete(handle);
+            if (this.reverseMap.get(value) === handle) this.reverseMap.delete(value);
+        }
+
+        reportCallbackError(err, type) {
+            const error = err instanceof Error ? err : new Error('[JAVAW EVENT ERROR] ' + type + ': ' + String(err));
+            if (typeof globalThis.reportError === 'function') globalThis.reportError(error);
+            else console.error('[JAVAW EVENT ERROR] ' + type + ':', err);
+        }
+
+        js_asElement(handle) {
+            const value = this.getElement(handle);
+            return value && typeof value === 'object' && value.nodeType === 1 ? handle : 0;
+        }
+
         setTimeout(handlerPtr, handlerLen, delayMs) {
             const handlerName = this.readString(handlerPtr, handlerLen);
             const timer = setTimeout(() => {
@@ -2192,6 +2277,9 @@
                     webgl_enable: (h, c) => this.webgl_enable(h, c),
                     webgl_disable: (h, c) => this.webgl_disable(h, c),
                     addEventListener: (handle, ep, el, hp, hl) => this.addEventListener(handle, ep, el, hp, hl),
+                    addEventListenerCallback: (handle, tp, tl, ptr, kind) => this.addEventListenerCallback(handle, tp, tl, ptr, kind),
+                    removeEventListenerCallback: (handle, tp, tl, ptr, kind) => this.removeEventListenerCallback(handle, tp, tl, ptr, kind),
+                    js_asElement: (h) => this.js_asElement(h),
                     setTimeout: (hp, hl, d) => this.setTimeout(hp, hl, d),
                     clearTimeout: (id) => this.clearTimeout(id),
                     setInterval: (hp, hl, d) => this.setInterval(hp, hl, d),

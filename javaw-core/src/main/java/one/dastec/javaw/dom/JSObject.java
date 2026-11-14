@@ -37,6 +37,11 @@ public class JSObject extends JSValue {
     }
 
     // Property accessors
+    /** This value as an {@link Element}; {@code null} when the value is not a DOM element. */
+    public Element asElement() {
+        return null;
+    }
+
     public JSObject get(String propertyName) {
         return null;
     }

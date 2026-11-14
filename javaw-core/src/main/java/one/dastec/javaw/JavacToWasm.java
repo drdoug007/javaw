@@ -491,6 +491,7 @@ public class JavacToWasm {
         SpringWebSupport springWeb = SpringWebSupport.lower(cu);
         DecimalSupport.addTypes(cu);
         LibrarySupport.addTypes(cu);
+        DomCallbackSupport.addTypes(cu);
         IoSupport.addTypes(cu);
         CollectionSupport.addTypes(cu);
         StreamSupport.addTypes(cu);

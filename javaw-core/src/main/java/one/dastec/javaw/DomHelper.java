@@ -16,6 +16,8 @@ public class DomHelper {
             String mName = call.getNameAsString();
             if (isTerminalMethod(mName, call)) {
                 addTerminalImports(mName, imports);
+            } else if (DomCallbackSupport.mayBeCallbackListenerCall(call) && mName.equals("removeEventListener")) {
+                imports.add("removeEventListener");
             } else if (isDomStaticMethod(mName) || isDomInstanceMethod(mName)) {
                 if (mName.equals("drawImage") && call.getArguments().size() > 5) {
                     imports.add("drawImageFull");
@@ -194,6 +196,8 @@ public class DomHelper {
             imports.add("js_errorName");
         } else if (mName.equals("getStack")) {
             imports.add("js_errorStack");
+        } else if (mName.equals("asElement")) {
+            imports.add("js_asElement");
         } else if (mName.equals("get")) {
             imports.add("js_get");
         } else if (mName.equals("getString")) {
@@ -344,7 +348,7 @@ public class DomHelper {
                 mName.equals("isInteger") || mName.equals("doubleValue") || mName.equals("intValue") ||
                 mName.equals("longValue") || mName.equals("booleanValue") || mName.equals("stringValue") ||
                 mName.equals("getDescription") || mName.equals("getMessage") || mName.equals("getName") ||
-                mName.equals("getStack");
+                mName.equals("getStack") || mName.equals("asElement");
     }
 
     public static boolean isWebGLMethod(String mName, MethodCallExpr call) {
@@ -659,6 +663,14 @@ public class DomHelper {
         }
         if (domImports.contains("addEventListener")) {
             watOutput.append("  (import \"dom\" \"addEventListener\" (func $dom_addEventListener (param i32 i32 i32 i32 i32)))\n");
+        }
+        if (domImports.contains("addEventListener") || domImports.contains("removeEventListener")) {
+            // (element handle, type ptr, type len, closure pointer, 0 = Runnable / 1 = EventListener<Event>)
+            watOutput.append("  (import \"dom\" \"addEventListenerCallback\" (func $dom_addEventListenerCallback (param i32 i32 i32 i32 i32)))\n");
+            watOutput.append("  (import \"dom\" \"removeEventListenerCallback\" (func $dom_removeEventListenerCallback (param i32 i32 i32 i32 i32)))\n");
+        }
+        if (domImports.contains("js_asElement")) {
+            watOutput.append("  (import \"dom\" \"js_asElement\" (func $dom_js_asElement (param i32) (result i32)))\n");
         }
         if (domImports.contains("setTimeout")) {
             watOutput.append("  (import \"dom\" \"setTimeout\" (func $dom_setTimeout (param i32 i32 i32) (result i32)))\n");

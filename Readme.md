@@ -241,6 +241,7 @@ Phase 1 source-resolution foundations and source-backed Optional/closures are im
   - 32-bit integer handle lookup table (`Map<number, HTMLElement>`) for safe referencing of DOM elements from WebAssembly.
   - Zero-copy UTF-8 text decoding from WebAssembly linear memory (`instance.exports.memory.buffer`).
   - Bi-directional event dispatching mapping browser DOM events to exported WebAssembly handler functions.
+  - Instance-bound listeners: `Element.addEventListener(type, e -> ...)`, `this::method` and `removeEventListener` keep the Java receiver and captured values. The runtime retains each closure until the listener is removed, and `Event` exposes `type()`, `target()`, `preventDefault()` and the raw `JSObject`. Values of type `Runnable` are diagnosed rather than accepted. See [DOM event listeners](docs/dom-event-listeners.md) and `DomCallbackTest`.
   - Same-instance deferred thread spawning (`setTimeout`; no Web Workers yet), timer queues, and WASI standard streams.
 - **Arithmetic & Primitive Types**:
   - Primitive and return type mapping (`void`, `int`, `boolean`, `char`, `long`, `float`, `double`).

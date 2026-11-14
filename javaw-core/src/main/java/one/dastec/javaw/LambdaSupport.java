@@ -128,6 +128,11 @@ final class LambdaSupport {
         if (e.isBooleanLiteralExpr()) return "boolean";
         if (e.isNullLiteralExpr()) return "null";
         if (e.isCastExpr()) return e.asCastExpr().getTypeAsString();
+        if (e.isEnclosedExpr()) return type(e.asEnclosedExpr().getInner(), variables);
+        if (e.isArrayAccessExpr()) {
+            String array = type(e.asArrayAccessExpr().getName(), variables);
+            if (array.endsWith("[]")) return array.substring(0, array.length() - 2);
+        }
         if (e.isFieldAccessExpr()) {
             var f=e.asFieldAccessExpr(); return registry.fieldType(type(f.getScope(),variables),f.getNameAsString());
         }
@@ -148,9 +153,27 @@ final class LambdaSupport {
         if (parent instanceof ReturnStmt) return callback.findAncestor(MethodDeclaration.class).orElseThrow().getTypeAsString();
         if (parent instanceof AssignExpr a) return type(a.getTarget(), variables);
         if (parent instanceof MethodCallExpr call) {
-            String owner = call.getScope().map(e -> type(e, variables)).orElseGet(() -> call.findAncestor(ClassOrInterfaceDeclaration.class).orElseThrow().getNameAsString());
+            boolean hostListener = DomCallbackSupport.mayBeCallbackListenerCall(call) && call.getArgument(1) == callback;
+            String owner;
+            try { owner = call.getScope().map(e -> type(e, variables)).orElseGet(() -> call.findAncestor(ClassOrInterfaceDeclaration.class).orElseThrow().getNameAsString()); }
+            catch (IllegalArgumentException unresolved) {
+                // DOM facade results (DOM.getBody(), el.getParent()) are host handles the registry does not model.
+                if (hostListener && !sourceDeclares(call.getNameAsString())) return hostListenerTarget(callback, variables);
+                throw unresolved;
+            }
+            if (hostListener && registry.getClass(owner) == null) return hostListenerTarget(callback, variables);
             var candidates = registry.methodCandidates(owner, call.getNameAsString()).stream()
                 .filter(m -> m.getParamTypeNames().size() == call.getArguments().size()).toList();
+            int position = call.getArguments().indexOf(callback);
+            // Overloads that differ only in functional-interface arity (Runnable vs Consumer<T>) select by callback shape.
+            if (candidates.size() > 1) {
+                Set<Integer> arities = callbackArities(callback, variables);
+                var shaped = candidates.stream().filter(m -> {
+                    Integer arity = samArity(m.getParamTypeNames().get(position));
+                    return arity != null && arities.contains(arity);
+                }).toList();
+                if (shaped.size() == 1) candidates = shaped;
+            }
             if (candidates.size() != 1) throw JavaSourcePreparation.error(callback, "Ambiguous callback target; assign to an explicitly typed functional interface first");
             MethodModel method = candidates.get(0);
             Map<String,String> bindings = new LinkedHashMap<>();
@@ -171,6 +194,40 @@ final class LambdaSupport {
             return GenericTypes.substitute(method.getParamTypeNames().get(call.getArguments().indexOf(callback)), bindings);
         }
         throw JavaSourcePreparation.error(callback, "Callback requires a functional-interface target type");
+    }
+    private boolean sourceDeclares(String method) {
+        return cu.findAll(MethodDeclaration.class).stream().anyMatch(m -> m.getNameAsString().equals(method));
+    }
+    /** Element.add/removeEventListener: zero-parameter callbacks are Runnable, one-parameter callbacks take the Event. */
+    private String hostListenerTarget(Expression callback, Map<String,String> variables) {
+        Set<Integer> arities = callbackArities(callback, variables);
+        boolean run = arities.contains(0), event = arities.contains(1);
+        if (run && !event) return DomCallbackSupport.RUN_TARGET;
+        if (event && !run) return "EventListener<Event>";
+        if (run) throw JavaSourcePreparation.error(callback, "Ambiguous DOM listener: the method reference matches both Runnable and EventListener<Event>; use a lambda");
+        throw JavaSourcePreparation.error(callback, "DOM listener must take no parameters (Runnable) or one Event parameter (EventListener<Event>)");
+    }
+    /** Parameter counts a callback can accept: a lambda's declared count, or each arity a method reference can bind. */
+    private Set<Integer> callbackArities(Expression callback, Map<String,String> variables) {
+        if (callback.isLambdaExpr()) return Set.of(callback.asLambdaExpr().getParameters().size());
+        MethodReferenceExpr ref = callback.asMethodReferenceExpr();
+        Expression scope = ref.getScope();
+        if (scope.isTypeExpr() && variables.containsKey(scope.toString())) scope = new NameExpr(scope.toString());
+        String owner;
+        try { owner = type(scope, variables); }
+        catch (IllegalArgumentException unknown) { return Set.of(); }
+        Set<Integer> result = new HashSet<>();
+        if (ref.getIdentifier().equals("new")) return result; // Constructor references are not selected by arity.
+        boolean typeScope = scope.isTypeExpr() || (scope.isNameExpr() && !variables.containsKey(scope.toString()) && registry.hasClass(scope.toString()));
+        for (MethodModel m : registry.methodCandidates(owner, ref.getIdentifier())) {
+            int count = m.getParamTypeNames().size();
+            result.add(typeScope && !m.isStatic() ? count + 1 : count);
+        }
+        return result;
+    }
+    private Integer samArity(String type) {
+        try { return registry.functionalMethod(type).getParamTypeNames().size(); }
+        catch (RuntimeException notFunctional) { return null; }
     }
     private void lower(Expression callback) {
         Map<String,String> variables = locals(callback);
@@ -216,7 +273,8 @@ final class LambdaSupport {
             if (scope.isTypeExpr() && variables.containsKey(scope.toString())) scope = new NameExpr(scope.toString());
             boolean unbound = scope.isTypeExpr() && registry.methodCandidates(type(scope,variables),ref.getIdentifier()).stream().noneMatch(MethodModel::isStatic);
             if (!scope.isTypeExpr() && !(scope.isNameExpr() && !variables.containsKey(scope.toString()) && registry.hasClass(scope.toString()))) {
-                String boundType = type(scope,variables);
+                // Type the attached scope: a detached clone of `this` has no enclosing class.
+                String boundType = type(ref.getScope(),variables);
                 generated.addField(boundType,"__bound",Modifier.Keyword.PRIVATE);
                 scope = new NameExpr("__bound");
             }

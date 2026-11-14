@@ -379,7 +379,7 @@ On upgrade and parse, `attributeChangedCallback` runs for each initial observed 
 
 ### Prerequisites
 
-1. **Instance-bound JS callbacks.** Java must be able to pass a lambda or a bound method reference to the host as a callable that keeps its receiver, along with `removeEventListener`. Today, `Element.addEventListener(String event, String handlerMethod)` can only call a named export with no receiver. This prerequisite also requires arity-based overload selection for method references in javaw-core, which `Parts.on` uses.
+1. **Instance-bound JS callbacks.** **Done:** see [DOM event listeners](dom-event-listeners.md). Lambdas and bound method references can be passed to `Element.addEventListener` and removed again, and they keep their receivers. Overloads that differ only in callback arity, which `Parts.on` relies on, are selected by callback shape.
 2. **Scoped handles and finalization-based release.** This covers the handle scheme below, peer release, liveness checks in listeners, and retaining in exported-class wrappers.
 
 ### Peers and lifetime

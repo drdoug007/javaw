@@ -2087,9 +2087,15 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     translateAtomicIntegerInstanceCall(call, collector, localTypes, localElementTypes, localJavaTypes);
                 } else if (DomHelper.isJsValueClass(scopeJavaType) || DomHelper.isJsValueClass(scopeStr)) {
                     translateJsInstanceCall(call, collector, localTypes, localElementTypes, localJavaTypes);
-                } else if (DomHelper.isDomInstanceMethod(mName) && !(scope.isNameExpr() && classRegistry != null && classRegistry.hasClass(scope.asNameExpr().getNameAsString())) && (scopeJavaType == null || classRegistry == null || !classRegistry.hasClass(scopeJavaType) || classRegistry.getClass(scopeJavaType).getMethodByName(mName) == null)) {
+                } else if ((DomHelper.isDomInstanceMethod(mName) || (mName.equals("removeEventListener") && call.getArguments().size() == 2)) && !(scope.isNameExpr() && classRegistry != null && classRegistry.hasClass(scope.asNameExpr().getNameAsString())) && (scopeJavaType == null || classRegistry == null || !classRegistry.hasClass(scopeJavaType) || classRegistry.getClass(scopeJavaType).getMethodByName(mName) == null)) {
                     translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
-                    if (mName.equals("getClassList")) {
+                    int listenerKind = domListenerKind(call, localJavaTypes);
+                    if (listenerKind >= 0) {
+                        translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
+                        translateExpression(call.getArgument(1), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                        collector.append("    i32.const ").append(listenerKind).append("\n");
+                        collector.append("    call $dom_").append(mName).append("Callback\n");
+                    } else if (mName.equals("getClassList")) {
                         // Leaves element handle on stack as ClassList handle
                     } else if (mName.equals("getContext2D")) {
                         collector.append("    call $dom_getContext2D\n");
@@ -5510,6 +5516,34 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         }
     }
 
+    /**
+     * Listener kind for Element.add/removeEventListener with a Java callback: 0 for Runnable, 1 for
+     * EventListener<Event>; -1 for the handler-name String form.
+     */
+    private int domListenerKind(MethodCallExpr call, Map<String, String> localJavaTypes) {
+        String mName = call.getNameAsString();
+        if (!mName.equals("addEventListener") && !mName.equals("removeEventListener")) return -1;
+        if (call.getArguments().size() != 2) return -1;
+        Expression listener = call.getArgument(1);
+        String type = getExpressionJavaType(listener, localJavaTypes);
+        boolean handlerName = type == null
+                ? listener.isStringLiteralExpr() || listener.isTextBlockLiteralExpr() || listener.isBinaryExpr()
+                : type.equals("String") || type.endsWith(".String");
+        if (type == null && !handlerName)
+            throw JavaSourcePreparation.error(call, "Cannot determine the DOM listener type; store the listener in an EventListener<Event> local");
+        if (handlerName) {
+            if (mName.equals("removeEventListener"))
+                throw JavaSourcePreparation.error(call, "removeEventListener requires the Runnable or EventListener<Event> object that was added");
+            return -1;
+        }
+        if (type.equals("null")) throw JavaSourcePreparation.error(call, "DOM listener must not be null");
+        if (classRegistry.asSuperType(type, "EventListener") != null) return 1;
+        if (classRegistry.asSuperType(type, DomCallbackSupport.RUN_TARGET) != null) return 0;
+        if (classRegistry.asSuperType(type, "Runnable") != null)
+            throw JavaSourcePreparation.error(call, "Runnable values are not supported as DOM listeners yet; pass a lambda or method reference directly, or store an EventListener<Event>");
+        throw JavaSourcePreparation.error(call, "DOM listener must be a Runnable or EventListener<Event>; found " + type);
+    }
+
     private void translateJsInstanceCall(MethodCallExpr call, StringBuilder collector, Map<String, String> localTypes, Map<String, String> localElementTypes, Map<String, String> localJavaTypes) {
         Expression scope = call.getScope().get();
         String mName = call.getNameAsString();
@@ -5571,6 +5605,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                    mName.equals("asBigInt") || mName.equals("asSymbol") || mName.equals("asObject") ||
                    mName.equals("asError")) {
             // handle is already on stack
+        } else if (mName.equals("asElement")) {
+            collector.append("    call $dom_js_asElement\n");
         } else if (mName.equals("get")) {
             translateDomStringArg(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes);
             collector.append("    call $dom_js_get\n");
