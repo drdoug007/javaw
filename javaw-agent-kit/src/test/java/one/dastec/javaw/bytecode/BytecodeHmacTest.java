@@ -181,6 +181,71 @@ class BytecodeHmacTest extends KitDifferential {
                 try{key.destroy();result+=",destroyed";}catch(DestroyFailedException e){result+=","+name(e)+":"+e.getMessage();}
                 return result+","+key.isDestroyed()+","+new DestroyFailedException("m").getMessage();
             }
+            // init(null) names the provider only until the JDK has picked one (first getMacLength/reset/update/doFinal or init).
+            static String nullInitAfter(String step){
+                try{
+                    Mac mac=Mac.getInstance("HmacSHA256");
+                    if(step.equals("length"))mac.getMacLength();
+                    if(step.equals("reset"))mac.reset();
+                    if(step.equals("update"))try{mac.update((byte)1);}catch(IllegalStateException e){}
+                    if(step.equals("init"))mac.init(new SecretKeySpec(utf8("Jefe"),"HmacSHA256"));
+                    if(step.equals("badInit"))try{mac.init(new PlainKey());}catch(InvalidKeyException e){}
+                    mac.init(null);
+                    return step+":accepted;";
+                }catch(GeneralSecurityException e){return step+":"+e.getMessage()+";";}
+            }
+            public static String nullKeyMessages(){
+                return nullInitAfter("fresh")+nullInitAfter("getAlgorithm")+nullInitAfter("length")+nullInitAfter("reset")+nullInitAfter("update")+nullInitAfter("init")+nullInitAfter("badInit");
+            }
+            // A key longer than the block, given to init while data is pending, is hashed on top of that data (JDK HmacCore).
+            public static String longKeyReinit(){
+                StringBuilder out=new StringBuilder();
+                try{
+                    byte[] longKey=new byte[150];for(int i=0;i<longKey.length;i++)longKey[i]=(byte)i;
+                    String[] algorithms={"HmacSHA256","HmacSHA512"};
+                    for(String algorithm:algorithms){
+                        Mac mac=Mac.getInstance(algorithm);
+                        mac.init(new SecretKeySpec(utf8("short"),algorithm));
+                        mac.update(utf8("pending"));
+                        mac.init(new SecretKeySpec(longKey,algorithm));
+                        out.append(HexFormat.of().formatHex(mac.doFinal(utf8("x"))).substring(0,16)).append(',');
+                        mac.update(new byte[0],0,0);
+                        mac.init(new SecretKeySpec(longKey,algorithm));
+                        out.append(HexFormat.of().formatHex(mac.doFinal(utf8("x"))).substring(0,16)).append(',');
+                        mac.update(utf8("dropped"));mac.reset();
+                        mac.init(new SecretKeySpec(longKey,algorithm));
+                        out.append(HexFormat.of().formatHex(mac.doFinal(utf8("x"))).substring(0,16)).append(';');
+                    }
+                }catch(GeneralSecurityException e){out.append(name(e));}
+                return out.toString();
+            }
+            // The JDK erases the array a key's getEncoded() returns, in Mac.init and SecretKeySpec.equals.
+            static final class SharedSecret implements SecretKey {
+                final byte[] bytes;final String algorithm;
+                SharedSecret(byte[] bytes,String algorithm){this.bytes=bytes;this.algorithm=algorithm;}
+                public String getAlgorithm(){return algorithm;}
+                public String getFormat(){return "RAW";}
+                public byte[] getEncoded(){return bytes;}
+            }
+            public static String erasesKeyBytes(){
+                StringBuilder out=new StringBuilder();
+                try{
+                    SharedSecret shortKey=new SharedSecret(new byte[]{1,2,3},"HmacSHA256");
+                    Mac.getInstance("HmacSHA256").init(shortKey);
+                    out.append(Arrays.toString(shortKey.bytes)).append(';');
+                    SharedSecret longKey=new SharedSecret(filled(70,7),"HmacSHA256");
+                    Mac.getInstance("HmacSHA256").init(longKey);
+                    out.append(longKey.bytes[0]).append(longKey.bytes[69]).append(';');
+                    SharedSecret compared=new SharedSecret(new byte[]{4,5},"AES");
+                    out.append(new SecretKeySpec(new byte[]{4,5},"aes").equals(compared)).append(Arrays.toString(compared.bytes)).append(';');
+                    SharedSecret otherName=new SharedSecret(new byte[]{4,5},"DES");
+                    out.append(new SecretKeySpec(new byte[]{4,5},"aes").equals(otherName)).append(Arrays.toString(otherName.bytes)).append(';');
+                    SecretKeySpec self=new SecretKeySpec(new byte[]{9},"AES");
+                    out.append(self.equals(self)).append(';');
+                    try{out.append(self.equals(new SharedSecret(new byte[]{9},null)));}catch(NullPointerException e){out.append(name(e));}
+                }catch(GeneralSecurityException e){out.append(name(e));}
+                return out.toString();
+            }
             public static String exceptionTypes(){
                 GeneralSecurityException a=new InvalidKeyException("bad");
                 KeyException b=new InvalidKeyException("why",new IllegalStateException("cause"));
@@ -204,6 +269,10 @@ class BytecodeHmacTest extends KitDifferential {
 
     @Test void secretKeySpecAndExceptions() throws Exception {
         matchesJvm(FIXTURE, "keySpec", "keySpecFailures", "keyEquality", "keyHashCodes", "destroyable", "exceptionTypes");
+    }
+
+    @Test void providerChoiceLongKeyReinitAndKeyErasure() throws Exception {
+        matchesJvm(FIXTURE, "nullKeyMessages", "longKeyReinit", "erasesKeyBytes");
     }
 
     @Test void leavesProviderParameterAndBufferMembersUnlinked() {

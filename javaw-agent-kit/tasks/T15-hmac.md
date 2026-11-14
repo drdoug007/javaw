@@ -58,7 +58,8 @@ the source compiler (javaw-core) still has no crypto. This task covers only the 
   `getAlgorithm()` returns the name as passed. `getMacLength()` = digest length, works before `init`.
 - Before `init`: `update(...)`, `doFinal()`, `doFinal(byte[])` throw `IllegalStateException("MAC not initialized")`;
   `reset()` and `getMacLength()` do not throw.
-- `init(key)`: `null` -> `InvalidKeyException("No installed provider supports this key: (null)")`; a `Key` that is not a
+- `init(key)`: `null` -> `InvalidKeyException("No installed provider supports this key: (null)")` on a Mac that has not
+  yet chosen a provider (after `getMacLength`/`reset`/`update`/`doFinal`/a successful `init`, the JDK says "Secret key expected"); a `Key` that is not a
   `SecretKey` -> `InvalidKeyException("Secret key expected")`; `getEncoded()` returns null ->
   `InvalidKeyException("Missing key data")`. Any `SecretKey` works, whatever its algorithm name (`"AES"` too).
 - HMAC: if the key is longer than the block, replace it by `digest(key)`. Pad with zeros to the block; `ipad = key ^ 0x36`,
