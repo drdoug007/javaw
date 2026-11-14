@@ -1,6 +1,5 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -8,7 +7,6 @@ import org.junit.jupiter.api.Test;
  * from the JVM; see tasks/T23-properties-load.md. Every fixture reports the puts in the order load makes them (through
  * a Properties subclass that overrides put), so no output depends on hash order.
  */
-@Tag("agent-pending")
 class BytecodePropertiesLoadTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.io.*;

@@ -2159,3 +2159,5 @@ StringWriter (v285): `java.io.StringWriter` and `CharArrayWriter` are linked, wi
 AtomicInteger and AtomicLong (v286): both are linked under the single-threaded contract, with JVM/Wasm evidence in `BytecodeAtomicIntegerLongTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-atomic-integer-long.md). Implemented by the local agent.
 
 AtomicBoolean and AtomicReference (v287): both are linked under the single-threaded contract, with JVM/Wasm evidence in `BytecodeAtomicBooleanReferenceTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-atomic-boolean-reference.md). Implemented by the local agent.
+
+Properties.load (v288): `Properties.load(Reader)` and `load(InputStream)` are linked with the JDK 21 line format, with JVM/Wasm evidence in `BytecodePropertiesLoadTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-properties-load.md). Implemented by the local agent unaided.
