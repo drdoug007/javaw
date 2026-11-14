@@ -20,7 +20,7 @@
 | T13 | MessageDigest with SHA-256 | - | done |
 | T14 | MessageDigest SHA-1, MD5 and SHA-512 | T13 | done |
 | T15 | SecretKeySpec and Mac (HMAC) | T12, T13, T14 | done |
-| T16 | Checksum, CRC32 and Adler32 | - | todo |
+| T16 | Checksum, CRC32 and Adler32 | - | done |
 | T17 | Base64 encoders and decoders | - | todo |
 | T18 | InputStream, ByteArrayInputStream and EOFException | - | todo |
 | T19 | ByteArrayOutputStream | - | todo |

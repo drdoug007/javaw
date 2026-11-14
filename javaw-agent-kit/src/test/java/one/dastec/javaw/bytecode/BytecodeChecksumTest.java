@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T16: java.util.zip.Checksum, CRC32 and Adler32. Expected values come from the JVM; see tasks/T16-checksums.md. */
-@Tag("agent-pending")
 class BytecodeChecksumTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.util.zip.Adler32;
