@@ -60,9 +60,6 @@ methods `int size()`, `boolean isEmpty()`, `Enumeration<K> keys()`, `Enumeration
 
 - `protected void rehash()`: name the private helper `grow()` instead. The test checks that `Hashtable.rehash()`
   stays unlinked, so do not declare any method called `rehash`.
-- `computeIfPresent`, `compute` and `merge`: do not write them. The `Map` interface defaults already work for
-  Hashtable (they call `get`/`put`/`remove`), and the test checks the basic results. (They differ from the JDK only
-  in `ConcurrentModificationException` detection.)
 - Serialization hooks (`writeObject`, `readObject`), the `Hashtable(Void)` constructor, the `loadFactor < 0`
   "hashCode in progress" trick for self-containing tables, and spliterators.
 
@@ -97,9 +94,11 @@ methods `int size()`, `boolean isEmpty()`, `Enumeration<K> keys()`, `Enumeration
   After unlinking, `remove(k)`, `remove(k, v)` and `EntrySet.remove` set the removed entry's `value = null` (the JDK
   does this; the iterator's `remove()` does not).
 - `clear()`: null every bucket, `count = 0`, `modCount++`. The capacity is kept.
-- `toString()`: `"{}"` when empty, else `"{" + key + "=" + value + ", " ... + "}"` in iteration order (`(this Map)`
-  for a key or value that is the table itself is not tested).
-- `equals(o)`: `o == this` -> true; not a `Map` or different size -> false; else every entry's
+- `toString()`: goes through the overridable `size()` and `entrySet()`, as the JDK does: `"{}"` when
+  `size() - 1 == -1`, else `"{" + key.toString() + "=" + value.toString() + ", " ... + "}"` from an `entrySet()`
+  iterator, printing `(this Map)` for a key or value that is the table itself.
+- `equals(o)`: `o == this` -> true; not a `Map` or `t.size() != size()` -> false; else for every entry of
+  `entrySet()`, a null value needs `t.get(key) == null && t.containsKey(key)` and any other value needs
   `value.equals(t.get(key))` (catch `ClassCastException` and `NullPointerException` -> false).
   `hashCode()`: sum over all entries of `entry.hashCode()`, where `Entry.hashCode() = hash ^ Objects.hashCode(value)`.
 - `clone()`: `(Hashtable<K,V>) super.clone()` in `try/catch (CloneNotSupportedException e) { throw new InternalError(); }`,
@@ -108,7 +107,8 @@ methods `int size()`, `boolean isEmpty()`, `Enumeration<K> keys()`, `Enumeration
   removing from the copy would change the original.
 - `Entry`: `getKey`, `getValue`, `setValue(v)` (`v == null` -> `new NullPointerException()`; returns the old value;
   writes through to the table), `equals(o)` (`o instanceof Map.Entry` with equal key and value), `hashCode()` as
-  above, `toString()` = `key + "=" + value`.
+  above, `toString()` = `key.toString() + "=" + value.toString()` (so an entry whose value a removal nulled throws
+  `NullPointerException`).
 - Enumerations and iterators share one class `Enumerator<T>` (type KEYS=0, VALUES=1, ENTRIES=2, and a flag `iterator`):
   - it captures `table` and `expectedModCount = modCount` when created, starts with `index = table.length`, and
     `hasMoreElements()`/`nextElement()` advance with `while (entry == null && index > 0) entry = table[--index];`;
@@ -132,6 +132,13 @@ methods `int size()`, `boolean isEmpty()`, `Enumeration<K> keys()`, `Enumeration
   `o.getKey()` and match `e.hash == hash && e.equals(o)`; `remove` unlinks, `count--`, `modCount++`. `add` stays
   the inherited `AbstractCollection.add` (throws `UnsupportedOperationException`).
 - Map defaults:
+  - `computeIfPresent(k, f)`, `compute(k, f)` and `merge(k, v, f)`: override them as JDK 21 does. Each starts with
+    `Objects.requireNonNull(f)` (merge checks only `f`, so a null `v` is allowed), then `key.hashCode()`. For a present
+    key, record `modCount`, apply `f` (`f(k, old)`; merge: `f(old, v)`), and throw `ConcurrentModificationException`
+    if `modCount` changed. A null result unlinks the entry with `count--` and `modCount = recorded + 1` **without**
+    clearing `entry.value`; otherwise store the new value. For an absent key, `computeIfPresent` returns null,
+    `compute` applies `f(k, null)`, checks `modCount` and adds a non-null result, and `merge` adds `v` if it is not
+    null and returns it.
   - `getOrDefault(k, d)`: `V v = get(k); return v == null ? d : v;`.
   - `forEach(action)`: `Objects.requireNonNull(action)` (even on an empty table), buckets 0 up, and after **each**
     `action.accept` `if (expectedModCount != modCount) throw new ConcurrentModificationException();`.
@@ -213,7 +220,7 @@ equality, hashing: equals: `o == this` -> true; `!(o instanceof Map)` -> false; 
 forEachOrder, forEachFailFast, replaceAll: forEach and replaceAll walk the buckets from index 0 UP (`for (Entry<?,?> slot : table)`, each chain from head), the opposite of the iterators (keys 1,12,2,13: forEach gives `12 1 13 2`); both start with Objects.requireNonNull of the function (even on an empty table) and after each entry check `if (expectedModCount != modCount) throw new ConcurrentModificationException();`; replaceAll stores `Objects.requireNonNull(function.apply(key, value))`, so a null result throws NPE after the earlier entries were already replaced.
 putIfAbsent, conditionalRemoveAndReplace, getOrDefault: Hashtable must override these Map defaults: putIfAbsent, remove(k, v), replace(k, v) and replace(k, old, v) start with Objects.requireNonNull on every value argument BEFORE looking up the key (so `t.remove("b", null)` and `t.replace("zz", null)` throw "NullPointerException: null"); remove(k, v) unlinks only when `e.value.equals(value)`; replace(k, old, v) returns false when the key is absent or its value does not equal old; getOrDefault is `V v = get(key); return v == null ? defaultValue : v;`.
 computeIfAbsent, computeIfAbsentFailFast: computeIfAbsent: Objects.requireNonNull(mappingFunction); if the key is present return its value without calling the function; else `int mc = modCount; V v = mappingFunction.apply(key); if (mc != modCount) throw new ConcurrentModificationException();` and addEntry only when v != null; return v. The Map default does not detect that the function changed the table.
-inheritedDefaults: merge, compute and computeIfPresent come from the Map interface defaults; do not write them. If this fixture fails, get/put/remove are wrong for the key the fixture uses.
+inheritedDefaults, computeFamilyKeepsRemovedValue, computeFamilyModCount, computeFamilyFailFast, mergeNullValue: compute, computeIfPresent and merge are Hashtable overrides (see Map defaults): unlink a null result without nulling entry.value, set modCount = recorded + 1, throw ConcurrentModificationException when the function changed the table, and let merge accept a null value.
 leavesOutRehash: this test fails when Hashtable.java declares a method named `rehash`; rename it to `private void grow()` and nothing else needs to change.
 ```
 

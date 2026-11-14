@@ -339,6 +339,68 @@ class BytecodeHashtableTest extends KitDifferential {
                 "computeIfAbsent", "computeIfAbsentFailFast", "inheritedDefaults");
     }
 
+    @Test void computeFamilyAndEntrySetForms() throws Exception {
+        matchesJvm(fixture("""
+                static class Sorted extends Hashtable<String,Integer>{
+                    public Set<Map.Entry<String,Integer>> entrySet(){return new TreeMap<>(Map.of("z",26)).entrySet();}
+                }
+                static class Shrunk extends Hashtable<String,Integer>{
+                    public int size(){return 0;}
+                }
+                public static String computeFamilyKeepsRemovedValue(){
+                    Hashtable<String,Integer> t=abc();List<Map.Entry<String,Integer>> held=new ArrayList<>();
+                    for(Map.Entry<String,Integer> e:t.entrySet())held.add(e);
+                    Enumeration<Integer> values=t.elements();values.hasMoreElements();
+                    Integer a=t.computeIfPresent("a",(k,v)->null),b=t.compute("b",(k,v)->null),c=t.merge("c",9,(x,y)->null);
+                    StringBuilder out=new StringBuilder(a+","+b+","+c+"|");
+                    for(Map.Entry<String,Integer> e:held)out.append(e.getValue()).append(' ').append(e).append(' ');
+                    out.append('|');
+                    while(values.hasMoreElements())out.append(values.nextElement()).append(' ');
+                    return out.toString().trim()+"|"+t+t.size();
+                }
+                public static String computeFamilyModCount(){
+                    Hashtable<String,Integer> t=abc();Iterator<String> it=t.keySet().iterator();
+                    t.compute("a",(k,v)->v+1);t.merge("b",1,Integer::sum);t.computeIfPresent("c",(k,v)->v*2);
+                    String kept=it.next();
+                    t.computeIfPresent("a",(k,v)->null);
+                    String removed=type(()->it.next());
+                    Iterator<String> it2=t.keySet().iterator();t.compute("q",(k,v)->5);
+                    return kept+"|"+removed+"|"+type(()->it2.next())+"|"+t;
+                }
+                public static String computeFamilyFailFast(){
+                    Hashtable<String,Integer> t=abc();
+                    String a=type(()->t.compute("a",(k,v)->{t.put("x",1);return 7;}));
+                    String b=type(()->t.compute("new",(k,v)->{t.remove("b");return 7;}));
+                    String c=type(()->t.computeIfPresent("c",(k,v)->{t.put("y",2);return null;}));
+                    String d=type(()->t.merge("a",4,(x,y)->{t.remove("x");return x+y;}));
+                    String e=type(()->t.merge("c",4,(x,y)->{t.put("c",9);return null;}));
+                    return a+","+b+","+c+","+d+","+e+"|"+t+t.size();
+                }
+                public static String mergeNullValue(){
+                    Hashtable<String,Integer> t=new Hashtable<>();t.put("p",1);t.put("q",2);
+                    Integer a=t.merge("absent",null,(x,y)->x),b=t.merge("p",null,(x,y)->x+10),c=t.merge("q",null,(x,y)->y);
+                    return a+","+b+","+c+"|"+t+"|"+failure(()->t.merge("p",1,null))+"|"+type(()->t.merge(null,1,(x,y)->x));
+                }
+                public static String entrySetDrivenForms(){
+                    Hashtable<String,Integer> s=new Sorted();s.put("a",1);
+                    Hashtable<String,Integer> z=new Shrunk();z.put("a",1);
+                    return s+"|"+s.equals(Map.of("a",1))+","+s.equals(Map.of("z",26))+"|"+z+"|"+z.equals(Map.of())+","+z.equals(Map.of("a",1));
+                }
+                public static String selfReference(){
+                    Hashtable<Object,Object> t=new Hashtable<>();t.put("me",t);
+                    String one=t.toString();t.put(t.size(),"k");
+                    return one+"|"+t;
+                }
+                public static String removedEntryToString(){
+                    Hashtable<String,Integer> t=abc();Map.Entry<String,Integer> e=t.entrySet().iterator().next();
+                    String before=e.toString();t.remove(e.getKey());
+                    Hashtable<String,Integer> u=abc();Iterator<Map.Entry<String,Integer>> it=u.entrySet().iterator();Map.Entry<String,Integer> f=it.next();it.remove();
+                    return before+"|"+type(()->e.toString())+"|"+e.getValue()+"|"+f;
+                }
+            """), "computeFamilyKeepsRemovedValue", "computeFamilyModCount", "computeFamilyFailFast", "mergeNullValue",
+                "entrySetDrivenForms", "selfReference", "removedEntryToString");
+    }
+
     @Test void leavesOutRehash() {
         rejectsUnusedCall("java/util/Hashtable", "rehash", "()V", INVOKEVIRTUAL, false);
     }
