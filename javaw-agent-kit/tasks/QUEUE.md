@@ -24,5 +24,5 @@
 | T17 | Base64 encoders and decoders | - | done |
 | T18 | InputStream, ByteArrayInputStream and EOFException | - | blocked |
 | T19 | ByteArrayOutputStream | - | done |
-| T20 | Reader and StringReader | - | todo |
+| T20 | Reader and StringReader | - | done |
 | T21 | Dictionary and Hashtable | - | todo |

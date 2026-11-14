@@ -2143,3 +2143,5 @@ Checksums (v277): `java.util.zip.Checksum`, `CRC32` and `Adler32` are linked, wi
 Base64 (v278): `java.util.Base64` encoders and decoders (basic, URL and MIME) are linked without `wrap` and the `ByteBuffer` overloads, with JVM/Wasm evidence in `BytecodeBase64Test` (in `javaw-agent-kit`); see [the contract](docs/bytecode-base64.md). Implemented by the local agent; the reviewer fixed two MIME decoder edge cases.
 
 ByteArrayOutputStream (v279): `java.io.ByteArrayOutputStream` is linked, with JVM/Wasm evidence in `BytecodeByteArrayOutputStreamTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-byte-array-output-stream.md). Implemented by the local agent; the reviewer aligned growth overflow with the JDK.
+
+Reader (v280): `java.io.Reader` and `StringReader` are linked, without `Readable`/`read(CharBuffer)`, with JVM/Wasm evidence in `BytecodeReaderTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-reader.md). Implemented by the local agent unaided.

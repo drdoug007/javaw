@@ -123,6 +123,8 @@ public final class BytecodeExceptionRuntime {
             paths.add("java/util/zip/CRC32.java");
             paths.add("java/util/zip/Adler32.java");
             paths.add("java/io/ByteArrayOutputStream.java");
+            paths.add("java/io/Reader.java");
+            paths.add("java/io/StringReader.java");
             paths.add("javaw/runtime/ExceptionSupport.java");
             paths.add("javaw/runtime/ReflectionSupport.java");
             paths.add("javaw/runtime/Decimal.java");

@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T20: java.io.Reader and java.io.StringReader. Expected values come from the JVM; see tasks/T20-reader.md. */
-@Tag("agent-pending")
 class BytecodeReaderTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.io.Closeable;
