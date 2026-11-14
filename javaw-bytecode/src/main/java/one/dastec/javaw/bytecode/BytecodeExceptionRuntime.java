@@ -136,6 +136,8 @@ public final class BytecodeExceptionRuntime {
             paths.add("java/io/CharArrayWriter.java");
             paths.add("java/util/concurrent/atomic/AtomicInteger.java");
             paths.add("java/util/concurrent/atomic/AtomicLong.java");
+            paths.add("java/util/concurrent/atomic/AtomicBoolean.java");
+            paths.add("java/util/concurrent/atomic/AtomicReference.java");
             paths.add("javaw/runtime/ExceptionSupport.java");
             paths.add("javaw/runtime/ReflectionSupport.java");
             paths.add("javaw/runtime/Decimal.java");

@@ -2157,3 +2157,5 @@ DataOutputStream (v284): `java.io.FilterOutputStream`, `DataOutput`, `DataOutput
 StringWriter (v285): `java.io.StringWriter` and `CharArrayWriter` are linked, with JVM/Wasm evidence in `BytecodeStringWriterTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-string-writer.md). Implemented by the local agent.
 
 AtomicInteger and AtomicLong (v286): both are linked under the single-threaded contract, with JVM/Wasm evidence in `BytecodeAtomicIntegerLongTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-atomic-integer-long.md). Implemented by the local agent.
+
+AtomicBoolean and AtomicReference (v287): both are linked under the single-threaded contract, with JVM/Wasm evidence in `BytecodeAtomicBooleanReferenceTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-atomic-boolean-reference.md). Implemented by the local agent.

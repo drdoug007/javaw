@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T29: java.util.concurrent.atomic.AtomicBoolean and AtomicReference. Expected values come from the JVM; see tasks/T29-atomic-boolean-reference.md. */
-@Tag("agent-pending")
 class BytecodeAtomicBooleanReferenceTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.util.concurrent.atomic.AtomicBoolean;
