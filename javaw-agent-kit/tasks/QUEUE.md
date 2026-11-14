@@ -26,3 +26,4 @@
 | T19 | ByteArrayOutputStream | - | done |
 | T20 | Reader and StringReader | - | done |
 | T21 | Dictionary and Hashtable | - | done |
+| T22 | Properties on top of Hashtable | T21 | todo |
