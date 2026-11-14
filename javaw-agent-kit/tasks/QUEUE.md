@@ -33,4 +33,4 @@
 | T26 | StringWriter and CharArrayWriter | - | done |
 | T27 | PrintWriter over a Writer | T26 | todo |
 | T28 | AtomicInteger and AtomicLong | - | done |
-| T29 | AtomicBoolean and AtomicReference | - | blocked |
+| T29 | AtomicBoolean and AtomicReference | - | todo |
