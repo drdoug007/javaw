@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T15: javax.crypto.Mac (HMAC) and SecretKeySpec. Expected values come from the JVM; see tasks/T15-hmac.md. */
-@Tag("agent-pending")
 class BytecodeHmacTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.nio.charset.StandardCharsets;

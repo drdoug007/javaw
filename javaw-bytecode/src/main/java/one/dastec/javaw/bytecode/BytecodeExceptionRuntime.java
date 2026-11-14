@@ -110,6 +110,15 @@ public final class BytecodeExceptionRuntime {
             paths.add("javaw/runtime/Sha1.java");
             paths.add("javaw/runtime/Md5.java");
             paths.add("javaw/runtime/Sha512.java");
+            paths.add("java/security/Key.java");
+            paths.add("java/security/KeyException.java");
+            paths.add("java/security/InvalidKeyException.java");
+            paths.add("java/security/spec/KeySpec.java");
+            paths.add("javax/security/auth/Destroyable.java");
+            paths.add("javax/security/auth/DestroyFailedException.java");
+            paths.add("javax/crypto/SecretKey.java");
+            paths.add("javax/crypto/spec/SecretKeySpec.java");
+            paths.add("javax/crypto/Mac.java");
             paths.add("javaw/runtime/ExceptionSupport.java");
             paths.add("javaw/runtime/ReflectionSupport.java");
             paths.add("javaw/runtime/Decimal.java");
