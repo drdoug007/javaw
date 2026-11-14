@@ -26,7 +26,7 @@
 | T19 | ByteArrayOutputStream | - | done |
 | T20 | Reader and StringReader | - | done |
 | T21 | Dictionary and Hashtable | - | done |
-| T22 | Properties on top of Hashtable | T21 | todo |
+| T22 | Properties on top of Hashtable | T21 | blocked |
 | T23 | Properties.load from Reader and InputStream | T22, T20, T18 | todo |
 | T24 | FilterOutputStream, DataOutput and DataOutputStream | - | blocked |
 | T25 | FilterInputStream, DataInput and DataInputStream | T18, T24 | todo |
