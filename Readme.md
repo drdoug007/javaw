@@ -2151,3 +2151,5 @@ Hashtable (v281): `java.util.Dictionary` and a monitor-free `java.util.Hashtable
 InputStream (v282): `java.io.InputStream`, `ByteArrayInputStream` and `EOFException` are linked, with JVM/Wasm evidence in `BytecodeInputStreamTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-input-stream.md). Implemented by the local agent; the reviewer matched JDK 21's bulk-read and transfer call sequences.
 
 Properties (v283): `java.util.Properties` is linked on the runtime `Hashtable`, with JVM/Wasm evidence in `BytecodePropertiesTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-properties.md), including its known iteration-order differences. Implemented by the local agent. The System-property contract that used to be at that path is now [docs/bytecode-system-properties.md](docs/bytecode-system-properties.md).
+
+DataOutputStream (v284): `java.io.FilterOutputStream`, `DataOutput`, `DataOutputStream` and `UTFDataFormatException` are linked, with JVM/Wasm evidence in `BytecodeDataOutputStreamTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-data-output-stream.md). Implemented by the local agent.

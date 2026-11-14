@@ -128,6 +128,10 @@ public final class BytecodeExceptionRuntime {
             paths.add("java/io/EOFException.java");
             paths.add("java/io/InputStream.java");
             paths.add("java/io/ByteArrayInputStream.java");
+            paths.add("java/io/UTFDataFormatException.java");
+            paths.add("java/io/DataOutput.java");
+            paths.add("java/io/FilterOutputStream.java");
+            paths.add("java/io/DataOutputStream.java");
             paths.add("javaw/runtime/ExceptionSupport.java");
             paths.add("javaw/runtime/ReflectionSupport.java");
             paths.add("javaw/runtime/Decimal.java");

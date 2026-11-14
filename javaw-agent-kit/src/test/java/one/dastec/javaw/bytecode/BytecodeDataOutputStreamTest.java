@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T24: java.io.FilterOutputStream, DataOutput, DataOutputStream and UTFDataFormatException. Expected values come from the JVM; see tasks/T24-data-output-stream.md. */
-@Tag("agent-pending")
 class BytecodeDataOutputStreamTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.io.ByteArrayOutputStream;
