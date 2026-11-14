@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T26: java.io.StringWriter and java.io.CharArrayWriter. Expected values come from the JVM; see tasks/T26-string-writer.md. */
-@Tag("agent-pending")
 class BytecodeStringWriterTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.io.CharArrayWriter;

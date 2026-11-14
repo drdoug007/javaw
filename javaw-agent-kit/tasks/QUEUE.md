@@ -30,7 +30,7 @@
 | T23 | Properties.load from Reader and InputStream | T22, T20, T18 | todo |
 | T24 | FilterOutputStream, DataOutput and DataOutputStream | - | done |
 | T25 | FilterInputStream, DataInput and DataInputStream | T18, T24 | todo |
-| T26 | StringWriter and CharArrayWriter | - | todo |
+| T26 | StringWriter and CharArrayWriter | - | done |
 | T27 | PrintWriter over a Writer | T26 | todo |
 | T28 | AtomicInteger and AtomicLong | - | blocked |
 | T29 | AtomicBoolean and AtomicReference | - | blocked |
