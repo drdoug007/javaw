@@ -21,3 +21,4 @@
 | T14 | MessageDigest SHA-1, MD5 and SHA-512 | T13 | done |
 | T15 | SecretKeySpec and Mac (HMAC) | T12, T13, T14 | done |
 | T16 | Checksum, CRC32 and Adler32 | - | todo |
+| T17 | Base64 encoders and decoders | - | todo |
