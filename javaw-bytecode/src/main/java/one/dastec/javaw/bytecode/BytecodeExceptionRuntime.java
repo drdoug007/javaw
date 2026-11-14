@@ -107,6 +107,9 @@ public final class BytecodeExceptionRuntime {
             paths.add("javaw/runtime/Digests.java");
             paths.add("javaw/runtime/BlockDigest.java");
             paths.add("javaw/runtime/Sha256.java");
+            paths.add("javaw/runtime/Sha1.java");
+            paths.add("javaw/runtime/Md5.java");
+            paths.add("javaw/runtime/Sha512.java");
             paths.add("javaw/runtime/ExceptionSupport.java");
             paths.add("javaw/runtime/ReflectionSupport.java");
             paths.add("javaw/runtime/Decimal.java");

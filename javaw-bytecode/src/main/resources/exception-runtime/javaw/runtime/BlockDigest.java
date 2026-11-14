@@ -80,13 +80,15 @@ public abstract class BlockDigest extends MessageDigest implements Cloneable {
         } else {
             zeroBlock(used);
         }
+        // Only the low 8 bytes of the length field can be non-zero; zeroBlock already cleared the rest
+        // (a long shift by 64 or more would wrap and repeat the count in SHA-512's high 8 bytes).
         long bits = count * 8;
         if (littleEndian) {
-            for (int i = 0; i < lengthBytes; i++) {
+            for (int i = 0; i < 8; i++) {
                 buffer[blockSize - lengthBytes + i] = (byte) (bits >>> (8 * i));
             }
         } else {
-            for (int i = 0; i < lengthBytes; i++) {
+            for (int i = 0; i < 8; i++) {
                 buffer[blockSize - 1 - i] = (byte) (bits >>> (8 * i));
             }
         }

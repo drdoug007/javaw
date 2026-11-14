@@ -18,5 +18,5 @@
 | T11 | BitSet: bulk operations, equality and conversions | T10 | done |
 | T12 | HexFormat | - | done |
 | T13 | MessageDigest with SHA-256 | - | done |
-| T14 | MessageDigest SHA-1, MD5 and SHA-512 | T13 | todo |
+| T14 | MessageDigest SHA-1, MD5 and SHA-512 | T13 | done |
 | T15 | SecretKeySpec and Mac (HMAC) | T12, T13, T14 | todo |

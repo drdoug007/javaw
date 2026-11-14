@@ -1,13 +1,11 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /**
  * T14: MessageDigest MD5, SHA-1, SHA-512 and SHA-384. Expected values come from the JDK 21 JVM (the kit's oracle);
  * see tasks/T14-message-digest-algorithms.md. The MD5 OID aliases are not checked: JDK 17 rejects them, JDK 21 accepts them.
  */
-@Tag("agent-pending")
 class BytecodeMessageDigestAlgorithmsTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.nio.charset.StandardCharsets;
