@@ -534,7 +534,7 @@
 
                     if (args.length === 2 && args[0] === '__RAW_PTR__') {
                         this.__ptr = args[1];
-                        runtime.getOrCreateHandle(this);
+                        runtime.retainWrapper(this);
                         return;
                     }
 
@@ -560,7 +560,7 @@
                     }
 
                     this.__ptr = ptr;
-                    runtime.getOrCreateHandle(this);
+                    runtime.retainWrapper(this);
 
                     if (matchedCons) {
                         const initFnName = matchedCons.exportFunctionName;
@@ -622,6 +622,21 @@
                 if (typeof window !== 'undefined') window[exportName] = JavaExportedClass;
                 if (typeof global !== 'undefined') global[exportName] = JavaExportedClass;
             }
+        }
+
+        // A JS wrapper of an exported Java object keeps that object alive: it holds one retain, released when
+        // the wrapper is garbage collected. Wrappers are not entered in the strong global handle table.
+        retainWrapper(wrapper) {
+            if (!wrapper.__ptr) return;
+            this.retain(wrapper.__ptr);
+            if (!this.wrapperFinalizer) {
+                this.wrapperStats = { retained: 0, finalized: 0 };
+                this.wrapperFinalizer = typeof FinalizationRegistry === 'function'
+                    ? new FinalizationRegistry(ptr => { this.releaseQuietly(ptr); this.wrapperStats.finalized++; })
+                    : null;
+            }
+            this.wrapperStats.retained++;
+            if (this.wrapperFinalizer) this.wrapperFinalizer.register(wrapper, wrapper.__ptr);
         }
 
         _marshalArgument(val, paramDef) {
@@ -869,6 +884,8 @@
 
         getOrCreateHandle(element) {
             if (element === null) return 0;
+            const scope = element && typeof element === 'object' && element.nodeType ? this.scopeFor(element) : null;
+            if (scope) return this.scopedHandle(scope, element);
             if (element === undefined) {
                 if (this.reverseMap.has(undefined)) {
                     return this.reverseMap.get(undefined);
@@ -888,7 +905,8 @@
         }
 
         getElement(handle) {
-            if (!handle || handle <= 0) return null;
+            if (handle < 0) return this.resolveScopedHandle(handle);
+            if (!handle) return null;
             if (this.handleMap.has(handle)) {
                 return this.handleMap.get(handle);
             }
@@ -1080,13 +1098,124 @@
             }
         }
 
+        // Scoped handles (docs/dom-handle-scopes.md). A scope belongs to a host element. Nodes that are the
+        // host, or whose root node is the scope's shadow root, get negative handles that resolve through
+        // the scope stored on the host. The global map holds only WeakRefs, so the host, its scope and its
+        // subtree can be collected; a FinalizationRegistry then releases what the scope retained.
+        ensureScopeState() {
+            if (this.scopedHandles) return;
+            this.scopedHandles = new Map();
+            this.nextScopedHandle = 1;
+            this.scopeStats = { created: 0, released: 0, finalized: 0 };
+            this.scopeFinalizer = typeof FinalizationRegistry === 'function'
+                ? new FinalizationRegistry(held => this.reclaimScope(held, true))
+                : null;
+        }
+
+        createHandleScope(host, options = {}) {
+            if (!host || typeof host !== 'object') throw new TypeError('createHandleScope requires a host element');
+            if (host.__javawScope && !host.__javawScope.released) throw new Error('element already has a handle scope');
+            this.ensureScopeState();
+            // Everything a finalizer needs is held here; it must never reference the host.
+            const held = { handles: new Set(), closures: new Set(), peer: options.peer || 0, done: false };
+            const scope = { host, root: options.root || null, nodes: new Map(), reverse: new Map(),
+                listeners: new Map(), held, released: false };
+            if (held.peer) this.retain(held.peer);
+            Object.defineProperty(host, '__javawScope', { value: scope, configurable: true, writable: true, enumerable: false });
+            if (this.scopeFinalizer) this.scopeFinalizer.register(host, held, scope);
+            this.scopeStats.created++;
+            return scope;
+        }
+
+        setScopeRoot(scope, root) {
+            scope.root = root;
+        }
+
+        scopeFor(node) {
+            if (!this.scopedHandles) return null;
+            let scope = node.__javawScope;
+            if ((!scope || scope.released) && typeof node.getRootNode === 'function') {
+                const root = node.getRootNode();
+                const owner = root && root.host && root.host.__javawScope;
+                if (owner && owner.root === root) scope = owner;
+            }
+            return scope && !scope.released ? scope : null;
+        }
+
+        scopedHandle(scope, node) {
+            const existing = scope.reverse.get(node);
+            if (existing) return existing;
+            const handle = -(this.nextScopedHandle++);
+            scope.nodes.set(handle, node);
+            scope.reverse.set(node, handle);
+            scope.held.handles.add(handle);
+            this.scopedHandles.set(handle, new WeakRef(scope));
+            return handle;
+        }
+
+        resolveScopedHandle(handle) {
+            const ref = this.scopedHandles && this.scopedHandles.get(handle);
+            const scope = ref && ref.deref();
+            if (!scope || scope.released) this.elementReleased();
+            return scope.nodes.has(handle) ? scope.nodes.get(handle) : null;
+        }
+
+        // Throws java.lang.IllegalStateException("element released") into the calling Java frame.
+        elementReleased() {
+            const thrower = this.instance && this.instance.exports.__javaw_elementReleased;
+            if (thrower) thrower();
+            throw new Error('element released');
+        }
+
+        releaseHandleScope(scope) {
+            if (!scope || scope.released) return;
+            scope.released = true;
+            for (const record of scope.listeners.values()) {
+                if (typeof record.el.removeEventListener === 'function') record.el.removeEventListener(record.type, record.fn);
+                const byKey = this.callbackListeners && this.callbackListeners.get(record.el);
+                if (byKey && byKey.get(record.key) === record.fn) byKey.delete(record.key);
+            }
+            scope.listeners.clear();
+            if (this.scopeFinalizer) this.scopeFinalizer.unregister(scope);
+            this.reclaimScope(scope.held, false);
+            scope.nodes.clear();
+            scope.reverse.clear();
+        }
+
+        reclaimScope(held, finalized) {
+            if (held.done) return;
+            held.done = true;
+            for (const handle of held.handles) this.scopedHandles.delete(handle);
+            held.handles.clear();
+            for (const ptr of held.closures) this.releaseQuietly(ptr);
+            held.closures.clear();
+            if (held.peer) this.releaseQuietly(held.peer);
+            held.peer = 0;
+            if (finalized) this.scopeStats.finalized++;
+            else this.scopeStats.released++;
+        }
+
+        // Releases from finalizers and scope teardown must not stop at the first failure or escape a host task.
+        releaseQuietly(ptr) {
+            try { this.release(ptr); } catch (error) { console.error('[JAVAW] release failed for', ptr, error); }
+        }
+
+        getHandleStats() {
+            return {
+                global: this.handleMap.size,
+                scoped: this.scopedHandles ? this.scopedHandles.size : 0,
+                scopes: this.scopeStats ? { ...this.scopeStats } : { created: 0, released: 0, finalized: 0 },
+            };
+        }
+
         // Instance-bound listeners. The closure pointer is retained while the listener is registered and
         // released by removeEventListenerCallback or, if the element is collected first, by finalization.
         listenerRegistry(el) {
             if (!this.callbackListeners) {
                 this.callbackListeners = new WeakMap();
+                this.listenerOwners = new WeakMap();
                 this.callbackFinalizer = typeof FinalizationRegistry === 'function'
-                    ? new FinalizationRegistry(ptr => { try { this.release(ptr); } catch (ignored) {} })
+                    ? new FinalizationRegistry(ptr => this.releaseQuietly(ptr))
                     : null;
             }
             let byKey = this.callbackListeners.get(el);
@@ -1106,9 +1235,21 @@
             if (listeners.has(key)) return; // Same listener object and type: ignored, as in the DOM.
             this.retain(closurePtr);
             const runtime = this;
-            const fn = function (event) { runtime.invokeListener(closurePtr, kind, event, type); };
+            // A listener belongs to the scope of its node, whichever handle was used to add it.
+            const scope = this.scopeFor(el);
+            const fn = scope
+                ? function (event) { if (!scope.released) runtime.invokeListener(closurePtr, kind, event, type); }
+                : function (event) { runtime.invokeListener(closurePtr, kind, event, type); };
             listeners.set(key, fn);
-            if (this.callbackFinalizer) this.callbackFinalizer.register(fn, closurePtr, fn);
+            if (scope) {
+                // The scope releases the closure on release or finalization; a node removed by the renderer
+                // but still held by JS then dispatches to a listener that does nothing.
+                scope.listeners.set(fn, { el, type, fn, ptr: closurePtr, key });
+                scope.held.closures.add(closurePtr);
+                this.listenerOwners.set(fn, scope);
+            } else if (this.callbackFinalizer) {
+                this.callbackFinalizer.register(fn, closurePtr, fn);
+            }
             el.addEventListener(type, fn);
         }
 
@@ -1122,7 +1263,14 @@
             if (!fn) return;
             listeners.delete(key);
             if (typeof el.removeEventListener === 'function') el.removeEventListener(type, fn);
-            if (this.callbackFinalizer) this.callbackFinalizer.unregister(fn);
+            const owner = this.listenerOwners.get(fn);
+            if (owner) {
+                this.listenerOwners.delete(fn);
+                owner.listeners.delete(fn);
+                owner.held.closures.delete(closurePtr);
+            } else if (this.callbackFinalizer) {
+                this.callbackFinalizer.unregister(fn);
+            }
             this.release(closurePtr);
         }
 

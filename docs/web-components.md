@@ -315,7 +315,7 @@ A JS property that was set on an element before it was upgraded becomes an own d
 
 ### Collector safepoint
 
-When `__wc_flush` returns, no Wasm frame is active. That is half of the [safepoint condition](memory-management.md#root-set). The other half is that host code retains every Wasm pointer it keeps across a task or microtask boundary. Today's exported-class wrappers (`javaw-runtime.js`, `bindExportedClasses`) store `this.__ptr` without retaining it. So the runtime option to call `__gc_collect` after `__wc_flush` stays **off by default**. It can only be enabled once the wrappers retain their pointers in the constructor and release them through finalization. That wrapper change is part of the second prerequisite.
+When `__wc_flush` returns, no Wasm frame is active. That is half of the [safepoint condition](memory-management.md#root-set). The other half is that host code retains every Wasm pointer it keeps across a task or microtask boundary. Exported-class wrappers now do this: they retain in the constructor and release through finalization ([DOM handle scopes](dom-handle-scopes.md#exported-class-wrappers)). The runtime option to call `__gc_collect` after `__wc_flush` still stays **off by default** until M2 audits the remaining host code that keeps pointers.
 
 ### Errors
 
@@ -380,7 +380,7 @@ On upgrade and parse, `attributeChangedCallback` runs for each initial observed 
 ### Prerequisites
 
 1. **Instance-bound JS callbacks.** **Done:** see [DOM event listeners](dom-event-listeners.md). Lambdas and bound method references can be passed to `Element.addEventListener` and removed again, and they keep their receivers. Overloads that differ only in callback arity, which `Parts.on` relies on, are selected by callback shape.
-2. **Scoped handles and finalization-based release.** This covers the handle scheme below, peer release, liveness checks in listeners, and retaining in exported-class wrappers.
+2. **Scoped handles and finalization-based release.** **Done:** see [DOM handle scopes](dom-handle-scopes.md). It covers the handle scheme below, peer release, liveness checks in listeners, and retaining in exported-class wrappers. M1 creates the scope from each custom element's constructor.
 
 ### Peers and lifetime
 
@@ -388,8 +388,8 @@ Each element has a Java peer. The JS element holds the peer pointer under a coun
 
 The existing handle table (`handleMap`/`reverseMap` in `javaw-runtime.js`) holds elements strongly and never releases them. A component node handed out through that table pins its whole component, because a shadow-tree node reaches its host through `getRootNode().host`. Components therefore use **scoped handles**:
 
-- **Encoding.** A scoped handle is a negative `i32` that encodes `(scopeId, index)`, so it never collides with a global handle. `getElement` decodes it, so existing DOM imports accept both kinds. Inline `@JS` parameters never apply their string-pointer fallback to negative handles.
-- **Storage.** The runtime keeps `scopes: Map<scopeId, WeakRef<scope>>`. The scope object lives on the JS element, so the element, its scope and its subtree form an ordinary JS object graph with no strong global reference. The finalization callback deletes the map entry.
+- **Encoding.** A scoped handle is a negative `i32` from a monotonic counter, so it never collides with a global handle. `getElement` resolves it, so existing DOM imports accept both kinds. Inline `@JS` parameters never apply their string-pointer fallback to negative handles.
+- **Storage.** The runtime keeps `scopedHandles: Map<handle, WeakRef<scope>>`. The scope object lives on the JS element, so the element, its scope and its subtree form an ordinary JS object graph with no strong global reference. The finalization callback deletes the scope's entries.
 - **Which values are scoped.** Any `Element` value returned to Wasm whose node is a component host, or whose `getRootNode()` is a component's shadow root, is a scoped handle in that component's scope. This covers `host()`, `renderRoot()`, `@Query`, `ref`, `Event.target()`/`currentTarget()`, and traversal inside the subtree. Nodes in the light DOM keep using the global table, with its current lifetime.
 - **Release.** On release, the runtime sets `scope.released = true` before calling `runtime.release(peer)`. After that, resolving a handle in the scope throws `IllegalStateException("element released")`.
 - **Java references.** A Java reference to a component object does not keep its element alive. Once the element has been finalized, the component is *released*: its lifecycle and DOM calls throw `IllegalStateException("element released")`, while its fields can still be read. Storing scoped handles outside their component is unsupported.

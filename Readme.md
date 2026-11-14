@@ -242,6 +242,7 @@ Phase 1 source-resolution foundations and source-backed Optional/closures are im
   - Zero-copy UTF-8 text decoding from WebAssembly linear memory (`instance.exports.memory.buffer`).
   - Bi-directional event dispatching mapping browser DOM events to exported WebAssembly handler functions.
   - Instance-bound listeners: `Element.addEventListener(type, e -> ...)`, `this::method` and `removeEventListener` keep the Java receiver and captured values. The runtime retains each closure until the listener is removed, and `Event` exposes `type()`, `target()`, `preventDefault()` and the raw `JSObject`. Values of type `Runnable` are diagnosed rather than accepted. See [DOM event listeners](docs/dom-event-listeners.md) and `DomCallbackTest`.
+  - Scoped DOM handles: `runtime.createHandleScope(host, {peer, root})` gives a host element and the nodes of its shadow root collectable, negative handles. Releasing the scope, or garbage-collecting the host, frees the scope's listener closures and its retained Java peer. A stale handle throws `IllegalStateException` in Java. `@JS.Export` wrappers now keep their Java object alive until the wrapper is finalized. See [DOM handle scopes](docs/dom-handle-scopes.md) and `DomHandleScopeTest`.
   - Same-instance deferred thread spawning (`setTimeout`; no Web Workers yet), timer queues, and WASI standard streams.
 - **Arithmetic & Primitive Types**:
   - Primitive and return type mapping (`void`, `int`, `boolean`, `char`, `long`, `float`, `double`).

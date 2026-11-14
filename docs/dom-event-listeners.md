@@ -46,7 +46,7 @@ The host import `dom.addEventListenerCallback(element, typePtr, typeLen, closure
 
 `dom.removeEventListenerCallback` removes the JS function and calls `runtime.release(closurePtr)`. That makes the closure collectable once nothing else references it, and `DomCallbackTest` checks that live bytes return to their baseline.
 
-A `FinalizationRegistry` on the JS function also releases the closure if the function is garbage collected without being removed. Release is best-effort. In practice, an element obtained through the existing global handle table is never collected, because that table holds elements strongly. A listener on such an element therefore stays retained until it is removed. The scoped handles of the [second prerequisite](web-components.md#peers-and-lifetime) address this.
+A `FinalizationRegistry` on the JS function also releases the closure if the function is garbage collected without being removed. Release is best-effort. In practice, an element obtained through the existing global handle table is never collected, because that table holds elements strongly. A listener on such an element therefore stays retained until it is removed. Listeners on nodes with [scoped handles](dom-handle-scopes.md#listeners-inside-a-scope) are released together with their scope instead.
 
 Retaining and releasing only update a counter, so it is safe to do inside an active Wasm call. The collector still runs only at host safepoints ([memory management](memory-management.md)).
 

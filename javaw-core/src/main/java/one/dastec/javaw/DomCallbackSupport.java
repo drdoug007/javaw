@@ -29,6 +29,13 @@ final class DomCallbackSupport {
     private DomCallbackSupport() {}
 
     static void addTypes(CompilationUnit cu) {
+        if (usesDom(cu))
+            // The runtime calls this export when a released scoped handle is used, so the failure is a Java exception.
+            LibrarySupport.add(cu, DOM_PACKAGE, """
+                class __JavawDomErrors {
+                    public static void __javaw_elementReleased() { throw new IllegalStateException("element released"); }
+                }
+                """);
         if (!needed(cu)) return;
         for (TypeDeclaration<?> type : cu.findAll(TypeDeclaration.class))
             if (TYPES.contains(type.getNameAsString()))
@@ -64,6 +71,10 @@ final class DomCallbackSupport {
         if (call.getScope().isEmpty() || call.getArguments().size() != 2) return false;
         Expression listener = call.getArgument(1);
         return !listener.isStringLiteralExpr() && !listener.isTextBlockLiteralExpr() && !listener.isBinaryExpr();
+    }
+
+    private static boolean usesDom(CompilationUnit cu) {
+        return cu.getImports().stream().anyMatch(i -> i.getNameAsString().equals(DOM_PACKAGE) || i.getNameAsString().startsWith(DOM_PACKAGE + "."));
     }
 
     /**

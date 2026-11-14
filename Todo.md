@@ -981,7 +981,21 @@ Lit-style custom elements authored in Java: `@CustomElement` classes, `@Property
     - Fixed along the way: `this::method` references failed to infer the receiver type.
     - Evidence: `DomCallbackTest` (7 tests: two instances each receive their own clicks in Node; a listener reachable only from JS survives `__gc_collect`; removed closures return live bytes to the baseline; the event handle count stays level over 50 dispatches; diagnostics; programs with their own `Event` types or `addEventListener` methods are unaffected) and `LambdaSupportTest.selectsFunctionalOverloadsByCallbackArity`.
     - Remaining limits: values of type `Runnable` are diagnosed (the built-in `Runnable` has no source contract); there are no typed event subclasses (M1); and listeners on elements in the global handle table stay retained until removed (second prerequisite).
-  - [ ] Prerequisite: scoped handles and finalization-based release. The global `handleMap` currently never releases elements. Scope: negative tagged handles decoded by `getElement`; `WeakRef` scope map; `scope.released` liveness checks in listeners; peer release on element finalization; exported-class wrappers retain `__ptr` and release it on finalization (required before collection at `__wc_flush` can be enabled). Leak test as in the contract: finalized-peer counter asserted after `gc()` plus macrotask turns, then level live bytes, high-water bytes and handle count.
+  - [x] Prerequisite: scoped handles and finalization-based release ([docs/dom-handle-scopes.md](docs/dom-handle-scopes.md)).
+    - `runtime.createHandleScope(host, {peer, root})` gives the host and the nodes of its shadow root negative handles. They resolve through the scope on the host; the global map holds only `WeakRef`s.
+    - `releaseHandleScope` or host finalization releases the scope: its handles, its listener closures and the retained peer.
+    - Using a released handle throws `IllegalStateException("element released")` in Java, through the injected `__javaw_elementReleased` export. Listeners in a scope do nothing once it is released.
+    - `@JS.Export` wrappers retain their object and release it on finalization; they are no longer entered in the strong global table.
+    - Evidence: `DomHandleScopeTest` in Node with `--expose-gc`.
+      - Behaviour: scoped classification and resolution; `Event.target()` scoped; explicit release, with a Java-caught `IllegalStateException` and live bytes back at the baseline.
+      - Leak test: two batches of 1,000 scopes, finalized-scope count asserted after `gc()` plus macrotask turns. Live bytes, heap high-water bytes, scoped handles and global handles stay level.
+      - Wrappers survive collection and are finalized when dropped.
+      - Listener ownership follows the node across handles and scopes.
+      - Mutation checks confirm the release, retain and ownership assertions.
+    - Remaining limits:
+      - No Java API creates scopes yet (M1 does, from each custom element's constructor).
+      - Light-DOM and global-table nodes keep the existing permanent lifetime.
+      - The collector policy at `__wc_flush` stays off until M2.
   - [ ] M1 imperative custom element: `javaw-components` module and the new DOM surface (event types, `EventListener`, `Element.querySelector`, `ShadowRoot`); `@CustomElement` and tag diagnostics; `new X()` rewritten to `WebComponent.create`; lifecycle reactions and `observedAttributes`; shadow root, `host()`, `renderRoot()`, `@Query`; registration and upgrade of pre-existing elements; main-thread check; error sink. Executable happy-dom test.
   - [ ] M2 reactive fields: `private` field rules; the write rewrite and its helpers (assignment, compound assignment with narrowing, `++`/`--`, typed receivers, diagnostics for complex receivers) with JVM-versus-Wasm comparisons; change detection; initial `Changes`; the `__wc_flush` lifecycle, `updateComplete`; attribute conversion and reflection during update; generated JS accessors, property marshalling including the `TypeError` path, and pre-upgrade property capture.
   - [ ] M3 template language v1: raw-source scanner and `Parts` rewrite with offset map; build-time tokenizer and position diagnostics; child, attribute (including multi-part), boolean, property (known components via `PropertyKey`) and event parts; `javaw_wc_templates` section; runtime marker walk per template id; renderer with value comparison in Wasm (zero host calls for unchanged updates) and listener liveness; differential tests against lit-html.
