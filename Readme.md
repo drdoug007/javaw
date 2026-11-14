@@ -2147,3 +2147,5 @@ ByteArrayOutputStream (v279): `java.io.ByteArrayOutputStream` is linked, with JV
 Reader (v280): `java.io.Reader` and `StringReader` are linked, without `Readable`/`read(CharBuffer)`, with JVM/Wasm evidence in `BytecodeReaderTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-reader.md). Implemented by the local agent unaided.
 
 Hashtable (v281): `java.util.Dictionary` and a monitor-free `java.util.Hashtable` with the JDK bucket layout and iteration order are linked, with JVM/Wasm evidence in `BytecodeHashtableTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-hashtable.md). Implemented by the local agent; the reviewer added JDK-style `compute`/`computeIfPresent`/`merge` and `entrySet()`-driven `toString`/`equals`. Core-JDK linkage is now 1,287 declared / 5 missing-member / 45 missing-owner signatures.
+
+InputStream (v282): `java.io.InputStream`, `ByteArrayInputStream` and `EOFException` are linked, with JVM/Wasm evidence in `BytecodeInputStreamTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-input-stream.md). Implemented by the local agent; the reviewer matched JDK 21's bulk-read and transfer call sequences.
