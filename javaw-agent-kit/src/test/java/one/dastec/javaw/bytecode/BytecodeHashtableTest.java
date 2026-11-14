@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T21: java.util.Dictionary and a monitor-free java.util.Hashtable with the JDK bucket layout. See tasks/T21-hashtable.md. */
-@Tag("agent-pending")
 class BytecodeHashtableTest extends KitDifferential {
     private static final String HELPERS = """
                 static String failure(Runnable action){

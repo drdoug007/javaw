@@ -25,4 +25,4 @@
 | T18 | InputStream, ByteArrayInputStream and EOFException | - | blocked |
 | T19 | ByteArrayOutputStream | - | done |
 | T20 | Reader and StringReader | - | done |
-| T21 | Dictionary and Hashtable | - | todo |
+| T21 | Dictionary and Hashtable | - | done |
