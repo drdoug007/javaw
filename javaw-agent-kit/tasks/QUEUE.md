@@ -25,3 +25,4 @@
 | T18 | InputStream, ByteArrayInputStream and EOFException | - | todo |
 | T19 | ByteArrayOutputStream | - | todo |
 | T20 | Reader and StringReader | - | todo |
+| T21 | Dictionary and Hashtable | - | todo |
