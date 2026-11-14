@@ -22,3 +22,4 @@
 | T15 | SecretKeySpec and Mac (HMAC) | T12, T13, T14 | done |
 | T16 | Checksum, CRC32 and Adler32 | - | todo |
 | T17 | Base64 encoders and decoders | - | todo |
+| T18 | InputStream, ByteArrayInputStream and EOFException | - | todo |
