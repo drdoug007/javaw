@@ -2141,3 +2141,5 @@ HMAC (v276): `javax.crypto.Mac` (HMAC over MD5, SHA-1, SHA-256, SHA-384 and SHA-
 Checksums (v277): `java.util.zip.Checksum`, `CRC32` and `Adler32` are linked, with JVM/Wasm evidence in `BytecodeChecksumTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-checksums.md). Implemented by the local agent unaided.
 
 Base64 (v278): `java.util.Base64` encoders and decoders (basic, URL and MIME) are linked without `wrap` and the `ByteBuffer` overloads, with JVM/Wasm evidence in `BytecodeBase64Test` (in `javaw-agent-kit`); see [the contract](docs/bytecode-base64.md). Implemented by the local agent; the reviewer fixed two MIME decoder edge cases.
+
+ByteArrayOutputStream (v279): `java.io.ByteArrayOutputStream` is linked, with JVM/Wasm evidence in `BytecodeByteArrayOutputStreamTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-byte-array-output-stream.md). Implemented by the local agent; the reviewer aligned growth overflow with the JDK.

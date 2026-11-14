@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T19: java.io.ByteArrayOutputStream. Expected values come from the JVM; see tasks/T19-byte-array-output-stream.md. */
-@Tag("agent-pending")
 class BytecodeByteArrayOutputStreamTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.io.ByteArrayOutputStream;
