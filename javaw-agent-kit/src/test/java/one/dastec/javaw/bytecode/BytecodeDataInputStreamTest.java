@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T25: java.io.FilterInputStream, DataInput and DataInputStream. Expected values come from the JVM; see tasks/T25-data-input-stream.md. */
-@Tag("agent-pending")
 class BytecodeDataInputStreamTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.io.ByteArrayInputStream;
