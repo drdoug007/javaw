@@ -2155,3 +2155,5 @@ Properties (v283): `java.util.Properties` is linked on the runtime `Hashtable`, 
 DataOutputStream (v284): `java.io.FilterOutputStream`, `DataOutput`, `DataOutputStream` and `UTFDataFormatException` are linked, with JVM/Wasm evidence in `BytecodeDataOutputStreamTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-data-output-stream.md). Implemented by the local agent.
 
 StringWriter (v285): `java.io.StringWriter` and `CharArrayWriter` are linked, with JVM/Wasm evidence in `BytecodeStringWriterTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-string-writer.md). Implemented by the local agent.
+
+AtomicInteger and AtomicLong (v286): both are linked under the single-threaded contract, with JVM/Wasm evidence in `BytecodeAtomicIntegerLongTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-atomic-integer-long.md). Implemented by the local agent.

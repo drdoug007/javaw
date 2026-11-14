@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T28: java.util.concurrent.atomic.AtomicInteger and AtomicLong (single-threaded). See tasks/T28-atomic-integer-long.md. */
-@Tag("agent-pending")
 class BytecodeAtomicIntegerLongTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.util.concurrent.atomic.AtomicInteger;
