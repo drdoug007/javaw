@@ -25,7 +25,9 @@ Open work follows the AGENTS.md goal priority. The numbered sections record hist
 4. **Pinned framework stack** (section 12): H2 engine → H2 transactions and storage → Hibernate → Spring container → Spring transactions/Data/AOP → host boundary → end-to-end gate.
 5. **Mixed applications and Maven dependencies** (section 11, Phase 8): a runtime-aware dependency path and the source/bytecode interoperability contract, before mixed applications are claimed to work.
 6. **Source-compiler breadth** (section 13): inference conformance; reflection metadata; java.io/NIO; monitors, threads and the Java Memory Model, then parallel streams on workers. The source Spring stand-in is capped at its current scope.
-7. **Maintenance and exploration:** the compatibility-claim audit (section 13); low-priority deferred items (WasmGC backend, DWARF); then the Swing feasibility study (section 14), which waits until stages 1–4 succeed.
+7. **Maintenance and exploration:** the compatibility-claim audit (section 13); low-priority deferred items (WasmGC backend, DWARF); the Swing feasibility study (section 14) is **on hold**; see that section.
+
+Separate track: web components from Java classes (section 15) is user-requested browser-interop work developed on the `feature/web-components` branch. It falls outside the AGENTS.md goal order and must not block or take priority over stages 1–6.
 
 ## Project namespace and licensing
 
@@ -959,9 +961,25 @@ This section is the source compiler's goal-1 track. It runs in parallel with sec
 
 ## 14. Swing/AWT in the browser (feasibility study, goal 3)
 
-Entry criteria: work order stages 1–4 succeed. Compiler correctness and the pinned library stack come first (AGENTS.md goal 3 is subordinate to both).
+**On hold** (2026-11-14, at the user's request): the browser UI work goes to the web components track (section 15) instead. Do not start the study until it is explicitly resumed. If it is resumed, the original entry criteria apply: work order stages 1–4 succeed, and compiler correctness and the pinned library stack come first (AGENTS.md goal 3 is subordinate to both).
 
-- [ ] Swing/AWT feasibility study (goal 3).
+- [ ] Swing/AWT feasibility study (goal 3). **On hold.**
   - [ ] Audit the Swing/AWT and Java2D dependency closure: native peers, fonts and text layout, image rendering, input and focus, accessibility, clipboard, the event dispatch thread, and browser threading restrictions.
   - [ ] Compare a browser-backed AWT/Java2D implementation with a rendered-surface approach; document compatibility and performance tradeoffs.
   - [ ] Prove a small window/widget/event-loop demo before expanding scope.
+
+## 15. Web components from Java classes (browser-interop track)
+
+Lit-style custom elements authored in Java: `@CustomElement` classes, `@Property`/`@State` reactive fields, `html("""...${expr}...""")` templates rewritten to plain Java, a javaw-owned renderer, scoped styles and typed events. Contract: [docs/web-components.md](docs/web-components.md). This track is separate from the AGENTS.md goals and does not take priority over them (see Work order).
+
+- [ ] Web components from Java classes.
+  - [x] Design contract: authoring model, template binding kinds and diagnostics, reactive-field rewrite, update lifecycle, renderer, lifetime/handle model, generated artifacts and validation strategy (`docs/web-components.md`). No behaviour is implemented.
+  - [ ] Prerequisite: instance-bound JS callbacks. A Java lambda or bound method reference can be passed to the host as a callable that keeps its receiver. `removeEventListener` is supported. Each callback is retained once and released by the matching remove call or by wrapper finalization. javaw-core selects method-reference overloads by arity (needed by `Parts.on`). Test: two instances of one class each receive their own clicks in Node.
+  - [ ] Prerequisite: scoped handles and finalization-based release. The global `handleMap` currently never releases elements. Scope: negative tagged handles decoded by `getElement`; `WeakRef` scope map; `scope.released` liveness checks in listeners; peer release on element finalization; exported-class wrappers retain `__ptr` and release it on finalization (required before collection at `__wc_flush` can be enabled). Leak test as in the contract: finalized-peer counter asserted after `gc()` plus macrotask turns, then level live bytes, high-water bytes and handle count.
+  - [ ] M1 imperative custom element: `javaw-components` module and the new DOM surface (event types, `EventListener`, `Element.querySelector`, `ShadowRoot`); `@CustomElement` and tag diagnostics; `new X()` rewritten to `WebComponent.create`; lifecycle reactions and `observedAttributes`; shadow root, `host()`, `renderRoot()`, `@Query`; registration and upgrade of pre-existing elements; main-thread check; error sink. Executable happy-dom test.
+  - [ ] M2 reactive fields: `private` field rules; the write rewrite and its helpers (assignment, compound assignment with narrowing, `++`/`--`, typed receivers, diagnostics for complex receivers) with JVM-versus-Wasm comparisons; change detection; initial `Changes`; the `__wc_flush` lifecycle, `updateComplete`; attribute conversion and reflection during update; generated JS accessors, property marshalling including the `TypeError` path, and pre-upgrade property capture.
+  - [ ] M3 template language v1: raw-source scanner and `Parts` rewrite with offset map; build-time tokenizer and position diagnostics; child, attribute (including multi-part), boolean, property (known components via `PropertyKey`) and event parts; `javaw_wc_templates` section; runtime marker walk per template id; renderer with value comparison in Wasm (zero host calls for unchanged updates) and listener liveness; differential tests against lit-html.
+  - [ ] M4 lists and directives: `Iterable` children, keyed `repeat` (two-ended scan, DOM identity preserved across moves, duplicate-key reporting), `when`, `classMap`, `styleMap`, `ref`, `nothing()`.
+  - [ ] M5 styles and events: style-field discovery and `css` with shared `adoptedStyleSheets` and `<style>` fallback; `ComponentEvent` records and options; `@Fires`; `listen`; typed `@event` bindings across Java components.
+  - [ ] M6 tooling: `custom-elements.json`, `.d.ts`, `@Language("HTML")`; opt-in Chromium smoke test; recorded size budget for `javaw-counter` and `todo-list`.
+  - [ ] Later (separate claims): reactive controllers, context protocol, slot helpers, form-associated elements, typed facades from third-party manifests, the bytecode path, a JVM renderer for server-side rendering, and an IDE plugin.
