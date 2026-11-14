@@ -6,7 +6,7 @@ A lightweight, high-performance Java-to-WebAssembly compiler that parses Java so
   <a href="examples/nebula-run/"><img src="docs/images/nebula-run.png" width="420" alt="Nebula Run: a comet with a glowing trail in a violet neon maze, chased by diamond-shaped drones, with score, sector and lives above the maze"></a>
 </p>
 
-<p align="center"><em><a href="examples/nebula-run/">Nebula Run</a>: an original maze-chase game whose rules run in Java, compiled from <code>javac</code> bytecode to WebAssembly by <code>javaw-bytecode</code> and drawn on a browser canvas through <code>--native-import</code> bindings. The JVM and Wasm runs produce the same 1.2 million draw commands.</em></p>
+<p align="center"><em><a href="examples/nebula-run/">Nebula Run</a>: an original maze-chase game whose rules run in Java, compiled from <code>javac</code> bytecode to WebAssembly by <code>javaw-bytecode</code> and drawn on a browser canvas through <code>--native-import</code> bindings. The JVM and Wasm runs produce the same 1.2 million draw commands. <a href="https://drdoug007.github.io/javaw/">Play it online</a>.</em></p>
 
 ## Namespace and license
 

@@ -10,7 +10,9 @@ examples/nebula-run/build.sh --verify      # builds target/site, then compares t
 python3 -m http.server -d examples/nebula-run/target/site 8080
 ```
 
-Open <http://localhost:8080>. Controls: arrows or WASD steer, Enter or Space starts and pauses, M toggles sound. On touch screens, use the on-screen pad or swipe on the maze.
+Open <http://localhost:8080>.
+
+The published copy is at <https://drdoug007.github.io/javaw/>. `.github/workflows/pages.yml` builds it on pushes to `main` that touch the demo or the compiler, or on a manual run. The workflow runs `build.sh --verify` and publishes only if the JVM and Wasm runs match. It puts `pages/index.html` (the project page) at the site root and the game under `play/`, and replaces the `<!-- site-nav -->` line in the game page with links back to the project page. Repository settings must have Pages > Source set to "GitHub Actions". Controls: arrows or WASD steer, Enter or Space starts and pauses, M toggles sound. On touch screens, use the on-screen pad or swipe on the maze.
 
 ## How it is built
 
@@ -57,4 +59,4 @@ The page was also played in Chromium (Playwright). It loads with no errors, stee
 
 - **No `System.out` in Wasm.** The bundled runtime has no `java.lang.System`. Admission checks every method, used or not, so a `main` that prints is rejected. The JVM entry point therefore lives in `jvm/`, outside the Wasm JAR.
 - **Only numbers cross.** HUD and state text is rendered by the page; strings would need JS glue that bytecode modules cannot express yet.
-- **Module size.** `nebula.wasm` is about 1.1 MB unoptimized. Most of it is bundled-runtime code reachable from string concatenation and collections; see the Phase 7 notes in `Todo.md`.
+- **Module size.** `nebula.wasm` is about 700 KB unoptimized (702,783 bytes at compiler revision v272; it was 1.1 MB when the demo was added). Most of it is bundled-runtime code reachable from string concatenation and collections; see the Phase 7 notes in `Todo.md`.

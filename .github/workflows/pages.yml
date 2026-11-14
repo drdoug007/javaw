@@ -1,0 +1,83 @@
+# Builds the Nebula Run demo (examples/nebula-run) and publishes it to GitHub Pages:
+#   /        examples/nebula-run/pages/index.html, the project page
+#   /play/   the game (build.sh output: index.html, nebula-host.js, nebula.wasm)
+# build.sh --verify plays the same 20,000-frame autopilot game on the JVM and in Wasm and fails on any difference,
+# so a module that diverges from the JVM is never published.
+# Runs when the demo or the compiler changes on main, or manually from the Actions tab
+# (`gh workflow run pages.yml`). Repository settings must have Pages > Source set to "GitHub Actions".
+name: pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - examples/nebula-run/**
+      - docs/images/nebula-run.png
+      - javaw-bytecode/src/main/**
+      - javaw-core/src/main/**
+      - javaw-unicode-data/**
+      - pom.xml
+      - javaw-bytecode/pom.xml
+      - javaw-core/pom.xml
+      - .github/workflows/pages.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          # javaw-unicode-data generates its tables with a JDK 17; the last version listed is the default.
+          java-version: |
+            17
+            21
+          cache: maven
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install wat2wasm
+        run: sudo apt-get update && sudo apt-get install -y wabt && wat2wasm --version
+      - name: Compile javaw-bytecode
+        run: mvn -B -ntp -pl javaw-bytecode -am -DskipTests -Djavaw.jdk17.home="$JAVA_HOME_17_X64" compile
+      # build.sh also needs ASM 9.7 in the local repository; the compile above resolves it.
+      - name: Build and verify Nebula Run
+        run: examples/nebula-run/build.sh --verify
+      - name: Assemble the site
+        run: |
+          site=target/pages
+          rm -rf "$site" && mkdir -p "$site/play"
+          cp examples/nebula-run/pages/index.html docs/images/nebula-run.png "$site/"
+          cp examples/nebula-run/target/site/* "$site/play/"
+          nav='<p class="about"><a href="../" style="color:#ffd36b">About this demo</a> · <a href="https://github.com/drdoug007/javaw/tree/main/examples/nebula-run" style="color:#ffd36b">Source on GitHub</a></p>'
+          grep -q '<!-- site-nav' "$site/play/index.html"
+          sed -i.bak "s|^<!-- site-nav.*-->\$|$nav|" "$site/play/index.html"
+          grep -q 'About this demo' "$site/play/index.html"
+          rm "$site/play/index.html.bak"
+          touch "$site/.nojekyll"
+          ls -la "$site" "$site/play"
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: target/pages
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

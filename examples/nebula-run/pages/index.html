@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nebula Run: a Java game running in WebAssembly</title>
+<meta name="description" content="Nebula Run is an original maze-chase game. Its rules are written in Java, compiled by javac, and turned into WebAssembly by javaw-bytecode. Play it in your browser.">
+<meta property="og:title" content="Nebula Run: a Java game running in WebAssembly">
+<meta property="og:description" content="A maze-chase game whose rules are written in Java and compiled from javac bytecode to WebAssembly by javaw-bytecode. Play it in your browser.">
+<meta property="og:image" content="https://drdoug007.github.io/javaw/nebula-run.png">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:,">
+<style>
+  :root { --bg: #04060f; --panel: #0d1230; --line: #2a2470; --text: #e8ecff; --muted: #8a93c7; --accent: #ffd36b; --violet: #7c5cff; --cyan: #4fe3ff; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: radial-gradient(circle at 50% 0%, #1a1446 0%, var(--bg) 55%) fixed; color: var(--text);
+         font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  a { color: var(--cyan); }
+  code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 0.9em; }
+  code { color: var(--accent); }
+  main { max-width: 980px; margin: 0 auto; padding: 32px 20px 48px; }
+  header.hero { display: grid; grid-template-columns: 1fr minmax(260px, 400px); gap: 40px; align-items: center; padding: 24px 0 40px; }
+  @media (max-width: 760px) { header.hero { grid-template-columns: 1fr; gap: 24px; } }
+  h1 { margin: 0 0 6px; font: 600 44px/1.1 ui-monospace, "SF Mono", Menlo, Consolas, monospace; letter-spacing: 8px; color: var(--accent);
+       text-shadow: 0 0 14px #ff9a3c88; }
+  .kicker { margin: 0 0 18px; color: var(--muted); font-size: 14px; letter-spacing: 1px; text-transform: uppercase; }
+  .lead { font-size: 19px; margin: 0 0 24px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 12px; }
+  .button { display: inline-block; padding: 12px 22px; border-radius: 10px; text-decoration: none; font-weight: 600; border: 1px solid var(--line); color: var(--text); background: var(--panel); }
+  .button.primary { background: linear-gradient(135deg, #ffd36b, #ff9a3c); color: #1a1030; border: none; box-shadow: 0 0 24px #ff9a3c55; font-size: 18px; }
+  .button:hover { filter: brightness(1.1); }
+  .shot { display: block; border-radius: 12px; overflow: hidden; box-shadow: 0 0 0 1px var(--line), 0 0 50px #7c5cff44; }
+  .shot img { display: block; width: 100%; height: auto; }
+  section { margin-top: 44px; }
+  h2 { font-size: 22px; margin: 0 0 14px; color: var(--accent); letter-spacing: 1px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+  .card { background: #0d1230cc; border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+  .card h3 { margin: 0 0 6px; font-size: 16px; color: var(--text); }
+  .card p { margin: 0; color: var(--muted); font-size: 15px; }
+  .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 14px; }
+  .flow span { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; }
+  .flow b { color: var(--violet); font-weight: 400; }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; }
+  ul { padding-left: 20px; } li { margin: 4px 0; }
+  .muted { color: var(--muted); }
+  footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <header class="hero">
+    <div>
+      <h1>NEBULA RUN</h1>
+      <p class="kicker">A Java game, running in your browser as WebAssembly</p>
+      <p class="lead">Steer a comet through a neon maze, gather stardust, and stay ahead of four drones.
+        The game rules are plain Java. <code>javac</code> compiles them, and
+        <a href="https://github.com/drdoug007/javaw">javaw-bytecode</a> turns the class files into WebAssembly.
+        No JVM, no plugin, no server.</p>
+      <div class="actions">
+        <a class="button primary" href="play/">▶&nbsp; Play Nebula Run</a>
+        <a class="button" href="https://github.com/drdoug007/javaw/tree/main/examples/nebula-run">View the source</a>
+      </div>
+    </div>
+    <a class="shot" href="play/"><img src="nebula-run.png" width="544" height="636"
+       alt="Nebula Run: a comet with a glowing trail in a violet neon maze, chased by diamond-shaped drones, with score, sector and lives above the maze"></a>
+  </header>
+
+  <section>
+    <h2>How to play</h2>
+    <div class="cards">
+      <div class="card"><h3>Controls</h3><p>Steer with the arrow keys or WASD. Enter or Space starts and pauses, and M toggles sound.
+        On a phone or tablet, use the on-screen pad or swipe on the maze.</p></div>
+      <div class="card"><h3>Score</h3><p>Stardust is worth 5 and a nova core 25. A nova core dims the drones for a while, and a dimmed drone is worth 150 × your combo.
+        A crystal, worth 250 × the sector, appears twice per sector.</p></div>
+      <div class="card"><h3>The drones</h3><p><b>Vex</b> chases you and is a little faster. <b>Lumen</b> waits at your next junction.
+        <b>Drift</b> roams, and <b>Bastion</b> guards the east nova core. The tunnel wraps from top to bottom.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What's running where</h2>
+    <p class="flow mono">
+      <span>12 Java source files</span><b>→ javac →</b><span>nebula.jar</span><b>→ javaw-bytecode →</b><span>nebula.wat</span><b>→ wat2wasm →</b><span>nebula.wasm (in your browser)</span>
+    </p>
+    <table>
+      <tr><th>Part</th><th>Written in</th><th>Runs as</th></tr>
+      <tr><td>Rules, movement, drone behavior, collisions, scoring, and every draw and sound command</td><td>Java</td><td>WebAssembly, compiled from the class files</td></tr>
+      <tr><td>Canvas drawing, HUD text, WebAudio tones, input and the 60 Hz loop</td><td>JavaScript (about 150 lines)</td><td>The page</td></tr>
+    </table>
+    <p>Each drawing call is a <code>static native</code> Java method. The <code>--native-import</code> option binds it to a WebAssembly import
+      such as <code>canvas.rect</code>, <code>canvas.circle</code> or <code>audio.tone</code>, and the page supplies each import as a small
+      JavaScript function. Only numbers cross the boundary: coordinates, colors, the score, lives and tone frequencies.
+      The page runs the exported <code>update</code> function in fixed 60 Hz steps, calls <code>render</code> once per animation frame, and then runs the module's garbage collector.</p>
+    <p>The Java side uses interfaces and virtual dispatch, a lambda, nested classes, <code>ArrayList</code> with enhanced <code>for</code> loops,
+      <code>switch</code> expressions, <code>long</code> arithmetic, string concatenation, <code>Arrays.fill</code> and <code>Math</code>.
+      All of it runs on javaw-bytecode's bundled runtime and its managed heap.</p>
+  </section>
+
+  <section>
+    <h2>Checked against the JVM</h2>
+    <p>Every build of this site plays the same game twice: once on the JVM and once as WebAssembly in Node.
+      Both runs use a fixed seed and a deterministic autopilot for 20,000 frames, covering deaths, cleared sectors, game overs and restarts.
+      Each run hashes every draw and sound command it produces, about 1.2 million of them. The site is published only if the two hashes match.
+      The project's test suite runs a shorter 6,000-frame version of the same comparison.</p>
+  </section>
+
+  <section>
+    <h2>Current limits</h2>
+    <ul>
+      <li><code>nebula.wasm</code> is about 700 KB and not yet optimized. Most of it is runtime code pulled in by string concatenation and collections.</li>
+      <li>Only numbers cross between Java and the page, so the page draws the HUD text.</li>
+      <li>The bundled runtime has no <code>System.out</code>, so the JVM entry point used for the comparison lives outside the WebAssembly build.</li>
+      <li>javaw is a work in progress. It does not support every Java or JDK feature yet. This game shows a tested subset.</li>
+    </ul>
+  </section>
+
+  <footer>
+    Nebula Run is an original game built as a demo for <a href="https://github.com/drdoug007/javaw">javaw</a>, a Java-to-WebAssembly compiler.
+    See the <a href="https://github.com/drdoug007/javaw/blob/main/examples/nebula-run/README.md">example's README</a> for build instructions.
+  </footer>
+</main>
+</body>
+</html>
