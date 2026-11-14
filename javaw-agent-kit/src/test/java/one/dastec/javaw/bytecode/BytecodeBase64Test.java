@@ -173,6 +173,28 @@ class BytecodeBase64Test extends KitDifferential {
                 out.append(t(()->Base64.getMimeDecoder().decode((String)null)));
                 return out.toString();
             }
+            public static String trailingAlphabetByte(){
+                StringBuilder out=new StringBuilder();
+                for(String s:new String[]{"Zm8=Z","NQ==S","Zm8= Z","Zm8=\\r\\nQ","UOJWzck=W","Zm8=\\r\\n","Zm8=!*"})
+                    out.append(lines(s)).append(" -> ").append(t(()->Base64.getMimeDecoder().decode(s)))
+                       .append(" / ").append(t(()->Base64.getMimeDecoder().decode(ascii(s),new byte[4]))).append('\\n');
+                for(String s:new String[]{"Zm8=Z","Zm8= ","NQ==S"})
+                    out.append(s).append(" -> ").append(t(()->Base64.getDecoder().decode(s))).append(',').append(t(()->Base64.getUrlDecoder().decode(s))).append('\\n');
+                return out.toString();
+            }
+            public static String mimeExactDst(){
+                StringBuilder out=new StringBuilder();
+                for(String s:new String[]{"Zm\\r\\n8=","Q\\r\\nQ==","Zm9v\\r\\nYg==","Z m 9 v Y m E =","Zm9v\\r\\nYmFy"}){
+                    byte[] dst=new byte[Base64.getMimeDecoder().decode(s).length];
+                    out.append(lines(s)).append(" -> ").append(t(()->Base64.getMimeDecoder().decode(ascii(s),dst))).append(':').append(text(dst)).append('\\n');
+                }
+                out.append(t(()->Base64.getMimeDecoder().decode(ascii("\\u20acY="),new byte[0]))).append('|');
+                out.append(t(()->Base64.getMimeDecoder().decode(ascii("Zm\\r\\n8="),new byte[1])));
+                return out.toString();
+            }
+            public static String classFlags(){
+                return ((Base64.class.getModifiers()&16)!=0)+","+((Base64.Encoder.class.getModifiers()&16)!=0)+","+((Base64.Decoder.class.getModifiers()&16)!=0);
+            }
         }
         """;
 
@@ -194,6 +216,10 @@ class BytecodeBase64Test extends KitDifferential {
 
     @Test void decodesMime() throws Exception {
         matchesJvm(FIXTURE, "mimeDecode", "mimeDecodeFailures");
+    }
+
+    @Test void matchesJdkMimeTailSizingAndClassFlags() throws Exception {
+        matchesJvm(FIXTURE, "trailingAlphabetByte", "mimeExactDst", "classFlags");
     }
 
     @Test void leavesStreamsAndByteBuffersUnlinked() {
