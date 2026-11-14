@@ -168,6 +168,19 @@ class BytecodeByteArrayOutputStreamTest extends KitDifferential {
                 try{s.toString((Charset)null);out.append("none;");}catch(NullPointerException e){out.append(name(e)).append(';');}
                 return out.append(s).toString();
             }
+            public static String growthOverflow(){
+                StringBuilder out=new StringBuilder();
+                int[][] cases={{Integer.MAX_VALUE,-1},{Integer.MAX_VALUE-2,5},{Integer.MAX_VALUE-4,6},{Integer.MAX_VALUE,102}};
+                for(int[] c:cases){
+                    Preloaded p=new Preloaded();p.truncate(c[0]);
+                    try{
+                        if(c[1]<0)p.write('q');else if(c[1]<100)p.write(new byte[c[1]],0,c[1]);else p.writeBytes(new byte[c[1]-100]);
+                        out.append("none;");
+                    }catch(OutOfMemoryError e){out.append(name(e)).append(':').append(e.getMessage()).append(';');}
+                    out.append(p.size()-c[0]).append(',').append(p.capacity()).append('|');
+                }
+                return out.toString();
+            }
             public static String closeIsNoOp() throws IOException {
                 ByteArrayOutputStream s=new ByteArrayOutputStream();s.write(1);
                 s.close();s.write(2);s.close();s.write(new byte[]{3,4},0,2);s.flush();
@@ -192,6 +205,10 @@ class BytecodeByteArrayOutputStreamTest extends KitDifferential {
 
     @Test void decodesStrings() throws Exception {
         matchesJvm(FIXTURE, "defaultCharsetString", "malformedUtf8", "charsetStrings", "hibyteStrings");
+    }
+
+    @Test void growthOverflowMatchesJdk() throws Exception {
+        matchesJvm(FIXTURE, "growthOverflow");
     }
 
     @Test void stringFailuresAndClose() throws Exception {
