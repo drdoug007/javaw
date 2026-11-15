@@ -2167,3 +2167,5 @@ DataInputStream (v289): `java.io.FilterInputStream`, `DataInput` and `DataInputS
 PrintWriter (v290): `java.io.PrintWriter` over a `Writer` is linked, with JVM/Wasm evidence in `BytecodePrintWriterTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-print-writer.md). Implemented by the local agent unaided.
 
 AtomicReferenceArray update retries (v292): the `AtomicReferenceArray` update and accumulate functions retry like JDK 21, with JVM/Wasm evidence in `BytecodeAtomicReferenceArrayUpdatesTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-atomic-reference-array.md). Implemented by the local agent unaided.
+
+String range messages (v293): `String`, `StringBuilder` and `StringBuffer` index and range failures carry the JDK 21 messages, with JVM/Wasm evidence in `BytecodeStringRangeMessagesTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-string-range-messages.md). Implemented by the local agent; the reviewer added the `String.repeat` limit message.

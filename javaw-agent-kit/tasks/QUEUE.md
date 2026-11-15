@@ -35,7 +35,7 @@
 | T28 | AtomicInteger and AtomicLong | - | done |
 | T29 | AtomicBoolean and AtomicReference | - | done |
 | T30 | AtomicReferenceArray update and accumulate retries | - | done |
-| T31 | String and StringBuilder range failure messages | - | todo |
+| T31 | String and StringBuilder range failure messages | - | done |
 | T32 | BufferedReader over a Reader | - | todo |
 | T33 | BufferedInputStream and BufferedOutputStream | - | todo |
 | T34 | OutputStreamWriter and PrintWriter(OutputStream) | - | todo |

@@ -1,6 +1,5 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -8,7 +7,6 @@ import org.junit.jupiter.api.Test;
  * types and messages. Fixtures return "SimpleClassName:message" (plus the state after the failure where it matters).
  * Expected values come from the JVM; see tasks/T31-string-range-messages.md.
  */
-@Tag("agent-pending")
 class BytecodeStringRangeMessagesTest extends KitDifferential {
     private static final String HELPERS = """
             import java.io.*;

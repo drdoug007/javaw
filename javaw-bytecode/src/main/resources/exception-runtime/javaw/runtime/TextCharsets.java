@@ -97,7 +97,7 @@ public final class TextCharsets {
     }
     public static String decode(byte[] bytes,int offset,int count,int charset){
         int length=bytes.length;
-        if(offset<0 || count<0 || offset>length-count)throw new StringIndexOutOfBoundsException();
+        if(offset<0 || count<0 || offset>length-count)throw new StringIndexOutOfBoundsException("Range ["+offset+", "+offset+" + "+count+") out of bounds for length "+length);
         if(charset==0)return new String(bytes,offset,count);
         if(charset==3)return decode16(bytes,offset,count,false,false);
         if(charset==4)return decode16(bytes,offset,count,true,false);

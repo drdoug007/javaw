@@ -98,13 +98,13 @@ public final class String implements CharSequence,Comparable<String>,java.io.Ser
     public String(StringBuffer text){this(text.toString());}
     public String(char[] chars,int offset,int count){
         int length=chars.length;
-        if(offset<0 || count<0 || offset>length-count)throw new StringIndexOutOfBoundsException();
+        checkBoundsOffCount(offset,count,length);
         value=new char[count];System.arraycopy(chars,offset,value,0,count);
     }
     @Deprecated public String(byte[] bytes,int highByte){this(bytes,highByte,0,bytes.length);}
     @Deprecated public String(byte[] bytes,int highByte,int offset,int count){
         int length=bytes.length;
-        if(offset<0 || count<0 || offset>length-count)throw new StringIndexOutOfBoundsException();
+        checkBoundsOffCount(offset,count,length);
         value=new char[count];int high=(highByte&255)<<8;
         for(int i=0;i<count;i++)value[i]=(char)(high|(bytes[offset+i]&255));
     }
@@ -130,10 +130,10 @@ public final class String implements CharSequence,Comparable<String>,java.io.Ser
         return javaw.runtime.TextCharsets.encode(this,charsetName);
     }
     @Deprecated public void getBytes(int start,int end,byte[] destination,int offset){
-        if(start<0 || end>length() || start>end)throw new StringIndexOutOfBoundsException();
+        checkBoundsBeginEnd(start,end,length());
         if(destination==null)throw new NullPointerException();
         int count=end-start;
-        if(offset<0 || offset>destination.length-count)throw new StringIndexOutOfBoundsException();
+        checkBoundsOffCount(offset,count,destination.length);
         for(int i=0;i<count;i++)destination[offset+i]=(byte)value[start+i];
     }
     public byte[] getBytes(){
@@ -164,7 +164,7 @@ public final class String implements CharSequence,Comparable<String>,java.io.Ser
     private static boolean continuation(int value){return (value&0xc0)==0x80;}
     private static char[] decodeUtf8(byte[] bytes,int offset,int count){
         int length=bytes.length;
-        if(offset<0 || count<0 || offset>length-count)throw new StringIndexOutOfBoundsException();
+        checkBoundsOffCount(offset,count,length);
         char[] decoded=new char[count];int out=0,end=offset+count;
         while(offset<end){
             int first=bytes[offset++]&255;
@@ -204,10 +204,10 @@ public final class String implements CharSequence,Comparable<String>,java.io.Ser
 
     public String(int[] codePoints,int offset,int count){
         int sourceLength=codePoints.length;
-        if(offset<0 || count<0 || offset>sourceLength-count)throw new IndexOutOfBoundsException();
+        checkBoundsOffCount(offset,count,sourceLength);
         int size=count;
         for(int i=offset;i<offset+count;i++){
-            int code=codePoints[i];if(code<0 || code>0x10ffff)throw new IllegalArgumentException();
+            int code=codePoints[i];if(code<0 || code>0x10ffff)throw new IllegalArgumentException(String.valueOf(code));
             if(code>=0x10000){if(size==Integer.MAX_VALUE)throw new OutOfMemoryError();size++;}
         }
         value=new char[size];int out=0;
@@ -275,10 +275,13 @@ public final class String implements CharSequence,Comparable<String>,java.io.Ser
     public String stripTrailing(){return substring(0,whitespaceEnd());}
     public String strip(){int start=whitespaceStart();return start==length()?"":substring(start,whitespaceEnd());}
     public String repeat(int count){
-        if(count<0)throw new IllegalArgumentException();if(count==1)return this;if(count==0 || length()==0)return "";
-        if(count>Integer.MAX_VALUE/length())throw new OutOfMemoryError();
+        if(count<0)throw new IllegalArgumentException("count is negative: "+count);if(count==1)return this;if(count==0 || length()==0)return "";
+        int limit=Integer.MAX_VALUE/count;
+        if(limit<length() || (limit/2<length() && !latin1()))throw new OutOfMemoryError("Required length exceeds implementation limit");
         char[] chars=new char[count*length()];for(int i=0;i<chars.length;i+=length())System.arraycopy(value,0,chars,i,length());return new String(chars,true);
     }
+    /** JDK 21 compact strings store a string with any char above 0xFF as two bytes per char; repeat's limit counts those bytes. */
+    private boolean latin1(){for(int i=0;i<value.length;i++)if(value[i]>0xff)return false;return true;}
     public static String join(CharSequence delimiter,CharSequence... elements){
         String separator=delimiter.toString();StringBuilder out=new StringBuilder();
         for(int i=0;i<elements.length;i++){if(i!=0)out.append(separator);out.append(String.valueOf((Object)elements[i]));}return out.toString();
@@ -296,11 +299,11 @@ public final class String implements CharSequence,Comparable<String>,java.io.Ser
     public boolean isEmpty(){return value.length==0;}
     public char[] toCharArray(){return value.clone();}
     public void getChars(int start,int end,char[] destination,int offset){
-        if(start<0 || end>length() || start>end)throw new StringIndexOutOfBoundsException();System.arraycopy(value,start,destination,offset,end-start);
+        checkBoundsBeginEnd(start,end,length());checkBoundsOffCount(offset,end-start,destination.length);System.arraycopy(value,start,destination,offset,end-start);
     }
     public String substring(int start){return substring(start,length());}
     public String substring(int start,int end){
-        if(start<0 || end>length() || start>end)throw new StringIndexOutOfBoundsException();
+        checkBoundsBeginEnd(start,end,length());
         if(start==0 && end==length())return this;return new String(value,start,end-start);
     }
     public CharSequence subSequence(int start,int end){return substring(start,end);}
@@ -333,11 +336,11 @@ public final class String implements CharSequence,Comparable<String>,java.io.Ser
         }return first;
     }
     public int codePointBefore(int index){
-        if(index<1 || index>length())throw new StringIndexOutOfBoundsException(index);
+        checkIndex(index-1,length());
         char last=value[index-1];if(last>=56320 && last<=57343 && index>1){char first=value[index-2];if(first>=55296 && first<=56319)return 65536+((first-55296)<<10)+(last-56320);}return last;
     }
     public int codePointCount(int begin,int end){
-        if(begin<0 || end>length() || begin>end)throw new IndexOutOfBoundsException();
+        if(begin<0 || begin>end || end>length())throw new IndexOutOfBoundsException(rangeMessage(begin,end,length()));
         int count=0;for(int i=begin;i<end;i++,count++)if(value[i]>=55296 && value[i]<=56319 && i+1<end && value[i+1]>=56320 && value[i+1]<=57343)i++;return count;
     }
     public int offsetByCodePoints(int index,int offset){
@@ -362,7 +365,21 @@ public final class String implements CharSequence,Comparable<String>,java.io.Ser
     public static String valueOf(char[] chars){return new String(chars);}
     public static String valueOf(char[] chars,int offset,int count){return new String(chars,offset,count);}
     public int length() { return value.length; }
-    public char charAt(int index) { if(index<0 || index>=value.length)throw new StringIndexOutOfBoundsException(index);return value[index]; }
+    public char charAt(int index) { checkIndex(index,value.length);return value[index]; }
+    static void checkIndex(int index,int length){
+        if(index<0 || index>=length)throw new StringIndexOutOfBoundsException("Index "+index+" out of bounds for length "+length);
+    }
+    static void checkOffset(int offset,int length){
+        if(offset<0 || offset>length)throw new StringIndexOutOfBoundsException(rangeMessage(offset,length,length));
+    }
+    static void checkBoundsBeginEnd(int begin,int end,int length){
+        if(begin<0 || begin>end || end>length)throw new StringIndexOutOfBoundsException(rangeMessage(begin,end,length));
+    }
+    static void checkBoundsOffCount(int offset,int count,int length){
+        if(offset<0 || count<0 || offset>length-count)
+            throw new StringIndexOutOfBoundsException("Range ["+offset+", "+offset+" + "+count+") out of bounds for length "+length);
+    }
+    static String rangeMessage(int begin,int end,int length){return "Range ["+begin+", "+end+") out of bounds for length "+length;}
     public String toString() { return this; }
     public boolean equals(Object other) {
         if (!(other instanceof String)) return false;

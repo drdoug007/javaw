@@ -14,32 +14,32 @@ public final class StringBuilder implements CharSequence,Comparable<StringBuilde
     }
     public void trimToSize(){if(count<value.length){char[] replacement=new char[count];System.arraycopy(value,0,replacement,0,count);value=replacement;}}
     private void grow(int extra){if(extra<0 || count>2147483647-extra)throw new OutOfMemoryError();ensureCapacity(count+extra);}
-    public char charAt(int index){if(index<0 || index>=count)throw new StringIndexOutOfBoundsException(index);return value[index];}
-    public void setCharAt(int index,char ch){if(index<0 || index>=count)throw new StringIndexOutOfBoundsException(index);value[index]=ch;}
+    public char charAt(int index){String.checkIndex(index,count);return value[index];}
+    public void setCharAt(int index,char ch){String.checkIndex(index,count);value[index]=ch;}
     public void setLength(int length){if(length<0)throw new StringIndexOutOfBoundsException(length);ensureCapacity(length);for(int i=count;i<length;i++)value[i]=0;count=length;}
     public StringBuilder append(char ch){grow(1);value[count++]=ch;return this;}
     public StringBuilder append(String text){if(text==null)text="null";int length=text.length();grow(length);text.getChars(0,length,value,count);count+=length;return this;}
     public StringBuilder append(Object object){return append(String.valueOf(object));}
     public StringBuilder append(CharSequence text){if(text==null)text="null";return append(text,0,text.length());}
     public StringBuilder append(CharSequence text,int start,int end){
-        if(text==null)text="null";if(start<0 || end<start || end>text.length())throw new IndexOutOfBoundsException();
+        if(text==null)text="null";int textLength=text.length();if(start<0 || start>end || end>textLength)throw new IndexOutOfBoundsException(String.rangeMessage(start,end,textLength));
         int length=end-start;grow(length);for(int i=0;i<length;i++)value[count+i]=text.charAt(start+i);count+=length;return this;
     }
     public StringBuilder append(char[] chars){return append(chars,0,chars.length);}
-    public StringBuilder append(char[] chars,int offset,int length){if(offset<0 || length<0 || offset>chars.length-length)throw new IndexOutOfBoundsException();grow(length);System.arraycopy(chars,offset,value,count,length);count+=length;return this;}
+    public StringBuilder append(char[] chars,int offset,int length){int end=offset+length;if(offset<0 || offset>end || end>chars.length)throw new IndexOutOfBoundsException(String.rangeMessage(offset,end,chars.length));grow(length);System.arraycopy(chars,offset,value,count,length);count+=length;return this;}
     public StringBuilder append(boolean v){return append(String.valueOf(v));}public StringBuilder append(int v){return append(String.valueOf(v));}public StringBuilder append(long v){return append(String.valueOf(v));}public StringBuilder append(float v){return append(String.valueOf(v));}public StringBuilder append(double v){return append(String.valueOf(v));}
-    public StringBuilder delete(int start,int end){if(start<0 || start>count || start>end)throw new StringIndexOutOfBoundsException();if(end>count)end=count;System.arraycopy(value,end,value,start,count-end);count-=end-start;return this;}
-    public StringBuilder deleteCharAt(int index){if(index<0 || index>=count)throw new StringIndexOutOfBoundsException(index);return delete(index,index+1);}
-    public StringBuilder insert(int offset,String text){if(offset<0 || offset>count)throw new StringIndexOutOfBoundsException(offset);if(text==null)text="null";int length=text.length();grow(length);System.arraycopy(value,offset,value,offset+length,count-offset);text.getChars(0,length,value,offset);count+=length;return this;}
+    public StringBuilder delete(int start,int end){if(end>count)end=count;String.checkBoundsBeginEnd(start,end,count);System.arraycopy(value,end,value,start,count-end);count-=end-start;return this;}
+    public StringBuilder deleteCharAt(int index){String.checkIndex(index,count);return delete(index,index+1);}
+    public StringBuilder insert(int offset,String text){String.checkOffset(offset,count);if(text==null)text="null";int length=text.length();grow(length);System.arraycopy(value,offset,value,offset+length,count-offset);text.getChars(0,length,value,offset);count+=length;return this;}
     public StringBuilder append(StringBuffer text){return append((CharSequence)text);}
     public StringBuilder appendCodePoint(int code){
-        if(code<0 || code>1114111)throw new IllegalArgumentException();
+        if(code<0 || code>1114111)throw new IllegalArgumentException("Not a valid Unicode code point: 0x"+Integer.toHexString(code).toUpperCase(java.util.Locale.ROOT));
         if(code<65536)return append((char)code);
         grow(2);value[count++]=(char)(55296+((code-65536)>>10));value[count++]=(char)(56320+((code-65536)&1023));return this;
     }
     public StringBuilder insert(int offset,char ch){return insert(offset,String.valueOf(ch));}
     public StringBuilder replace(int start,int end,String text){
-        if(start<0 || start>count || start>end)throw new StringIndexOutOfBoundsException();if(end>count)end=count;
+        if(end>count)end=count;String.checkBoundsBeginEnd(start,end,count);
         int size=text.length(),removed=end-start;if(size>removed)grow(size-removed);
         System.arraycopy(value,end,value,start+size,count-end);text.getChars(0,size,value,start);count+=size-removed;return this;
     }
@@ -54,14 +54,14 @@ public final class StringBuilder implements CharSequence,Comparable<StringBuilde
         for(int i=0,j=count-1;i<j;i++,j--){char ch=value[i];value[i]=value[j];value[j]=ch;}
         for(int i=0;i+1<count;i++)if(value[i]>=56320 && value[i]<=57343 && value[i+1]>=55296 && value[i+1]<=56319){char ch=value[i];value[i]=value[i+1];value[++i]=ch;}return this;
     }
-    public String substring(int start){return substring(start,count);}public String substring(int start,int end){if(start<0 || end>count || start>end)throw new StringIndexOutOfBoundsException();return new String(value,start,end-start);}
+    public String substring(int start){return substring(start,count);}public String substring(int start,int end){String.checkBoundsBeginEnd(start,end,count);return new String(value,start,end-start);}
     public CharSequence subSequence(int start,int end){return substring(start,end);}
-    public void getChars(int start,int end,char[] target,int offset){if(start<0 || end>count || start>end)throw new StringIndexOutOfBoundsException();System.arraycopy(value,start,target,offset,end-start);}
+    public void getChars(int start,int end,char[] target,int offset){String.checkBoundsBeginEnd(start,end,count);int stop=offset+(end-start);if(offset<0 || offset>stop || stop>target.length)throw new IndexOutOfBoundsException(String.rangeMessage(offset,stop,target.length));System.arraycopy(value,start,target,offset,end-start);}
     public int indexOf(String text){return toString().indexOf(text);}public int indexOf(String text,int from){return toString().indexOf(text,from);}
     public String toString(){return new String(value,0,count);}
-    public StringBuilder insert(int offset,char[] text){if(offset<0 || offset>count)throw new StringIndexOutOfBoundsException(offset);return insert(offset,new String(text));}
-    public StringBuilder insert(int offset,char[] text,int start,int size){if(offset<0 || offset>count)throw new StringIndexOutOfBoundsException(offset);int sourceLength=text.length;if(start<0 || size<0 || start>sourceLength-size)throw new StringIndexOutOfBoundsException();grow(size);System.arraycopy(value,offset,value,offset+size,count-offset);System.arraycopy(text,start,value,offset,size);count+=size;return this;}
+    public StringBuilder insert(int offset,char[] text){String.checkOffset(offset,count);return insert(offset,new String(text));}
+    public StringBuilder insert(int offset,char[] text,int start,int size){String.checkOffset(offset,count);String.checkBoundsBeginEnd(start,start+size,text.length);grow(size);System.arraycopy(value,offset,value,offset+size,count-offset);System.arraycopy(text,start,value,offset,size);count+=size;return this;}
     public StringBuilder insert(int offset,CharSequence text){if(text==null)text="null";if(text instanceof String)return insert(offset,(String)text);return insertSequence(offset,text,0,text.length());}
-    private StringBuilder insertSequence(int offset,CharSequence text,int start,int end){if(text==null)text="null";if(offset<0 || offset>count)throw new StringIndexOutOfBoundsException();int sourceLength=text.length();if(start<0 || end<start || end>sourceLength)throw new IndexOutOfBoundsException();int size=end-start;grow(size);System.arraycopy(value,offset,value,offset+size,count-offset);count+=size;for(int j=0;j<size;j++)value[offset+j]=text.charAt(start+j);return this;}
+    private StringBuilder insertSequence(int offset,CharSequence text,int start,int end){if(text==null)text="null";String.checkOffset(offset,count);int sourceLength=text.length();if(start<0 || start>end || end>sourceLength)throw new IndexOutOfBoundsException(String.rangeMessage(start,end,sourceLength));int size=end-start;grow(size);System.arraycopy(value,offset,value,offset+size,count-offset);count+=size;for(int j=0;j<size;j++)value[offset+j]=text.charAt(start+j);return this;}
     public StringBuilder insert(int offset,CharSequence text,int start,int end){return insertSequence(offset,text,start,end);}
 }
