@@ -2179,3 +2179,5 @@ OutputStreamWriter (v296): `java.io.OutputStreamWriter` and the `PrintWriter(Out
 InputStreamReader (v297): `java.io.InputStreamReader` (UTF-8, ISO-8859-1, US-ASCII) is linked, with JVM/Wasm evidence in `BytecodeInputStreamReaderTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-input-stream-reader.md). Implemented by the local agent unaided.
 
 PrintStream (v298): `java.io.PrintStream` over an `OutputStream` is linked, with JVM/Wasm evidence in `BytecodePrintStreamTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-print-stream.md). Implemented by the local agent unaided.
+
+EnumSet (v299): `java.util.EnumSet` is linked as a single concrete class, with JVM/Wasm evidence in `BytecodeEnumSetTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-enum-set.md). Implemented by the local agent unaided. Core-JDK linkage is now 1,305 declared / 5 missing-member / 27 missing-owner signatures.

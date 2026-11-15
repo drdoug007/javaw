@@ -1,13 +1,11 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 /** T37: java.util.EnumSet. Expected values come from the JVM; see tasks/T37-enum-set.md. */
-@Tag("agent-pending")
 class BytecodeEnumSetTest extends KitDifferential {
     private static final String TEMPLATE = """
         import java.util.ArrayList;
