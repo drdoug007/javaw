@@ -2171,3 +2171,5 @@ AtomicReferenceArray update retries (v292): the `AtomicReferenceArray` update an
 String range messages (v293): `String`, `StringBuilder` and `StringBuffer` index and range failures carry the JDK 21 messages, with JVM/Wasm evidence in `BytecodeStringRangeMessagesTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-string-range-messages.md). Implemented by the local agent; the reviewer added the `String.repeat` limit message.
 
 BufferedReader (v294): `java.io.BufferedReader` is linked without `lines()`, with JVM/Wasm evidence in `BytecodeBufferedReaderTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-buffered-reader.md). Implemented by the local agent unaided.
+
+Buffered streams (v295): `java.io.BufferedInputStream` and `BufferedOutputStream` are linked, with JVM/Wasm evidence in `BytecodeBufferedStreamsTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-buffered-streams.md). Implemented by the local agent; the reviewer fixed growth from an empty buffer.
