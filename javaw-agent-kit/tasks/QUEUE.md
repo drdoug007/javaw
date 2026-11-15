@@ -34,3 +34,4 @@
 | T27 | PrintWriter over a Writer | T26 | done |
 | T28 | AtomicInteger and AtomicLong | - | done |
 | T29 | AtomicBoolean and AtomicReference | - | done |
+| T30 | AtomicReferenceArray update and accumulate retries | - | todo |
