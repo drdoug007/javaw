@@ -2173,3 +2173,5 @@ String range messages (v293): `String`, `StringBuilder` and `StringBuffer` index
 BufferedReader (v294): `java.io.BufferedReader` is linked without `lines()`, with JVM/Wasm evidence in `BytecodeBufferedReaderTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-buffered-reader.md). Implemented by the local agent unaided.
 
 Buffered streams (v295): `java.io.BufferedInputStream` and `BufferedOutputStream` are linked, with JVM/Wasm evidence in `BytecodeBufferedStreamsTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-buffered-streams.md). Implemented by the local agent; the reviewer fixed growth from an empty buffer.
+
+OutputStreamWriter (v296): `java.io.OutputStreamWriter` and the `PrintWriter(OutputStream)` constructors are linked, with JVM/Wasm evidence in `BytecodeOutputStreamWriterTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-output-stream-writer.md). Implemented by the local agent; the reviewer fixed two surrogate edge cases.

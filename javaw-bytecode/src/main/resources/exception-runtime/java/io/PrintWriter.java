@@ -10,6 +10,8 @@ public class PrintWriter extends Writer {
     private static final String LINE_SEPARATOR = "\n";
     public PrintWriter(Writer out) {this(out, false);}
     public PrintWriter(Writer out, boolean autoFlush) {super(out);this.out = out;this.autoFlush = autoFlush;}
+    public PrintWriter(OutputStream out) {this(out, false);}
+    public PrintWriter(OutputStream out, boolean autoFlush) {this(new OutputStreamWriter(out), autoFlush);}
     private void ensureOpen() throws IOException {if (out == null)throw new IOException("Stream closed");}
     public void flush() {
         try {ensureOpen();out.flush();}

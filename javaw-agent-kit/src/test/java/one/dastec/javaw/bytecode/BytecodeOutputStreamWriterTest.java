@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T34: java.io.OutputStreamWriter and the PrintWriter(OutputStream) constructors. Expected values come from the JVM; see tasks/T34-output-stream-writer.md. */
-@Tag("agent-pending")
 class BytecodeOutputStreamWriterTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.io.ByteArrayOutputStream;
