@@ -37,3 +37,4 @@
 | T30 | AtomicReferenceArray update and accumulate retries | - | todo |
 | T31 | String and StringBuilder range failure messages | - | todo |
 | T32 | BufferedReader over a Reader | - | todo |
+| T33 | BufferedInputStream and BufferedOutputStream | - | todo |
