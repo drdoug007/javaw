@@ -2175,3 +2175,5 @@ BufferedReader (v294): `java.io.BufferedReader` is linked without `lines()`, wit
 Buffered streams (v295): `java.io.BufferedInputStream` and `BufferedOutputStream` are linked, with JVM/Wasm evidence in `BytecodeBufferedStreamsTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-buffered-streams.md). Implemented by the local agent; the reviewer fixed growth from an empty buffer.
 
 OutputStreamWriter (v296): `java.io.OutputStreamWriter` and the `PrintWriter(OutputStream)` constructors are linked, with JVM/Wasm evidence in `BytecodeOutputStreamWriterTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-output-stream-writer.md). Implemented by the local agent; the reviewer fixed two surrogate edge cases.
+
+InputStreamReader (v297): `java.io.InputStreamReader` (UTF-8, ISO-8859-1, US-ASCII) is linked, with JVM/Wasm evidence in `BytecodeInputStreamReaderTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-input-stream-reader.md). Implemented by the local agent unaided.

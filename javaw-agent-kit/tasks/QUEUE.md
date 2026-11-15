@@ -39,6 +39,6 @@
 | T32 | BufferedReader over a Reader | - | done |
 | T33 | BufferedInputStream and BufferedOutputStream | - | done |
 | T34 | OutputStreamWriter and PrintWriter(OutputStream) | - | done |
-| T35 | InputStreamReader with streaming UTF-8, ISO-8859-1 and US-ASCII decoding | - | todo |
+| T35 | InputStreamReader with streaming UTF-8, ISO-8859-1 and US-ASCII decoding | - | done |
 | T36 | PrintStream over an OutputStream | - | todo |
 | T37 | EnumSet | - | todo |
