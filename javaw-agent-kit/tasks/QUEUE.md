@@ -36,3 +36,4 @@
 | T29 | AtomicBoolean and AtomicReference | - | done |
 | T30 | AtomicReferenceArray update and accumulate retries | - | todo |
 | T31 | String and StringBuilder range failure messages | - | todo |
+| T32 | BufferedReader over a Reader | - | todo |
