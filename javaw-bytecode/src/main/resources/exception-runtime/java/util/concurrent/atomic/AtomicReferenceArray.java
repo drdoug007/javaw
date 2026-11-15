@@ -25,10 +25,22 @@ public class AtomicReferenceArray<E> implements java.io.Serializable {
     public final void setOpaque(int index,E value){array[index]=value;}
     public final E getAcquire(int index){return (E)array[index];}
     public final void setRelease(int index,E value){array[index]=value;}
-    public final E getAndUpdate(int index,java.util.function.UnaryOperator<E> update){E old=get(index);array[index]=update.apply(old);return old;}
-    public final E updateAndGet(int index,java.util.function.UnaryOperator<E> update){E next=update.apply(get(index));array[index]=next;return next;}
-    public final E getAndAccumulate(int index,E value,java.util.function.BinaryOperator<E> accumulator){E old=get(index);array[index]=accumulator.apply(old,value);return old;}
-    public final E accumulateAndGet(int index,E value,java.util.function.BinaryOperator<E> accumulator){E next=accumulator.apply(get(index),value);array[index]=next;return next;}
+    public final E getAndUpdate(int index,java.util.function.UnaryOperator<E> update){
+        E prev=get(index);
+        for(;;){E next=update.apply(prev);if(compareAndSet(index,prev,next))return prev;prev=get(index);}
+    }
+    public final E updateAndGet(int index,java.util.function.UnaryOperator<E> update){
+        E prev=get(index);
+        for(;;){E next=update.apply(prev);if(compareAndSet(index,prev,next))return next;prev=get(index);}
+    }
+    public final E getAndAccumulate(int index,E value,java.util.function.BinaryOperator<E> accumulator){
+        E prev=get(index);
+        for(;;){E next=accumulator.apply(prev,value);if(compareAndSet(index,prev,next))return prev;prev=get(index);}
+    }
+    public final E accumulateAndGet(int index,E value,java.util.function.BinaryOperator<E> accumulator){
+        E prev=get(index);
+        for(;;){E next=accumulator.apply(prev,value);if(compareAndSet(index,prev,next))return next;prev=get(index);}
+    }
     public String toString(){
         int last=array.length-1;if(last==-1)return "[]";
         StringBuilder result=new StringBuilder("[");

@@ -2165,3 +2165,5 @@ Properties.load (v288): `Properties.load(Reader)` and `load(InputStream)` are li
 DataInputStream (v289): `java.io.FilterInputStream`, `DataInput` and `DataInputStream` are linked, with JVM/Wasm evidence in `BytecodeDataInputStreamTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-data-input-stream.md). Implemented by the local agent unaided.
 
 PrintWriter (v290): `java.io.PrintWriter` over a `Writer` is linked, with JVM/Wasm evidence in `BytecodePrintWriterTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-print-writer.md). Implemented by the local agent unaided.
+
+AtomicReferenceArray update retries (v292): the `AtomicReferenceArray` update and accumulate functions retry like JDK 21, with JVM/Wasm evidence in `BytecodeAtomicReferenceArrayUpdatesTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-atomic-reference-array.md). Implemented by the local agent unaided.
