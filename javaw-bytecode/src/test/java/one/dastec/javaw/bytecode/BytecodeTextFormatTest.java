@@ -123,6 +123,17 @@ class BytecodeTextFormatTest implements Opcodes {
             """);compare(1);
     }
 
+    @Test void nullToStringFormatting() throws Exception {
+        fixture("""
+            public class Metadata {
+              static final Object NULL_TEXT=new Object(){public String toString(){return null;}};
+              static int one(String f){try{return 1+String.format(f,NULL_TEXT,"b").hashCode();}catch(NullPointerException e){return 2;}}
+              public static int run(int group){int h=1;
+               for(String f:new String[]{"%s","x%sy","%s %s","%2$s%1$s","%S","%5s","%-5s","%.2s","%10.2s"})h=31*h+one(f);
+               return h;}}
+            """);compare(1);
+    }
+
     @Test void generalFormatting() throws Exception {
         fixture("""
             import java.util.*;

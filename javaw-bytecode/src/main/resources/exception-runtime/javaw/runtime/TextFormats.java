@@ -82,6 +82,8 @@ public final class TextFormats {
     else if(value instanceof Byte || value instanceof Short || value instanceof Integer){int cp=((Number)value).intValue();if(!Character.isValidCodePoint(cp))throw new IllegalFormatCodePointException(cp);text=new String(Character.toChars(cp));}
     else throw new IllegalFormatConversionException(conversion(s),value.getClass());
    }else text=String.valueOf(value);
+   // A toString() that returns null prints "null" for a plain %s; width, precision or %S then fail as in the JDK.
+   if(text==null){if(s.width>=0 || s.precision>=0 || (c>='A' && c<='Z'))throw new NullPointerException();text="null";}
    int textPrecision=s.precision;
    if(textPrecision>=0 && (value==null || "sSbBhH".indexOf(c)>=0) && text.length()>textPrecision)text=text.substring(0,textPrecision);
    if(c>='A' && c<='Z')text=text.toUpperCase(c=='A' || ((c=='E' || c=='G') && (value instanceof Double || value instanceof Float) && !Double.isFinite(((Number)value).doubleValue()))?Locale.ROOT:locale);
