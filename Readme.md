@@ -2177,3 +2177,5 @@ Buffered streams (v295): `java.io.BufferedInputStream` and `BufferedOutputStream
 OutputStreamWriter (v296): `java.io.OutputStreamWriter` and the `PrintWriter(OutputStream)` constructors are linked, with JVM/Wasm evidence in `BytecodeOutputStreamWriterTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-output-stream-writer.md). Implemented by the local agent; the reviewer fixed two surrogate edge cases.
 
 InputStreamReader (v297): `java.io.InputStreamReader` (UTF-8, ISO-8859-1, US-ASCII) is linked, with JVM/Wasm evidence in `BytecodeInputStreamReaderTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-input-stream-reader.md). Implemented by the local agent unaided.
+
+PrintStream (v298): `java.io.PrintStream` over an `OutputStream` is linked, with JVM/Wasm evidence in `BytecodePrintStreamTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-print-stream.md). Implemented by the local agent unaided.
