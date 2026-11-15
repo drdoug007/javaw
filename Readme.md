@@ -2163,3 +2163,5 @@ AtomicBoolean and AtomicReference (v287): both are linked under the single-threa
 Properties.load (v288): `Properties.load(Reader)` and `load(InputStream)` are linked with the JDK 21 line format, with JVM/Wasm evidence in `BytecodePropertiesLoadTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-properties-load.md). Implemented by the local agent unaided.
 
 DataInputStream (v289): `java.io.FilterInputStream`, `DataInput` and `DataInputStream` are linked, with JVM/Wasm evidence in `BytecodeDataInputStreamTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-data-input-stream.md). Implemented by the local agent unaided.
+
+PrintWriter (v290): `java.io.PrintWriter` over a `Writer` is linked, with JVM/Wasm evidence in `BytecodePrintWriterTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-print-writer.md). Implemented by the local agent unaided.
