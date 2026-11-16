@@ -47,3 +47,4 @@
 | T40 | BufferedWriter over a Writer | - | todo |
 | T41 | CopyOnWriteArrayList | - | todo |
 | T42 | ConcurrentLinkedQueue (single-threaded) | - | todo |
+| T43 | LongAdder and LongAccumulator | - | todo |
