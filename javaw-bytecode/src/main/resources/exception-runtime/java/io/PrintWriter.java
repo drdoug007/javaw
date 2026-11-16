@@ -7,11 +7,17 @@ public class PrintWriter extends Writer {
     protected Writer out;
     private final boolean autoFlush;
     private boolean trouble;
+    private PrintStream psOut;
     private static final String LINE_SEPARATOR = "\n";
     public PrintWriter(Writer out) {this(out, false);}
     public PrintWriter(Writer out, boolean autoFlush) {super(out);this.out = out;this.autoFlush = autoFlush;}
     public PrintWriter(OutputStream out) {this(out, false);}
-    public PrintWriter(OutputStream out, boolean autoFlush) {this(new OutputStreamWriter(out), autoFlush);}
+    public PrintWriter(OutputStream out, boolean autoFlush) {
+        // As in the JDK: over a PrintStream, encode in its charset and report its error state.
+        this(out instanceof PrintStream ? new OutputStreamWriter(out, ((PrintStream) out).streamCharset())
+                : new OutputStreamWriter(out), autoFlush);
+        if (out instanceof PrintStream) psOut = (PrintStream) out;
+    }
     private void ensureOpen() throws IOException {if (out == null)throw new IOException("Stream closed");}
     public void flush() {
         try {ensureOpen();out.flush();}
@@ -25,6 +31,8 @@ public class PrintWriter extends Writer {
         if (out != null)flush();
         if (out instanceof PrintWriter)
             return ((PrintWriter) out).checkError();
+        else if (psOut != null)
+            return psOut.checkError();
         return trouble;
     }
     protected void setError() {trouble = true;}

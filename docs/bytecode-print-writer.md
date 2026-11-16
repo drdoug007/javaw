@@ -6,6 +6,8 @@ contract).
 
 Contract:
 
+- Since v300, `PrintWriter(OutputStream)` and `PrintWriter(OutputStream, boolean)` over a `PrintStream` encode in that stream's charset and `checkError()` reports the `PrintStream`'s error state, as in JDK 21.
+
 - The two constructors are `PrintWriter(Writer out)` (`this(out, false)`) and `PrintWriter(Writer out, boolean
   autoFlush)`, which calls `super(out)`; that sets `lock` to the wrapped writer once and throws
   `NullPointerException` for `null`, so `new PrintWriter((Writer) null)` throws it. The `protected Writer out`

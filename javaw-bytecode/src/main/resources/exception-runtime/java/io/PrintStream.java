@@ -11,6 +11,8 @@ public class PrintStream extends FilterOutputStream implements Appendable, Close
     private final boolean autoFlush;
     private boolean trouble;
     private final Charset charset;
+    /** The stream's charset, for PrintWriter(OutputStream) over a PrintStream (the public charset() is Java 18). */
+    Charset streamCharset() {return charset;}
     private boolean closing;
     private boolean haveLeftover;
     private char leftover;
