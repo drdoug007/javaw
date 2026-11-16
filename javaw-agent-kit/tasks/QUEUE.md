@@ -42,7 +42,7 @@
 | T35 | InputStreamReader with streaming UTF-8, ISO-8859-1 and US-ASCII decoding | - | done |
 | T36 | PrintStream over an OutputStream | - | done |
 | T37 | EnumSet | - | done |
-| T38 | EnumMap | - | blocked |
+| T38 | EnumMap | - | todo |
 | T39 | UncheckedIOException and BufferedReader.lines() | - | blocked |
 | T40 | BufferedWriter over a Writer | - | blocked |
 | T41 | CopyOnWriteArrayList | - | blocked |
