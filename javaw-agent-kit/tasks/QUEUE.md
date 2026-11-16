@@ -43,7 +43,7 @@
 | T36 | PrintStream over an OutputStream | - | done |
 | T37 | EnumSet | - | done |
 | T38 | EnumMap | - | blocked |
-| T39 | UncheckedIOException and BufferedReader.lines() | - | todo |
+| T39 | UncheckedIOException and BufferedReader.lines() | - | blocked |
 | T40 | BufferedWriter over a Writer | - | todo |
 | T41 | CopyOnWriteArrayList | - | todo |
 | T42 | ConcurrentLinkedQueue (single-threaded) | - | todo |
