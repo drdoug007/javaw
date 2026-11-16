@@ -306,6 +306,15 @@ class BytecodeStringRangeMessagesTest extends KitDifferential {
                 "appendCodePointInvalid", "bufferAppendCodePointInvalid", "codePointsInvalidValue", "repeatNegative");
     }
 
+    @Test void repeatLengthLimit() throws Exception {
+        check("""
+                static String repeatFailure(String s,int count){try{return "ok:"+s.repeat(count).length();}catch(OutOfMemoryError e){return name(e);}catch(RuntimeException e){return name(e);}}
+                public static String repeatOverflowLatin1(){return repeatFailure("abc",Integer.MAX_VALUE)+";"+repeatFailure("ab",Integer.MAX_VALUE-1)+";"+repeatFailure("ab",Integer.MAX_VALUE/2+1)+";"+repeatFailure("\\u00ff\\u00ff",1<<30);}
+                public static String repeatOverflowUtf16(){return repeatFailure("\\u0100",1<<30)+";"+repeatFailure("\\u0100b",Integer.MAX_VALUE/3)+";"+repeatFailure("x\\u20ac",Integer.MAX_VALUE/2)+";"+repeatFailure("\\u0100",3);}
+                """,
+                "repeatOverflowLatin1", "repeatOverflowUtf16");
+    }
+
     @Test void writersReachTheseChecks() throws Exception {
         check("""
                 public static String stringWriterWriteStringRange(){StringWriter w=new StringWriter();w.write("ab");try{w.write("abc",2,2);return "none";}catch(RuntimeException e){return name(e)+"|"+w;}}
