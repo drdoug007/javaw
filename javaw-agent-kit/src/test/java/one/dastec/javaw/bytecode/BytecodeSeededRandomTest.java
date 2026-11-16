@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T45: java.util.Random with an explicit seed. Expected values come from the JVM; see tasks/T45-seeded-random.md. */
-@Tag("agent-pending")
 class BytecodeSeededRandomTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.util.Random;

@@ -2195,3 +2195,5 @@ ConcurrentLinkedQueue (v305): `java.util.concurrent.ConcurrentLinkedQueue` is li
 LongAdder and LongAccumulator (v306): `java.util.concurrent.atomic.LongAdder` and `LongAccumulator` are linked under the single-threaded contract, with JVM/Wasm evidence in `BytecodeLongAdderTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-long-adder.md). Implemented by the local agent unaided.
 
 LineNumberReader (v307): `java.io.LineNumberReader` is linked, with JVM/Wasm evidence in `BytecodeLineNumberReaderTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-line-number-reader.md). Implemented by the local agent unaided.
+
+Seeded Random (v308): `java.util.Random(long)` is linked bit-for-bit with the JDK, with JVM/Wasm evidence in `BytecodeSeededRandomTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-seeded-random.md). `Random()` without a seed is not linked. Implemented by the local agent unaided.
