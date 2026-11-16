@@ -259,6 +259,47 @@ class BytecodeOutputStreamWriterTest extends KitDifferential {
                 return t(()->{ResponseWriter w=new ResponseWriter(r,"ISO-8859-1");w.print("\\u00e9!");String a=r.take();w.println("\\u20ac");String b=r.take();w.close();return a+"/"+b+"/"+r.take();})
                         +"|"+t(()->new ResponseWriter(new Rec(),"no-such-charset"));
             }
+
+            static char[] xs(int n){char[] a=new char[n];for(int i=0;i<n;i++)a[i]='x';return a;}
+            public static String isoFullBufferBeforePendingSurrogate(){
+                Rec r=new Rec();OutputStreamWriter w=new OutputStreamWriter(r,StandardCharsets.ISO_8859_1);
+                String a=t(()->{w.write(xs(512));String s=r.take();w.write(0xD83D);s+="/"+r.take();w.write(0xDE00);s+="/"+r.take();w.close();return s+"/"+r.take();});
+                Rec q=new Rec();OutputStreamWriter x=new OutputStreamWriter(q,StandardCharsets.ISO_8859_1);
+                String b=t(()->{x.write(xs(509));String s=q.take();x.write("abc\\ud83d");s+="/"+q.take();x.close();return s+"/"+q.take();});
+                Rec p=new Rec();OutputStreamWriter y=new OutputStreamWriter(p,StandardCharsets.ISO_8859_1);
+                String c=t(()->{y.write(xs(511));y.write(0xD83D);String s=p.take();y.write("\\ud83e");s+="/"+p.take();y.write("z");s+="/"+p.take();y.close();return s+"/"+p.take();});
+                Rec u=new Rec();OutputStreamWriter z=new OutputStreamWriter(u,StandardCharsets.UTF_8);
+                String d=t(()->{for(int i=0;i<512;i++)z.write('x');String s=u.take();z.write(0xD83D);s+="/"+u.take();z.close();return s+"/"+u.take();});
+                return a+"|"+b+"|"+c+"|"+d;
+            }
+            public static String pendingSurrogateAfterFailedWrite(){
+                StringBuilder out=new StringBuilder();
+                Bad a=new Bad(new IOException("w"),null,null);OutputStreamWriter w=new OutputStreamWriter(a);
+                out.append(t(()->{for(int i=0;i<511;i++)w.write('x');w.write(0xD83D);w.write(0xDE00);return "ok";})).append(',').append(t(()->{w.close();return "ok";})).append(',').append(a.log);
+                Bad b=new Bad(new IOException("w"),null,null);OutputStreamWriter x=new OutputStreamWriter(b);
+                out.append('|').append(t(()->{for(int i=0;i<511;i++)x.write('x');x.write(0xD83D);x.write("y");return "ok";})).append(',').append(t(()->{x.close();return "ok";})).append(',').append(b.log);
+                Bad c=new Bad(new IOException("w"),null,null);OutputStreamWriter y=new OutputStreamWriter(c,StandardCharsets.ISO_8859_1);
+                out.append('|').append(t(()->{y.write(xs(512));y.write(0xD83D);return "ok";})).append(',').append(t(()->{y.close();return "ok";})).append(',').append(c.log);
+                Bad d=new Bad(new IOException("w"),null,null);OutputStreamWriter z=new OutputStreamWriter(d,StandardCharsets.UTF_16BE);
+                out.append('|').append(t(()->{for(int i=0;i<255;i++)z.write('x');z.write(0xD83D);z.write("yz");return "ok";})).append(',').append(t(()->{z.close();return "ok";})).append(',').append(d.log);
+                return out.toString();
+            }
+            public static String printWriterOverPrintStream(){
+                StringBuilder out=new StringBuilder();
+                Charset[] sets={StandardCharsets.UTF_8,StandardCharsets.ISO_8859_1,StandardCharsets.US_ASCII,StandardCharsets.UTF_16BE,StandardCharsets.UTF_16LE,StandardCharsets.UTF_16};
+                for(Charset cs:sets){
+                    ByteArrayOutputStream b=new ByteArrayOutputStream();PrintWriter p=new PrintWriter(new java.io.PrintStream(b,false,cs));
+                    p.print("\\u00e9\\u20ac");p.println('!');p.flush();out.append(hex(b.toByteArray())).append(',');
+                }
+                ByteArrayOutputStream n=new ByteArrayOutputStream();
+                PrintWriter q=new PrintWriter(new java.io.PrintStream(new java.io.PrintStream(n,false,StandardCharsets.UTF_16LE)),true);
+                q.println("\\u00e9");out.append(hex(n.toByteArray())).append('|');
+                Bad a=new Bad(new IOException("w"),null,null);PrintWriter p=new PrintWriter(new java.io.PrintStream(a));
+                p.println("x");out.append(p.checkError()).append(',');p.flush();out.append(p.checkError()).append(',');p.close();out.append(p.checkError()).append(',').append(a.log);
+                Bad c=new Bad(null,new IOException("f"),null);java.io.PrintStream ps=new java.io.PrintStream(c,true);PrintWriter r=new PrintWriter(ps,true);
+                r.println("y");out.append('|').append(r.checkError()).append(',').append(ps.checkError()).append(',').append(c.log);
+                return out.toString();
+            }
         }
         """;
 
@@ -288,6 +329,10 @@ class BytecodeOutputStreamWriterTest extends KitDifferential {
 
     @Test void printWriterOverOutputStream() throws Exception {
         matchesJvm(FIXTURE, "printWriterOverStream", "printWriterAutoFlush", "printWriterErrors", "libraryWriters");
+    }
+
+    @Test void reviewFixesForPendingSurrogatesAndPrintStreams() throws Exception {
+        matchesJvm(FIXTURE, "isoFullBufferBeforePendingSurrogate", "pendingSurrogateAfterFailedWrite", "printWriterOverPrintStream");
     }
 
     @Test void leavesOutCharsetPrintWriterConstructor() {

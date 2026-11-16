@@ -164,13 +164,17 @@ Every write ends up here. In order:
    The exception has **no message** (`getMessage()` is `null`).
 3. `if (len == 0) return;` (an empty write changes nothing, not even the byte order mark or a pending surrogate).
 4. Let `end = off + len`. First finish a pending high surrogate, one char at a time, while `haveLeftover && off < end`:
-   take `char c = cbuf[off++]`; if `c` is a low surrogate, `haveLeftover = false; put(Character.toCodePoint(leftover, c));`;
+   take `char c = cbuf[off++]`; if `c` is a low surrogate, `put(Character.toCodePoint(leftover, c)); haveLeftover = false;`;
    otherwise `put(-1)` and then, if `c` is a high surrogate, `leftover = c` (still pending), else
-   `haveLeftover = false; put(c);`.
+   `put(c); haveLeftover = false;`. Clear `haveLeftover` only after the `put` calls: if a `put` makes `out.write`
+   throw, the surrogate must still be pending so that `close()` writes its replacement, as the JDK does.
 5. `grow(end - off);` (the chars that are left).
 6. `if (needsMark) { needsMark = false; put(0xFEFF); }`
 7. Then for each remaining char `c = cbuf[off++]`:
-   - a high surrogate as the **last** char: `haveLeftover = true; leftover = c;` (it waits for the next write);
+   - a high surrogate as the **last** char: `haveLeftover = true; leftover = c;` (it waits for the next write).
+     For ISO-8859-1 only, first write out the buffer if it is exactly full (`count == capacity`): the JDK's
+     ISO-8859-1 encoder reports overflow before it looks at a trailing high surrogate. The same applies when a
+     pending surrogate is followed by another high surrogate as the last char in step 4;
    - a high surrogate followed by a low surrogate: `put(Character.toCodePoint(c, cbuf[off++]))`;
    - a high surrogate followed by anything else: `put(-1)` (the next char is handled normally);
    - a lone low surrogate: `put(-1)`;
