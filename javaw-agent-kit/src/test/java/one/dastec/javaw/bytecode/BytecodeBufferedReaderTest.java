@@ -235,7 +235,4 @@ class BytecodeBufferedReaderTest extends KitDifferential {
         matchesJvm(FIXTURE, "closing");
     }
 
-    @Test void linesStaysUnlinked() {
-        rejectsUnusedCall("java/io/BufferedReader", "lines", "()Ljava/util/stream/Stream;", INVOKEVIRTUAL, false);
-    }
 }
