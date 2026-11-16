@@ -106,7 +106,7 @@ BufferedInputStream:
   3. `else if (pos >= buffer.length)`: if `markpos > 0`, move the marked part to the front:
      `int sz = pos - markpos; System.arraycopy(buffer, markpos, buffer, 0, sz); pos = sz; markpos = 0;`;
      else if `buffer.length >= marklimit`, drop the mark: `markpos = -1; pos = 0;`; else grow:
-     `int nsz = pos * 2; if (nsz < 0 || nsz > Integer.MAX_VALUE - 8) nsz = Integer.MAX_VALUE - 8;`
+     `int nsz = pos + Math.max(1, pos); if (nsz < 0 || nsz > Integer.MAX_VALUE - 8) nsz = Integer.MAX_VALUE - 8;` (so a zero-length `buf` still grows to one byte, as `ArraysSupport.newLength(pos, 1, pos)` does)
      `if (nsz > marklimit) nsz = marklimit;` then a new `byte[nsz]` with the first `pos` bytes copied, stored in
      `buf` and in `buffer`.
   4. `count = pos;` (before the read, so a throwing source leaves `count == pos`)
@@ -206,7 +206,7 @@ BufferedOutputStream:
 
 - The JDK source wraps every public method in a lock and an `implXxx` method. Leave out all of that: write the body
   of `implRead`, `implSkip`, ... directly in the public method. No `InternalLock`, no `Unsafe`, no `EMPTY` array, no
-  `jdk.internal.util.ArraysSupport` (use the `pos * 2` rule above), no compare-and-set loop in `close()`.
+  `jdk.internal.util.ArraysSupport` (use the growth rule above), no compare-and-set loop in `close()`.
 - Do not write the words `synchronized`, `volatile`, `native` or `Thread` anywhere in the files, not even in comments.
 - `InputStream.checkFromIndexSize` exists but is **wrong here**: it throws with a `Range [...]` message, while
   `BufferedInputStream.read(byte[],int,int)` throws `new IndexOutOfBoundsException()` with no message.

@@ -68,6 +68,12 @@ class BytecodeBufferedStreamsTest extends KitDifferential {
             public void flush() throws IOException {log.append("F ");super.flush();}
         }
 
+        /** A BufferedInputStream subclass that replaces buf with an array of `bufLen` bytes and shows its state. */
+        class Regrow extends BufferedInputStream {
+            Regrow(InputStream in,int size,int bufLen){super(in,size);buf=new byte[bufLen];}
+            String st(){return "[buf="+buf.length+" count="+count+" pos="+pos+" markpos="+markpos+"]";}
+        }
+
         public class Fixture {
             interface Op{Object run() throws Exception;}
             static String t(Op op){
@@ -288,6 +294,17 @@ class BytecodeBufferedStreamsTest extends KitDifferential {
                 String l=t(()->{j.write('a');String r=closeResult(j);j.write('b');j.flush();return r+" "+i.log;});
                 return a+";"+d+";"+h+";"+l;
             }
+            public static String zeroLengthBufferGrows(){
+                Src a=new Src("ABCDEFG",8);Regrow r=new Regrow(a,4,0);
+                String x=t(()->{r.mark(10);int c1=r.read();String s1=r.st();int c2=r.read();String s2=r.st();
+                    byte[] b=new byte[4];int n=r.read(b,0,3);String s3=r.st();r.reset();int c3=r.read();
+                    return c1+" "+s1+" "+c2+" "+s2+" "+n+chars(b,0,Math.max(n,0))+" "+s3+" "+c3+" "+a.log;});
+                Src c=new Src("XYZ",8);Regrow q=new Regrow(c,4,0);
+                String y=t(()->{q.mark(5);byte[] b=new byte[4];int n=q.read(b,0,2);return n+chars(b,0,Math.max(n,0))+" "+q.st()+" "+c.log;});
+                Src d=new Src("PQ",8);Regrow w=new Regrow(d,4,0);
+                String z=t(()->{int c1=w.read();return c1+" "+w.st()+" "+d.log;});
+                return x+";"+y+";"+z;
+            }
         }
         """;
 
@@ -317,5 +334,9 @@ class BytecodeBufferedStreamsTest extends KitDifferential {
 
     @Test void bufferedOutputSubclassAndFailures() throws Exception {
         matchesJvm(FIXTURE, "outputSubclass", "outputFailures");
+    }
+
+    @Test void bufferedInputGrowsZeroLengthBuffer() throws Exception {
+        matchesJvm(FIXTURE, "zeroLengthBufferGrows");
     }
 }
