@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T42: java.util.concurrent.ConcurrentLinkedQueue (single-threaded contract). Expected values come from the JVM; see tasks/T42-concurrent-linked-queue.md. */
-@Tag("agent-pending")
 class BytecodeConcurrentLinkedQueueTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.io.Serializable;
