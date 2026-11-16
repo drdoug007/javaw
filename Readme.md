@@ -2191,3 +2191,5 @@ BufferedWriter (v303): `java.io.BufferedWriter` over a `Writer` is linked, with 
 CopyOnWriteArrayList (v304): `java.util.concurrent.CopyOnWriteArrayList` is linked under the single-threaded contract, with JVM/Wasm evidence in `BytecodeCopyOnWriteArrayListTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-copy-on-write-array-list.md). Implemented by the local agent after two blocked attempts.
 
 ConcurrentLinkedQueue (v305): `java.util.concurrent.ConcurrentLinkedQueue` is linked under the single-threaded contract, with JVM/Wasm evidence in `BytecodeConcurrentLinkedQueueTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-concurrent-linked-queue.md). Implemented by the local agent unaided.
+
+LongAdder and LongAccumulator (v306): `java.util.concurrent.atomic.LongAdder` and `LongAccumulator` are linked under the single-threaded contract, with JVM/Wasm evidence in `BytecodeLongAdderTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-long-adder.md). Implemented by the local agent unaided.

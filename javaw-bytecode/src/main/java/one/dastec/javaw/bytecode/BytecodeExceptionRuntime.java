@@ -152,6 +152,8 @@ public final class BytecodeExceptionRuntime {
             paths.add("java/io/BufferedWriter.java");
             paths.add("java/util/concurrent/CopyOnWriteArrayList.java");
             paths.add("java/util/concurrent/ConcurrentLinkedQueue.java");
+            paths.add("java/util/concurrent/atomic/LongAdder.java");
+            paths.add("java/util/concurrent/atomic/LongAccumulator.java");
             paths.add("javaw/runtime/ExceptionSupport.java");
             paths.add("javaw/runtime/ReflectionSupport.java");
             paths.add("javaw/runtime/Decimal.java");

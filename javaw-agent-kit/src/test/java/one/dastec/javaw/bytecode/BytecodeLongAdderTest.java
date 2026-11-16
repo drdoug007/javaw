@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T43: java.util.concurrent.atomic.LongAdder and LongAccumulator (single-threaded). See tasks/T43-long-adder.md. */
-@Tag("agent-pending")
 class BytecodeLongAdderTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.util.concurrent.atomic.LongAccumulator;
