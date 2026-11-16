@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T38: java.util.EnumMap. Expected values come from the JVM; see tasks/T38-enum-map.md. */
-@Tag("agent-pending")
 class BytecodeEnumMapTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.util.AbstractMap;
