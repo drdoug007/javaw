@@ -1,5 +1,12 @@
 package java.io;
 
+import java.util.Iterator;
+import java.util.NoSuchElementException;
+import java.util.Spliterator;
+import java.util.Spliterators;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
+
 /** Buffered character reader over a source Reader; a line ends with \n, \r or \r\n and the terminator is not part of the line. */
 public class BufferedReader extends Reader {
     private static final int INVALIDATED = -2;
@@ -134,5 +141,21 @@ public class BufferedReader extends Reader {
     public void close() throws IOException {
         if(in==null)return;
         try{in.close();}finally{in=null;cb=null;}
+    }
+    public Stream<String> lines() {
+        Iterator<String> iter = new Iterator<>() {
+            String nextLine = null;
+            public boolean hasNext() {
+                if (nextLine != null) return true;
+                try { nextLine = readLine(); return (nextLine != null); }
+                catch (IOException e) { throw new UncheckedIOException(e); }
+            }
+            public String next() {
+                if (nextLine != null || hasNext()) { String line = nextLine; nextLine = null; return line; }
+                else throw new NoSuchElementException();
+            }
+        };
+        return StreamSupport.stream(Spliterators.spliteratorUnknownSize(
+                iter, Spliterator.ORDERED | Spliterator.NONNULL), false);
     }
 }
