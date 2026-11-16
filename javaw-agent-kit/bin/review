@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# One-command review of agent-kit work (REVIEW.md steps 1 and 5): guard rails, full suite, audit and a summary.
+#
+#   javaw-agent-kit/bin/review [COMMIT...] [--trusted-ref REF] [--skip-tests]
+#
+# It runs the trusted ref's copy of bin/kit (main by default), never the work branch's, so an agent commit
+# cannot change the checks it is judged by. Set KIT_FORKS to limit the suite's parallel forks.
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+ref=main
+args=("$@")
+for ((i = 0; i < ${#args[@]}; i++)); do
+    if [[ "${args[$i]}" == "--trusted-ref" && $((i + 1)) -lt ${#args[@]} ]]; then ref="${args[$((i + 1))]}"; fi
+done
+trusted="$(mktemp -t kit-trusted.XXXXXX)"
+trap 'rm -f "$trusted"' EXIT
+git show "$ref:javaw-agent-kit/bin/kit" > "$trusted"
+python3 "$trusted" validate "$@"

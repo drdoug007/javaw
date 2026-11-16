@@ -4,6 +4,30 @@ The local agent commits each finished task to the `agent-kit/work` branch, as on
 subject `feat(bytecode): ... (agent kit TNN, vNNN)`. Blocked tasks get a `chore(agent-kit): block TNN` commit.
 Review before anything reaches `main`.
 
+## One command for the mechanical steps
+
+```
+javaw-agent-kit/bin/review
+```
+
+This runs steps 1 and 5 below in one go, with `main`'s copy of `bin/kit` (so the branch cannot change the checks):
+the guard rails for every commit on `agent-kit/work` that is not on `main`, then the full bytecode suite and the
+kit tests, then the audit baseline. The suite and audit run in a clean temporary worktree of `agent-kit/work`, so
+uncommitted changes in your checkout are not included (`--here` uses the checked-out tree instead, for example to
+validate review amendments before committing them). Long output goes to `javaw-agent-kit/target/kit/` logs. At
+the end it prints one summary:
+
+- a table of tasks with the guard result, revision, the number of `kit check` runs, blocks, and which of `Todo.md`
+  and `Readme.md` the commit still lacks (step 4);
+- test totals per module and any failing test class;
+- the audit result and the core-JDK linkage counts compared with `main`;
+- warnings: a revision that is not one above the previous one (renumber while rebasing, step 3), a `-vN`
+  placeholder left in a doc, and Node `Fatal process out of memory` crashes (memory pressure; lower `KIT_FORKS`).
+
+It exits 0 only if everything passes. Options: `--skip-tests`, `--here`, `--trusted-ref REF`, or commit IDs to
+check only those. `KIT_FORKS` limits the suite's parallel forks. Steps 2 and 4 (reading the code, writing the docs)
+stay manual.
+
 ## Per task
 
 1. **Check the guard rails with `main`'s copy of the kit.** The agent could have changed its own copy of

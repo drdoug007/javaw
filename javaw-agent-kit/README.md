@@ -98,6 +98,8 @@ When a session ends without finishing, the runner blocks the task and saves the 
 ## Reviewing and merging
 
 The agent commits only to `agent-kit/work`. Review each task with [REVIEW.md](REVIEW.md), then merge to `main`.
+`javaw-agent-kit/bin/review` runs the mechanical checks (guard rails, full suite, audit) in one command and prints
+a summary.
 
 ## Adding tasks
 

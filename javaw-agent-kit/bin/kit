@@ -19,6 +19,9 @@ Run from anywhere inside the repository:
     javaw-agent-kit/bin/kit retry T02       reviewer: queue a blocked task again (then `start T02 --resume`)
     javaw-agent-kit/bin/kit review [COMMIT...] [--trusted-ref main]
                                             reviewer: check agent commits against task specs on main
+    javaw-agent-kit/bin/kit validate [COMMIT...] [--trusted-ref main] [--skip-tests] [--here]
+                                            reviewer: review + full suite + audit, with one summary (suite and
+                                            audit run in a clean worktree of the work branch; --here uses this tree)
 
 Exit status is 0 on success and 1 on any failure, so a failed check is never mistaken for success.
 """
@@ -29,6 +32,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 def _locate_kit():
@@ -173,7 +177,7 @@ def deps_done(row, rows):
 
 # ---------------------------------------------------------------- maven
 
-def maven(tests, label, modules="javaw-agent-kit", include_pending=True, forks=None):
+def maven(tests, label, modules="javaw-agent-kit", include_pending=True, forks=None, root=None):
     STATE.mkdir(parents=True, exist_ok=True)
     log = STATE / ("mvn-%s.log" % label)
     command = ["mvn", "-o", "-pl", modules, "-am", "-Dtest=" + ",".join(tests),
@@ -186,7 +190,7 @@ def maven(tests, label, modules="javaw-agent-kit", include_pending=True, forks=N
     print("running: " + " ".join(command))
     print("(full log: %s)" % log.relative_to(ROOT))
     with open(log, "w") as out:
-        code = subprocess.run(command, cwd=ROOT, env=java_env(), stdout=out, stderr=subprocess.STDOUT).returncode
+        code = subprocess.run(command, cwd=root or ROOT, env=java_env(), stdout=out, stderr=subprocess.STDOUT).returncode
     return code, log
 
 
@@ -816,46 +820,209 @@ def cmd_retry(args):
     return True
 
 
-def cmd_review(args):
-    """Checks agent commits (default: every commit on the work branch that is not on the trusted ref)."""
+def trusted_ref_and_commits(args):
+    """Parses `[COMMIT...] [--trusted-ref REF]`; the default commits are the work branch's commits not on REF."""
     ref = "main"
     if "--trusted-ref" in args:
         index = args.index("--trusted-ref")
         ref = args[index + 1]
         args = args[:index] + args[index + 2:]
     git("rev-parse", "--verify", ref)
-    commits = args or list(reversed(git("rev-list", "%s..%s" % (ref, WORK_BRANCH)).split()))
+    return ref, args or list(reversed(git("rev-list", "%s..%s" % (ref, WORK_BRANCH)).split()))
+
+
+def review_commit(commit, ref):
+    """Checks one commit against the trusted ref's task specs. Returns None for a commit that is not a kit commit."""
+    view = Commit(commit)
+    subject = git("log", "-1", "--format=%s", view.commit).strip()
+    task = re.search(r"agent kit (T\d+)|block (T\d+)|retry (T\d+)", subject)
+    if not task:
+        return {"commit": view.commit, "subject": subject, "kind": None}
+    task_id = task.group(1) or task.group(2) or task.group(3)
+    files = view.files()
+    if task.group(3):
+        kind = "retry"
+        problems = ["%s: a retry commit may change only QUEUE.md and remove the blocked report" % f for f in files
+                    if f not in ("javaw-agent-kit/tasks/QUEUE.md", "javaw-agent-kit/reports/%s.md" % task_id)]
+        if view.content("javaw-agent-kit/reports/%s.md" % task_id) is not None and "javaw-agent-kit/reports/%s.md" % task_id in files:
+            problems.append("a retry commit may only delete the blocked report, not change it")
+        problems += check_queue(task_id, view, "todo")
+    elif task.group(2):
+        kind = "block"
+        problems = ["%s: a block commit may change only the report and QUEUE.md" % f for f in files
+                    if f not in ("javaw-agent-kit/tasks/QUEUE.md", "javaw-agent-kit/reports/%s.md" % task_id)]
+        problems += check_queue(task_id, view, "blocked")
+    else:
+        kind = "task"
+        problems = check(task_id, trusted_task_meta(task_id, ref), view, review=True)
+    return {"commit": view.commit, "subject": subject, "kind": kind, "task": task_id, "files": files, "problems": problems}
+
+
+def cmd_review(args):
+    """Checks agent commits (default: every commit on the work branch that is not on the trusted ref)."""
+    ref, commits = trusted_ref_and_commits(args)
     if not commits:
         print("Nothing to review: %s has no commits that are not on %s." % (WORK_BRANCH, ref))
         return True
     ok = True
     for commit in commits:
-        view = Commit(commit)
-        subject = git("log", "-1", "--format=%s", view.commit).strip()
-        short = view.commit[:10]
-        task = re.search(r"agent kit (T\d+)|block (T\d+)|retry (T\d+)", subject)
-        if not task:
-            print("REVIEW SKIPPED %s: not a kit commit (%s)" % (short, subject))
+        result = review_commit(commit, ref)
+        if result["kind"] is None:
+            print("REVIEW SKIPPED %s: not a kit commit (%s)" % (result["commit"][:10], result["subject"]))
             continue
-        task_id = task.group(1) or task.group(2) or task.group(3)
-        print("== %s %s" % (short, subject))
-        if task.group(3):
-            files = view.files()
-            problems = ["%s: a retry commit may change only QUEUE.md and remove the blocked report" % f for f in files
-                        if f not in ("javaw-agent-kit/tasks/QUEUE.md", "javaw-agent-kit/reports/%s.md" % task_id)]
-            if view.content("javaw-agent-kit/reports/%s.md" % task_id) is not None and "javaw-agent-kit/reports/%s.md" % task_id in files:
-                problems.append("a retry commit may only delete the blocked report, not change it")
-            problems += check_queue(task_id, view, "todo")
-        elif task.group(2):
-            files = view.files()
-            problems = ["%s: a block commit may change only the report and QUEUE.md" % f for f in files
-                        if f not in ("javaw-agent-kit/tasks/QUEUE.md", "javaw-agent-kit/reports/%s.md" % task_id)]
-            problems += check_queue(task_id, view, "blocked")
-        else:
-            problems = check(task_id, trusted_task_meta(task_id, ref), view, review=True)
-        ok = report(task_id, problems, view.files(), label="REVIEW") and ok
+        print("== %s %s" % (result["commit"][:10], result["subject"]))
+        ok = report(result["task"], result["problems"], result["files"], label="REVIEW") and ok
     if ok:
         print("Guard rails hold. Now read the runtime code itself (REVIEW.md step 2).")
+    return ok
+
+
+def linkage_counts(root):
+    """The core-JDK linkage summary written by the last audit run in `root`, e.g. "1287 / 5 / 45"."""
+    summary = Path(root) / "runtime-target" / "target" / "audit" / "core-jdk-linkage-summary.tsv"
+    if not summary.exists():
+        return None
+    counts = dict(line.split("\t")[:2] for line in summary.read_text().splitlines()[1:] if "\t" in line)
+    return "%s / %s / %s" % (counts.get("declared-signature", "?"), counts.get("missing-member", "?"), counts.get("missing-owner", "?"))
+
+
+def audit(root, label):
+    log = STATE / ("audit-%s.log" % label)
+    with open(log, "w") as out:
+        code = subprocess.run(["python3", "runtime-target/audit.py", "--check-baseline"], cwd=root, env=java_env(),
+                              stdout=out, stderr=subprocess.STDOUT).returncode
+    return code, log
+
+
+def revision_number(commit):
+    text = git("show", "%s:%s" % (commit, CACHE_METADATA), check=False)
+    match = re.search(r'COMPILER_VERSION = "1\.0-SNAPSHOT-([a-z0-9-]+-v(\d+))"', text)
+    return (match.group(1), int(match.group(2))) if match else (None, None)
+
+
+def cmd_validate(args):
+    """Reviewer: REVIEW.md steps 1 and 5 in one run (guard rails, full suite, audit) with a one-screen summary."""
+    skip_tests, here = "--skip-tests" in args, "--here" in args
+    args = [a for a in args if a not in ("--skip-tests", "--here")]
+    ref, commits = trusted_ref_and_commits(args)
+    if not commits:
+        print("Nothing to validate: %s has no commits that are not on %s." % (WORK_BRANCH, ref))
+        return True
+    STATE.mkdir(parents=True, exist_ok=True)
+    tip = git("rev-parse", "--short", WORK_BRANCH).strip()
+    scratch = Path(tempfile.mkdtemp(prefix="kit-validate-"))
+    try:
+        return validate(commits, ref, tip, skip_tests, here, scratch)
+    finally:
+        for tree in ("branch", "ref"):
+            if (scratch / tree).exists():
+                git("worktree", "remove", "--force", str(scratch / tree), check=False)
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
+def validate(commits, ref, tip, skip_tests, here, scratch):
+    if here:
+        tree, where = ROOT, "the checked-out tree (%s, with any uncommitted changes)" % git("rev-parse", "--abbrev-ref", "HEAD").strip()
+    else:
+        tree, where = scratch / "branch", "a clean worktree of %s (%s)" % (WORK_BRANCH, tip)
+        git("worktree", "add", "-q", "--detach", str(tree), WORK_BRANCH)
+    print("== 1/3 guard rails (task specs from %s) for %d commits" % (ref, len(commits)))
+    results = [review_commit(commit, ref) for commit in commits]
+    tasks = {}
+    for result in results:
+        if result["kind"] is None:
+            continue
+        entry = tasks.setdefault(result["task"], {"blocks": 0, "retries": 0, "commit": None, "problems": [], "files": []})
+        entry["problems"] += ["%s: %s" % (result["commit"][:8], p) for p in result["problems"]]
+        if result["kind"] == "block":
+            entry["blocks"] += 1
+        elif result["kind"] == "retry":
+            entry["retries"] += 1
+        else:
+            entry["commit"], entry["files"] = result["commit"], result["files"]
+    others = [r for r in results if r["kind"] is None]
+    print("   suite and audit run in " + where)
+    suite = None
+    if skip_tests:
+        print("== 2/3 full suite: skipped (--skip-tests)")
+    else:
+        print("== 2/3 full bytecode suite + kit tests (several minutes; KIT_FORKS=%s)" % (os.environ.get("KIT_FORKS") or "default"))
+        code, log = maven(["one.dastec.javaw.bytecode.*Test"], "validate", modules="javaw-bytecode,javaw-agent-kit",
+                          include_pending=False, forks=os.environ.get("KIT_FORKS"), root=tree)
+        text = log.read_text(errors="replace")
+        totals = re.findall(r"^\[(?:INFO|WARNING|ERROR)\] Tests run: (\d+), Failures: (\d+), Errors: (\d+), Skipped: (\d+)$", text, re.M)
+        failed = sorted(set(re.findall(r"<<< (?:FAILURE|ERROR)! -- in (?:one\.dastec\.javaw\.bytecode\.)?(\S+)", text)))
+        suite = {"code": code, "log": log, "totals": totals, "failed": failed,
+                 "node_oom": len(re.findall(r"Fatal process out of memory", text))}
+    print("== 3/3 dependency audit baseline")
+    audit_code, audit_log = audit(tree, "validate")
+    counts = linkage_counts(tree)
+    trusted_counts = None
+    git("worktree", "add", "-q", "--detach", str(scratch / "ref"), ref, check=False)
+    if (scratch / "ref").exists():
+        audit(scratch / "ref", "validate-ref")
+        trusted_counts = linkage_counts(scratch / "ref")
+
+    ok = True
+    print("")
+    print("=" * 100)
+    print("VALIDATION SUMMARY: %s (%s) against %s, %d commits" % (WORK_BRANCH, tip, ref, len(commits)))
+    print("=" * 100)
+    print("%-5s %-6s %-38s %-7s %-6s %s" % ("Task", "Guard", "Revision", "Checks", "Blocks", "Docs to write (REVIEW.md step 4)"))
+    expected = revision_number(ref)[1]
+    warnings = []
+    for task_id in sorted(tasks, key=lambda t: int(t[1:])):
+        entry = tasks[task_id]
+        revision, number = revision_number(entry["commit"]) if entry["commit"] else ("(no task commit)", None)
+        if number is not None and expected is not None:
+            if number != expected + 1:
+                warnings.append("%s has revision v%d, expected v%d: renumber while rebasing (REVIEW.md step 3)" % (task_id, number, expected + 1))
+            expected = number
+        history = STATE / task_id / "history.txt"
+        checks = len([l for l in history.read_text().splitlines() if l.strip()]) if history.exists() else None
+        missing = [doc for doc in ("Todo.md", "Readme.md") if entry["commit"] and doc not in entry["files"]]
+        guard_ok = not entry["problems"] and entry["commit"] is not None
+        ok = ok and guard_ok
+        blocks = "%d" % entry["blocks"] if entry["blocks"] else "-"
+        print("%-5s %-6s %-38s %-7s %-6s %s" % (task_id, "OK" if guard_ok else "FAIL", revision or "?",
+                                               "?" if checks is None else str(checks), blocks, ", ".join(missing) or "done"))
+        for problem in entry["problems"]:
+            print("      - " + problem)
+        if entry["commit"]:
+            for doc in [f for f in entry["files"] if f.startswith("docs/")]:
+                body = git("show", "%s:%s" % (WORK_BRANCH, doc), check=False) or ""
+                if re.search(r"-vN\b", body):
+                    warnings.append("%s leaves a `-vN` revision placeholder in %s" % (task_id, doc))
+    if others:
+        print("Not kit commits (not checked): " + ", ".join("%s %s" % (r["commit"][:8], r["subject"][:50]) for r in others))
+    print("")
+    if suite is None:
+        print("Tests:  skipped")
+    else:
+        modules = ["javaw-bytecode", "javaw-agent-kit"]
+        parts = ["%s %s run, %s failed, %s errors" % (modules[i] if i < len(modules) else "module %d" % i, t[0], t[1], t[2])
+                 for i, t in enumerate(suite["totals"][-2:])]
+        passed = suite["code"] == 0
+        ok = ok and passed
+        print("Tests:  %s  (%s)" % ("PASS" if passed else "FAIL", "; ".join(parts) or "no totals found"))
+        for name in suite["failed"]:
+            print("        failed: " + name)
+        if not passed and not suite["failed"]:
+            print("        no test failed: a build or Maven problem, see %s" % suite["log"].relative_to(ROOT))
+        print("        log: %s" % suite["log"].relative_to(ROOT))
+        if suite["node_oom"]:
+            warnings.append("Node crashed %d time(s) with 'Fatal process out of memory' (usually memory pressure: "
+                            "set KIT_FORKS lower or unload the model)" % suite["node_oom"])
+    audit_ok = audit_code == 0
+    ok = ok and audit_ok
+    print("Audit:  %s  (log: %s)" % ("PASS" if audit_ok else "FAIL", audit_log.relative_to(ROOT)))
+    if counts:
+        change = "" if trusted_counts is None else (" (unchanged from %s)" % ref if counts == trusted_counts else " (%s: %s)" % (ref, trusted_counts))
+        print("Core-JDK linkage (declared / missing-member / missing-owner): %s%s" % (counts, change))
+    for warning in warnings:
+        print("WARNING: " + warning)
+    print("")
+    print("RESULT: %s" % ("PASS. Now read the runtime code (REVIEW.md step 2) and write the docs (step 4)." if ok else "FAIL (see above)"))
     return ok
 
 
@@ -901,7 +1068,7 @@ def cmd_lint(args):
 
 
 COMMANDS = {"doctor": cmd_doctor, "status": cmd_status, "next": cmd_next, "start": cmd_start, "check": cmd_check,
-            "regress": cmd_regress, "guard": cmd_guard, "review": cmd_review, "register": cmd_register, "retry": cmd_retry, "lint": cmd_lint, "finish": cmd_finish, "block": cmd_block}
+            "regress": cmd_regress, "guard": cmd_guard, "review": cmd_review, "validate": cmd_validate, "register": cmd_register, "retry": cmd_retry, "lint": cmd_lint, "finish": cmd_finish, "block": cmd_block}
 
 if __name__ == "__main__":
     if len(sys.argv) < 2 or sys.argv[1] not in COMMANDS:
