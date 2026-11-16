@@ -2187,3 +2187,5 @@ EnumMap (v301): `java.util.EnumMap` is linked, with JVM/Wasm evidence in `Byteco
 UncheckedIOException and BufferedReader.lines() (v302): `java.io.UncheckedIOException` and the lazy `BufferedReader.lines()` are linked, with JVM/Wasm evidence in `BytecodeBufferedReaderLinesTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-unchecked-io-lines.md). Implemented by the local agent after one blocked attempt.
 
 BufferedWriter (v303): `java.io.BufferedWriter` over a `Writer` is linked, with JVM/Wasm evidence in `BytecodeBufferedWriterTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-buffered-writer.md). Implemented by the local agent after one blocked attempt.
+
+CopyOnWriteArrayList (v304): `java.util.concurrent.CopyOnWriteArrayList` is linked under the single-threaded contract, with JVM/Wasm evidence in `BytecodeCopyOnWriteArrayListTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-copy-on-write-array-list.md). Implemented by the local agent after two blocked attempts.

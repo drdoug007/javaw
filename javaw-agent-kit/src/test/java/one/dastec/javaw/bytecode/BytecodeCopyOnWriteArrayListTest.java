@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T41: java.util.concurrent.CopyOnWriteArrayList. Expected values come from the JVM; see tasks/T41-copy-on-write-array-list.md. */
-@Tag("agent-pending")
 class BytecodeCopyOnWriteArrayListTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.util.AbstractCollection;
