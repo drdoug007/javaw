@@ -45,7 +45,7 @@
 | T38 | EnumMap | - | blocked |
 | T39 | UncheckedIOException and BufferedReader.lines() | - | blocked |
 | T40 | BufferedWriter over a Writer | - | blocked |
-| T41 | CopyOnWriteArrayList | - | todo |
+| T41 | CopyOnWriteArrayList | - | blocked |
 | T42 | ConcurrentLinkedQueue (single-threaded) | - | todo |
 | T43 | LongAdder and LongAccumulator | - | todo |
 | T44 | LineNumberReader | T32 | todo |
