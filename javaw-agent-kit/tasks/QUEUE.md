@@ -48,5 +48,5 @@
 | T41 | CopyOnWriteArrayList | - | done |
 | T42 | ConcurrentLinkedQueue (single-threaded) | - | done |
 | T43 | LongAdder and LongAccumulator | - | done |
-| T44 | LineNumberReader | T32 | todo |
+| T44 | LineNumberReader | T32 | done |
 | T45 | Seeded java.util.Random | - | todo |

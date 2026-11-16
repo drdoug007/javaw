@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T44: java.io.LineNumberReader over the runtime BufferedReader. Expected values come from the JVM; see tasks/T44-line-number-reader.md. */
-@Tag("agent-pending")
 class BytecodeLineNumberReaderTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.io.BufferedReader;

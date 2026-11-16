@@ -77,10 +77,11 @@ public class BufferedReader extends Reader {
         }
         return n;
     }
-    public String readLine() throws IOException {
+    public String readLine() throws IOException {return readLine(false,null);}
+    String readLine(boolean ignoreLF,boolean[] term) throws IOException {
         StringBuilder s=null;
         ensureOpen();
-        boolean omitLF=skipLF;
+        boolean omitLF=ignoreLF||skipLF;if(term!=null)term[0]=false;
         for(;;){
             if(nextChar>=nChars)fill();
             if(nextChar>=nChars){
@@ -90,7 +91,7 @@ public class BufferedReader extends Reader {
             boolean eol=false;char c=0;int i;
             if(omitLF&&cb[nextChar]=='\n')nextChar++;
             skipLF=false;omitLF=false;
-            for(i=nextChar;i<nChars;i++){c=cb[i];if(c=='\n'||c=='\r'){eol=true;break;}}
+            for(i=nextChar;i<nChars;i++){c=cb[i];if(c=='\n'||c=='\r'){if(term!=null)term[0]=true;eol=true;break;}}
             int startChar=nextChar;
             nextChar=i;
             if(eol){
