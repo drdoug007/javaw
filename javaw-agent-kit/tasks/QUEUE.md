@@ -44,3 +44,4 @@
 | T37 | EnumSet | - | done |
 | T38 | EnumMap | - | todo |
 | T39 | UncheckedIOException and BufferedReader.lines() | - | todo |
+| T40 | BufferedWriter over a Writer | - | todo |
