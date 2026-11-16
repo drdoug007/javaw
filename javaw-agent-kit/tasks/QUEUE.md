@@ -46,3 +46,4 @@
 | T39 | UncheckedIOException and BufferedReader.lines() | - | todo |
 | T40 | BufferedWriter over a Writer | - | todo |
 | T41 | CopyOnWriteArrayList | - | todo |
+| T42 | ConcurrentLinkedQueue (single-threaded) | - | todo |
