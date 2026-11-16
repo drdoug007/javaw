@@ -15,9 +15,11 @@ Run every command from the repository root (`/Volumes/SanDisk/javaw`).
 4. Read the task's test in `javaw-agent-kit/src/test/java/one/dastec/javaw/bytecode/`. It shows exactly what
    is called.
 5. Look at the example classes the task file names. Copy their style.
-6. Write the runtime class(es). Register each new top-level class with
-   `javaw-agent-kit/bin/kit register java/util/Name.java` (the path under `exception-runtime/`). Do not read
-   or hand-edit `BytecodeExceptionRuntime.java`; it is long and the command does it for you.
+6. Write the runtime class(es). Create a new file with the `Write` tool, not a shell heredoc. Register each new
+   top-level class with `javaw-agent-kit/bin/kit register java/util/Name.java` (the path under
+   `exception-runtime/`); it prints `registered: ...`. If it prints `already registered` for a class the task
+   adds, the starting tree is wrong: stop and `kit block`. Do not read or hand-edit
+   `BytecodeExceptionRuntime.java`; the command edits it for you, and that edit is always allowed.
 7. `javaw-agent-kit/bin/kit check T01`: runs the task's tests and prints a short summary.
    - `PASS`: go to step 8.
    - `FAIL`: read the message, fix **the runtime source**, and run check again.
@@ -28,7 +30,8 @@ Run every command from the repository root (`/Volumes/SanDisk/javaw`).
    - Every check ends with an **attempt history** that the kit keeps for you. Read it: it tells you what
      already failed, even after your context was compacted. If it says the same failure repeated, change
      your approach instead of making the same edit again.
-8. Write `javaw-agent-kit/reports/T01.md` (see below).
+8. Write `javaw-agent-kit/reports/T01.md` (see below) and the task's docs file. Leave the revision in the docs
+   as `<slug>-vN`: `kit finish` writes the real number.
 9. `javaw-agent-kit/bin/kit finish T01`: checks the guard rails, runs all tests, bumps the compiler
    revision, runs the audit and commits. If it fails, fix the problem and run finish again.
 10. Stop. Report the task ID and the commit it printed.
