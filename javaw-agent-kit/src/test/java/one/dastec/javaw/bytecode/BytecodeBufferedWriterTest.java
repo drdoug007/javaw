@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T40: java.io.BufferedWriter over the runtime Writer. Expected values come from the JVM; see tasks/T40-buffered-writer.md. */
-@Tag("agent-pending")
 class BytecodeBufferedWriterTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.io.BufferedWriter;

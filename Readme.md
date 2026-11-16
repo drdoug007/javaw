@@ -2185,3 +2185,5 @@ EnumSet (v299): `java.util.EnumSet` is linked as a single concrete class, with J
 EnumMap (v301): `java.util.EnumMap` is linked, with JVM/Wasm evidence in `BytecodeEnumMapTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-enum-map.md). Implemented by the local agent after two blocked attempts. Core-JDK linkage is now 1,313 declared / 5 missing-member / 19 missing-owner signatures.
 
 UncheckedIOException and BufferedReader.lines() (v302): `java.io.UncheckedIOException` and the lazy `BufferedReader.lines()` are linked, with JVM/Wasm evidence in `BytecodeBufferedReaderLinesTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-unchecked-io-lines.md). Implemented by the local agent after one blocked attempt.
+
+BufferedWriter (v303): `java.io.BufferedWriter` over a `Writer` is linked, with JVM/Wasm evidence in `BytecodeBufferedWriterTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-buffered-writer.md). Implemented by the local agent after one blocked attempt.

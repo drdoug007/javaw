@@ -149,6 +149,7 @@ public final class BytecodeExceptionRuntime {
             paths.add("java/io/InputStreamReader.java");
             paths.add("java/io/PrintStream.java");
             paths.add("java/io/UncheckedIOException.java");
+            paths.add("java/io/BufferedWriter.java");
             paths.add("javaw/runtime/ExceptionSupport.java");
             paths.add("javaw/runtime/ReflectionSupport.java");
             paths.add("javaw/runtime/Decimal.java");
