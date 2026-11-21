@@ -51,7 +51,7 @@
 | T44 | LineNumberReader | T32 | done |
 | T45 | Seeded java.util.Random | - | done |
 | T46 | ConcurrentMap default methods | - | done |
-| T47 | ConcurrentHashMap core (single-threaded) | T46 | todo |
+| T47 | ConcurrentHashMap core (single-threaded) | T46 | blocked |
 | T48 | ConcurrentHashMap KeySetView and remaining members | T47 | todo |
 | T49 | Lock and ReentrantLock (single-threaded) | - | todo |
 | T50 | ReadWriteLock and ReentrantReadWriteLock (single-threaded) | T49 | todo |
