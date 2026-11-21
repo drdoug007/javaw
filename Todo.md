@@ -953,7 +953,14 @@ This section is the source compiler's goal-1 track. It runs in parallel with sec
     - Evidence: `SourceRuntimeSupportTest.bindsInstanceofPatternsAndRecognizesStringTargets` and `rejectsConstructsThatWouldOtherwiseBeSilentlyOmitted`; the full `javaw-core` suite passes (142 tests, zero failures, errors or skips).
     - Remaining for the parent: method calls to unknown names still emit `call $name` and fail only in `wat2wasm`; statement-level and linker omissions are not yet audited; `Object.clone` copies stay untagged.
   - [ ] Source `StringBuilder` values and arrays carry no runtime tag. Converted to `Object` or `CharSequence`, they are treated as strings by `equals`/`hashCode`/`toString` and by collection keys: `CharSequence c = new StringBuilder("ab"); c.toString()` gives a one-character result. Tag them so runtime helpers can tell them apart, or reject the conversion with a diagnostic.
-  - [ ] (Blocks web components M2.) Field initializers are silently dropped.
+  - [x] Field initializers and initializer blocks now run (`FieldInitializerSupport`).
+    - **Instance:** initializers and initializer blocks run in declaration order in every constructor that does not delegate with `this(...)`, after the superclass constructor. Classes without constructors get an explicit one.
+    - **Static:** initializers and blocks run in declaration order at module start, eagerly. A class runs after the classes its initializers use; otherwise source order applies.
+    - **Folding:** only `static final` primitive literals stay folded. `LogManager.getLogger` fields stay compile-time intrinsics.
+    - **Records and interfaces** with non-constant static initializers are rejected with a diagnostic.
+    - **Evidence:** `FieldInitializerTest`. Its program returns 1 on the JVM and on Wasm, covering order, forward references, shadowing, `this(...)`, superclass order, a virtual call from the superclass constructor, blocks, arrays, lambdas, an enum and a cross-class dependency. Suites: `javaw-core` 163 tests, `javaw-components` 12, bytecode 638 + 98.
+    - **Limit:** initialization is eager, not lazy (JLS 12.4.1). The original report follows.
+  - Original report: field initializers were silently dropped.
     - **Static fields:** any initializer except an integer, double or boolean literal leaves the global at 0 or `null`. That covers string literals, concatenations, method calls, `new` and lambdas, because `JavacToWasm` global collection folds only those three literal kinds. For example, `static String label = "init";` reads as `null`.
     - **Instance fields:** no initializer runs at all, not even literals. For example, `class H { private int n = 3; }` gives `new H().n == 0`. A probe returned `0,0,0` for `3`, `1` and `4`.
     - **Fix:**
@@ -967,6 +974,8 @@ This section is the source compiler's goal-1 track. It runs in parallel with sec
     - **Non-String right-hand sides:** `s += 1` and `s += 'c'` give wrong text, and `s += 1.5` fails in `wat2wasm`.
     - **Fix:** choose the string path from the target's type and route every target kind through `translateStringToStack` plus the null check. Found by the web components M1 review.
   - [ ] DOM intrinsic string arguments (`translateDomStringArg`) look up the string pool by the literal's escaped source text, so a literal with an escape sequence compiles to an empty string. For example, `el.querySelector("#\\31 23")` passes `""`. Look up the unescaped value. Found by the web components M1 review.
+  - [ ] A field named `log` read through a receiver (`h.log.equals("a")`) emits no code, so `wat2wasm` fails with a type mismatch. A field named `trace` works, which points at the name-based logging intrinsics. Confirmed on the build before the field-initializer change; found while testing it. Dispatch by the receiver's type, or diagnose.
+  - [ ] Diamond inference with library collection types fails even for locals: `List<String> n = new ArrayList<>();` gives "Incompatible generic assignment: ArrayList<Object> to List<String>". Write `new ArrayList<String>()` until it is fixed.
 - [ ] Maintain an executable compatibility suite and link README claims to tested cases.
   - [x] Link supported assertion/byte-stream/bytecode claims to executable tests in README and the compatibility matrix. Broader framework/runtime coverage remains pending.
   - [ ] Audit the remaining published compatibility claims against current source/bytecode and end-to-end gates; add missing coverage and update evidence links as the runtime/framework milestones expand. Keep this maintenance gate open while those coverage gaps remain.

@@ -226,7 +226,8 @@ public class JavacToWasm {
                 String vType = mapType(vd.getType());
                 if (vType == null) vType = "i32";
                 String initVal = "0";
-                if (vd.getInitializer().isPresent() && !BoxingSupport.boxed(vd.getTypeAsString())) {
+                // Only constant variables stay folded; FieldInitializerSupport lowered every other initializer.
+                if (FieldInitializerSupport.folded(fd, vd)) {
                     Expression initExpr = vd.getInitializer().get();
                     if (initExpr.isIntegerLiteralExpr()) {
                         initVal = initExpr.asIntegerLiteralExpr().getValue();
@@ -546,6 +547,7 @@ public class JavacToWasm {
         JavaSourcePreparation.normalizeTypes(cu, JavaSourcePreparation.typeNames(List.of(cu)));
         BoxingSupport.addWrappers(cu);
         if (reflection != null) reflection.finish(cu);
+        boolean staticInitialization = FieldInitializerSupport.lower(cu);
         JavaSourcePreparation.normalizeVarargs(cu);
         JavaSourcePreparation.resolveLocalScopes(cu);
         LambdaSupport.lower(cu);
@@ -684,11 +686,16 @@ public class JavacToWasm {
         SourceMapTracker tracker = sourceMapGen != null ? new SourceMapTracker(sourceMapGen, sourceName) : null;
         cu.accept(new WasmGeneratorVisitor(stringPool, globalVars, classRegistry, tracker, jsSnippets), watOutput);
         String initializer=cu.findAll(com.github.javaparser.ast.body.EnumDeclaration.class).isEmpty() ? "$__init_classes" : "$__init_enums";
-        if(cu.getClassByName("BigDecimal").isPresent()) {
-            watOutput.append("  (func $__javaw_initialize\n    call ").append(initializer)
-                .append("\n    call ").append(classRegistry.findMethod("BigInteger","__javaw_initialize").getFunctionName())
-                .append("\n    call ").append(classRegistry.findMethod("BigDecimal","__javaw_initialize").getFunctionName())
-                .append(")\n  (start $__javaw_initialize)\n");
+        boolean decimal = cu.getClassByName("BigDecimal").isPresent();
+        if(decimal || staticInitialization) {
+            watOutput.append("  (func $__javaw_initialize\n    call ").append(initializer);
+            if (decimal)
+                watOutput.append("\n    call ").append(classRegistry.findMethod("BigInteger","__javaw_initialize").getFunctionName())
+                    .append("\n    call ").append(classRegistry.findMethod("BigDecimal","__javaw_initialize").getFunctionName());
+            // Static field initializers and static blocks, after class descriptors and enum constants exist.
+            if (staticInitialization)
+                watOutput.append("\n    call ").append(classRegistry.findMethod(FieldInitializerSupport.RUNNER_CLASS, FieldInitializerSupport.RUNNER_METHOD).getFunctionName());
+            watOutput.append(")\n  (start $__javaw_initialize)\n");
         } else watOutput.append("  (start ").append(initializer).append(")\n");
         ManagedHeap.emitCollector(watOutput);
         watOutput.append(")\n");
