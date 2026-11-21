@@ -2199,3 +2199,5 @@ LineNumberReader (v307): `java.io.LineNumberReader` is linked, with JVM/Wasm evi
 Seeded Random (v308): `java.util.Random(long)` is linked bit-for-bit with the JDK, with JVM/Wasm evidence in `BytecodeSeededRandomTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-seeded-random.md). `Random()` without a seed is not linked. Implemented by the local agent unaided.
 
 ConcurrentMap (v309): `java.util.concurrent.ConcurrentMap` is linked with the JDK default-method retry loops, with JVM/Wasm evidence in `BytecodeConcurrentMapTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-concurrent-map.md). `ConcurrentNavigableMap`/`ConcurrentSkipListMap` are not linked yet. Implemented by the local agent.
+
+Lock and ReentrantLock (v310): `java.util.concurrent.locks.Lock`, `ReentrantLock`, `IllegalMonitorStateException` and `InterruptedException` are linked under the single-threaded contract, with JVM/Wasm evidence in `BytecodeReentrantLockTest` (in `javaw-agent-kit`); see [the contract](docs/bytecode-reentrant-lock.md). `newCondition` and timed `tryLock` are not linked yet. Implemented by the local agent.

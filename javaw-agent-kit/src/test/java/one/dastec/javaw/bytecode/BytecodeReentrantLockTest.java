@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T49: java.util.concurrent.locks.Lock and ReentrantLock (single-threaded). See tasks/T49-reentrant-lock.md. */
-@Tag("agent-pending")
 class BytecodeReentrantLockTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.util.concurrent.locks.Lock;

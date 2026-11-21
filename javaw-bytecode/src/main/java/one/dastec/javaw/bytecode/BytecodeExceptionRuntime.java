@@ -13,7 +13,7 @@ public final class BytecodeExceptionRuntime {
             + "VirtualMachineError InternalError OutOfMemoryError StackOverflowError NullPointerException ClassCastException ArithmeticException "
             + "IndexOutOfBoundsException ArrayIndexOutOfBoundsException ArrayStoreException NegativeArraySizeException "
             + "IllegalArgumentException IllegalStateException UnsupportedOperationException IncompatibleClassChangeError AbstractMethodError IllegalAccessError "
-            + "BootstrapMethodError ExceptionInInitializerError NoSuchMethodError NoSuchFieldError NoClassDefFoundError InstantiationError UnsatisfiedLinkError").split(" ");
+            + "BootstrapMethodError ExceptionInInitializerError NoSuchMethodError NoSuchFieldError NoClassDefFoundError InstantiationError UnsatisfiedLinkError IllegalMonitorStateException InterruptedException").split(" ");
 
     private BytecodeExceptionRuntime() {}
 
@@ -156,6 +156,8 @@ public final class BytecodeExceptionRuntime {
             paths.add("java/util/concurrent/atomic/LongAccumulator.java");
             paths.add("java/io/LineNumberReader.java");
             paths.add("java/util/concurrent/ConcurrentMap.java");
+            paths.add("java/util/concurrent/locks/Lock.java");
+            paths.add("java/util/concurrent/locks/ReentrantLock.java");
             paths.add("javaw/runtime/ExceptionSupport.java");
             paths.add("javaw/runtime/ReflectionSupport.java");
             paths.add("javaw/runtime/Decimal.java");

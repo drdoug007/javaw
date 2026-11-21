@@ -53,6 +53,6 @@
 | T46 | ConcurrentMap default methods | - | done |
 | T47 | ConcurrentHashMap core (single-threaded) | T46 | blocked |
 | T48 | ConcurrentHashMap KeySetView and remaining members | T47 | todo |
-| T49 | Lock and ReentrantLock (single-threaded) | - | todo |
+| T49 | Lock and ReentrantLock (single-threaded) | - | done |
 | T50 | ReadWriteLock and ReentrantReadWriteLock (single-threaded) | T49 | todo |
 | T51 | BlockingQueue and LinkedBlockingQueue (single-threaded) | - | todo |
