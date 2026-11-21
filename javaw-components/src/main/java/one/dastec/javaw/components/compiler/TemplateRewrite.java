@@ -29,6 +29,25 @@ final class TemplateRewrite {
     private record Definition(int id, HtmlTemplate.Result result) {}
 
     private final List<Definition> definitions = new ArrayList<>();
+
+    /** A Java component known to the module: its class and its @Property fields (name to declared type). */
+    record Component(String className, java.util.Map<String, Field> properties) {}
+
+    /** A @Property field: its declared type and the component class that declares it. */
+    record Field(String type, String owner) {}
+
+    /** A property of a known component bound with {@code .name=${...}}; {@code id} is its key in the module. */
+    record PropertyKey(int id, String className, String field, String type) {}
+
+    private final java.util.Map<String, Component> components;
+    private final java.util.Map<String, PropertyKey> keys = new java.util.LinkedHashMap<>();
+
+    TemplateRewrite(java.util.Map<String, Component> componentsByTag) {
+        this.components = componentsByTag;
+    }
+
+    /** The component properties that templates bind, in key order. */
+    List<PropertyKey> propertyKeys() { return List.copyOf(keys.values()); }
     private final JavaParser parser = new JavaParser(new ParserConfiguration()
             .setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_17));
 
@@ -116,11 +135,26 @@ final class TemplateRewrite {
                     inner.replace(lower(inner));
             if (expression instanceof MethodCallExpr m && isNestedHtmlCall(m))
                 expression = lower(m);
-            arguments.add(wrap(result.bindingKinds().get(i), result.bindingNames().get(i), expression, argument, start));
+            Component target = result.bindingKinds().get(i) == HtmlTemplate.Kind.PROP ? components.get(result.bindingTags().get(i)) : null;
+            arguments.add(target != null ? componentProperty(target, result.bindingTags().get(i), result.bindingNames().get(i), expression, argument, start)
+                    : wrap(result.bindingKinds().get(i), result.bindingNames().get(i), expression, argument, start));
         }
         MethodCallExpr of = new MethodCallExpr(new NameExpr("Template"), "of", arguments);
         call.getRange().ifPresent(of::setRange);
         return of;
+    }
+
+    /** {@code .name=${x}} on a Java component of this module: a typed call that sets the field through its setter. */
+    private Expression componentProperty(Component target, String tag, String name, Expression expression, Node anchor, Position at) {
+        Field field = target.properties().get(name);
+        if (field == null)
+            throw errorAt(anchor, at, "<" + tag + "> (" + target.className() + ") has no @Property '" + name + "'"
+                    + (target.properties().isEmpty() ? "" : "; its properties are " + String.join(", ", target.properties().keySet())));
+        // The key and its generated methods belong to the declaring class, so a subclass's tag shares its base's key.
+        keys.computeIfAbsent(field.owner() + "#" + name, k -> new PropertyKey(keys.size() + 1, field.owner(), name, field.type()));
+        MethodCallExpr call = new MethodCallExpr(new NameExpr(field.owner()), "__wc_prop_" + name, new NodeList<>(expression));
+        expression.getRange().ifPresent(call::setRange);
+        return call;
     }
 
     private static Expression wrap(HtmlTemplate.Kind kind, String name, Expression expression, Node anchor, Position at) {

@@ -190,4 +190,78 @@ class TemplateTest {
             assert.equal(errors.length, 0, String(errors[0] && errors[0].stack));
             """);
     }
+
+    static final String NESTED = """
+        import one.dastec.javaw.components.CustomElement;
+        import one.dastec.javaw.components.Property;
+        import one.dastec.javaw.components.Template;
+        import one.dastec.javaw.components.WebComponent;
+
+        @CustomElement("x-badge")
+        class Badge extends WebComponent {
+            @Property private int count;
+            @Property private String label = "?";
+            @Property private boolean hot;
+            @Property private double ratio;
+            @Override protected Template render() {
+                return html("<b class=${tone()}>${label}=${count} ${ratio}</b>");
+            }
+            private String tone() { return hot ? "hot" : "cold";
+            }
+        }
+
+        @CustomElement("x-mini")
+        class Mini extends Badge {}
+
+        @CustomElement("x-board")
+        class Board extends WebComponent {
+            @Property private int n = 1;
+            @Property private String name = "a";
+            @Override protected Template render() {
+                return html(\"""
+                    <x-badge id="b" .count=${n * 10} .label=${name} .hot=${n > 2} .ratio=${n / 4.0}></x-badge>
+                    <input .value=${name}>
+                    <x-mini id="m" .count=${n}></x-mini>
+                    \""");
+            }
+        }
+        """;
+
+    @Test
+    void propertyBindingsOnJavaComponentsSetTheirFieldsDirectly() throws Exception {
+        byte[] wasm = JavacToWasm.compile("App.java", NESTED, false).getWasm();
+        CustomElementTest.run(wasm, "", """
+            const tick = async () => { await settle(); await settle(); };
+            let jsProps = 0;
+            const wcProp = r.wcProp;
+            r.wcProp = function (...a) { jsProps++; return wcProp.apply(this, a); };
+            const board = document.createElement('x-board');
+            document.body.appendChild(board);
+            await tick();
+            const badge = board.shadowRoot.getElementById('b');
+            const text = () => badge.shadowRoot.querySelector('b').textContent;
+            assert.equal(text(), 'a=10 0.25', 'the child renders the values the parent bound');
+            assert.equal(badge.count, 10);
+            const mini = board.shadowRoot.getElementById('m');
+            const miniText = () => mini.shadowRoot.querySelector('b').textContent;
+            assert.equal(miniText(), '?=1 0.0', 'a property inherited from a component superclass binds through its own tag');
+            assert.equal(badge.shadowRoot.querySelector('b').className, 'cold');
+            assert.equal(jsProps, 1, 'only the <input> property goes through JS; component properties are set in Java');
+            board.n = 3; board.name = 'z';
+            await tick();
+            assert.equal(text(), 'z=30 0.75', 'parent and child update in the same flush');
+            assert.equal(badge.shadowRoot.querySelector('b').className, 'hot');
+            let commits = 0;
+            const peer = r.wcPeer;
+            r.wcPeer = function (...a) { commits++; return peer.apply(this, a); };
+            board.name = 'z';
+            board.n = 3;
+            await tick();
+            assert.equal(commits, 0, 'unchanged component properties make no host calls');
+            board.n = 4; await tick();
+            assert.equal(commits, 3, 'only the changed bindings (badge count and ratio, mini count) are set; label and hot are unchanged');
+            assert.equal(miniText(), '?=4 0.0');
+            assert.equal(errors.length, 0, String(errors[0] && errors[0].stack));
+            """);
+    }
 }

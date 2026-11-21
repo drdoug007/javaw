@@ -873,7 +873,7 @@
                         throw err;
                     }
                     const scope = runtime.createHandleScope(this, { peer });
-                    const state = { peer, scope, hostHandle: runtime.getOrCreateHandle(this), rootHandle: 0, early };
+                    const state = { peer, scope, hostHandle: runtime.getOrCreateHandle(this), rootHandle: 0, early, runtime };
                     Object.defineProperty(this, '__javawComponent', { value: state, configurable: true });
                     exports.__wc_attach(peer, state.hostHandle, 0);
                 }
@@ -1120,6 +1120,14 @@
         wcProp(id, index, value) {
             const { part } = this.wcInstance(id).bindings[index];
             part.element[part.name] = value;
+        }
+
+        // The Java peer of a bound element that is a component of this module, or 0.
+        wcPeer(id, index) {
+            const { part } = this.wcInstance(id).bindings[index];
+            const state = part.element.__javawComponent;
+            // A peer of another module's runtime points into a different memory.
+            return state && state.runtime === this ? state.peer : 0;
         }
 
         wcEvent(id, index, on) {

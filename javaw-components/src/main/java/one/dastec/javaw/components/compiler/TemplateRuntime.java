@@ -26,6 +26,8 @@ final class TemplateRuntime {
             boolean __flag;
             double __number;
             Template __template;
+            int __key;
+            Object __value;
             __JavawDomRunnable __run;
             EventListener<Event> __handler;
             EventListener<MouseEvent> __mouse;
@@ -88,6 +90,12 @@ final class TemplateRuntime {
                 return p;
             }
             public static TemplatePart eventNothing() { return new TemplatePart(9); }
+            public static TemplatePart __componentProp(int key, Object value) {
+                TemplatePart p = new TemplatePart(16);
+                p.__key = key;
+                p.__value = value;
+                return p;
+            }
             public static TemplatePart onMouse(__JavawDomRunnable listener) { return on(listener); }
             public static TemplatePart onMouse(EventListener<MouseEvent> listener) {
                 TemplatePart p = new TemplatePart(listener == null ? 9 : 10);
@@ -129,6 +137,7 @@ final class TemplateRuntime {
             int id;
             int template;
             int[] kinds;
+            int[] keys;
             boolean[] set;
             String[] texts;
             boolean[] flags;
@@ -138,6 +147,7 @@ final class TemplateRuntime {
                 this.id = id;
                 this.template = template;
                 kinds = new int[count];
+                keys = new int[count];
                 set = new boolean[count];
                 texts = new String[count];
                 flags = new boolean[count];
@@ -155,6 +165,7 @@ final class TemplateRuntime {
                 for (int i = 0; i < t.__parts.length; i++) commitPart(c, inst, i, t.__parts[i]);
             }
             static boolean same(String a, String b) { return a == null ? b == null : a.equals(b); }
+            static boolean sameValue(Object a, Object b) { return a == null ? b == null : a.equals(b); }
             static void commitPart(WebComponent c, __WcInstance inst, int i, TemplatePart p) {
                 int kind = p.__kind;
                 boolean first = !inst.set[i];
@@ -202,6 +213,17 @@ final class TemplateRuntime {
                     inst.numbers[i] = p.__number;
                     inst.set[i] = true;
                     __wc_propNumber(inst.id, i, p.__number);
+                } else if (kind == 16) {
+                    // .name on a Java component of this module: set its field through the generated setter, unmarshalled.
+                    if (!first && inst.kinds[i] == 16 && inst.keys[i] == p.__key && sameValue(inst.objects[i], p.__value)) return;
+                    WebComponent target = __wc_peer(inst.id, i);
+                    if (target == null) throw new IllegalStateException("property binding target is not an upgraded component of this module");
+                    __JavawComponentFactories.__wc_assignProperty(target, p.__key, p.__value);
+                    // Recorded only once set, so a failed assignment is retried by the next render.
+                    inst.kinds[i] = 16;
+                    inst.keys[i] = p.__key;
+                    inst.objects[i] = p.__value;
+                    inst.set[i] = true;
                 } else {
                     // Events: the JS listener is stable and calls the current Java listener; only adding or
                     // removing it crosses to the host.
@@ -259,6 +281,8 @@ final class TemplateRuntime {
             public static native void __wc_propNumber(int id, int index, double value);
             @JS("runtime.wcEvent(id, index, on);")
             public static native void __wc_event(int id, int index, boolean on);
+            @JS("return runtime.wcPeer(id, index);")
+            public static native WebComponent __wc_peer(int id, int index);
             @JS("runtime.wcRelease(id);")
             public static native void __wc_release(int id);
         }

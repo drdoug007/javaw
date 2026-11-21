@@ -176,7 +176,22 @@ public final class ComponentExtension implements SourceExtension {
             definitions.add(definition);
         }
         // Templates first: binding expressions then get the @Query and reactive-field rewrites like other code.
-        TemplateRewrite templates = new TemplateRewrite();
+        Map<String, TemplateRewrite.Component> byTagProperties = new LinkedHashMap<>();
+        Map<String, ClassOrInterfaceDeclaration> componentsByName = new LinkedHashMap<>();
+        for (ClassOrInterfaceDeclaration c : components) componentsByName.put(c.getNameAsString(), c);
+        for (int i = 0; i < components.size(); i++) {
+            // Own fields first, then those inherited from component superclasses (whose setters are generated there).
+            Map<String, TemplateRewrite.Field> properties = new LinkedHashMap<>();
+            Set<String> seen = new HashSet<>();
+            for (ClassOrInterfaceDeclaration c = components.get(i); c != null && seen.add(c.getNameAsString());
+                 c = c.getExtendedTypes().isEmpty() ? null : componentsByName.get(c.getExtendedTypes().get(0).getNameAsString()))
+                for (FieldDeclaration field : c.getFields())
+                    if (annotation(field, "Property") != null)
+                        for (VariableDeclarator v : field.getVariables())
+                            properties.putIfAbsent(v.getNameAsString(), new TemplateRewrite.Field(v.getTypeAsString(), c.getNameAsString()));
+            byTagProperties.put(definitions.get(i).tag, new TemplateRewrite.Component(definitions.get(i).className, properties));
+        }
+        TemplateRewrite templates = new TemplateRewrite(byTagProperties);
         templates.rewrite(cu);
         boolean usesTemplates = !templates.isEmpty() || cu.findAll(ClassOrInterfaceType.class).stream()
                 .anyMatch(t -> t.getNameAsString().equals("Template") || t.getNameAsString().equals("Parts"));
@@ -189,6 +204,20 @@ public final class ComponentExtension implements SourceExtension {
             definitions.set(i, new Definition(d.tag, d.className, d.factory, List.copyOf(observed), fields));
         }
         rewriteConstruction(cu, definitions);
+        for (TemplateRewrite.PropertyKey key : templates.propertyKeys()) {
+            ClassOrInterfaceDeclaration target = componentsByName.get(key.className());
+            String box = switch (key.type()) { case "int" -> "Integer.valueOf(value)"; case "boolean" -> "Boolean.valueOf(value)"; case "double" -> "Double.valueOf(value)"; default -> "value"; };
+            String unbox = switch (key.type()) {
+                case "int" -> "((Integer) value).intValue()";
+                case "boolean" -> "((Boolean) value).booleanValue()";
+                case "double" -> "((Double) value).doubleValue()";
+                default -> "(" + key.type() + ") value";
+            };
+            target.addMember(StaticJavaParser.parseBodyDeclaration("public static TemplatePart __wc_prop_" + key.field() + "(" + key.type()
+                    + " value) { return Parts.__componentProp(" + key.id() + ", " + box + "); }"));
+            target.addMember(StaticJavaParser.parseBodyDeclaration("public static void __wc_assign_" + key.field() + "(" + key.className()
+                    + " component, Object value) { __set$" + key.field() + "(component, " + unbox + "); }"));
+        }
 
         cu.getTypes().add(StaticJavaParser.parseTypeDeclaration(WEB_COMPONENT.replace("/*TEMPLATES*/",
                 usesTemplates ? TemplateRuntime.COMPONENT_MEMBERS : "protected void update(Changes changes) {}")));
@@ -200,8 +229,17 @@ public final class ComponentExtension implements SourceExtension {
             if (!templates.isEmpty()) output.customSection(TemplateRewrite.SECTION, templates.json());
         }
         cu.getTypes().add(StaticJavaParser.parseTypeDeclaration(CHANGES));
-        if (!definitions.isEmpty()) {
+        if (!definitions.isEmpty() || usesTemplates) {
             ClassOrInterfaceDeclaration factories = new ClassOrInterfaceDeclaration().setName(FACTORIES);
+            if (usesTemplates) {
+                // Typed .name bindings on Java components of this module, by property key.
+                StringBuilder assign = new StringBuilder("{ ");
+                for (TemplateRewrite.PropertyKey key : templates.propertyKeys())
+                    assign.append("if (key == ").append(key.id()).append(") { ").append(key.className()).append(".__wc_assign_").append(key.field())
+                            .append("((").append(key.className()).append(") target, value); return; } ");
+                factories.addMember(StaticJavaParser.parseBodyDeclaration(
+                        "static void __wc_assignProperty(WebComponent target, int key, Object value) " + assign.append("}")));
+            }
             for (Definition d : definitions)
                 factories.addMethod(d.factory, com.github.javaparser.ast.Modifier.Keyword.PUBLIC, com.github.javaparser.ast.Modifier.Keyword.STATIC)
                         .setType("WebComponent")

@@ -73,4 +73,21 @@ class TemplateDiagnosticsTest {
         assertTrue(error.getMessage().startsWith(position) && error.getMessage().contains(fragment),
                 "expected " + position + " ... " + fragment + " but got: " + error.getMessage() + "\n" + source);
     }
+
+    @Test
+    void propertyBindingsOnJavaComponentsAreChecked() {
+        String source = """
+            import one.dastec.javaw.components.CustomElement;
+            import one.dastec.javaw.components.Property;
+            import one.dastec.javaw.components.Template;
+            import one.dastec.javaw.components.WebComponent;
+            @CustomElement("x-kid") class Kid extends WebComponent { @Property private int count; @Property private String label; }
+            @CustomElement("x-mom") class Mom extends WebComponent {
+                protected Template render() { return html("<x-kid .%s=${%s}></x-kid>"); }
+            }
+            """;
+        reject(source.formatted("size", "1"), "App.java:7:61:", "<x-kid> (Kid) has no @Property 'size'; its properties are count, label");
+        var error = assertThrows(IllegalArgumentException.class, () -> JavacToWasm.compile("App.java", source.formatted("count", "true"), false));
+        assertTrue(error.getMessage().contains("App.java:7:64:"), "a mistyped value is reported at the expression: " + error.getMessage());
+    }
 }
