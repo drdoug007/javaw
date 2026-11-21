@@ -47,6 +47,34 @@ public abstract class WebComponent {
         return null;
     }
 
+    /** Schedules an update in a microtask, for changes the reactive fields cannot see (in-place mutation). */
+    public void requestUpdate() {
+    }
+
+    /** Whether to run this update; returning {@code false} discards the changes. */
+    protected boolean shouldUpdate(Changes changes) {
+        return true;
+    }
+
+    /** Before the update; field writes here join the current cycle. */
+    protected void willUpdate(Changes changes) {
+    }
+
+    /**
+     * Brings the DOM up to date. Field writes here do not schedule another update. Templates
+     * ({@code render()}) arrive in milestone M3; until then this is the imperative rendering hook.
+     */
+    protected void update(Changes changes) {
+    }
+
+    /** After the first update only. */
+    protected void firstUpdated(Changes changes) {
+    }
+
+    /** After every update; field writes here schedule a new cycle. */
+    protected void updated(Changes changes) {
+    }
+
     /** The custom element itself. */
     public Element host() {
         return null;

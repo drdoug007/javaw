@@ -840,10 +840,17 @@
                 state.rootHandle = runtime.getOrCreateHandle(root);
                 exports.__wc_attach(state.peer, state.hostHandle, state.rootHandle);
             };
+            const properties = def.properties || [];
             const Component = class extends Base {
                 static get observedAttributes() { return observed; }
                 constructor() {
                     super();
+                    // Properties set on the element before it was upgraded are own data properties that would
+                    // shadow the accessors. As in Lit, they are replayed through the accessors on the first connect,
+                    // after the parser's initial attributes, so the property value wins.
+                    const early = [];
+                    for (const p of properties)
+                        if (Object.prototype.hasOwnProperty.call(this, p.name)) { early.push([p.name, this[p.name]]); delete this[p.name]; }
                     let peer;
                     try {
                         peer = exports[def.factory]();
@@ -854,13 +861,19 @@
                         throw err;
                     }
                     const scope = runtime.createHandleScope(this, { peer });
-                    const state = { peer, scope, hostHandle: runtime.getOrCreateHandle(this), rootHandle: 0 };
+                    const state = { peer, scope, hostHandle: runtime.getOrCreateHandle(this), rootHandle: 0, early };
                     Object.defineProperty(this, '__javawComponent', { value: state, configurable: true });
                     exports.__wc_attach(peer, state.hostHandle, 0);
                 }
                 connectedCallback() {
                     if (runtime.unconnectedComponents) runtime.unconnectedComponents.delete(this);
-                    call(this, 'connected', state => { ensureRoot(this, state); exports.__wc_connected(state.peer); });
+                    call(this, 'connected', state => {
+                        ensureRoot(this, state);
+                        const early = state.early;
+                        state.early = null;
+                        if (early) for (const [name, value] of early) this[name] = value;
+                        exports.__wc_connected(state.peer);
+                    });
                 }
                 disconnectedCallback() {
                     call(this, 'disconnected', state => exports.__wc_disconnected(state.peer));
@@ -875,8 +888,75 @@
                         newValue === null ? 0 : runtime.writeString(newValue)));
                 }
             };
+            for (const p of properties) {
+                const getter = exports[p.getter], setter = exports[p.setter];
+                Object.defineProperty(Component.prototype, p.name, {
+                    configurable: true, enumerable: true,
+                    get() {
+                        const state = this.__javawComponent;
+                        if (!state) return undefined;
+                        const raw = getter(state.peer);
+                        if (p.kind === 'string') return raw ? runtime.readWasmStringFromPtr(raw) : null;
+                        if (p.kind === 'boolean') return Boolean(raw);
+                        return raw;
+                    },
+                    set(value) {
+                        const state = this.__javawComponent;
+                        if (!state) return;
+                        let raw;
+                        if (p.kind === 'string') {
+                            if (value !== null && typeof value !== 'string') throw new TypeError(def.tag + '.' + p.name + ' must be a string or null');
+                            raw = value === null ? 0 : runtime.writeString(value);
+                        } else if (p.kind === 'boolean') {
+                            if (typeof value !== 'boolean') throw new TypeError(def.tag + '.' + p.name + ' must be a boolean');
+                            raw = value ? 1 : 0;
+                        } else {
+                            if (typeof value !== 'number') throw new TypeError(def.tag + '.' + p.name + ' must be a number');
+                            // Java (int) casting: NaN is 0 and out-of-range values saturate.
+                            raw = p.kind === 'int' ? (Number.isNaN(value) ? 0 : Math.max(-2147483648, Math.min(2147483647, Math.trunc(value)))) : value;
+                        }
+                        setter(state.peer, raw);
+                    },
+                });
+            }
             Object.defineProperty(Component, 'name', { value: def.className });
             return Component;
+        }
+
+        // Batched updates: one microtask runs every component that requested an update, in request order,
+        // until the queue is empty. Updates requested during the flush run in the same flush.
+        scheduleComponentUpdate(host) {
+            if (!host) return;
+            const queue = this.updateQueue || (this.updateQueue = new Set());
+            queue.add(host);
+            if (this.updateScheduled) return;
+            this.updateScheduled = true;
+            queueMicrotask(() => this.flushComponentUpdates());
+        }
+
+        flushComponentUpdates() {
+            const queue = this.updateQueue;
+            const counts = new Map();
+            try {
+                while (queue.size > 0) {
+                    const host = queue.values().next().value;
+                    queue.delete(host);
+                    const state = host.__javawComponent;
+                    if (!state) continue;
+                    const n = (counts.get(host) || 0) + 1;
+                    counts.set(host, n);
+                    if (n > 100) {
+                        this.reportCallbackError(new Error('<' + host.localName + '> requested more than 100 updates in one flush'), 'update');
+                        // Drop the pending cycle so a later write schedules a fresh one.
+                        try { this.instance.exports.__wc_abandon(state.peer); } catch (err) { this.reportCallbackError(err, 'update'); }
+                        continue;
+                    }
+                    try { this.instance.exports.__wc_perform(state.peer); }
+                    catch (err) { this.reportCallbackError(err, '<' + host.localName + '> update'); }
+                }
+            } finally {
+                this.updateScheduled = false;
+            }
         }
 
         // new X() in Java for a component class: construct through the registry so the element owns the peer.

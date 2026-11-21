@@ -47,7 +47,21 @@ Differences from the plan below, decided during M1:
 - **Registration and runtime placement.** Elements are registered by `javaw-runtime.js` from a custom section. The component runtime lives in `javaw-runtime.js` rather than a separate script. The generated `<module>.components.js` ES module, manifest and `.d.ts` remain M6.
 - **Nested component classes** are rejected for now. Only top-level classes are supported.
 
-Known compiler gaps that affect components (Todo section 13): field initializers do not run yet, so assign initial values in the constructor. `+=` on a String field concatenates only for locals and statics.
+Implemented (M2 subset; evidence in `ReactiveFieldsTest`):
+- **Reactive fields.** `@Property` and `@State` go on private, non-static, non-final fields. Writes as `f` or `this.f` outside constructors and initializers (assignment, compound assignment, prefix and postfix `++`/`--`, nested assignments, and writes inside lambdas, including lambdas created in a constructor or initializer) become generated setters. The setters record the first old value per cycle and schedule an update. Change detection follows the table in [Change detection](#change-detection).
+- **Update cycle.** It runs once per microtask for each component that requested an update, through `shouldUpdate`, `willUpdate`, reflection, `update(Changes)`, `firstUpdated` (first time only) and `updated`. Writes in `willUpdate` join the cycle; writes in `update` neither schedule nor extend it, as in Lit; writes in `updated` start a new cycle. A declined or failed update discards its changes. Updates start once the element is connected, and the first update lists every reactive field. A component that requests more than 100 updates in one flush is reported and its pending cycle is dropped; a later write starts a new one.
+- **Attributes.** `@Property` fields of type `String`, `boolean`, `int` and `double` get an observed attribute: the kebab-case field name, or `attribute = "..."`. Attribute values are converted as in [Attribute conversion](#attribute-conversion), and `reflect = true` writes them back during the update. Two properties may not share an attribute.
+- **JS properties.** Element properties get and set those fields with type checks; a mismatched value throws `TypeError`. `int` properties narrow numbers as Java's `(int)` cast does (truncate, saturate, `NaN` to 0). Properties set before upgrade are replayed on the first connect, after the initial attributes, so the property value wins as in Lit.
+- **`requestUpdate()`** handles changes the fields cannot see.
+
+Differences from the plan, decided for this subset:
+- **`update(Changes)` stands in for `render()` until M3** as the imperative rendering hook.
+- **No writes through other references.** Only `f` and `this.f` writes are rewritten. Without type resolution, `other.f` is a compile error only when `other` is declared with the component's own type; same-named fields of other classes, including nested classes, are left alone.
+- **Heap during a flush.** Memory is collected only at explicit safepoints, so an update loop that allocates on every cycle can exhaust the fixed heap before the 100-update limit (the post-flush collector call is open).
+- **Limited `@Property` types.** Other types must use `@State` until property marshalling for records, lists and enums arrives.
+- **`updateComplete` is not implemented yet.**
+
+Known compiler gaps that affect components (Todo section 13): `+=` on a String field concatenates only for locals and statics (reactive fields are unaffected, because their writes go through setters).
 
 Known M1 limitations:
 - **Scope growth.** A live component's scope keeps every node it has handed to Java, and those nodes' listener closures, until the component is released. A long-lived component that repeatedly replaces its own DOM therefore grows (see [DOM handle scopes](dom-handle-scopes.md#limitations)). M3's renderer will release handles for the DOM it removes.

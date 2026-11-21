@@ -3713,10 +3713,10 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             translateExpression(expr, collector, localTypes, localElementTypes, localJavaTypes, "f32");
             collector.append("    f64.promote_f32\n");
             collector.append("    call $__str_from_f64\n");
-        } else if (expr.isCharLiteralExpr() || (expr.isNameExpr() && "char".equals(localJavaTypes.get(expr.asNameExpr().getNameAsString())))) {
+        } else if (expr.isCharLiteralExpr() || "char".equals(javaType) || (expr.isNameExpr() && "char".equals(localJavaTypes.get(expr.asNameExpr().getNameAsString())))) {
             translateExpression(expr, collector, localTypes, localElementTypes, localJavaTypes, "i32");
             collector.append("    call $__str_from_char\n");
-        } else if (expr.isBooleanLiteralExpr() || (expr.isNameExpr() && "boolean".equals(localJavaTypes.get(expr.asNameExpr().getNameAsString())))) {
+        } else if (expr.isBooleanLiteralExpr() || "boolean".equals(javaType) || (expr.isNameExpr() && "boolean".equals(localJavaTypes.get(expr.asNameExpr().getNameAsString())))) {
             translateExpression(expr, collector, localTypes, localElementTypes, localJavaTypes, "i32");
             collector.append("    call $__str_from_bool\n");
         } else {

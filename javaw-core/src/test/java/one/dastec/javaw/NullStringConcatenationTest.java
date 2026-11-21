@@ -10,6 +10,8 @@ class NullStringConcatenationTest {
             class Holder {
                 public String text;
                 public String built;
+                public boolean flag = true;
+                public char letter = 'z';
                 public Holder(String start) { built = "start=" + start; }
             }
             class App {
@@ -37,6 +39,8 @@ class NullStringConcatenationTest {
                     if (!("a" + null).equals("anull")) return -12;
                     if (!(null + "b").equals("nullb")) return -13;
                     if (!("c" + (Object) null).equals("cnull")) return -14;
+                    Holder flags = new Holder("f");
+                    if (!("b=" + flags.flag + "," + flags.letter + "," + (1 > 2)).equals("b=true,z,false")) return -16;
                     String plus = "p";
                     plus += null;
                     if (!plus.equals("pnull")) return -15;

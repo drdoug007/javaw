@@ -1065,7 +1065,14 @@ Lit-style custom elements authored in Java: `@CustomElement` classes, `@Property
       - DOM string literals with escapes;
       - `+ null` and `s += null`;
       - inherited methods called without qualification in lambdas.
-  - [ ] M2 reactive fields: `private` field rules; the write rewrite and its helpers (assignment, compound assignment with narrowing, `++`/`--`, typed receivers, diagnostics for complex receivers) with JVM-versus-Wasm comparisons; change detection; initial `Changes`; the `__wc_flush` lifecycle, `updateComplete`; attribute conversion and reflection during update; generated JS accessors, property marshalling including the `TypeError` path, and pre-upgrade property capture.
+  - [ ] M2 reactive fields ([status](docs/web-components.md#implementation-status)).
+    - [x] `@Property`/`@State` field rules and the write rewrite for `f` and `this.f`: assignment, compound assignment with narrowing casts, prefix and postfix `++`/`--`, and lambdas. Constructors and initializers are left alone.
+    - [x] Change detection and the initial `Changes`.
+    - [x] Microtask-batched lifecycle: `shouldUpdate`, `willUpdate`, reflection, `update(Changes)`, `firstUpdated`, `updated`, with Lit's rules for writes in each phase and a bound of 100 updates per flush.
+    - [x] Attribute conversion and `reflect` for `String`, `boolean`, `int` and `double`; JS property accessors with `TypeError`; replay of properties set before upgrade.
+    - [x] Evidence: `ReactiveFieldsTest` (happy-dom behaviour plus diagnostics and rewrite checks). A mutation that lets writes in `update()` reschedule fails the test. Also covered: Java `int` saturation for JS properties, recovery after the 100-update limit, and the property value winning over the initial attribute. Core fix: `boolean`/`char` field operands in string concatenation printed numbers (`NullStringConcatenationTest`).
+    - [ ] Writes through typed receivers (`other.f`), and `@Property` types beyond the four scalars (enums, boxed, `long`, records, lists, maps) with property marshalling.
+    - [ ] `updateComplete`; the opt-in collector call after a flush.
   - [ ] M3 template language v1: raw-source scanner and `Parts` rewrite with offset map; build-time tokenizer and position diagnostics; child, attribute (including multi-part), boolean, property (known components via `PropertyKey`) and event parts; `javaw_wc_templates` section; runtime marker walk per template id; renderer with value comparison in Wasm (zero host calls for unchanged updates) and listener liveness; differential tests against lit-html.
   - [ ] M4 lists and directives: `Iterable` children, keyed `repeat` (two-ended scan, DOM identity preserved across moves, duplicate-key reporting), `when`, `classMap`, `styleMap`, `ref`, `nothing()`.
   - [ ] M5 styles and events: style-field discovery and `css` with shared `adoptedStyleSheets` and `<style>` fallback; `ComponentEvent` records and options; `@Fires`; `listen`; typed `@event` bindings across Java components.

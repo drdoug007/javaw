@@ -45,17 +45,100 @@ public final class ComponentExtension implements SourceExtension {
                 component.__host = host;
                 component.__root = root;
             }
-            public static void __wc_connected(WebComponent component) { component.connected(); }
-            public static void __wc_disconnected(WebComponent component) { component.disconnected(); }
+            private Changes __changes;
+            private boolean __pending;
+            private boolean __updating;
+            private boolean __hasUpdated;
+            private boolean __isConnected;
+            private String __reflecting;
+            protected boolean shouldUpdate(Changes changes) { return true; }
+            protected void willUpdate(Changes changes) {}
+            protected void update(Changes changes) {}
+            protected void firstUpdated(Changes changes) {}
+            protected void updated(Changes changes) {}
+            public void requestUpdate() { __wc_schedule(); }
+            protected void __wc_initial() {}
+            protected void __wc_fromAttribute(String name, String value) {}
+            protected void __wc_reflect(Changes changes) {}
+            protected void __wc_change(String name, Object old) {
+                if (__updating) return;
+                if (__changes == null) __changes = new Changes();
+                __changes.__record(name, old);
+                __wc_schedule();
+            }
+            private void __wc_schedule() {
+                if (__updating || __pending) return;
+                __pending = true;
+                if (__isConnected) __wc_enqueue(__host);
+            }
+            protected void __wc_reflectAttribute(String name, String value) {
+                __reflecting = name;
+                if (value == null) __wc_removeAttribute(__host, name);
+                else __host.setAttribute(name, value);
+                __reflecting = null;
+            }
+            public static boolean __wc_doubleChanged(double old, double value) {
+                if (old != value) return !(old != old && value != value);
+                return old == 0.0 && 1.0 / old != 1.0 / value;
+            }
+            public static void __wc_perform(WebComponent component) { component.__wc_performUpdate(); }
+            public static void __wc_abandon(WebComponent component) { component.__changes = null; component.__pending = false; }
+            private void __wc_performUpdate() {
+                if (!__pending || !__isConnected) return;
+                if (__changes == null) __changes = new Changes();
+                Changes changes = __changes;
+                boolean prepared = false;
+                try {
+                    if (shouldUpdate(changes)) {
+                        willUpdate(changes);
+                        __wc_reflect(changes);
+                        prepared = true;
+                    }
+                } finally {
+                    // A failed or declined update discards its changes, so a later write schedules a fresh cycle.
+                    __changes = null;
+                    __pending = false;
+                }
+                if (!prepared) return;
+                __updating = true;
+                try { update(changes); } finally { __updating = false; }
+                if (!__hasUpdated) { __hasUpdated = true; firstUpdated(changes); }
+                updated(changes);
+            }
+            public static void __wc_connected(WebComponent component) {
+                component.__isConnected = true;
+                if (component.__pending) __wc_enqueue(component.__host);
+                component.connected();
+            }
+            public static void __wc_disconnected(WebComponent component) { component.__isConnected = false; component.disconnected(); }
             public static void __wc_adopted(WebComponent component) { component.adopted(); }
             public static void __wc_attributeChanged(WebComponent component, String name, String oldValue, String newValue) {
+                if (!name.equals(component.__reflecting)) component.__wc_fromAttribute(name, newValue);
                 component.attributeChanged(name, oldValue, newValue);
             }
+            @JS("runtime.scheduleComponentUpdate(host);")
+            public static native void __wc_enqueue(Element host);
+            @JS("host.removeAttribute(name);")
+            public static native void __wc_removeAttribute(Element host, String name);
             protected Element createElement(String tag) { return __wc_createElement(__host, tag); }
             @JS("return runtime.createScopedElement(host, tag);")
             public static native Element __wc_createElement(Element host, String tag);
             @JS("return runtime.createComponent(tag);")
             public static native WebComponent __wc_create(String tag);
+        }
+        """;
+
+    private static final String CHANGES = """
+        final class Changes {
+            private ArrayList<String> __names = new ArrayList<String>();
+            private ArrayList<Object> __old = new ArrayList<Object>();
+            public Changes() {}
+            public boolean has(String name) { return __names.indexOf(name) >= 0; }
+            public Object get(String name) { int i = __names.indexOf(name); return i < 0 ? null : __old.get(i); }
+            public int size() { return __names.size(); }
+            public void __record(String name, Object old) {
+                if (__names.indexOf(name) < 0) { __names.add(name); __old.add(old); }
+            }
         }
         """;
 
@@ -78,7 +161,7 @@ public final class ComponentExtension implements SourceExtension {
             if (annotation(type, "CustomElement") != null) components.add(type);
 
         for (TypeDeclaration<?> type : cu.findAll(TypeDeclaration.class))
-            if (type.getNameAsString().equals("WebComponent") || type.getNameAsString().equals(FACTORIES))
+            if (type.getNameAsString().equals("WebComponent") || type.getNameAsString().equals("Changes") || type.getNameAsString().equals(FACTORIES))
                 throw SourceExtension.error(type, "Type name '" + type.getNameAsString() + "' is reserved by " + PACKAGE);
 
         Map<String, ClassOrInterfaceDeclaration> byTag = new LinkedHashMap<>();
@@ -91,15 +174,24 @@ public final class ComponentExtension implements SourceExtension {
             definitions.add(definition);
         }
         for (ClassOrInterfaceDeclaration component : components) lowerQueries(component);
+        for (int i = 0; i < components.size(); i++) {
+            List<ReactiveFields.Field> fields = ReactiveFields.lower(components.get(i));
+            Definition d = definitions.get(i);
+            LinkedHashSet<String> observed = new LinkedHashSet<>(d.observedAttributes);
+            observed.addAll(ReactiveFields.attributes(fields));
+            definitions.set(i, new Definition(d.tag, d.className, d.factory, List.copyOf(observed), fields));
+        }
         rewriteConstruction(cu, definitions);
 
         cu.getTypes().add(StaticJavaParser.parseTypeDeclaration(WEB_COMPONENT));
+        cu.getTypes().add(StaticJavaParser.parseTypeDeclaration(CHANGES));
         if (!definitions.isEmpty()) {
             ClassOrInterfaceDeclaration factories = new ClassOrInterfaceDeclaration().setName(FACTORIES);
             for (Definition d : definitions)
                 factories.addMethod(d.factory, com.github.javaparser.ast.Modifier.Keyword.PUBLIC, com.github.javaparser.ast.Modifier.Keyword.STATIC)
                         .setType("WebComponent")
-                        .setBody(new BlockStmt().addStatement(StaticJavaParser.parseStatement("return new " + d.className + "();")));
+                        .setBody(StaticJavaParser.parseBlock("{ " + d.className + " component = new " + d.className + "(); "
+                                + "component.__wc_initial(); component.requestUpdate(); return component; }"));
             cu.getTypes().add(factories);
         }
         output.customSection(SECTION, json(definitions));
@@ -123,7 +215,8 @@ public final class ComponentExtension implements SourceExtension {
         return found;
     }
 
-    private record Definition(String tag, String className, String factory, List<String> observedAttributes) {}
+    private record Definition(String tag, String className, String factory, List<String> observedAttributes,
+                              List<ReactiveFields.Field> fields) {}
 
     private Definition validate(CompilationUnit cu, ClassOrInterfaceDeclaration component) {
         AnnotationExpr annotation = annotation(component, "CustomElement");
@@ -147,7 +240,7 @@ public final class ComponentExtension implements SourceExtension {
         for (String name : observed)
             if (name.isEmpty() || !name.equals(name.toLowerCase(Locale.ROOT)) || name.chars().anyMatch(Character::isWhitespace))
                 throw SourceExtension.error(annotation, "Observed attribute names must be non-empty, lowercase and without whitespace: \"" + name + "\"");
-        return new Definition(tag, component.getNameAsString(), "__wc_new_" + component.getNameAsString(), List.copyOf(new LinkedHashSet<>(observed)));
+        return new Definition(tag, component.getNameAsString(), "__wc_new_" + component.getNameAsString(), List.copyOf(new LinkedHashSet<>(observed)), List.of());
     }
 
     /** Null when {@code name} is a valid custom element name (HTML "valid custom element name"). */
@@ -287,7 +380,7 @@ public final class ComponentExtension implements SourceExtension {
             if (scope instanceof BodyDeclaration<?> member && member.getParentNode().orElse(null) == owner) {
                 // Pattern variables are flow-scoped; do not guess (methods, constructors, initializers, field initializers).
                 boolean pattern = member.findAll(PatternExpr.class).stream().anyMatch(p -> p.getNameAsString().equals(name));
-                if (pattern) throw SourceExtension.error(use, "Pattern variable '" + name + "' has the same name as a @Query field; rename one of them");
+                if (pattern) throw SourceExtension.error(use, "Pattern variable '" + name + "' has the same name as a component field; rename one of them");
             }
         }
         return false;
@@ -342,6 +435,25 @@ public final class ComponentExtension implements SourceExtension {
         return false;
     }
 
+    static AnnotationExpr annotationOf(com.github.javaparser.ast.nodeTypes.NodeWithAnnotations<?> node, String simpleName) {
+        return annotation(node, simpleName);
+    }
+
+    static String stringMemberOf(AnnotationExpr annotation, String member) {
+        return stringMember(annotation, member);
+    }
+
+    static boolean booleanMemberOf(AnnotationExpr annotation, String member) {
+        Expression value = member(annotation, member);
+        if (value == null) return false;
+        if (value instanceof BooleanLiteralExpr literal) return literal.getValue();
+        throw SourceExtension.error(value, member + " must be a boolean literal");
+    }
+
+    static boolean shadowedLocal(NameExpr use, String name, ClassOrInterfaceDeclaration owner) {
+        return shadowed(use, name, owner);
+    }
+
     private static AnnotationExpr annotation(com.github.javaparser.ast.nodeTypes.NodeWithAnnotations<?> node, String simpleName) {
         for (AnnotationExpr a : node.getAnnotations()) {
             String name = a.getNameAsString();
@@ -383,6 +495,14 @@ public final class ComponentExtension implements SourceExtension {
             out.append("{\"tag\":").append(quote(d.tag)).append(",\"className\":").append(quote(d.className))
                     .append(",\"factory\":").append(quote(d.factory)).append(",\"observedAttributes\":[");
             for (int j = 0; j < d.observedAttributes.size(); j++) out.append(j > 0 ? "," : "").append(quote(d.observedAttributes.get(j)));
+            out.append("],\"properties\":[");
+            boolean first = true;
+            for (ReactiveFields.Field f : d.fields) {
+                if (!f.property()) continue;
+                out.append(first ? "" : ",").append("{\"name\":").append(quote(f.name())).append(",\"kind\":").append(quote(f.kind()))
+                        .append(",\"getter\":").append(quote(f.getter())).append(",\"setter\":").append(quote(f.setter())).append('}');
+                first = false;
+            }
             out.append("]}");
         }
         return out.append(']').toString();
