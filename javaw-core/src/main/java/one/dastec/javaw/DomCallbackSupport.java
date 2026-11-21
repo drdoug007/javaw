@@ -24,6 +24,72 @@ final class DomCallbackSupport {
      */
     static final String RUN_TARGET = "__JavawDomRunnable";
     private static final Set<String> TYPES = Set.of("Event", "EventListener");
+    /** Typed event subclasses, each added unless the program declares a type of the same name. */
+    private static final java.util.Map<String, String> EVENT_TYPES = new java.util.LinkedHashMap<>();
+    static {
+        EVENT_TYPES.put("MouseEvent", """
+            class MouseEvent extends Event {
+                public MouseEvent(JSObject js) { super(js); }
+                public double clientX() { return js().getDouble("clientX"); }
+                public double clientY() { return js().getDouble("clientY"); }
+                public double offsetX() { return js().getDouble("offsetX"); }
+                public double offsetY() { return js().getDouble("offsetY"); }
+                public int button() { return js().getInt("button"); }
+                public int buttons() { return js().getInt("buttons"); }
+                public boolean altKey() { return js().getBoolean("altKey"); }
+                public boolean ctrlKey() { return js().getBoolean("ctrlKey"); }
+                public boolean shiftKey() { return js().getBoolean("shiftKey"); }
+                public boolean metaKey() { return js().getBoolean("metaKey"); }
+            }
+                """);
+        EVENT_TYPES.put("PointerEvent", """
+            class PointerEvent extends MouseEvent {
+                public PointerEvent(JSObject js) { super(js); }
+                public int pointerId() { return js().getInt("pointerId"); }
+                public String pointerType() { return js().getString("pointerType"); }
+                public double pressure() { return js().getDouble("pressure"); }
+                public boolean isPrimary() { return js().getBoolean("isPrimary"); }
+            }
+                """);
+        EVENT_TYPES.put("KeyboardEvent", """
+            class KeyboardEvent extends Event {
+                public KeyboardEvent(JSObject js) { super(js); }
+                public String key() { return js().getString("key"); }
+                public String code() { return js().getString("code"); }
+                public boolean repeat() { return js().getBoolean("repeat"); }
+                public boolean altKey() { return js().getBoolean("altKey"); }
+                public boolean ctrlKey() { return js().getBoolean("ctrlKey"); }
+                public boolean shiftKey() { return js().getBoolean("shiftKey"); }
+                public boolean metaKey() { return js().getBoolean("metaKey"); }
+            }
+                """);
+        EVENT_TYPES.put("FocusEvent", """
+            class FocusEvent extends Event {
+                public FocusEvent(JSObject js) { super(js); }
+                public Element relatedTarget() { return js().get("relatedTarget").asElement(); }
+            }
+                """);
+        EVENT_TYPES.put("InputEvent", """
+            class InputEvent extends Event {
+                public InputEvent(JSObject js) { super(js); }
+                public String data() { return js().getString("data"); }
+                public String inputType() { return js().getString("inputType"); }
+                public boolean isComposing() { return js().getBoolean("isComposing"); }
+            }
+                """);
+        EVENT_TYPES.put("SubmitEvent", """
+            class SubmitEvent extends Event {
+                public SubmitEvent(JSObject js) { super(js); }
+                public Element submitter() { return js().get("submitter").asElement(); }
+            }
+                """);
+        EVENT_TYPES.put("CustomEvent", """
+            class CustomEvent extends Event {
+                public CustomEvent(JSObject js) { super(js); }
+                public JSObject detail() { return js().get("detail"); }
+            }
+                """);
+    }
     private static final String DOM_PACKAGE = "one.dastec.javaw.dom";
 
     private DomCallbackSupport() {}
@@ -62,6 +128,14 @@ final class DomCallbackSupport {
                 }
             }
             """);
+        Set<String> declared = new HashSet<>();
+        cu.findAll(TypeDeclaration.class).forEach(t -> declared.add(t.getNameAsString()));
+        StringBuilder events = new StringBuilder();
+        for (var entry : EVENT_TYPES.entrySet()) {
+            boolean ownParent = entry.getKey().equals("PointerEvent") && declared.contains("MouseEvent");
+            if (!declared.contains(entry.getKey()) && !ownParent) events.append(entry.getValue()).append('\n');
+        }
+        if (events.length() > 0) LibrarySupport.add(cu, DOM_PACKAGE, events.toString());
     }
 
     /** True for add/removeEventListener calls whose listener is not syntactically a handler-name string. */
@@ -91,7 +165,8 @@ final class DomCallbackSupport {
                     return true;
         for (ImportDeclaration imported : cu.getImports()) {
             String name = imported.getNameAsString();
-            if (!imported.isStatic() && !imported.isAsterisk() && TYPES.stream().anyMatch(t -> name.equals(DOM_PACKAGE + "." + t)))
+            if (!imported.isStatic() && !imported.isAsterisk() && (TYPES.stream().anyMatch(t -> name.equals(DOM_PACKAGE + "." + t))
+                    || EVENT_TYPES.keySet().stream().anyMatch(t -> name.equals(DOM_PACKAGE + "." + t))))
                 return true;
         }
         boolean wildcard = cu.getImports().stream().anyMatch(i -> !i.isStatic() && i.isAsterisk() && i.getNameAsString().equals(DOM_PACKAGE));

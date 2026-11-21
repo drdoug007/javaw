@@ -51,7 +51,7 @@ class TemplateRewriteTest {
         Files.writeString(file, rewritten);
 
         assertTrue(rewritten.contains("Template.of(1, Parts.attr(s), Parts.attr(tone), Parts.attr(n), Parts.bool(n > 2), Parts.prop(s), "
-                + "Parts.on(() -> n++), Parts.on(e -> s = e.type()), Parts.on(this::poke), Parts.child(s), Parts.child(n), "
+                + "Parts.onMouse(() -> n++), Parts.on(e -> s = e.type()), Parts.onFocus(this::poke), Parts.child(s), Parts.child(n), "
                 + "Parts.child('c'), Parts.child(2.5), Parts.child(boxed), Parts.child(tone), Parts.childNothing(), "
                 + "Parts.child(n > 0 ? Template.of(2, Parts.child(n)) : null))"), rewritten);
         assertFalse(rewritten.contains("html("), rewritten);

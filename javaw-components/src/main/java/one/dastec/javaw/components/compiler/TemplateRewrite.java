@@ -116,20 +116,20 @@ final class TemplateRewrite {
                     inner.replace(lower(inner));
             if (expression instanceof MethodCallExpr m && isNestedHtmlCall(m))
                 expression = lower(m);
-            arguments.add(wrap(result.bindingKinds().get(i), expression, argument, start));
+            arguments.add(wrap(result.bindingKinds().get(i), result.bindingNames().get(i), expression, argument, start));
         }
         MethodCallExpr of = new MethodCallExpr(new NameExpr("Template"), "of", arguments);
         call.getRange().ifPresent(of::setRange);
         return of;
     }
 
-    private static Expression wrap(HtmlTemplate.Kind kind, Expression expression, Node anchor, Position at) {
+    private static Expression wrap(HtmlTemplate.Kind kind, String name, Expression expression, Node anchor, Position at) {
         String method = switch (kind) {
             case CHILD -> "child";
             case ATTR -> "attr";
             case BOOL -> "bool";
             case PROP -> "prop";
-            case EVENT -> "on";
+            case EVENT -> eventMethod(name);
         };
         if (expression.isNullLiteralExpr()) {
             if (kind == HtmlTemplate.Kind.BOOL) throw errorAt(anchor, at, "A ?attribute binding needs a boolean, not null");
@@ -140,6 +140,19 @@ final class TemplateRewrite {
         MethodCallExpr call = new MethodCallExpr(new NameExpr("Parts"), method, new NodeList<>(expression));
         expression.getRange().ifPresent(call::setRange);
         return call;
+    }
+
+    /** The Parts method for an event binding, chosen by event name (docs/web-components.md, "Binding kinds"). */
+    static String eventMethod(String event) {
+        return switch (event) {
+            case "click", "dblclick", "auxclick", "contextmenu", "mousedown", "mouseup", "mousemove",
+                 "mouseover", "mouseout", "mouseenter", "mouseleave" -> "onMouse";
+            case "keydown", "keyup" -> "onKeyboard";
+            case "focus", "blur", "focusin", "focusout" -> "onFocus";
+            case "beforeinput" -> "onInput";
+            case "submit" -> "onSubmit";
+            default -> event.startsWith("pointer") ? "onPointer" : "on";
+        };
     }
 
     private Expression parse(Node anchor, String source, Position at, Position start) {

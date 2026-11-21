@@ -2,6 +2,12 @@ package one.dastec.javaw.components;
 
 import one.dastec.javaw.dom.Event;
 import one.dastec.javaw.dom.EventListener;
+import one.dastec.javaw.dom.FocusEvent;
+import one.dastec.javaw.dom.InputEvent;
+import one.dastec.javaw.dom.KeyboardEvent;
+import one.dastec.javaw.dom.MouseEvent;
+import one.dastec.javaw.dom.PointerEvent;
+import one.dastec.javaw.dom.SubmitEvent;
 
 /**
  * Typed wrappers the {@code html(...)} rewrite places around each binding expression. The overload
@@ -53,4 +59,18 @@ public final class Parts {
     public static TemplatePart on(Runnable listener) { return null; }
     public static TemplatePart on(EventListener<Event> listener) { return null; }
     public static TemplatePart eventNothing() { return null; }
+
+    // Events whose type the event name determines (docs/web-components.md, "Binding kinds").
+    public static TemplatePart onMouse(Runnable listener) { return null; }
+    public static TemplatePart onMouse(EventListener<MouseEvent> listener) { return null; }
+    public static TemplatePart onPointer(Runnable listener) { return null; }
+    public static TemplatePart onPointer(EventListener<PointerEvent> listener) { return null; }
+    public static TemplatePart onKeyboard(Runnable listener) { return null; }
+    public static TemplatePart onKeyboard(EventListener<KeyboardEvent> listener) { return null; }
+    public static TemplatePart onFocus(Runnable listener) { return null; }
+    public static TemplatePart onFocus(EventListener<FocusEvent> listener) { return null; }
+    public static TemplatePart onInput(Runnable listener) { return null; }
+    public static TemplatePart onInput(EventListener<InputEvent> listener) { return null; }
+    public static TemplatePart onSubmit(Runnable listener) { return null; }
+    public static TemplatePart onSubmit(EventListener<SubmitEvent> listener) { return null; }
 }

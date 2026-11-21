@@ -28,6 +28,12 @@ final class TemplateRuntime {
             Template __template;
             __JavawDomRunnable __run;
             EventListener<Event> __handler;
+            EventListener<MouseEvent> __mouse;
+            EventListener<PointerEvent> __pointer;
+            EventListener<KeyboardEvent> __keyboard;
+            EventListener<FocusEvent> __focus;
+            EventListener<InputEvent> __input;
+            EventListener<SubmitEvent> __submit;
             TemplatePart(int kind) { __kind = kind; }
         }
         final class Parts {
@@ -82,6 +88,42 @@ final class TemplateRuntime {
                 return p;
             }
             public static TemplatePart eventNothing() { return new TemplatePart(9); }
+            public static TemplatePart onMouse(__JavawDomRunnable listener) { return on(listener); }
+            public static TemplatePart onMouse(EventListener<MouseEvent> listener) {
+                TemplatePart p = new TemplatePart(listener == null ? 9 : 10);
+                p.__mouse = listener;
+                return p;
+            }
+            public static TemplatePart onPointer(__JavawDomRunnable listener) { return on(listener); }
+            public static TemplatePart onPointer(EventListener<PointerEvent> listener) {
+                TemplatePart p = new TemplatePart(listener == null ? 9 : 11);
+                p.__pointer = listener;
+                return p;
+            }
+            public static TemplatePart onKeyboard(__JavawDomRunnable listener) { return on(listener); }
+            public static TemplatePart onKeyboard(EventListener<KeyboardEvent> listener) {
+                TemplatePart p = new TemplatePart(listener == null ? 9 : 12);
+                p.__keyboard = listener;
+                return p;
+            }
+            public static TemplatePart onFocus(__JavawDomRunnable listener) { return on(listener); }
+            public static TemplatePart onFocus(EventListener<FocusEvent> listener) {
+                TemplatePart p = new TemplatePart(listener == null ? 9 : 13);
+                p.__focus = listener;
+                return p;
+            }
+            public static TemplatePart onInput(__JavawDomRunnable listener) { return on(listener); }
+            public static TemplatePart onInput(EventListener<InputEvent> listener) {
+                TemplatePart p = new TemplatePart(listener == null ? 9 : 14);
+                p.__input = listener;
+                return p;
+            }
+            public static TemplatePart onSubmit(__JavawDomRunnable listener) { return on(listener); }
+            public static TemplatePart onSubmit(EventListener<SubmitEvent> listener) {
+                TemplatePart p = new TemplatePart(listener == null ? 9 : 15);
+                p.__submit = listener;
+                return p;
+            }
         }
         final class __WcInstance {
             int id;
@@ -186,10 +228,16 @@ final class TemplateRuntime {
                 __WcInstance inst = c.__templates.get(Integer.valueOf(id));
                 if (inst == null) return;
                 int kind = inst.kinds[index];
-                if (kind != 7 && kind != 8) return;
+                if (kind < 7 || kind == 9) return;
                 TemplatePart part = (TemplatePart) inst.objects[index];
                 if (kind == 7) part.__run.run();
-                else part.__handler.handleEvent(new Event(event));
+                else if (kind == 8) part.__handler.handleEvent(new Event(event));
+                else if (kind == 10) part.__mouse.handleEvent(new MouseEvent(event));
+                else if (kind == 11) part.__pointer.handleEvent(new PointerEvent(event));
+                else if (kind == 12) part.__keyboard.handleEvent(new KeyboardEvent(event));
+                else if (kind == 13) part.__focus.handleEvent(new FocusEvent(event));
+                else if (kind == 14) part.__input.handleEvent(new InputEvent(event));
+                else if (kind == 15) part.__submit.handleEvent(new SubmitEvent(event));
             }
             @JS("return runtime.wcRootRange(host);")
             public static native int __wc_rootRange(Element host);

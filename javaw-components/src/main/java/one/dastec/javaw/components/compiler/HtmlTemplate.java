@@ -30,7 +30,8 @@ final class HtmlTemplate {
     /** One part: a child position or an attribute with one or more bindings. */
     record Part(Kind kind, String name, int bindings) {}
 
-    record Result(String html, List<Part> parts, List<Kind> bindingKinds) {}
+    /** {@code bindingNames} holds each binding's attribute, property or event name (null for child bindings). */
+    record Result(String html, List<Part> parts, List<Kind> bindingKinds, List<String> bindingNames) {}
 
     /** A problem at binding {@code binding}, or for the whole template when it is -1. */
     static final class Problem extends RuntimeException {
@@ -47,6 +48,7 @@ final class HtmlTemplate {
         final StringBuilder out = new StringBuilder();
         final List<Part> parts = new ArrayList<>();
         final List<Kind> bindingKinds = new ArrayList<>();
+        final List<String> bindingNames = new ArrayList<>();
         State state = State.DATA;
         final StringBuilder tagName = new StringBuilder();
         boolean endTag;
@@ -155,6 +157,7 @@ final class HtmlTemplate {
                     out.append("<!--wc$").append(parts.size()).append("-->");
                     parts.add(new Part(Kind.CHILD, null, 1));
                     bindingKinds.add(Kind.CHILD);
+                    bindingNames.add(null);
                 }
                 case BEFORE_ATTR_VALUE -> {
                     quote = 0;
@@ -209,7 +212,7 @@ final class HtmlTemplate {
             }
             int index = parts.size();
             parts.add(new Part(kind, name, attrBindings.size()));
-            for (int ignored : attrBindings) bindingKinds.add(kind);
+            for (int ignored : attrBindings) { bindingKinds.add(kind); bindingNames.add(name); }
             char q = quote == 0 ? '"' : quote;
             String value = String.join(MARKER, pieces);
             if (value.indexOf(q) >= 0) throw new Problem(attrBindings.get(0), "Attribute value contains its own quote character");
@@ -248,7 +251,7 @@ final class HtmlTemplate {
                 case RAW_TEXT -> "<" + t.rawTextTag + "> content";
                 default -> "a tag";
             });
-        return new Result(t.out.toString(), List.copyOf(t.parts), List.copyOf(t.bindingKinds));
+        return new Result(t.out.toString(), List.copyOf(t.parts), List.copyOf(t.bindingKinds), java.util.Collections.unmodifiableList(new ArrayList<>(t.bindingNames)));
     }
 
     /** HTML whitespace: tab, line feed, form feed, carriage return and space. */

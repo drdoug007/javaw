@@ -142,6 +142,28 @@ class DomCallbackTest {
     }
 
     @Test
+    void ownTypesNamedLikeTypedEventsAreKept() throws Exception {
+        // The typed DOM events (MouseEvent and others) are added only when the program does not declare its own.
+        byte[] wasm = JavacToWasm.compile("App.java", """
+            import one.dastec.javaw.dom.DOM;
+            import one.dastec.javaw.dom.Element;
+            import one.dastec.javaw.dom.Event;
+            import one.dastec.javaw.dom.EventListener;
+            class MouseEvent { int x = 7; }
+            class App {
+                public static int seen;
+                public static int start() {
+                    Element button = DOM.createElement("button");
+                    EventListener<Event> listener = e -> seen++;
+                    button.addEventListener("click", listener);
+                    return new MouseEvent().x;
+                }
+            }
+            """, false).getWasm();
+        run(wasm, "assert.equal(e.start(), 7);");
+    }
+
+    @Test
     void removedListenersAreReleasedForCollection() throws Exception {
         byte[] wasm = JavacToWasm.compile("App.java", """
             import one.dastec.javaw.dom.DOM;

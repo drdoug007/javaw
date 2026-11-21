@@ -121,6 +121,9 @@ class TemplateTest {
             const tick = async () => { await settle(); await settle(); };
             const created = r.getHandleStats().scopes.created;
             const instancesBefore = r.wcInstances ? r.wcInstances.size : 0;
+            const idsBefore = r.wcNextInstance || 0;
+            // Taken first: components can be finalized while the loop still runs.
+            const before = r.getHandleStats().scopes.finalized;
             // In its own function, so no suspended frame of this one keeps the last element alive.
             const one = async () => {
                 const el = document.createElement('x-counter');
@@ -134,11 +137,56 @@ class TemplateTest {
             for (let i = 0; i < 200; i++) await one();
             const made = r.getHandleStats().scopes.created - created;
             assert.equal(made, 200);
-            assert.ok(r.wcInstances.size >= instancesBefore + 200 * 4, 'root, nested and detail instances are live: ' + r.wcInstances.size);
-            const before = r.getHandleStats().scopes.finalized;
+            assert.ok(r.wcNextInstance - idsBefore >= 200 * 4, 'root, nested and detail instances were created: ' + (r.wcNextInstance - idsBefore));
             for (let i = 0; i < 100 && r.getHandleStats().scopes.finalized - before < made; i++) { global.gc(); await settle(); await settle(); }
             assert.equal(r.getHandleStats().scopes.finalized - before, made, 'removed components with templates and event parts are finalized');
             assert.equal(r.wcInstances.size, instancesBefore, 'their template instance ids are dropped with the scope');
+            assert.equal(errors.length, 0, String(errors[0] && errors[0].stack));
+            """);
+    }
+
+    @Test
+    void eventBindingsAreTypedByEventName() throws Exception {
+        byte[] wasm = JavacToWasm.compile("App.java", """
+            import one.dastec.javaw.components.CustomElement;
+            import one.dastec.javaw.components.Property;
+            import one.dastec.javaw.components.Template;
+            import one.dastec.javaw.components.WebComponent;
+            import one.dastec.javaw.dom.Event;
+            import one.dastec.javaw.dom.KeyboardEvent;
+            import one.dastec.javaw.dom.PointerEvent;
+
+            @CustomElement("x-typed")
+            class Typed extends WebComponent {
+                @Property private String log = "";
+                @Override protected Template render() {
+                    return html(\"""
+                        <div id="d" tabindex="0"
+                             @click=${e -> log = log + "click:" + e.clientX() + "," + e.button() + "," + e.shiftKey() + ";"}
+                             @keydown=${e -> log = log + "key:" + e.key() + "," + e.code() + "," + e.ctrlKey() + ";"}
+                             @pointerdown=${this::down}
+                             @focus=${e -> log = log + "focus:" + (e.relatedTarget() == null) + ";"}
+                             @custom=${this::other}>${log}</div>
+                        \""");
+                }
+                private void down(PointerEvent e) { log = log + "pointer:" + e.pointerType() + "," + e.clientY() + ";"; }
+                private void other(Event e) { log = log + "event:" + e.type() + ";"; }
+            }
+            """, false).getWasm();
+        CustomElementTest.run(wasm, "", """
+            const tick = async () => { await settle(); await settle(); };
+            const el = document.createElement('x-typed');
+            document.body.appendChild(el);
+            await tick();
+            const d = el.shadowRoot.getElementById('d');
+            d.dispatchEvent(new window.MouseEvent('click', { clientX: 12, button: 2, shiftKey: true }));
+            d.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', ctrlKey: true }));
+            d.dispatchEvent(new window.PointerEvent('pointerdown', { pointerType: 'pen', clientY: 3 }));
+            d.dispatchEvent(new window.FocusEvent('focus'));
+            d.dispatchEvent(new window.Event('custom'));
+            await tick();
+            assert.equal(el.log, 'click:12.0,2,true;key:Enter,Enter,true;pointer:pen,3.0;focus:true;event:custom;');
+            assert.equal(d.textContent, el.log);
             assert.equal(errors.length, 0, String(errors[0] && errors[0].stack));
             """);
     }
