@@ -1962,7 +1962,10 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                 }
             } else if (assign.getTarget().isArrayAccessExpr()) {
                 ArrayAccessExpr aae = assign.getTarget().asArrayAccessExpr();
-                String elemType = getArrayElementType(aae, localElementTypes, expectedType);
+                // Like loads, take the element type from the array's Java type, so stores into arrays reached
+                // through fields (inst.values[i] = 1.5) use the element's width.
+                String elementJavaType = getExpressionJavaType(aae, localJavaTypes);
+                String elemType = elementJavaType == null ? getArrayElementType(aae, localElementTypes, expectedType) : TypeMapper.mapType(elementJavaType);
                 int headerOffset = (elemType.equals("f64") || elemType.equals("i64")) ? 8 : 4;
                 int elemSize = (elemType.equals("f64") || elemType.equals("i64")) ? 8 : 4;
 
