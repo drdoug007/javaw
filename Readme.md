@@ -246,7 +246,9 @@ Phase 1 source-resolution foundations and source-backed Optional/closures are im
 - **Web components from Java classes (in progress, `javaw-components`)**:
   - `@CustomElement("todo-list")` on a `WebComponent` subclass defines a native custom element. Lifecycle hooks (`connected`, `disconnected`, `adopted`, `attributeChanged` for `observedAttributes`) run on the element's own Java object. `renderRoot()` is its open shadow root, `createElement(tag)` builds DOM in the component's handle scope, and `@Query("button")` fields read `renderRoot().querySelector`.
   - `new TodoList()` in Java creates the element. Tag names and class rules are checked at compile time. Removed components are reclaimed.
-  - Reactive fields, templates, styles and typed events are later milestones. See [web components](docs/web-components.md), `CustomElementTest` and Todo section 15.
+  - `@Property`/`@State` fields schedule batched, Lit-ordered updates; `@Property` fields of type `String`, `boolean`, `int` and `double` sync with attributes and JS properties.
+  - `render()` returns `html("""...""")` templates with child, attribute, `?boolean`, `.property` and `@event` bindings. The renderer compares values in Wasm, so an unchanged update makes no host calls; the output matches lit-html 3.3.2 in differential tests.
+  - Lists and directives, styles, typed events and the generated JS module are later milestones. See [web components](docs/web-components.md), the `javaw-components` tests and Todo section 15.
   - Same-instance deferred thread spawning (`setTimeout`; no Web Workers yet), timer queues, and WASI standard streams.
 - **Arithmetic & Primitive Types**:
   - Primitive and return type mapping (`void`, `int`, `boolean`, `char`, `long`, `float`, `double`).

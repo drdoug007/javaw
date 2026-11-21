@@ -47,6 +47,22 @@ public abstract class WebComponent {
         return null;
     }
 
+    /**
+     * The component's template, rendered into {@link #renderRoot()} by the default {@link #update(Changes)}.
+     * Return {@code html("...")}; {@code null} renders nothing.
+     */
+    protected Template render() {
+        return null;
+    }
+
+    /**
+     * A template. The argument must be a string literal or text block; {@code ${expr}} marks a binding.
+     * The compiler rewrites every call, so this method never runs.
+     */
+    protected static Template html(String template) {
+        throw new UnsupportedOperationException("html(...) must be rewritten by the javaw-components compiler extension");
+    }
+
     /** Schedules an update in a microtask, for changes the reactive fields cannot see (in-place mutation). */
     public void requestUpdate() {
     }
@@ -61,8 +77,9 @@ public abstract class WebComponent {
     }
 
     /**
-     * Brings the DOM up to date. Field writes here do not schedule another update. Templates
-     * ({@code render()}) arrive in milestone M3; until then this is the imperative rendering hook.
+     * Brings the DOM up to date: by default, renders {@link #render()} into {@link #renderRoot()}.
+     * Override it (without calling super) for imperative rendering. Field writes here do not schedule
+     * another update.
      */
     protected void update(Changes changes) {
     }

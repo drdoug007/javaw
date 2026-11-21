@@ -8,7 +8,7 @@ work=$(mktemp -d)
 cp "$here/package.json" "$work/"
 (cd "$work" && npm install --omit=dev --ignore-scripts --no-audit --no-fund)
 cd "$work/node_modules"
-rm -rf @types undici-types happy-dom/src
+rm -rf @types undici-types happy-dom/src lit-html/development lit-html/node
 find . \( -name '*.map' -o -name '*.d.ts' -o -name '*.d.cts' -o -name '*.d.mts' \) -delete
 rm -rf "$here/node_modules"
 cp -R "$work/node_modules" "$here/node_modules"

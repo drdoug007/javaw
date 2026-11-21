@@ -27,6 +27,8 @@ public final class ComponentExtension implements SourceExtension {
     static final String PACKAGE = "one.dastec.javaw.components";
     static final String SECTION = "javaw_wc_components";
     private static final String FACTORIES = "__JavawComponentFactories";
+    private static final Set<String> RESERVED_TYPES = Set.of("WebComponent", "Changes", FACTORIES,
+            "Template", "TemplatePart", "Parts", "__WcInstance", "__WcRenderer");
     private static final Set<String> RESERVED = Set.of("annotation-xml", "color-profile", "font-face", "font-face-src",
             "font-face-uri", "font-face-format", "font-face-name", "missing-glyph");
 
@@ -53,7 +55,7 @@ public final class ComponentExtension implements SourceExtension {
             private String __reflecting;
             protected boolean shouldUpdate(Changes changes) { return true; }
             protected void willUpdate(Changes changes) {}
-            protected void update(Changes changes) {}
+            /*TEMPLATES*/
             protected void firstUpdated(Changes changes) {}
             protected void updated(Changes changes) {}
             public void requestUpdate() { __wc_schedule(); }
@@ -161,7 +163,7 @@ public final class ComponentExtension implements SourceExtension {
             if (annotation(type, "CustomElement") != null) components.add(type);
 
         for (TypeDeclaration<?> type : cu.findAll(TypeDeclaration.class))
-            if (type.getNameAsString().equals("WebComponent") || type.getNameAsString().equals("Changes") || type.getNameAsString().equals(FACTORIES))
+            if (RESERVED_TYPES.contains(type.getNameAsString()))
                 throw SourceExtension.error(type, "Type name '" + type.getNameAsString() + "' is reserved by " + PACKAGE);
 
         Map<String, ClassOrInterfaceDeclaration> byTag = new LinkedHashMap<>();
@@ -173,6 +175,11 @@ public final class ComponentExtension implements SourceExtension {
                 throw SourceExtension.error(component, "Custom element <" + definition.tag + "> is already defined by " + previous.getNameAsString());
             definitions.add(definition);
         }
+        // Templates first: binding expressions then get the @Query and reactive-field rewrites like other code.
+        TemplateRewrite templates = new TemplateRewrite();
+        templates.rewrite(cu);
+        boolean usesTemplates = !templates.isEmpty() || cu.findAll(ClassOrInterfaceType.class).stream()
+                .anyMatch(t -> t.getNameAsString().equals("Template") || t.getNameAsString().equals("Parts"));
         for (ClassOrInterfaceDeclaration component : components) lowerQueries(component);
         for (int i = 0; i < components.size(); i++) {
             List<ReactiveFields.Field> fields = ReactiveFields.lower(components.get(i));
@@ -183,7 +190,15 @@ public final class ComponentExtension implements SourceExtension {
         }
         rewriteConstruction(cu, definitions);
 
-        cu.getTypes().add(StaticJavaParser.parseTypeDeclaration(WEB_COMPONENT));
+        cu.getTypes().add(StaticJavaParser.parseTypeDeclaration(WEB_COMPONENT.replace("/*TEMPLATES*/",
+                usesTemplates ? TemplateRuntime.COMPONENT_MEMBERS : "protected void update(Changes changes) {}")));
+        if (usesTemplates) {
+            for (String type : List.of("Event", "EventListener", "JSObject"))
+                if (cu.getImports().stream().noneMatch(i -> i.getNameAsString().equals("one.dastec.javaw.dom." + type)))
+                    cu.addImport("one.dastec.javaw.dom." + type);
+            for (TypeDeclaration<?> type : StaticJavaParser.parse(TemplateRuntime.TYPES).getTypes()) cu.getTypes().add(type.clone());
+            if (!templates.isEmpty()) output.customSection(TemplateRewrite.SECTION, templates.json());
+        }
         cu.getTypes().add(StaticJavaParser.parseTypeDeclaration(CHANGES));
         if (!definitions.isEmpty()) {
             ClassOrInterfaceDeclaration factories = new ClassOrInterfaceDeclaration().setName(FACTORIES);
@@ -506,6 +521,10 @@ public final class ComponentExtension implements SourceExtension {
             out.append("]}");
         }
         return out.append(']').toString();
+    }
+
+    static String quoteJson(String value) {
+        return quote(value);
     }
 
     private static String quote(String value) {

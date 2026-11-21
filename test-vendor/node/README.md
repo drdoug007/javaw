@@ -9,6 +9,7 @@ Test-only JavaScript libraries, committed so the offline build (`mvn -o`) can ru
 | `whatwg-mimetype` | 3.0.0 | MIT | happy-dom dependency |
 | `ws` | 8.23.0 | MIT | happy-dom dependency |
 | `buffer-image-size` | 0.6.4 | MIT | happy-dom dependency |
+| `lit-html` | 3.3.2 | BSD-3-Clause | reference renderer for the differential template tests (production build only) |
 
 Each package keeps its upstream `LICENSE` file under `node_modules/<package>/`. `package.json` pins the top-level version. `package-lock.json` records the exact resolved tree, including the types-only packages that were removed.
 
@@ -23,7 +24,7 @@ const window = new Window();
 
 ## Updating
 
-Run `./update.sh`. It needs network access, which tests never do. It installs `package.json` into an empty temporary directory with lifecycle scripts disabled. It then removes files that are not needed at runtime: TypeScript sources, source maps, declaration files, and the types-only `@types/*` and `undici-types` packages. Finally it replaces `node_modules/`. Review the diff and the licences before committing an update.
+Run `./update.sh`. It needs network access, which tests never do (lit-html 3.3.2 was added offline from a verified npm cache with `npm install --cache ~/.npm --offline`, using the same steps). It installs `package.json` into an empty temporary directory with lifecycle scripts disabled. It then removes files that are not needed at runtime: TypeScript sources, source maps, declaration files, and the types-only `@types/*` and `undici-types` packages. It also drops lit-html's `development/` and `node/` builds, keeping the production build the tests import by path. Finally it replaces `node_modules/`. Review the diff and the licences before committing an update.
 
 ## Known happy-dom deviations
 
