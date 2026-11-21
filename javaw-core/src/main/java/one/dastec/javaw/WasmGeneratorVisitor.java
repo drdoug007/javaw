@@ -2405,6 +2405,9 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     } else if (arg.isBooleanLiteralExpr() || (arg.isNameExpr() && "boolean".equals(localJavaTypes.get(arg.asNameExpr().getNameAsString())))) {
                         translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
                         collector.append("    call $__sb_insert_bool\n");
+                    } else if ("float".equals(getExpressionJavaType(arg, localJavaTypes))) {
+                        translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "f32");
+                        collector.append("    call $__str_from_f32\n    call $__sb_insert_str\n");
                     } else if (arg.isDoubleLiteralExpr() || (arg.isNameExpr() && ("double".equals(localJavaTypes.get(arg.asNameExpr().getNameAsString())) || "float".equals(localJavaTypes.get(arg.asNameExpr().getNameAsString()))))) {
                         translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "f64");
                         collector.append("    call $__sb_insert_f64\n");
@@ -2437,7 +2440,10 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     } else if (arg.isBooleanLiteralExpr() || "boolean".equals(argType)) {
                         translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
                         collector.append("    call $__sb_append_bool\n");
-                    } else if (arg.isDoubleLiteralExpr() || "double".equals(argType) || "float".equals(argType)) {
+                    } else if ("float".equals(argType)) {
+                        translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "f32");
+                        collector.append("    call $__str_from_f32\n    call $__sb_append_str\n");
+                    } else if (arg.isDoubleLiteralExpr() || "double".equals(argType)) {
                         translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "f64");
                         collector.append("    call $__sb_append_f64\n");
                     } else {
@@ -2463,7 +2469,10 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     } else if (arg0.isBooleanLiteralExpr() || "boolean".equals(argType)) {
                         translateExpression(arg0, collector, localTypes, localElementTypes, localJavaTypes, "i32");
                         collector.append("    call $__str_from_bool\n");
-                    } else if (arg0.isDoubleLiteralExpr() || "double".equals(argType) || "float".equals(argType)) {
+                    } else if ("float".equals(argType)) {
+                        translateExpression(arg0, collector, localTypes, localElementTypes, localJavaTypes, "f32");
+                        collector.append("    call $__str_from_f32\n");
+                    } else if (arg0.isDoubleLiteralExpr() || "double".equals(argType)) {
                         translateExpression(arg0, collector, localTypes, localElementTypes, localJavaTypes, "f64");
                         collector.append("    call $__str_from_f64\n");
                     } else if (arg0.isIntegerLiteralExpr() || "int".equals(argType) || "byte".equals(argType) || "short".equals(argType) || "long".equals(argType)) {
@@ -3539,6 +3548,9 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             MethodModel source = sourceMethod(call, localJavaTypes);
             if (source != null) return source.getReturnWasmType() != null;
             String mName = call.getNameAsString();
+            // StringBuilder mutators return the builder, so a statement must drop it.
+            if (Set.of("insert", "delete", "deleteCharAt", "reverse", "replace").contains(mName)
+                    && isStringBuilderType(call.getScope().orElse(null), localJavaTypes)) return true;
             if (mName.equals("append") || mName.equals("toString") || mName.equals("substring") ||
                     mName.equals("concat") || mName.equals("length") || mName.equals("charAt") ||
                     mName.equals("indexOf") || mName.equals("equals") || mName.equals("isEmpty") ||
@@ -3700,8 +3712,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             collector.append("    local.tee $__obj_tmp\n    i32.eqz\n    if (result i32)\n    i32.const ").append(stringPool.get("null").offset).append("\n    else\n    local.get $__obj_tmp\n");
             emitUnbox(javaType,collector);
             String primitive=BoxingSupport.primitive(javaType);
-            String function=switch(primitive) { case "long" -> "i64"; case "double", "float" -> "f64"; case "boolean" -> "bool"; case "char" -> "char"; default -> "i32"; };
-            if(primitive.equals("float")) collector.append("    f64.promote_f32\n");
+            String function=switch(primitive) { case "long" -> "i64"; case "double" -> "f64"; case "float" -> "f32"; case "boolean" -> "bool"; case "char" -> "char"; default -> "i32"; };
             collector.append("    call $__str_from_").append(function).append("\n    end\n");
         } else if ("i64".equals(exprType)) {
             translateExpression(expr,collector,localTypes,localElementTypes,localJavaTypes,"i64");
@@ -3714,8 +3725,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             collector.append("    call $__str_from_f64\n");
         } else if ("f32".equals(exprType)) {
             translateExpression(expr, collector, localTypes, localElementTypes, localJavaTypes, "f32");
-            collector.append("    f64.promote_f32\n");
-            collector.append("    call $__str_from_f64\n");
+            collector.append("    call $__str_from_f32\n");
         } else if (expr.isCharLiteralExpr() || "char".equals(javaType) || (expr.isNameExpr() && "char".equals(localJavaTypes.get(expr.asNameExpr().getNameAsString())))) {
             translateExpression(expr, collector, localTypes, localElementTypes, localJavaTypes, "i32");
             collector.append("    call $__str_from_char\n");
@@ -3908,7 +3918,11 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             translateDomStringArg(arg, collector, localTypes, localElementTypes, localJavaTypes);
             collector.append("    i32.const ").append(isNewline ? 1 : 0).append("\n");
             collector.append("    call $__wasi_print_str\n");
-        } else if ("f64".equals(argType) || "double".equals(argJavaType) || "float".equals(argJavaType) || arg.isDoubleLiteralExpr()) {
+        } else if ("float".equals(argJavaType)) {
+            translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "f32");
+            collector.append("    i32.const ").append(isNewline ? 1 : 0).append("\n");
+            collector.append("    call $__wasi_print_float\n");
+        } else if ("f64".equals(argType) || "double".equals(argJavaType) || arg.isDoubleLiteralExpr()) {
             translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "f64");
             collector.append("    i32.const ").append(isNewline ? 1 : 0).append("\n");
             collector.append("    call $__wasi_print_double\n");
@@ -4247,7 +4261,12 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             translateDomStringArg(arg, collector, localTypes, localElementTypes, localJavaTypes);
             collector.append("    i32.const ").append(isNewline ? 1 : 0).append("\n");
             collector.append("    call $__wasi_print_str\n");
-        } else if ("f64".equals(argType) || "double".equals(argJavaType) || "float".equals(argJavaType) || arg.isDoubleLiteralExpr()) {
+        } else if ("float".equals(argJavaType)) {
+            collector.append("    i32.const ").append(fd).append("\n");
+            translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "f32");
+            collector.append("    i32.const ").append(isNewline ? 1 : 0).append("\n");
+            collector.append("    call $__wasi_print_float\n");
+        } else if ("f64".equals(argType) || "double".equals(argJavaType) || arg.isDoubleLiteralExpr()) {
             collector.append("    i32.const ").append(fd).append("\n");
             translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "f64");
             collector.append("    i32.const ").append(isNewline ? 1 : 0).append("\n");
@@ -5080,8 +5099,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             }
             if (mName.equals("toString")) {
                 translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "f32");
-                collector.append("    f64.promote_f32\n");
-                collector.append("    call $__str_from_f64\n");
+                collector.append("    call $__str_from_f32\n");
                 return;
             }
             if (mName.equals("isNaN")) {

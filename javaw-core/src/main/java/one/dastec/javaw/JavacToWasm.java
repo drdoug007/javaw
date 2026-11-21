@@ -537,6 +537,7 @@ public class JavacToWasm {
         ReflectionSupport reflection = ReflectionSupport.prepare(cu);
         SpringWebSupport springWeb = SpringWebSupport.lower(cu);
         DecimalSupport.addTypes(cu);
+        FloatTextSupport.addTypes(cu);
         LibrarySupport.addTypes(cu);
         DomCallbackSupport.addTypes(cu);
         IoSupport.addTypes(cu);

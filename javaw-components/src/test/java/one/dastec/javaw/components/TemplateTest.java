@@ -179,13 +179,13 @@ class TemplateTest {
             document.body.appendChild(el);
             await tick();
             const d = el.shadowRoot.getElementById('d');
-            d.dispatchEvent(new window.MouseEvent('click', { clientX: 12, button: 2, shiftKey: true }));
+            d.dispatchEvent(new window.MouseEvent('click', { clientX: 12.5, button: 2, shiftKey: true }));
             d.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', ctrlKey: true }));
             d.dispatchEvent(new window.PointerEvent('pointerdown', { pointerType: 'pen', clientY: 3 }));
             d.dispatchEvent(new window.FocusEvent('focus'));
             d.dispatchEvent(new window.Event('custom'));
             await tick();
-            assert.equal(el.log, 'click:12.0,2,true;key:Enter,Enter,true;pointer:pen,3.0;focus:true;event:custom;');
+            assert.equal(el.log, 'click:12.5,2,true;key:Enter,Enter,true;pointer:pen,3.0;focus:true;event:custom;');
             assert.equal(d.textContent, el.log);
             assert.equal(errors.length, 0, String(errors[0] && errors[0].stack));
             """);
