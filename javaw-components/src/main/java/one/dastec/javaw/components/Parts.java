@@ -29,8 +29,9 @@ public final class Parts {
     public static TemplatePart child(Template value) { return null; }
     /** Boxes and enums render as {@code String.valueOf}; {@code null} renders nothing. */
     public static TemplatePart child(Object value) { return null; }
-    /** Lists arrive in milestone M4; this overload throws {@link UnsupportedOperationException}. */
+    /** Items render like single child values and are matched by index between renders. */
     public static TemplatePart child(Iterable<?> value) { return null; }
+    public static TemplatePart child(Repeat value) { return null; }
     public static TemplatePart childNothing() { return null; }
 
     // Attribute values; null removes the attribute.

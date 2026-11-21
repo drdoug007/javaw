@@ -2322,6 +2322,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                         translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "String");
                         collector.append("    call $__sb_indexOf\n");
                     } else {
+                        boolean from = call.getArguments().size() == 2;
                         translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "String");
                         Expression arg = call.getArgument(0);
                         if (isStringType(arg, localJavaTypes)) {
@@ -2330,7 +2331,11 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                             translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
                             collector.append("    call $__str_from_char\n");
                         }
-                        collector.append("    call $__str_indexOf\n");
+                        if (from) {
+                            // indexOf(str, fromIndex): operands stay on the stack, so nested string operations cannot clobber them.
+                            translateExpression(call.getArgument(1), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                            collector.append("    call $__str_indexOf_from\n");
+                        } else collector.append("    call $__str_indexOf\n");
                     }
                 } else if (mName.equals("concat")) {
                     translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "String");
@@ -2565,7 +2570,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                         translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
                         collector.append("    call $__require_nonnull\n");
                         if ("equals".equals(mName)) {
-                            translateExpression(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                            // equals(Object): a primitive argument is boxed first.
+                            translateValue(call.getArgument(0), collector, localTypes, localElementTypes, localJavaTypes, "Object");
                             collector.append("    call $__javaw_same\n");
                         } else collector.append("    call $__javaw_").append("hashCode".equals(mName) ? "hash" : "to_string").append("\n");
                         return;
@@ -3732,6 +3738,11 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         } else if (expr.isBooleanLiteralExpr() || "boolean".equals(javaType) || (expr.isNameExpr() && "boolean".equals(localJavaTypes.get(expr.asNameExpr().getNameAsString())))) {
             translateExpression(expr, collector, localTypes, localElementTypes, localJavaTypes, "i32");
             collector.append("    call $__str_from_bool\n");
+        } else if (javaType != null && !Set.of("int", "short", "byte", "long", "null").contains(javaType)) {
+            // JLS 15.18.1: a reference operand converts with toString() (a null reference becomes "null").
+            translateExpression(expr, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+            collector.append("    call $__javaw_to_string\n");
+            emitNullAsText(collector);
         } else {
             translateExpression(expr, collector, localTypes, localElementTypes, localJavaTypes, "i32");
             collector.append("    call $__str_from_i32\n");

@@ -1122,6 +1122,47 @@
             part.element[part.name] = value;
         }
 
+        // Keyed lists: each item is a one-binding instance whose range is a pair of comments inside the list's range.
+        wcListRef(range, before) {
+            return before ? this.wcInstance(before).bindings[0].start : range.end;
+        }
+
+        wcListInsert(id, index, before) {
+            const instance = this.wcInstance(id);
+            const range = instance.bindings[index];
+            const doc = range.end.ownerDocument;
+            const start = doc.createComment(''), end = doc.createComment('');
+            const ref = this.wcListRef(range, before);
+            ref.parentNode.insertBefore(start, ref);
+            ref.parentNode.insertBefore(end, ref);
+            return this.wcRegister(instance.scope, { bindings: [{ kind: 'child', start, end }] });
+        }
+
+        wcListMove(id, index, item, before) {
+            const range = this.wcInstance(id).bindings[index];
+            const moved = this.wcInstance(item).bindings[0];
+            const ref = this.wcListRef(range, before);
+            if (moved.end.nextSibling === ref) return;
+            const parent = ref.parentNode;
+            for (let node = moved.start; ;) {
+                const next = node.nextSibling;
+                parent.insertBefore(node, ref);
+                if (node === moved.end) break;
+                node = next;
+            }
+        }
+
+        wcListRemove(item) {
+            const range = this.wcInstance(item).bindings[0];
+            const parent = range.start.parentNode;
+            for (let node = range.start; ;) {
+                const next = node.nextSibling;
+                parent.removeChild(node);
+                if (node === range.end) break;
+                node = next;
+            }
+        }
+
         // The Java peer of a bound element that is a component of this module, or 0.
         wcPeer(id, index) {
             const { part } = this.wcInstance(id).bindings[index];

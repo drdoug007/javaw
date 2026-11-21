@@ -20,12 +20,41 @@ final class TemplateRuntime {
             Template(int id, TemplatePart[] parts) { __id = id; __parts = parts; }
             public static Template of(int id, TemplatePart... parts) { return new Template(id, parts); }
         }
+        interface KeyFunction<T> { public Object key(T item); }
+        interface ItemTemplate<T> { public Template render(T item); }
+        interface TemplateSupplier { public Template get(); }
+        final class Repeat {
+            ArrayList<Object> __keys = new ArrayList<Object>();
+            ArrayList<TemplatePart> __items = new ArrayList<TemplatePart>();
+            Repeat() {}
+        }
+        final class __WcList {
+            Object[] keys = new Object[0];
+            __WcInstance[] items = new __WcInstance[0];
+            ArrayList<__WcInstance> pending = new ArrayList<__WcInstance>();
+            __WcList() {}
+        }
+        final class __WcUniqueKey {
+            __WcUniqueKey() {}
+        }
+        final class __WcNullKey {
+            __WcNullKey() {}
+            public boolean equals(Object other) { return other instanceof __WcNullKey; }
+            public int hashCode() { return 0; }
+        }
+        final class Templates {
+            public static <T> Repeat repeat(Iterable<T> items, KeyFunction<T> key, ItemTemplate<T> template) { return WebComponent.__wc_repeat(items, key, template); }
+            public static Template when(boolean condition, TemplateSupplier trueCase) { return condition ? trueCase.get() : null; }
+            public static Template when(boolean condition, TemplateSupplier trueCase, TemplateSupplier falseCase) { return condition ? trueCase.get() : falseCase.get(); }
+            public static Template nothing() { return null; }
+        }
         final class TemplatePart {
             int __kind;
             String __text;
             boolean __flag;
             double __number;
             Template __template;
+            Repeat __repeat;
             int __key;
             Object __value;
             __JavawDomRunnable __run;
@@ -56,11 +85,27 @@ final class TemplateRuntime {
             public static TemplatePart child(Object value) {
                 if (value == null) return text(0, null);
                 if (value instanceof Template template) return child(template);
-                if (value instanceof Iterable<?>) throw new UnsupportedOperationException("Iterable children arrive in milestone M4");
+                if (value instanceof Repeat repeat) return child(repeat);
+                if (value instanceof Iterable<?> iterable) return child(iterable);
                 return text(0, String.valueOf(value));
             }
             public static TemplatePart child(Iterable<?> value) {
-                throw new UnsupportedOperationException("Iterable children arrive in milestone M4");
+                if (value == null) return text(0, null);
+                // A plain list: items are matched by index.
+                Repeat list = new Repeat();
+                int index = 0;
+                for (Object item : value) {
+                    list.__keys.add(Integer.valueOf(index));
+                    list.__items.add(child(item));
+                    index++;
+                }
+                return child(list);
+            }
+            public static TemplatePart child(Repeat value) {
+                if (value == null) return text(0, null);
+                TemplatePart p = new TemplatePart(17);
+                p.__repeat = value;
+                return p;
             }
             public static TemplatePart childNothing() { return text(0, null); }
             public static TemplatePart attr(String value) { return text(2, value); }
@@ -171,7 +216,7 @@ final class TemplateRuntime {
                 boolean first = !inst.set[i];
                 if (kind == 0) {
                     if (!first && inst.kinds[i] == 0 && same(inst.texts[i], p.__text)) return;
-                    boolean hadContent = !first && (inst.kinds[i] == 1 || inst.texts[i] != null);
+                    boolean hadContent = !first && (inst.kinds[i] == 1 || inst.kinds[i] == 17 || inst.texts[i] != null);
                     dropChild(c, inst, i);
                     inst.kinds[i] = 0;
                     inst.texts[i] = p.__text;
@@ -213,6 +258,19 @@ final class TemplateRuntime {
                     inst.numbers[i] = p.__number;
                     inst.set[i] = true;
                     __wc_propNumber(inst.id, i, p.__number);
+                } else if (kind == 17) {
+                    __WcList list = !first && inst.kinds[i] == 17 ? (__WcList) inst.objects[i] : null;
+                    if (list == null) {
+                        boolean hadContent = !first && (inst.kinds[i] == 1 || inst.texts[i] != null);
+                        dropChild(c, inst, i);
+                        if (hadContent) __wc_childText(inst.id, i, "", false);
+                        list = new __WcList();
+                        inst.kinds[i] = 17;
+                        inst.objects[i] = list;
+                        inst.texts[i] = null;
+                        inst.set[i] = true;
+                    }
+                    reconcile(c, inst.id, i, list, p.__repeat);
                 } else if (kind == 16) {
                     // .name on a Java component of this module: set its field through the generated setter, unmarshalled.
                     if (!first && inst.kinds[i] == 16 && inst.keys[i] == p.__key && sameValue(inst.objects[i], p.__value)) return;
@@ -239,7 +297,137 @@ final class TemplateRuntime {
                 if (inst.set[i] && inst.kinds[i] == 1 && inst.objects[i] != null) {
                     release(c, (__WcInstance) inst.objects[i]);
                     inst.objects[i] = null;
+                } else if (inst.set[i] && inst.kinds[i] == 17 && inst.objects[i] != null) {
+                    // The range is cleared by the caller; release the items' instances.
+                    __WcList list = (__WcList) inst.objects[i];
+                    for (int k = 0; k < list.items.length; k++) release(c, list.items[k]);
+                    inst.objects[i] = null;
                 }
+            }
+
+            /**
+             * Keyed list update, ported from lit-html's repeat directive: a two-ended scan matches head to head,
+             * tail to tail, old head to new tail and old tail to new head; the rest uses key maps built on
+             * demand. Matched items keep their DOM and are moved; others are inserted or removed.
+             */
+            static void reconcile(WebComponent c, int listId, int binding, __WcList list, Repeat next) {
+                try {
+                    reconcileItems(c, listId, binding, list, next);
+                } catch (RuntimeException failure) {
+                    // An item failed part way: drop the whole list (its DOM and every item), so the next render rebuilds it.
+                    for (int k = 0; k < list.items.length; k++) if (list.items[k] != null) release(c, list.items[k]);
+                    for (int k = 0; k < list.pending.size(); k++) release(c, list.pending.get(k));
+                    list.pending.clear();
+                    list.keys = new Object[0];
+                    list.items = new __WcInstance[0];
+                    __wc_childText(listId, binding, "", false);
+                    throw failure;
+                }
+                list.pending.clear();
+            }
+
+            static void reconcileItems(WebComponent c, int listId, int binding, __WcList list, Repeat next) {
+                int n = next.__keys.size();
+                Object[] newKeys = new Object[n];
+                HashMap<Object, Integer> seen = new HashMap<Object, Integer>();
+                for (int k = 0; k < n; k++) {
+                    Object key = next.__keys.get(k);
+                    if (key == null) key = new __WcNullKey();
+                    if (seen.containsKey(key)) {
+                        __wc_reportDuplicate(String.valueOf(next.__keys.get(k)));
+                        key = new __WcUniqueKey();
+                    }
+                    seen.put(key, Integer.valueOf(k));
+                    newKeys[k] = key;
+                }
+                Object[] oldKeys = list.keys;
+                __WcInstance[] oldParts = new __WcInstance[list.items.length];
+                for (int k = 0; k < oldParts.length; k++) oldParts[k] = list.items[k];
+                __WcInstance[] newParts = new __WcInstance[n];
+                int oldHead = 0, oldTail = oldParts.length - 1, newHead = 0, newTail = n - 1;
+                HashMap<Object, Integer> newIndex = null;
+                HashMap<Object, Integer> oldIndex = null;
+                while (oldHead <= oldTail && newHead <= newTail) {
+                    if (oldParts[oldHead] == null) {
+                        oldHead++;
+                    } else if (oldParts[oldTail] == null) {
+                        oldTail--;
+                    } else if (oldKeys[oldHead].equals(newKeys[newHead])) {
+                        newParts[newHead] = item(c, oldParts[oldHead], next.__items.get(newHead));
+                        oldHead++;
+                        newHead++;
+                    } else if (oldKeys[oldTail].equals(newKeys[newTail])) {
+                        newParts[newTail] = item(c, oldParts[oldTail], next.__items.get(newTail));
+                        oldTail--;
+                        newTail--;
+                    } else if (oldKeys[oldHead].equals(newKeys[newTail])) {
+                        newParts[newTail] = item(c, oldParts[oldHead], next.__items.get(newTail));
+                        __wc_listMove(listId, binding, oldParts[oldHead].id, newTail + 1 < n ? newParts[newTail + 1].id : 0);
+                        oldHead++;
+                        newTail--;
+                    } else if (oldKeys[oldTail].equals(newKeys[newHead])) {
+                        newParts[newHead] = item(c, oldParts[oldTail], next.__items.get(newHead));
+                        __wc_listMove(listId, binding, oldParts[oldTail].id, oldParts[oldHead].id);
+                        oldTail--;
+                        newHead++;
+                    } else {
+                        if (newIndex == null) {
+                            newIndex = new HashMap<Object, Integer>();
+                            for (int k = newHead; k <= newTail; k++) newIndex.put(newKeys[k], Integer.valueOf(k));
+                            oldIndex = new HashMap<Object, Integer>();
+                            for (int k = oldHead; k <= oldTail; k++) oldIndex.put(oldKeys[k], Integer.valueOf(k));
+                        }
+                        if (!newIndex.containsKey(oldKeys[oldHead])) {
+                            remove(c, listId, binding, oldParts[oldHead]);
+                            oldHead++;
+                        } else if (!newIndex.containsKey(oldKeys[oldTail])) {
+                            remove(c, listId, binding, oldParts[oldTail]);
+                            oldTail--;
+                        } else {
+                            Integer found = oldIndex.get(newKeys[newHead]);
+                            __WcInstance oldPart = found == null ? null : oldParts[found.intValue()];
+                            if (oldPart == null) {
+                                __WcInstance fresh = created(list, __wc_listInsert(listId, binding, oldParts[oldHead].id));
+                                newParts[newHead] = item(c, fresh, next.__items.get(newHead));
+                            } else {
+                                newParts[newHead] = item(c, oldPart, next.__items.get(newHead));
+                                __wc_listMove(listId, binding, oldPart.id, oldParts[oldHead].id);
+                                oldParts[found.intValue()] = null;
+                            }
+                            newHead++;
+                        }
+                    }
+                }
+                while (newHead <= newTail) {
+                    __WcInstance fresh = created(list, __wc_listInsert(listId, binding, newTail + 1 < n ? newParts[newTail + 1].id : 0));
+                    newParts[newHead] = item(c, fresh, next.__items.get(newHead));
+                    newHead++;
+                }
+                while (oldHead <= oldTail) {
+                    __WcInstance oldPart = oldParts[oldHead];
+                    oldHead++;
+                    if (oldPart != null) remove(c, listId, binding, oldPart);
+                }
+                list.keys = newKeys;
+                list.items = newParts;
+            }
+
+            /** A new item, remembered until the list update completes so a failure can release it. */
+            static __WcInstance created(__WcList list, int id) {
+                __WcInstance item = new __WcInstance(id, 0, 1);
+                list.pending.add(item);
+                return item;
+            }
+
+            /** Brings an item's range up to date with its value; an item is a one-binding instance. */
+            static __WcInstance item(WebComponent c, __WcInstance item, TemplatePart value) {
+                commitPart(c, item, 0, value);
+                return item;
+            }
+
+            static void remove(WebComponent c, int listId, int binding, __WcInstance item) {
+                __wc_listRemove(item.id);
+                release(c, item);
             }
             static void release(WebComponent c, __WcInstance inst) {
                 for (int i = 0; i < inst.kinds.length; i++) dropChild(c, inst, i);
@@ -283,6 +471,14 @@ final class TemplateRuntime {
             public static native void __wc_event(int id, int index, boolean on);
             @JS("return runtime.wcPeer(id, index);")
             public static native WebComponent __wc_peer(int id, int index);
+            @JS("return runtime.wcListInsert(id, index, before);")
+            public static native int __wc_listInsert(int id, int index, int before);
+            @JS("runtime.wcListMove(id, index, item, before);")
+            public static native void __wc_listMove(int id, int index, int item, int before);
+            @JS("runtime.wcListRemove(item);")
+            public static native void __wc_listRemove(int item);
+            @JS("runtime.reportCallbackError(new Error('repeat: duplicate key ' + key + '; the later item gets its own DOM'), 'repeat');")
+            public static native void __wc_reportDuplicate(String key);
             @JS("runtime.wcRelease(id);")
             public static native void __wc_release(int id);
         }
@@ -293,6 +489,18 @@ final class TemplateRuntime {
             HashMap<Integer, __WcInstance> __templates = new HashMap<Integer, __WcInstance>();
             __WcInstance __rootTemplate;
             protected Template render() { return null; }
+            protected static <T> Repeat repeat(Iterable<T> items, KeyFunction<T> key, ItemTemplate<T> template) { return __wc_repeat(items, key, template); }
+            public static <T> Repeat __wc_repeat(Iterable<T> items, KeyFunction<T> key, ItemTemplate<T> template) {
+                Repeat list = new Repeat();
+                for (T item : items) {
+                    list.__keys.add(key.key(item));
+                    list.__items.add(Parts.child(template.render(item)));
+                }
+                return list;
+            }
+            protected static Template when(boolean condition, TemplateSupplier trueCase) { return condition ? trueCase.get() : null; }
+            protected static Template when(boolean condition, TemplateSupplier trueCase, TemplateSupplier falseCase) { return condition ? trueCase.get() : falseCase.get(); }
+            protected static Template nothing() { return null; }
             protected void update(Changes changes) { __WcRenderer.renderRoot(this, render()); }
         """;
 }

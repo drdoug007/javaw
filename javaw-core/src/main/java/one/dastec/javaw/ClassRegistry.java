@@ -39,9 +39,14 @@ public class ClassRegistry {
                 superClassName = cd.getExtendedTypes(0).getNameAsString();
             }
             ClassModel cm = new ClassModel(className, superClassName, cd.isInterface(), classIdCounter++);
+            // Instance methods that use their receiver need it as a parameter even when the class has no fields.
+            cm.setUsesThis(cd.getMethods().stream().anyMatch(m -> !m.isStatic()
+                    && !m.findAll(com.github.javaparser.ast.expr.ThisExpr.class, t -> t.getTypeName().isEmpty()).isEmpty()));
             if (one.dastec.javaw.js.JsAnnotationHelper.getClassExportAnnotation(cd).isPresent()) {
                 cm.setExported(true);
             }
+            // An interface's further superinterfaces (the first is recorded as its superclass name).
+            if (cd.isInterface()) for (int k = 1; k < cd.getExtendedTypes().size(); k++) cm.addImplementedInterface(cd.getExtendedTypes(k).getNameAsString());
             for (com.github.javaparser.ast.type.ClassOrInterfaceType it : cd.getImplementedTypes()) {
                 cm.addImplementedInterface(it.getNameAsString());
             }
@@ -1242,6 +1247,8 @@ public class ClassRegistry {
                 if (iface.equals(superClass) || iface.endsWith("." + superClass) || superClass.endsWith("." + iface)) {
                     return true;
                 }
+                // Superinterfaces count too (ArrayList -> List -> Collection -> Iterable).
+                if (!iface.equals(cm.getName()) && isSubclassOf(iface, superClass)) return true;
             }
             if (cm.getSuperClassName() != null && (cm.getSuperClassName().equals(superClass) ||
                     cm.getSuperClassName().endsWith("." + superClass) || superClass.endsWith("." + cm.getSuperClassName()))) {

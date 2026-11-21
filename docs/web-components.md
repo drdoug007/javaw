@@ -83,6 +83,14 @@ Differences from the plan, decided for this subset:
 - **Event listener values.** Lambdas and method references work. A value whose static type is `java.lang.Runnable` passes javac against the API stubs but has no matching `Parts.on` overload in javaw, because the source compiler does not model `Runnable`; it is a compile error at the binding.
 - **Number properties** are compared with `Object.is` semantics, so an unchanged `NaN` makes no host call and `0.0` to `-0.0` is committed (Lit commits `NaN` every time and never commits `-0`); the DOM result is the same.
 
+Implemented (M4 subset; evidence in `TemplateListTest`):
+- **Keyed lists.** `repeat(items, keyFn, templateFn)` (on `WebComponent` and `Templates`) renders one item per element, keyed by `keyFn` with `equals`/`hashCode`. Updates use lit-html's reconciliation (head and tail matching, then key maps built on demand), so a surviving item keeps its DOM and is moved, and the serialized DOM matches lit-html's `repeat` over a sequence of reorderings, insertions and removals. A repeated key is reported through the error sink and the later item gets its own DOM. Removed items release their template instances.
+- **Plain lists.** An `Iterable` bound as child content renders each element like a single child value (text, template, nested list or nothing) and reuses items by index.
+- **`when(condition, trueCase[, falseCase])`** renders only the chosen case, given as a `TemplateSupplier` lambda. **`nothing()`** renders nothing as child content and removes the attribute in an attribute binding.
+- **Core fixes found on the way** (`ObjectTextTest`, `StringIndexOfTest`): references held as `Object` (boxes, enums, user objects) printed their address in string concatenation and boxes had no `toString`; `equals(Object)` did not box a primitive argument; `instanceof` did not follow superinterfaces (`ArrayList` was not an `Iterable`); classes without fields whose instance methods capture `this` compiled their methods without a receiver; `indexOf(str, fromIndex)` ignored the index.
+
+Not yet in M4: `classMap`, `styleMap` and `ref`. List items must be classes: records passed as `Object` are not supported by the source compiler yet (Todo stage 1).
+
 Known compiler gaps that affect components (Todo section 13): `+=` on a String field concatenates only for locals and statics (reactive fields are unaffected, because their writes go through setters).
 
 Known M1 limitations:

@@ -28,7 +28,8 @@ public final class ComponentExtension implements SourceExtension {
     static final String SECTION = "javaw_wc_components";
     private static final String FACTORIES = "__JavawComponentFactories";
     private static final Set<String> RESERVED_TYPES = Set.of("WebComponent", "Changes", FACTORIES,
-            "Template", "TemplatePart", "Parts", "Templates", "__WcInstance", "__WcRenderer");
+            "Template", "TemplatePart", "Parts", "Templates", "__WcInstance", "__WcRenderer",
+            "KeyFunction", "ItemTemplate", "TemplateSupplier", "Repeat", "__WcList", "__WcUniqueKey");
     private static final Set<String> RESERVED = Set.of("annotation-xml", "color-profile", "font-face", "font-face-src",
             "font-face-uri", "font-face-format", "font-face-name", "missing-glyph");
 
@@ -194,7 +195,7 @@ public final class ComponentExtension implements SourceExtension {
         TemplateRewrite templates = new TemplateRewrite(byTagProperties);
         templates.rewrite(cu);
         boolean usesTemplates = !templates.isEmpty() || cu.findAll(ClassOrInterfaceType.class).stream()
-                .anyMatch(t -> t.getNameAsString().equals("Template") || t.getNameAsString().equals("Parts"));
+                .anyMatch(t -> Set.of("Template", "Parts", "Templates", "Repeat", "KeyFunction", "ItemTemplate", "TemplateSupplier").contains(t.getNameAsString()));
         for (ClassOrInterfaceDeclaration component : components) lowerQueries(component);
         for (int i = 0; i < components.size(); i++) {
             List<ReactiveFields.Field> fields = ReactiveFields.lower(components.get(i));
