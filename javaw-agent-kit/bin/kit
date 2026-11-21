@@ -760,7 +760,7 @@ def cmd_register(args):
         if re.search(r'"[^"]*\b%s\b[^"]*"' % re.escape(name), text.split("private BytecodeExceptionRuntime()")[0]):
             print("already registered: " + relative)
             return True
-        new_text = text.replace('UnsatisfiedLinkError").split(" ");', 'UnsatisfiedLinkError %s").split(" ");' % name, 1)
+        new_text = re.sub(r'(UnsatisfiedLinkError[A-Za-z ]*)"\)\.split\(" "\);', lambda m: '%s %s").split(" ");' % (m.group(1), name), text, count=1)
     elif relative == "java/util/%s.java" % name:
         line = next((l for l in text.splitlines() if '"LinkedList"' in l and 'paths.add("java/util/"' in l), None)
         if line is None:
