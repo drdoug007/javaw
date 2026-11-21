@@ -55,4 +55,4 @@
 | T48 | ConcurrentHashMap KeySetView and remaining members | T47 | todo |
 | T49 | Lock and ReentrantLock (single-threaded) | - | done |
 | T50 | ReadWriteLock and ReentrantReadWriteLock (single-threaded) | T49 | done |
-| T51 | BlockingQueue and LinkedBlockingQueue (single-threaded) | - | todo |
+| T51 | BlockingQueue and LinkedBlockingQueue (single-threaded) | - | done |

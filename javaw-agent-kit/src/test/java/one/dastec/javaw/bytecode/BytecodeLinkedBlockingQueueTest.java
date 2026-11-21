@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T51: java.util.concurrent.BlockingQueue and LinkedBlockingQueue (single-threaded). Expected values come from the JVM; see tasks/T51-linked-blocking-queue.md. */
-@Tag("agent-pending")
 class BytecodeLinkedBlockingQueueTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.io.Serializable;
