@@ -158,6 +158,8 @@ public final class BytecodeExceptionRuntime {
             paths.add("java/util/concurrent/ConcurrentMap.java");
             paths.add("java/util/concurrent/locks/Lock.java");
             paths.add("java/util/concurrent/locks/ReentrantLock.java");
+            paths.add("java/util/concurrent/locks/ReadWriteLock.java");
+            paths.add("java/util/concurrent/locks/ReentrantReadWriteLock.java");
             paths.add("javaw/runtime/ExceptionSupport.java");
             paths.add("javaw/runtime/ReflectionSupport.java");
             paths.add("javaw/runtime/Decimal.java");
