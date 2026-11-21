@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T46: java.util.concurrent.ConcurrentMap default methods (single-threaded). See tasks/T46-concurrent-map.md. */
-@Tag("agent-pending")
 class BytecodeConcurrentMapTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.util.*;

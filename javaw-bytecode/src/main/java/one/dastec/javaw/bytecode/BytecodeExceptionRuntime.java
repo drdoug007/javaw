@@ -155,6 +155,7 @@ public final class BytecodeExceptionRuntime {
             paths.add("java/util/concurrent/atomic/LongAdder.java");
             paths.add("java/util/concurrent/atomic/LongAccumulator.java");
             paths.add("java/io/LineNumberReader.java");
+            paths.add("java/util/concurrent/ConcurrentMap.java");
             paths.add("javaw/runtime/ExceptionSupport.java");
             paths.add("javaw/runtime/ReflectionSupport.java");
             paths.add("javaw/runtime/Decimal.java");
