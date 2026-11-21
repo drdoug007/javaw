@@ -264,4 +264,41 @@ class TemplateTest {
             assert.equal(errors.length, 0, String(errors[0] && errors[0].stack));
             """);
     }
+
+    @Test
+    void helperClassesUseTemplatesStaticImport() throws Exception {
+        byte[] wasm = JavacToWasm.compile("App.java", """
+            import static one.dastec.javaw.components.Templates.html;
+            import one.dastec.javaw.components.CustomElement;
+            import one.dastec.javaw.components.Property;
+            import one.dastec.javaw.components.Template;
+            import one.dastec.javaw.components.Templates;
+            import one.dastec.javaw.components.WebComponent;
+
+            final class Rows {
+                static Template row(String label, int n) { return html("<li data-n=${n}>${label}</li>"); }
+                static Template frame(Template inner) { return Templates.html("<ul>${inner}</ul>"); }
+            }
+
+            @CustomElement("x-list")
+            class ListView extends WebComponent {
+                @Property private String first = "a";
+                @Override protected Template render() { return Rows.frame(Rows.row(first, first.length())); }
+            }
+            """, false).getWasm();
+        CustomElementTest.run(wasm, "", """
+            const tick = async () => { await settle(); await settle(); };
+            const el = document.createElement('x-list');
+            document.body.appendChild(el);
+            await tick();
+            const li = () => el.shadowRoot.querySelector('ul > li');
+            assert.equal(li().textContent, 'a');
+            const node = li();
+            el.first = 'abc'; await tick();
+            assert.equal(li(), node, 'templates from helper classes update in place');
+            assert.equal(node.textContent, 'abc');
+            assert.equal(node.getAttribute('data-n'), '3');
+            assert.equal(errors.length, 0, String(errors[0] && errors[0].stack));
+            """);
+    }
 }

@@ -685,6 +685,7 @@ public class JavacToWasm {
         WasmRuntime.emitRuntimeFunctions(watOutput, trueOffset, falseOffset, !wasiImports.isEmpty());
 
         SourceMapTracker tracker = sourceMapGen != null ? new SourceMapTracker(sourceMapGen, sourceName) : null;
+        if (tracker != null) tracker.setFilter(JavaSourcePreparation::fromUserSource);
         cu.accept(new WasmGeneratorVisitor(stringPool, globalVars, classRegistry, tracker, jsSnippets), watOutput);
         String initializer=cu.findAll(com.github.javaparser.ast.body.EnumDeclaration.class).isEmpty() ? "$__init_classes" : "$__init_enums";
         boolean decimal = cu.getClassByName("BigDecimal").isPresent();

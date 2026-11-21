@@ -67,12 +67,23 @@ final class TemplateRewrite {
 
     private static boolean isHtmlCall(MethodCallExpr call) {
         if (!call.getNameAsString().equals("html")) return false;
-        if (call.getScope().isPresent()) return call.getScope().get().toString().equals("WebComponent");
+        if (call.getScope().isPresent()) return isTemplateScope(call.getScope().get());
+        // An html method declared by an enclosing class wins over the inherited or imported one, as in Java.
+        for (Node n = call.getParentNode().orElse(null); n != null; n = n.getParentNode().orElse(null))
+            if (n instanceof ClassOrInterfaceDeclaration c && !c.getMethodsByName("html").isEmpty()) return false;
         // html is inherited (also through other classes of the module) and visible in nested classes.
         CompilationUnit cu = call.findCompilationUnit().orElse(null);
         for (Node n = call.getParentNode().orElse(null); n != null; n = n.getParentNode().orElse(null))
             if (n instanceof ClassOrInterfaceDeclaration c && extendsComponent(cu, c, new java.util.HashSet<>())) return true;
-        return false;
+        // Or statically imported from Templates.
+        return cu != null && cu.getImports().stream().anyMatch(i -> i.isStatic()
+                && (i.isAsterisk() ? i.getNameAsString().equals(ComponentExtension.PACKAGE + ".Templates")
+                                   : i.getNameAsString().equals(ComponentExtension.PACKAGE + ".Templates.html")));
+    }
+
+    private static boolean isTemplateScope(Expression scope) {
+        String name = scope.toString();
+        return name.equals("WebComponent") || name.equals("Templates");
     }
 
     private static boolean extendsComponent(CompilationUnit cu, ClassOrInterfaceDeclaration type, java.util.Set<String> seen) {
@@ -90,7 +101,7 @@ final class TemplateRewrite {
     /** html("...") inside a binding: unqualified or WebComponent.html. */
     private static boolean isNestedHtmlCall(MethodCallExpr call) {
         return call.getNameAsString().equals("html")
-                && (call.getScope().isEmpty() || call.getScope().get().toString().equals("WebComponent"));
+                && (call.getScope().isEmpty() || isTemplateScope(call.getScope().get()));
     }
 
     private Expression lower(MethodCallExpr call) {

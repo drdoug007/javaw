@@ -28,7 +28,7 @@ public final class ComponentExtension implements SourceExtension {
     static final String SECTION = "javaw_wc_components";
     private static final String FACTORIES = "__JavawComponentFactories";
     private static final Set<String> RESERVED_TYPES = Set.of("WebComponent", "Changes", FACTORIES,
-            "Template", "TemplatePart", "Parts", "__WcInstance", "__WcRenderer");
+            "Template", "TemplatePart", "Parts", "Templates", "__WcInstance", "__WcRenderer");
     private static final Set<String> RESERVED = Set.of("annotation-xml", "color-profile", "font-face", "font-face-src",
             "font-face-uri", "font-face-format", "font-face-name", "missing-glyph");
 

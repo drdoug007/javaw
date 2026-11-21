@@ -254,6 +254,8 @@ final class LambdaSupport {
             ? owner.getData(JavaSourcePreparation.LEXICAL_OWNER) : owner.getNameAsString());
         if (owner.containsData(JavaSourcePreparation.PACKAGE)) generated.setData(JavaSourcePreparation.PACKAGE,owner.getData(JavaSourcePreparation.PACKAGE));
         MethodDeclaration implementation = generated.addMethod(sam.getName(), Modifier.Keyword.PUBLIC).setType(sam.getReturnTypeName());
+        // The implementing method starts where the lambda or method reference is written (source maps).
+        callback.getRange().ifPresent(implementation::setRange);
         if (callback.isLambdaExpr() && callback.asLambdaExpr().getParameters().size() != sam.getParamTypeNames().size())
             throw JavaSourcePreparation.error(callback,"Callback arity does not match target");
         List<String> parameters = new ArrayList<>();
@@ -340,6 +342,8 @@ final class LambdaSupport {
             constructor.addParameter(owner.getNameAsString(),"__owner");
             constructor.getBody().addStatement("this.__owner = __owner;"); creation.addArgument(new ThisExpr());
         }
+        // A lambda of user code stays user code (diagnostics, source maps).
+        JavaSourcePreparation.copySource(callback, generated);
         callback.replace(creation); cu.getTypes().add(generated);
     }
 }

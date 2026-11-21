@@ -96,4 +96,53 @@ class TemplateRewriteTest {
         assertTrue(templates.contains("{\"id\":2,\"html\":\"<p><!--wc$0--></p>\\u000a\""), "no blank first line: " + templates);
         assertTrue(templates.contains("\"html\":\"<b>x</b>\""), templates);
     }
+
+    @Test
+    void wildcardImportsAndOwnHtmlMethods() {
+        Map<String, String> sections = new LinkedHashMap<>();
+        String rewritten = ComponentExtensionAccess.rewriteUserTypes("""
+            import static one.dastec.javaw.components.Templates.*;
+            import one.dastec.javaw.components.Template;
+            final class Helper {
+                static Template cell(int n) { return html("<td>${n}</td>"); }
+            }
+            final class Own {
+                static String html(String s) { return s.toUpperCase(); }
+                static String shout() { return html("<b>${not a binding}</b>"); }
+            }
+            """, sections);
+        assertTrue(rewritten.contains("return Template.of(1, Parts.child(n));"), rewritten);
+        assertTrue(rewritten.contains("return html(\"<b>${not a binding}</b>\");"), "a class's own html method is left alone: " + rewritten);
+        assertTrue(sections.get("javaw_wc_templates").contains("<td><!--wc$0--></td>"), sections.toString());
+    }
+
+    @Test
+    void sourceMapsPointIntoTheUsersFileOnly() {
+        String source = """
+            import one.dastec.javaw.components.CustomElement;
+            import one.dastec.javaw.components.Property;
+            import one.dastec.javaw.components.Template;
+            import one.dastec.javaw.components.WebComponent;
+            @CustomElement("x-map")
+            class MapView extends WebComponent {
+                @Property private int count;
+                @Override protected Template render() {
+                    return html(\"""
+                        <p>${count}</p>
+                        <button @click=${() -> count++}>+</button>
+                        \""");
+                }
+            }
+            """;
+        var result = one.dastec.javaw.JavacToWasm.compile("App.java", source, true);
+        var map = one.dastec.javaw.sourcemap.SourceMap.parse(result.getSourceMapJson());
+        long lines = source.lines().count();
+        java.util.Set<Integer> mapped = new java.util.TreeSet<>();
+        for (var entry : map.getMappings()) {
+            assertTrue(entry.getOriginalLine() < lines, "mapping beyond App.java: line " + (entry.getOriginalLine() + 1)
+                    + " of " + lines + " (injected runtime source must not map onto the user's file)");
+            mapped.add(entry.getOriginalLine() + 1);
+        }
+        assertTrue(mapped.contains(11), "the lambda written in the template binding maps to its own line: " + mapped);
+    }
 }

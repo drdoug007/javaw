@@ -1074,7 +1074,7 @@ Lit-style custom elements authored in Java: `@CustomElement` classes, `@Property
     - [ ] JS property accessors and observed attributes for `@Property` fields inherited from a component superclass (the subclass element has none; typed template bindings already reach them).
     - [ ] Writes through typed receivers (`other.f`), and `@Property` types beyond the four scalars (enums, boxed, `long`, records, lists, maps) with property marshalling.
     - [ ] `updateComplete`; the opt-in collector call after a flush.
-  - [ ] M3 template language v1 ([status](docs/web-components.md#implementation-status)).
+  - [x] M3 template language v1 ([status](docs/web-components.md#implementation-status)).
     - [x] Raw-source scanner with javac's text-block processing for statics, and the `Template.of`/`Parts` rewrite with binding positions carried on the rewritten nodes; nested one-line `html(...)`; the rewritten source compiles with javac (`TemplateRewriteTest`).
     - [x] Build-time tokenizer and diagnostics at the binding's line and column for every rejected position (`TemplateDiagnosticsTest`).
     - [x] Child, attribute (including multi-part), boolean, property (JS property on any element) and event parts; `javaw_wc_templates`; runtime marker walk and path cache per template id.
@@ -1083,7 +1083,8 @@ Lit-style custom elements authored in Java: `@CustomElement` classes, `@Property
     - [x] Core fix: stores into `double`/`long` arrays reached through a field (`ArrayFieldStoreTest`).
     - [x] Typed DOM events (`MouseEvent`, `PointerEvent`, `KeyboardEvent`, `FocusEvent`, `InputEvent`, `SubmitEvent`, `CustomEvent`) and the event-name table for `@event` bindings (`TemplateTest`, `DomCallbackTest`).
     - [x] Typed `.name` property bindings on Java components of the module, set through their reactive setters without marshalling; unknown names and mistyped values are compile errors at the binding (`TemplateTest`, `TemplateDiagnosticsTest`).
-    - [ ] Offset-map file and source-map translation; `html` through `Templates` static imports.
+    - [x] `html` through `Templates` (static imports and qualified calls) in helper classes; own `html` methods are left alone (`TemplateTest`, `TemplateRewriteTest`).
+    - [x] Positions: rewritten nodes keep original positions (no separate offset map). Source maps come only from user types, including lambda classes; injected source no longer maps onto the user's file (`TemplateRewriteTest`).
   - [ ] M4 lists and directives: `Iterable` children, keyed `repeat` (two-ended scan, DOM identity preserved across moves, duplicate-key reporting), `when`, `classMap`, `styleMap`, `ref`, `nothing()`.
   - [ ] M5 styles and events: style-field discovery and `css` with shared `adoptedStyleSheets` and `<style>` fallback; `ComponentEvent` records and options; `@Fires`; `listen`; typed `@event` bindings across Java components.
   - [ ] M6 tooling: `custom-elements.json`, `.d.ts`, `@Language("HTML")`; opt-in Chromium smoke test; recorded size budget for `javaw-counter` and `todo-list`.
