@@ -208,22 +208,51 @@ default `getOrDefault`, `forEach`, `replaceAll`, `computeIfAbsent`, `computeIfPr
   (`entrySet ` showing up in `subclassCalls` means an inherited method ran).
 - `putAll` and the `(Map)` constructor must use `putVal`, not `put`: `subclassCalls` expects `putAll |` for the copy
   constructor and nothing else. The Spy's log is static because `super(m)` runs before subclass fields exist.
-- Iterators are inner classes of the views or static classes that take the map; they must read `tab` once at
-  construction and never check a modification count.
+- Iterators: copy this shape exactly. Earlier attempts lost whole sessions to javac generics errors
+  (`non-static type variable K1 cannot be referenced from a static context`, `name clash: wrap(...) have the same
+  erasure`). Declare all four classes as **direct** members of `ConcurrentHashMap`, never nested inside a view.
+  Each one declares its own type parameters:
+
+      abstract static class BaseIterator<K,V,T> implements Iterator<T> {
+          final ConcurrentHashMap<K,V> map; final Node<K,V>[] tab;
+          int index; Node<K,V> next; Node<K,V> lastReturned;
+          BaseIterator(ConcurrentHashMap<K,V> map) { this.map = map; this.tab = map.table; next = firstFrom(0); }
+          final Node<K,V> firstFrom(int i) { for (index = i; index < tab.length; index++)
+              if (tab[index] != null) return tab[index]; return null; }
+          public final boolean hasNext() { return next != null; }
+          public final T next() {
+              Node<K,V> e = next;
+              if (e == null) throw new NoSuchElementException();
+              lastReturned = e;
+              T result = extract(e);
+              next = e.next != null ? e.next : firstFrom(index + 1);
+              return result;
+          }
+          abstract T extract(Node<K,V> e);
+          public final void remove() { /* IllegalStateException, then map.replaceNode(key, null, null) */ }
+      }
+      static final class KeyIterator<K,V> extends BaseIterator<K,V,K> {
+          KeyIterator(ConcurrentHashMap<K,V> m) { super(m); }
+          K extract(Node<K,V> e) { return e.key; } }
+      // ValueIterator<K,V> extends BaseIterator<K,V,V>; EntryIterator<K,V> extends BaseIterator<K,V,Map.Entry<K,V>>
+      // returning new MapEntry<K,V>(e.key, e.val, map).
+
+  The views create them with `new KeyIterator<K,V>(map)`. The views use the same `<K,V>` names as the map
+  (they are static, so there is no clash). They read `tab` once and never check a modification count.
 - Compare with the argument on the left: `key.equals(e.key)`, `value.equals(v)`, `cv.equals(e.val)`;
   `keyEquality` and `conditionalWrites` log the receiver of every `equals` call.
 - `toString()` must use `append(Object)`-style concatenation so a null-returning `toString` of a key is not an
   issue; use `String.valueOf` for each key and value.
 - Do not write the lowercase words `volatile`, `synchronized`, `native` or `Thread` anywhere in the files.
 - The Wasm runner stops at the first failing fixture of each `@Test` method.
-- Calibration: not yet run by a local model (the expected values were produced on JDK 21 with `--release 17`).
+- Calibration: three Qwen3.8-27B-oQ4e-mtp sessions stalled on iterator generics before any behaviour test ran (with the iterators fixed, the saved attempt passed 7 of 10 tests); a fourth session on gemma-4-31B-it-oQ4e-mtp hit the oMLX prefill memory guard. Model runs so far: none passed (the expected values were produced on JDK 21 with `--release 17`).
 
 ## Failure hints
 
 `kit check` prints the matching line under a failure. Follow it first.
 
 ```kit-hints
-putGetRemoveAndSize, nullKeysAndValuesAreRejected, constructorsAndPutAll, conditionalWrites, computeAndMerge, equalsHashCodeAndToString, keyValueAndEntryViews, weaklyConsistentIterators, subclassSelfCalls: if FIX THE RUNTIME says `link the symbolic class/interface java/util/concurrent/ConcurrentHashMap` (for `ConcurrentMap`, T46 is not finished), `link a complete acyclic type hierarchy` or names a ConcurrentHashMap method, a file is missing or not registered: run `javaw-agent-kit/bin/kit register java/util/concurrent/ConcurrentHashMap.java` and add every member listed under Members to implement. If it says `Cannot build bytecode exception runtime`, fix the javac error it quotes.
+putGetRemoveAndSize, nullKeysAndValuesAreRejected, constructorsAndPutAll, conditionalWrites, computeAndMerge, equalsHashCodeAndToString, keyValueAndEntryViews, weaklyConsistentIterators, subclassSelfCalls: if FIX THE RUNTIME says `link the symbolic class/interface java/util/concurrent/ConcurrentHashMap` (for `ConcurrentMap`, T46 is not finished), `link a complete acyclic type hierarchy` or names a ConcurrentHashMap method, a file is missing or not registered: run `javaw-agent-kit/bin/kit register java/util/concurrent/ConcurrentHashMap.java` and add every member listed under Members to implement. If it says `Cannot build bytecode exception runtime`, fix the javac error it quotes; for `non-static type variable ... static context` or `name clash ... same erasure`, rewrite the iterators exactly as the Iterators hint shows (four direct static members of ConcurrentHashMap, each with its own `<K,V>`).
 basics: the table is 16 slots indexed by `spread(hash) & (length-1)`, walked from slot 0 upward; Integer keys 0..15 must print ascending (`{0=v0, 1=v1, 5=v5, ...}`); resize doubles at 12 of 16 and keeps every node.
 nullRules: every key method calls `key.hashCode()` first (NPE even on an empty map); null values throw NPE in put/putIfAbsent/replace; `remove(k, null)` returns false; the compute family and merge check their arguments before touching the map.
 constructors: the three-argument constructor throws `new IllegalArgumentException()` for `!(loadFactor > 0)`, negative capacity or `concurrencyLevel <= 0`; the other constructors delegate to it; the table is always 16; `putAll` stores entries one by one with `putVal`, so `{0=v0, 1=a}` remains after the NPE.
