@@ -10,18 +10,25 @@ attempt; --fresh starts from the task's starting point instead. Use it to give a
 Each session gets a per-task permission allowlist (dontAsk mode: anything not listed is denied). The session may
 edit only that task's allowed files, read anything, and run only `bin/kit` plus read-only shell commands. If a
 session ends without `kit finish`, the runner blocks the task (its attempt is saved as a patch) and moves on.
-Logs: javaw-agent-kit/target/kit/<ID>/session.log.
+
+While a session runs, one line per step shows what it is doing and an estimated progress percentage (phases of
+the AGENT.md loop; during `kit check` the share of the task's tests that pass). --quiet turns this off.
+Logs: javaw-agent-kit/target/kit/<ID>/session.log (readable transcript) and session.jsonl (raw stream).
 """
 import argparse
 import json
 import os
+import queue
 import subprocess
 import sys
+import threading
+import time
 from pathlib import Path
 
 KIT = Path(__file__).resolve().parent.parent
 ROOT = KIT.parent
 sys.path.insert(0, str(KIT / "bin"))
+import progress  # noqa: E402  (bin/progress.py)
 KIT_TOOL = KIT / "bin" / "kit"
 
 # Read-only commands only (no find: -delete/-exec; no cat/head/tail: the Read tool covers them).
@@ -135,6 +142,45 @@ def resolve_context(args):
     return context
 
 
+def run_session(command, env, timeout, tracker, out_file, raw_file):
+    """Runs one session, writing the raw stream and a readable transcript and reporting progress as it goes."""
+    process = subprocess.Popen(command, cwd=ROOT, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                               text=True, bufsize=1)
+    lines = queue.Queue()
+
+    def pump():
+        for line in process.stdout:
+            lines.put(line)
+        lines.put(None)
+
+    threading.Thread(target=pump, daemon=True).start()
+    deadline = time.monotonic() + timeout
+    try:
+        while True:
+            try:
+                line = lines.get(timeout=5)
+            except queue.Empty:
+                tracker.heartbeat()
+                if time.monotonic() > deadline:
+                    raise subprocess.TimeoutExpired(command, timeout)
+                continue
+            if line is None:
+                break
+            raw_file.write(line)
+            raw_file.flush()
+            readable = tracker.handle_line(line)
+            if readable:
+                out_file.write(readable + "\n")
+                out_file.flush()
+            if time.monotonic() > deadline:
+                raise subprocess.TimeoutExpired(command, timeout)
+        process.wait()
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait()
+
+
 def blocked_tasks():
     rows = []
     for line in (KIT / "tasks" / "QUEUE.md").read_text().splitlines():
@@ -171,6 +217,7 @@ def main():
                         help="with --retry: ignore the saved attempt and start each task from scratch")
     parser.add_argument("--timeout", type=int, default=120, help="minutes per session (default 120)")
     parser.add_argument("--dry-run", action="store_true", help="print the session command and settings, run nothing")
+    parser.add_argument("--quiet", action="store_true", help="do not print progress lines while a session runs")
     args = parser.parse_args()
     if args.fresh and args.retry is None:
         parser.error("--fresh only applies to --retry")
@@ -201,14 +248,14 @@ def main():
                 print("No ready task left.")
                 return 0
             task_id = out.strip()
-        meta, spec, _ = task_meta(task_id)
+        meta, spec, kit_module = task_meta(task_id)
         log_dir = KIT / "target" / "kit" / task_id
         log_dir.mkdir(parents=True, exist_ok=True)
         settings_file = log_dir / "session-settings.json"
         settings_file.write_text(json.dumps(settings(meta), indent=2))
         command = ["claude", "-p", prompt(task_id, spec), "--settings", str(settings_file),
                    "--permission-mode", "dontAsk", "--disallowedTools", "Agent", "LSP", "WebFetch", "WebSearch", "Skill",
-                   "--model", args.model, "--output-format", "text"]
+                   "--model", args.model, "--output-format", "stream-json", "--verbose"]
         if args.dry_run:
             print(json.dumps(command, indent=1))
             print(settings_file.read_text())
@@ -227,12 +274,15 @@ def main():
             return 1
         log = log_dir / "session.log"
         print("== %s: session running (log: %s)" % (task_id, log.relative_to(ROOT)))
-        with open(log, "w") as out_file:
+        tests = [ROOT / (kit_module.TEST_DIR + test + ".java") for test in meta["tests"]]
+        tracker = progress.Progress(task_id, progress.count_tests(tests), args.timeout,
+                                    open(os.devnull, "w") if args.quiet else sys.stdout)
+        with open(log, "w") as out_file, open(log_dir / "session.jsonl", "w") as raw_file:
             try:
-                subprocess.run(command, cwd=ROOT, env=environment(args), stdout=out_file, stderr=subprocess.STDOUT,
-                               timeout=args.timeout * 60)
+                run_session(command, environment(args), args.timeout * 60, tracker, out_file, raw_file)
             except subprocess.TimeoutExpired:
                 out_file.write("\n[run-local] session timed out after %d minutes\n" % args.timeout)
+                print("== %s: session timed out after %d minutes" % (task_id, args.timeout))
             except KeyboardInterrupt:
                 # Block the task rather than leave it in progress: its QUEUE.md row would otherwise stay uncommitted.
                 out_file.write("\n[run-local] interrupted\n")
