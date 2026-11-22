@@ -72,6 +72,19 @@ Useful options are `--task T05`, `--model NAME`, `--context TOKENS`, `--timeout 
 retried task from its saved attempt) and `--dry-run`, which prints the session command and permission settings
 without running anything.
 
+While a session runs, the runner prints one line per step: elapsed time, an estimated percentage and phase, and
+what the agent is doing. For example:
+
+```
+[T47 +6:40  52% checking] check 1: 1/4 tests pass; failing a, b, c
+[T47 +13:00  90% finishing] kit finish (tests, full suite, audit, commit); this takes several minutes
+```
+
+The percentage follows the AGENT.md loop (reading, implementing, checking, report, finishing); while the agent
+iterates on `kit check` it is the share of the task's test methods that pass. A "still working" line appears
+after two quiet minutes. `--quiet` turns the lines off. `session.log` holds a readable transcript and
+`session.jsonl` the raw Claude Code event stream.
+
 To give blocked tasks another go, usually with a stronger model, use `--retry`. It runs `kit retry` on each
 task and then a fresh session that continues from the saved attempt (`--fresh` starts over instead):
 
