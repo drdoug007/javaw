@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T47: java.util.concurrent.ConcurrentHashMap core map (single-threaded contract). Expected values come from the JVM; see tasks/T47-concurrent-hash-map.md. */
-@Tag("agent-pending")
 class BytecodeConcurrentHashMapTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.io.Serializable;
