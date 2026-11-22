@@ -117,6 +117,33 @@ class BytecodeConcurrentHashMapKeySetTest extends KitDifferential {
                 p.keySet().toArray();p.keySet().toArray(new String[0]);
                 return a+Spy.log+","+s(p);
             }
+            /** Review: walks and iterators across a resize triggered from the callback (order-independent checks). */
+            public static String walksAcrossResize(){
+                StringBuilder r=new StringBuilder();
+                for(int mode=0;mode<6;mode++){
+                    ConcurrentHashMap<Integer,String> m=new ConcurrentHashMap<>();for(int i=0;i<10;i++)m.put(i,"v"+i);
+                    List<Integer> seen=new ArrayList<>();final int md=mode;
+                    java.util.function.Consumer<Integer> cb=k->{if(k<100)seen.add(k);if(k==3){for(int i=100;i<160;i++)m.put(i,"n");m.remove(7);m.put(5,"u5");}};
+                    if(md==0)m.forEach((k,v)->{cb.accept(k);if(k==5&&k<100)seen.add(v.equals("u5")?-5:5);});
+                    if(md==1)m.keySet().forEach(cb);
+                    if(md==2)m.entrySet().forEach(x->cb.accept(x.getKey()));
+                    if(md==3)m.replaceAll((k,v)->{cb.accept(k);return k==5?v+"!":v;});
+                    if(md==4)m.keySet().removeIf(k->{cb.accept(k);return k==8;});
+                    if(md==5){Iterator<Map.Entry<Integer,String>> it=m.entrySet().iterator();while(it.hasNext()){Map.Entry<Integer,String> x=it.next();cb.accept(x.getKey());if(x.getKey()==5)seen.add(x.getValue().equals("u5")?-5:5);}}
+                    java.util.Collections.sort(seen);
+                    r.append(seen).append(' ').append(m.size()).append(' ').append(m.get(5)).append(' ').append(m.get(8)).append('|');
+                }
+                ConcurrentHashMap<Integer,String> c=new ConcurrentHashMap<>();for(int i=0;i<5;i++)c.put(i,"v"+i);
+                List<Integer> seen=new ArrayList<>();c.forEach((k,v)->{seen.add(k);if(k==0)c.clear();});
+                return r.append(seen).append(' ').append(c).toString();
+            }
+            public static String replaceAllRetries(){
+                ConcurrentHashMap<Integer,String> m=m(1,2,3);StringBuilder o=new StringBuilder();
+                m.replaceAll((k,v)->{o.append(k).append(v).append(' ');if(k==2&&v.equals("v2"))m.put(2,"w2");if(k==3&&v.equals("v3"))m.remove(3);return v+"!";});
+                Spy<String,String> p=new Spy<>();p.put("a","1");Spy.log.setLength(0);
+                p.replaceAll((k,v)->{if(v.equals("1"))p.put("a","2");return v+v;});
+                return o+","+m+","+Spy.log+","+p;
+            }
         }
         """;
 
@@ -142,6 +169,14 @@ class BytecodeConcurrentHashMapKeySetTest extends KitDifferential {
 
     @Test void subclassSelfCalls() throws Exception {
         matchesJvm(FIXTURE, "subclassCalls");
+    }
+
+    @Test void walksAcrossResize() throws Exception {
+        matchesJvm(FIXTURE, "walksAcrossResize");
+    }
+
+    @Test void replaceAllRetriesAfterConcurrentChange() throws Exception {
+        matchesJvm(FIXTURE, "replaceAllRetries");
     }
 
     @Test void leavesOutParallelBulkOperations() {
