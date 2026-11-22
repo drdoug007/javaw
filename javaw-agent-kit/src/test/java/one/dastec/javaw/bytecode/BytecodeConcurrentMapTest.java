@@ -236,7 +236,8 @@ class BytecodeConcurrentMapTest extends KitDifferential {
     }
 
     @Test void leavesOutConcurrentHashMapAndNavigableMap() {
-        rejectsUnusedCall("java/util/concurrent/ConcurrentHashMap", "size", "()I", INVOKEVIRTUAL, false);
+        // ConcurrentHashMap itself is linked by T47; its parallel bulk operations stay out of the runtime.
+        rejectsUnusedCall("java/util/concurrent/ConcurrentHashMap", "forEach", "(JLjava/util/function/BiConsumer;)V", INVOKEVIRTUAL, false);
         rejectsUnusedCall("java/util/concurrent/ConcurrentNavigableMap", "keySet", "()Ljava/util/NavigableSet;", INVOKEINTERFACE, true);
     }
 }

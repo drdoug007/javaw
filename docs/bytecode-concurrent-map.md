@@ -40,8 +40,9 @@ Contract:
   `putIfAbsent(K,V)`, `remove(Object,Object)`, `replace(K,V,V)` and `replace(K,V)` are abstract (re-declared
   without bodies), so implementations must define them; the `Map` defaults for them are shadowed.
 
-Known differences: no `ConcurrentHashMap`, `ConcurrentNavigableMap` or `ConcurrentSkipListMap` yet.
+Known differences: no `ConcurrentNavigableMap` or `ConcurrentSkipListMap` yet. `ConcurrentHashMap` is linked separately
+(see [its contract](bytecode-concurrent-hash-map.md)).
 
 Evidence: `BytecodeConcurrentMapTest` compares Java 17 javac fixtures on the JVM and in Wasm (both JAR orders, two
-fresh instances). `ConcurrentHashMap.size()` and `ConcurrentNavigableMap.keySet()` are rejected before WAT
-generation.
+fresh instances). `ConcurrentHashMap.forEach(long, BiConsumer)` (a parallel bulk operation) and
+`ConcurrentNavigableMap.keySet()` are rejected before WAT generation.
