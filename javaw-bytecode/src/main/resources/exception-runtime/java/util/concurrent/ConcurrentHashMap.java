@@ -3,12 +3,16 @@ package java.util.concurrent;
 import java.util.AbstractMap;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 /**
  * Single-threaded ConcurrentHashMap: a chained table of 16 slots that doubles at 3/4, with the JDK's null
@@ -59,6 +63,14 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V> implements Concurre
         table = newTable(16);
     }
 
+    public static <K> KeySetView<K,Boolean> newKeySet() {
+        return new KeySetView<K,Boolean>(new ConcurrentHashMap<K,Boolean>(), Boolean.TRUE);
+    }
+
+    public static <K> KeySetView<K,Boolean> newKeySet(int initialCapacity) {
+        return new KeySetView<K,Boolean>(new ConcurrentHashMap<K,Boolean>(initialCapacity), Boolean.TRUE);
+    }
+
     @SuppressWarnings("unchecked")
     static <K,V> Node<K,V>[] newTable(int length) {
         return (Node<K,V>[]) new Node[length];
@@ -102,14 +114,14 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V> implements Concurre
         Node<K,V>[] tails = newTable(tab.length);
         for (int i = 0; i < old.length; i++) {
             Node<K,V> e = old[i];
-            while (e != null) {
-                Node<K,V> next = e.next;
-                e.next = null;
-                int j = e.hash & (tab.length - 1);
-                if (tails[j] == null) tab[j] = e;
-                else tails[j].next = e;
-                tails[j] = e;
-                e = next;
+            // Copies the nodes: the old table's chains stay intact for walkers and iterators created before
+            // the resize, which then look each key up in the current table (see LiveWalker).
+            for (; e != null; e = e.next) {
+                Node<K,V> c = new Node<K,V>(e.hash, e.key, e.val);
+                int j = c.hash & (tab.length - 1);
+                if (tails[j] == null) tab[j] = c;
+                else tails[j].next = c;
+                tails[j] = c;
             }
         }
         table = tab;
@@ -199,6 +211,11 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V> implements Concurre
         return false;
     }
 
+    public V getOrDefault(Object key, V defaultValue) {
+        V v = get(key);
+        return v == null ? defaultValue : v;
+    }
+
     // -- writes -------------------------------------------------------------------------------------------
 
     public V put(K key, V value) {
@@ -216,8 +233,8 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V> implements Concurre
     }
 
     public void clear() {
-        Node<K,V>[] tab = table;
-        for (int i = 0; i < tab.length; i++) tab[i] = null;
+        // A fresh table, so live walkers over the old one look keys up and see them gone.
+        table = newTable(table.length);
         count = 0;
     }
 
@@ -305,6 +322,30 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V> implements Concurre
         return r;
     }
 
+    // -- live walks (no preload, no entrySet(); the next node is found after the callback returned) ---------
+
+    public void forEach(BiConsumer<? super K, ? super V> action) {
+        if (action == null) throw new NullPointerException();
+        LiveWalker<K,V> w = new LiveWalker<K,V>(this);
+        for (Node<K,V> n = w.cur; n != null; n = w.advance())
+            action.accept(n.key, n.val);
+    }
+
+    public void replaceAll(BiFunction<? super K, ? super V, ? extends V> function) {
+        if (function == null) throw new NullPointerException();
+        LiveWalker<K,V> w = new LiveWalker<K,V>(this);
+        for (Node<K,V> n = w.cur; n != null; n = w.advance()) {
+            K key = n.key;
+            V oldValue = n.val;
+            for (;;) {
+                V nv = function.apply(key, oldValue);
+                if (nv == null) throw new NullPointerException();
+                if (replaceNode(key, nv, oldValue) != null || (oldValue = get(key)) == null)
+                    break;
+            }
+        }
+    }
+
     // -- equals, hashCode, toString (walk the table; never the overridable views) --------------------------
 
     public boolean equals(Object o) {
@@ -372,6 +413,30 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V> implements Concurre
         EntrySetView<K,V> es = entrySet;
         if (es == null) entrySet = es = new EntrySetView<K,V>(this);
         return es;
+    }
+
+    /** A new key view over a mapped value; a new instance per call (unlike the cached keySet()). */
+    public KeySetView<K,V> keySet(V mappedValue) {
+        if (mappedValue == null) throw new NullPointerException();
+        return new KeySetView<K,V>(this, mappedValue);
+    }
+
+    // -- legacy Dictionary/Map members ----------------------------------------------------------------------
+
+    public Enumeration<K> keys() {
+        return new KeyIterator<K,V>(this);
+    }
+
+    public Enumeration<V> elements() {
+        return new ValueIterator<K,V>(this);
+    }
+
+    public long mappingCount() {
+        return count;
+    }
+
+    public boolean contains(Object value) {
+        return containsValue(value);
     }
 
     abstract static class CollectionView<K,V,E> implements Collection<E>, java.io.Serializable {
@@ -507,6 +572,17 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V> implements Concurre
             return added;
         }
 
+        public V getMappedValue() {
+            return value;
+        }
+
+        public void forEach(Consumer<? super K> action) {
+            if (action == null) throw new NullPointerException();
+            LiveWalker<K,V> w = new LiveWalker<K,V>(map);
+            for (Node<K,V> n = w.cur; n != null; n = w.advance())
+                action.accept(n.key);
+        }
+
         public int hashCode() {
             int h = 0;
             for (K e : this) h += e.hashCode();
@@ -543,6 +619,26 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V> implements Concurre
 
         public Iterator<V> iterator() {
             return new ValueIterator<K,V>(map);
+        }
+
+        public void forEach(Consumer<? super V> action) {
+            if (action == null) throw new NullPointerException();
+            LiveWalker<K,V> w = new LiveWalker<K,V>(map);
+            for (Node<K,V> n = w.cur; n != null; n = w.advance())
+                action.accept(n.val);
+        }
+
+        public boolean removeIf(Predicate<? super V> filter) {
+            if (filter == null) throw new NullPointerException();
+            boolean removed = false;
+            LiveWalker<K,V> w = new LiveWalker<K,V>(map);
+            for (Node<K,V> n = w.cur; n != null; n = w.advance()) {
+                K k = n.key;
+                V v = n.val;
+                if (filter.test(v) && map.replaceNode(k, null, v) != null)
+                    removed = true;
+            }
+            return removed;
         }
 
         public boolean add(V e) {
@@ -595,6 +691,27 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V> implements Concurre
             return new EntryIterator<K,V>(map);
         }
 
+        public void forEach(Consumer<? super Map.Entry<K,V>> action) {
+            if (action == null) throw new NullPointerException();
+            LiveWalker<K,V> w = new LiveWalker<K,V>(map);
+            for (Node<K,V> n = w.cur; n != null; n = w.advance())
+                action.accept(new MapEntry<K,V>(n.key, n.val, map));
+        }
+
+        public boolean removeIf(Predicate<? super Map.Entry<K,V>> filter) {
+            if (filter == null) throw new NullPointerException();
+            boolean removed = false;
+            LiveWalker<K,V> w = new LiveWalker<K,V>(map);
+            for (Node<K,V> n = w.cur; n != null; n = w.advance()) {
+                K k = n.key;
+                V v = n.val;
+                if (filter.test(new AbstractMap.SimpleImmutableEntry<K,V>(k, v))
+                        && map.replaceNode(k, null, v) != null)
+                    removed = true;
+            }
+            return removed;
+        }
+
         public boolean add(Map.Entry<K,V> e) {
             return map.putVal(e.getKey(), e.getValue(), false) == null;
         }
@@ -624,35 +741,87 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V> implements Concurre
 
     // -- iterators (weakly consistent: one node preloaded, later slots read live) --------------------------
 
-    abstract static class BaseIterator<K,V,T> implements Iterator<T> {
+    /**
+     * Non-preloading live traverser for forEach/replaceAll and the views' forEach/removeIf: the next node
+     * (cur.next, else the next non-empty slot) is found only after the current node's callback returned, so
+     * a key removed in the callback is skipped even in the very next slot, and a key put in a later slot is
+     * seen while the table is not resized. After a resize (or clear) replaced the table, the walk continues
+     * over the old table's unchanged chains and looks each key up in the current table: removed keys are
+     * skipped, current values are returned, and keys added after the resize are not seen.
+     */
+    static final class LiveWalker<K,V> {
         final ConcurrentHashMap<K,V> map;
         final Node<K,V>[] tab;
         int index;
+        Node<K,V> pos;
+        Node<K,V> cur;
+
+        LiveWalker(ConcurrentHashMap<K,V> map) {
+            this.map = map;
+            this.tab = map.table;
+            pos = firstFrom(0);
+            cur = settle();
+        }
+
+        Node<K,V> firstFrom(int i) {
+            for (index = i; index < tab.length; index++)
+                if (tab[index] != null) return tab[index];
+            return null;
+        }
+
+        Node<K,V> step() {
+            return pos.next != null ? pos.next : firstFrom(index + 1);
+        }
+
+        Node<K,V> settle() {
+            while (pos != null) {
+                if (map.table == tab) return pos;
+                Node<K,V> live = map.findNode(pos.key);
+                if (live != null) return live;
+                pos = step();
+            }
+            return null;
+        }
+
+        Node<K,V> advance() {
+            if (pos == null) return cur = null;
+            pos = step();
+            return cur = settle();
+        }
+    }
+
+    abstract static class BaseIterator<K,V,T> implements Iterator<T>, Enumeration<T> {
+        final ConcurrentHashMap<K,V> map;
+        final LiveWalker<K,V> walker;
         Node<K,V> next;
         Node<K,V> lastReturned;
 
         BaseIterator(ConcurrentHashMap<K,V> map) {
             this.map = map;
-            this.tab = map.table;
-            next = firstFrom(0);
-        }
-
-        final Node<K,V> firstFrom(int i) {
-            for (index = i; index < tab.length; index++)
-                if (tab[index] != null) return tab[index];
-            return null;
+            this.walker = new LiveWalker<K,V>(map);
+            next = walker.cur;
         }
 
         public final boolean hasNext() {
             return next != null;
         }
 
+        public final boolean hasMoreElements() {
+            return hasNext();
+        }
+
+        public final T nextElement() {
+            return next();
+        }
+
         public final T next() {
             Node<K,V> e = next;
             if (e == null) throw new NoSuchElementException();
             lastReturned = e;
-            T result = extract(e);
-            next = e.next != null ? e.next : firstFrom(index + 1);
+            // The preloaded node is returned even if removed since; after a resize its current copy is read.
+            Node<K,V> live = map.table == walker.tab ? e : map.findNode(e.key);
+            T result = extract(live != null ? live : e);
+            next = walker.advance();
             return result;
         }
 

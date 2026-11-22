@@ -3,7 +3,7 @@ package one.dastec.javaw.bytecode.cache;
 import java.util.*;
 
 public class CacheMetadata {
-    public static final String COMPILER_VERSION = "1.0-SNAPSHOT-concurrent-hash-map-v313";
+    public static final String COMPILER_VERSION = "1.0-SNAPSHOT-concurrent-hash-map-key-set-v314";
     private String groupId;
     private String artifactId;
     private String version;
