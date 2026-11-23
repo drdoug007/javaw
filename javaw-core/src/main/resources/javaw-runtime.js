@@ -413,6 +413,18 @@
             }
 
             try {
+                for (const sec of WebAssembly.Module.customSections(module, 'javaw_wc_styles')) {
+                    let jsonStr = decodeUtf8(new Uint8Array(sec));
+                    const first = jsonStr.indexOf('[');
+                    if (first >= 0) jsonStr = jsonStr.substring(first);
+                    this.styleDefinitions = this.styleDefinitions || new Map();
+                    for (const def of JSON.parse(jsonStr)) this.styleDefinitions.set(def.id, def.css);
+                }
+            } catch (e) {
+                console.warn('Error reading custom section javaw_wc_styles:', e);
+            }
+
+            try {
                 const exportSections = WebAssembly.Module.customSections(module, 'javaw_js_exports');
                 if (exportSections && exportSections.length > 0) {
                     for (const sec of exportSections) {
@@ -849,6 +861,7 @@
                 if (state.rootHandle) return;
                 const root = element.shadowRoot || element.attachShadow({ mode: 'open' });
                 runtime.setScopeRoot(state.scope, root);
+                if (def.styles && def.styles.length) runtime.wcAdoptStyles(root, def.styles);
                 state.rootHandle = runtime.getOrCreateHandle(root);
                 exports.__wc_attach(state.peer, state.hostHandle, state.rootHandle);
             };
@@ -1039,6 +1052,39 @@
             (scope.templates || (scope.templates = new Map())).set(id, instance);
             (scope.held.templateIds || (scope.held.templateIds = new Set())).add(id);
             return id;
+        }
+
+        // Styles of a component (docs/web-components.md, "Styles"): one shared CSSStyleSheet per css(...) call
+        // site, adopted by every shadow root; without constructable sheets, a <style> element per sheet, as Lit does.
+        wcAdoptStyles(root, ids) {
+            const doc = root.ownerDocument;
+            const view = doc && doc.defaultView;
+            const Sheet = view && view.CSSStyleSheet;
+            const Root = view && view.ShadowRoot;
+            const adopt = typeof Sheet === 'function' && Root && 'adoptedStyleSheets' in Root.prototype
+                && 'replaceSync' in Sheet.prototype;
+            const texts = ids.map(id => this.styleDefinitions.get(id));
+            if (adopt) {
+                // A constructed sheet can only be adopted in the document it was constructed for.
+                const sheets = this.styleSheets || (this.styleSheets = new Map());
+                root.adoptedStyleSheets = ids.map((id, i) => {
+                    const key = id;
+                    let entry = sheets.get(key);
+                    if (!entry || entry.doc !== doc) {
+                        const sheet = new Sheet();
+                        sheet.replaceSync(texts[i]);
+                        entry = { doc, sheet };
+                        sheets.set(key, entry);
+                    }
+                    return entry.sheet;
+                });
+            } else {
+                for (const text of texts) {
+                    const style = doc.createElement('style');
+                    style.textContent = text;
+                    root.appendChild(style);
+                }
+            }
         }
 
         wcRootRange(host) {

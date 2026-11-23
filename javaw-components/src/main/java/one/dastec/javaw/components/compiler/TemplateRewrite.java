@@ -74,7 +74,7 @@ final class TemplateRewrite {
      * qualified by WebComponent or Templates, or unqualified, not shadowed by a method of an enclosing class,
      * and inherited from WebComponent or statically imported from Templates.
      */
-    private static boolean resolvesToTemplates(MethodCallExpr call, Node context, String name) {
+    static boolean resolvesToTemplates(MethodCallExpr call, Node context, String name) {
         if (call.getScope().isPresent()) return isTemplateScope(call.getScope().get());
         // A method declared by an enclosing class wins over the inherited or imported one, as in Java.
         for (Node n = context; n != null; n = n.getParentNode().orElse(null))

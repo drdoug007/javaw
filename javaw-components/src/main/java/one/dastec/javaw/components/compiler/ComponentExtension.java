@@ -30,7 +30,7 @@ public final class ComponentExtension implements SourceExtension {
     private static final Set<String> RESERVED_TYPES = Set.of("WebComponent", "Changes", FACTORIES,
             "Template", "TemplatePart", "Parts", "Templates", "__WcInstance", "__WcRenderer",
             "KeyFunction", "ItemTemplate", "TemplateSupplier", "Repeat", "__WcList", "__WcUniqueKey",
-            "ClassMap", "StyleMap", "Ref", "RefDirective", "__WcClassState", "__WcStyleState", "__WcRefState");
+            "ClassMap", "StyleMap", "Ref", "RefDirective", "Css", "__WcClassState", "__WcStyleState", "__WcRefState");
     private static final Set<String> RESERVED = Set.of("annotation-xml", "color-profile", "font-face", "font-face-src",
             "font-face-uri", "font-face-format", "font-face-name", "missing-glyph");
 
@@ -61,6 +61,7 @@ public final class ComponentExtension implements SourceExtension {
             protected void firstUpdated(Changes changes) {}
             protected void updated(Changes changes) {}
             public void requestUpdate() { __wc_schedule(); }
+            protected static Css css(String text) { return new Css(text); }
             protected void __wc_initial() {}
             protected void __wc_fromAttribute(String name, String value) {}
             protected void __wc_reflect(Changes changes) {}
@@ -132,6 +133,15 @@ public final class ComponentExtension implements SourceExtension {
         }
         """;
 
+    private static final String CSS = """
+        final class Css {
+            private final String __text;
+            Css(String text) { __text = text; }
+            public String cssText() { return __text; }
+            public String toString() { return __text; }
+        }
+        """;
+
     private static final String CHANGES = """
         final class Changes {
             private ArrayList<String> __names = new ArrayList<String>();
@@ -168,10 +178,11 @@ public final class ComponentExtension implements SourceExtension {
             if (RESERVED_TYPES.contains(type.getNameAsString()))
                 throw SourceExtension.error(type, "Type name '" + type.getNameAsString() + "' is reserved by " + PACKAGE);
 
+        ComponentStyles styles = ComponentStyles.scan(cu);
         Map<String, ClassOrInterfaceDeclaration> byTag = new LinkedHashMap<>();
         List<Definition> definitions = new ArrayList<>();
         for (ClassOrInterfaceDeclaration component : components) {
-            Definition definition = validate(cu, component);
+            Definition definition = validate(cu, component, styles.stylesOf(component));
             ClassOrInterfaceDeclaration previous = byTag.putIfAbsent(definition.tag, component);
             if (previous != null)
                 throw SourceExtension.error(component, "Custom element <" + definition.tag + "> is already defined by " + previous.getNameAsString());
@@ -195,16 +206,18 @@ public final class ComponentExtension implements SourceExtension {
         }
         TemplateRewrite templates = new TemplateRewrite(byTagProperties);
         templates.rewrite(cu);
-        boolean usesTemplates = !templates.isEmpty() || cu.findAll(ClassOrInterfaceType.class).stream()
+        boolean usesCss = styles.qualifyCalls();
+        boolean usesTemplates = usesCss || !templates.isEmpty() || cu.findAll(ClassOrInterfaceType.class).stream()
                 .anyMatch(t -> Set.of("Template", "Parts", "Templates", "Repeat", "KeyFunction", "ItemTemplate", "TemplateSupplier",
-                        "ClassMap", "StyleMap", "Ref", "RefDirective").contains(t.getNameAsString()));
+                        "ClassMap", "StyleMap", "Ref", "RefDirective").contains(t.getNameAsString()))
+                || cu.getImports().stream().anyMatch(i -> i.getNameAsString().startsWith(PACKAGE + ".Templates"));
         for (ClassOrInterfaceDeclaration component : components) lowerQueries(component);
         for (int i = 0; i < components.size(); i++) {
             List<ReactiveFields.Field> fields = ReactiveFields.lower(components.get(i));
             Definition d = definitions.get(i);
             LinkedHashSet<String> observed = new LinkedHashSet<>(d.observedAttributes);
             observed.addAll(ReactiveFields.attributes(fields));
-            definitions.set(i, new Definition(d.tag, d.className, d.factory, List.copyOf(observed), fields));
+            definitions.set(i, new Definition(d.tag, d.className, d.factory, List.copyOf(observed), fields, d.styles));
         }
         rewriteConstruction(cu, definitions);
         for (TemplateRewrite.PropertyKey key : templates.propertyKeys()) {
@@ -232,6 +245,7 @@ public final class ComponentExtension implements SourceExtension {
             if (!templates.isEmpty()) output.customSection(TemplateRewrite.SECTION, templates.json());
         }
         cu.getTypes().add(StaticJavaParser.parseTypeDeclaration(CHANGES));
+        cu.getTypes().add(StaticJavaParser.parseTypeDeclaration(CSS));
         if (!definitions.isEmpty() || usesTemplates) {
             ClassOrInterfaceDeclaration factories = new ClassOrInterfaceDeclaration().setName(FACTORIES);
             if (usesTemplates) {
@@ -250,6 +264,7 @@ public final class ComponentExtension implements SourceExtension {
                                 + "component.__wc_initial(); component.requestUpdate(); return component; }"));
             cu.getTypes().add(factories);
         }
+        if (!styles.isEmpty()) output.customSection(ComponentStyles.SECTION, styles.json());
         output.customSection(SECTION, json(definitions));
     }
 
@@ -272,9 +287,9 @@ public final class ComponentExtension implements SourceExtension {
     }
 
     private record Definition(String tag, String className, String factory, List<String> observedAttributes,
-                              List<ReactiveFields.Field> fields) {}
+                              List<ReactiveFields.Field> fields, List<Integer> styles) {}
 
-    private Definition validate(CompilationUnit cu, ClassOrInterfaceDeclaration component) {
+    private Definition validate(CompilationUnit cu, ClassOrInterfaceDeclaration component, List<Integer> styles) {
         AnnotationExpr annotation = annotation(component, "CustomElement");
         String tag = stringMember(annotation, "value");
         if (tag == null) throw SourceExtension.error(annotation, "@CustomElement requires a tag name string literal");
@@ -296,7 +311,7 @@ public final class ComponentExtension implements SourceExtension {
         for (String name : observed)
             if (name.isEmpty() || !name.equals(name.toLowerCase(Locale.ROOT)) || name.chars().anyMatch(Character::isWhitespace))
                 throw SourceExtension.error(annotation, "Observed attribute names must be non-empty, lowercase and without whitespace: \"" + name + "\"");
-        return new Definition(tag, component.getNameAsString(), "__wc_new_" + component.getNameAsString(), List.copyOf(new LinkedHashSet<>(observed)), List.of());
+        return new Definition(tag, component.getNameAsString(), "__wc_new_" + component.getNameAsString(), List.copyOf(new LinkedHashSet<>(observed)), List.of(), styles);
     }
 
     /** Null when {@code name} is a valid custom element name (HTML "valid custom element name"). */
@@ -559,7 +574,7 @@ public final class ComponentExtension implements SourceExtension {
                         .append(",\"getter\":").append(quote(f.getter())).append(",\"setter\":").append(quote(f.setter())).append('}');
                 first = false;
             }
-            out.append("]}");
+            out.append("],\"styles\":").append(d.styles).append('}');
         }
         return out.append(']').toString();
     }

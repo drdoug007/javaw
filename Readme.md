@@ -249,7 +249,8 @@ Phase 1 source-resolution foundations and source-backed Optional/closures are im
   - `@Property`/`@State` fields schedule batched, Lit-ordered updates; `@Property` fields of type `String`, `boolean`, `int` and `double` sync with attributes and JS properties.
   - `render()` returns `html("""...""")` templates with child, attribute, `?boolean`, `.property` and `@event` bindings. The renderer compares values in Wasm, so an unchanged update makes no host calls; the output matches lit-html 3.3.2 in differential tests.
   - Lists and directives (M4): `Iterable` children, keyed `repeat`, `when`, `nothing()`, `classMap`, `styleMap` and `ref` element parts, checked against lit-html's directives.
-  - Styles, component events and the generated JS module are later milestones. See [web components](docs/web-components.md), the `javaw-components` tests and Todo section 15.
+  - Styles (M5 subset): `static final Css` fields initialized with `css("""...""")`, inherited from superclasses, become one shared `CSSStyleSheet` per call site in each shadow root's `adoptedStyleSheets`, with a `<style>` fallback.
+  - Component events and the generated JS module are later milestones. See [web components](docs/web-components.md), the `javaw-components` tests and Todo section 15.
   - Same-instance deferred thread spawning (`setTimeout`; no Web Workers yet), timer queues, and WASI standard streams.
 - **Arithmetic & Primitive Types**:
   - Primitive and return type mapping (`void`, `int`, `boolean`, `char`, `long`, `float`, `double`).

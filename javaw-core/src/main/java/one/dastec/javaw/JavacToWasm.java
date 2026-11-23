@@ -494,6 +494,38 @@ public class JavacToWasm {
         return JavaSourcePreparation.error(node, message);
     }
 
+    /**
+     * Replaces each text block with the equivalent string literal (JLS 3.10.6: incidental whitespace stripped,
+     * then escapes translated), so later passes only see string literals. Runs after the source extensions,
+     * which read some text blocks' raw characters.
+     */
+    static void lowerTextBlocks(CompilationUnit cu) {
+        for (var block : cu.findAll(com.github.javaparser.ast.expr.TextBlockLiteralExpr.class)) {
+            String raw = block.getValue();
+            // JavaParser keeps the whitespace after the opening delimiter and that line's terminator.
+            int nl = raw.indexOf('\n');
+            if (nl >= 0 && raw.substring(0, nl).isBlank()) raw = raw.substring(nl + 1);
+            String value = raw.replace("\r\n", "\n").replace('\r', '\n').stripIndent().translateEscapes();
+            StringBuilder escaped = new StringBuilder();
+            for (char c : value.toCharArray()) {
+                switch (c) {
+                    case '\\' -> escaped.append("\\\\");
+                    case '"' -> escaped.append("\\\"");
+                    case '\n' -> escaped.append("\\n");
+                    case '\t' -> escaped.append("\\t");
+                    case '\r' -> escaped.append("\\r");
+                    default -> {
+                        if (c < 0x20) escaped.append(String.format("\\u%04x", (int) c));
+                        else escaped.append(c);
+                    }
+                }
+            }
+            StringLiteralExpr literal = new StringLiteralExpr(escaped.toString());
+            block.getRange().ifPresent(literal::setRange);
+            block.replace(literal);
+        }
+    }
+
     /** Runs the discovered source extensions; returns their custom sections in order. */
     private static Map<String, String> runExtensions(CompilationUnit cu, String sourceName) {
         Map<String, String> sections = new LinkedHashMap<>();
@@ -533,6 +565,7 @@ public class JavacToWasm {
         JavaSourcePreparation.normalizeTypes(cu, JavaSourcePreparation.typeNames(List.of(cu)));
         SourceRuntimeSupport.prepare(cu);
         Map<String, String> extensionSections = runExtensions(cu, sourceName);
+        lowerTextBlocks(cu);
         JavaSourcePreparation.normalizeTypes(cu, JavaSourcePreparation.typeNames(List.of(cu)));
         ReflectionSupport reflection = ReflectionSupport.prepare(cu);
         SpringWebSupport springWeb = SpringWebSupport.lower(cu);

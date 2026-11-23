@@ -108,6 +108,14 @@ public abstract class WebComponent {
         return null;
     }
 
+    /**
+     * A style sheet. The argument must be a string literal or text block without {@code ${...}}. Assign it
+     * to a {@code static final Css} field of a component class to style that component's shadow root.
+     */
+    protected static Css css(String text) {
+        return Css.__of(text);
+    }
+
     /** Renders nothing as child content and removes the attribute in an attribute binding. */
     protected static Template nothing() {
         return null;

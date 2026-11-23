@@ -1091,6 +1091,9 @@ Lit-style custom elements authored in Java: `@CustomElement` classes, `@Property
     - [x] Core fix: enhanced `for` over a call with `char`/floating-point literal arguments used the array loop (`ForEachCallArgumentTest`).
     - [ ] Follow-ups outside the M4 scope: `LinkedHashMap`/`Map.of` in the source compiler (ordered class maps), the callback form of `ref`, clearing refs on component disconnect, fully qualified `java.util` type names in declarations and `new`.
   - Original M4 scope: `Iterable` children, keyed `repeat` (two-ended scan, DOM identity preserved across moves, duplicate-key reporting), `when`, `classMap`, `styleMap`, `ref`, `nothing()`.
-  - [ ] M5 styles and events: style-field discovery and `css` with shared `adoptedStyleSheets` and `<style>` fallback; `ComponentEvent` records and options; `@Fires`; `listen`; typed `@event` bindings across Java components.
+  - [ ] M5 styles and events:
+    - [x] Styles subset: `css(literal)`/`Css`, `static final Css` style-field discovery through superclasses and field references, Lit's last-occurrence de-duplication, one shared `CSSStyleSheet` per call site in `adoptedStyleSheets`, `<style>` fallback, misuse diagnostics (`StylesTest`); core fix: text blocks outside templates (`TextBlockTest`).
+    - [ ] Events: `ComponentEvent` records and options, `@Fires`, `listen`, typed `@event` bindings across Java components.
+  - Original M5 scope: style-field discovery and `css` with shared `adoptedStyleSheets` and `<style>` fallback; `ComponentEvent` records and options; `@Fires`; `listen`; typed `@event` bindings across Java components.
   - [ ] M6 tooling: `custom-elements.json`, `.d.ts`, `@Language("HTML")`; opt-in Chromium smoke test; recorded size budget for `javaw-counter` and `todo-list`.
   - [ ] Later (separate claims): reactive controllers, context protocol, slot helpers, form-associated elements, typed facades from third-party manifests, the bytecode path, a JVM renderer for server-side rendering, and an IDE plugin.

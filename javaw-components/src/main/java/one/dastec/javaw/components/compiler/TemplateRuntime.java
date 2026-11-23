@@ -77,6 +77,7 @@ final class TemplateRuntime {
             public static Template when(boolean condition, TemplateSupplier trueCase) { return condition ? trueCase.get() : null; }
             public static Template when(boolean condition, TemplateSupplier trueCase, TemplateSupplier falseCase) { return condition ? trueCase.get() : falseCase.get(); }
             public static Template nothing() { return null; }
+            public static Css css(String text) { return new Css(text); }
             public static ClassMap classMap(Map<String, Boolean> classes) { return WebComponent.__wc_classMap(classes); }
             public static StyleMap styleMap(Map<String, String> styles) { return WebComponent.__wc_styleMap(styles); }
             public static <T extends Element> RefDirective ref(Ref<T> ref) { return new RefDirective(ref); }
