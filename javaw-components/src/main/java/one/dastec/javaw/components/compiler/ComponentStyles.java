@@ -132,6 +132,11 @@ final class ComponentStyles {
         } else if (init instanceof FieldAccessExpr access && access.getScope() instanceof NameExpr scope) {
             field = access.getNameAsString();
             target = type(scope.getNameAsString());
+            if (target == null && cu.findAll(ClassOrInterfaceDeclaration.class).stream()
+                    .anyMatch(c -> c.isInterface() && c.getNameAsString().equals(scope.getNameAsString())))
+                throw SourceExtension.error(init, "Style field '" + variable.getNameAsString() + "' refers to "
+                        + scope.getNameAsString() + "." + access.getNameAsString()
+                        + ": style fields of interfaces are not supported; declare the Css field in a class");
         }
         if (target != null) {
             FieldDeclaration declaration = target.getFieldByName(field).orElse(null);

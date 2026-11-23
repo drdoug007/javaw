@@ -133,6 +133,9 @@ class StylesTest {
         reject("@CustomElement(\"x-a\") class A extends WebComponent { static final Css[] S = { css(\"p{}\") }; }", "declare one field per style sheet");
         reject("abstract class B extends WebComponent { static final Css S; static { S = css(\"p{}\"); } }\n"
                 + "@CustomElement(\"x-a\") class A extends B {}", "needs an initializer");
+        reject("interface T { Css X = WebComponent.css(\"p{}\"); }\n"
+                + "@CustomElement(\"x-a\") class A extends WebComponent { static final Css S = T.X; }",
+                "Style field 'S' refers to T.X: style fields of interfaces are not supported");
         reject("class Css {}", "reserved");
     }
 
