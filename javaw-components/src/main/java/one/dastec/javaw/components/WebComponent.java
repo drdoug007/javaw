@@ -1,5 +1,7 @@
 package one.dastec.javaw.components;
 
+import java.util.Map;
+
 import one.dastec.javaw.dom.Element;
 import one.dastec.javaw.dom.ShadowRoot;
 
@@ -79,6 +81,30 @@ public abstract class WebComponent {
 
     /** {@code trueCase} or {@code falseCase}; only the chosen case is rendered. */
     protected static Template when(boolean condition, TemplateSupplier trueCase, TemplateSupplier falseCase) {
+        return null;
+    }
+
+    /**
+     * Classes for a {@code class} attribute: each key whose value is {@code true} is a class. Must be the
+     * only binding of the attribute; static classes around it are kept. Classes follow the map's
+     * iteration order.
+     */
+    protected static ClassMap classMap(Map<String, Boolean> classes) {
+        return null;
+    }
+
+    /**
+     * Style properties for a {@code style} attribute. Keys with a dash ({@code font-size}, {@code --gap})
+     * are CSS property names, other keys are camelCase style names ({@code fontSize}); a {@code null} value
+     * removes the property and a value ending in {@code " !important"} is set with priority. Must be the
+     * only binding of the attribute.
+     */
+    protected static StyleMap styleMap(Map<String, String> styles) {
+        return null;
+    }
+
+    /** Binds an element to {@code ref} in element position: {@code <input ${ref(field)}>}. */
+    protected static <T extends Element> RefDirective ref(Ref<T> ref) {
         return null;
     }
 

@@ -1085,9 +1085,11 @@ Lit-style custom elements authored in Java: `@CustomElement` classes, `@Property
     - [x] Typed `.name` property bindings on Java components of the module, set through their reactive setters without marshalling; unknown names and mistyped values are compile errors at the binding (`TemplateTest`, `TemplateDiagnosticsTest`).
     - [x] `html` through `Templates` (static imports and qualified calls) in helper classes; own `html` methods are left alone (`TemplateTest`, `TemplateRewriteTest`).
     - [x] Positions: rewritten nodes keep original positions (no separate offset map). Source maps come only from user types, including lambda classes; injected source no longer maps onto the user's file (`TemplateRewriteTest`).
-  - [ ] M4 lists and directives ([status](docs/web-components.md#implementation-status)).
+  - [x] M4 lists and directives ([status](docs/web-components.md#implementation-status)).
     - [x] `Iterable` children (index matching, nested lists), keyed `repeat` with lit-html's reconciliation (DOM identity across moves, duplicate keys reported), `when`, `nothing()`; differential DOM checks against lit-html's `repeat` (`TemplateListTest`).
-    - [ ] `classMap`, `styleMap`, `ref` (element parts).
+    - [x] `classMap(Map<String, Boolean>)` and `styleMap(Map<String, String>)` with lit-html's semantics (static classes and foreign classes kept, custom properties, camelCase and vendor names, `!important`), diffed in Wasm with no host call when unchanged; `ref(Ref<T>)` element parts (assign, move to a new `Ref`, clear on template removal, scoped handles); placement diagnostics; differential checks against lit-html's `classMap`/`styleMap`/`ref` (`TemplateDirectiveTest`, `TemplateDiagnosticsTest`).
+    - [x] Core fix: enhanced `for` over a call with `char`/floating-point literal arguments used the array loop (`ForEachCallArgumentTest`).
+    - [ ] Follow-ups outside the M4 scope: `LinkedHashMap`/`Map.of` in the source compiler (ordered class maps), the callback form of `ref`, clearing refs on component disconnect, fully qualified `java.util` type names in declarations and `new`.
   - Original M4 scope: `Iterable` children, keyed `repeat` (two-ended scan, DOM identity preserved across moves, duplicate-key reporting), `when`, `classMap`, `styleMap`, `ref`, `nothing()`.
   - [ ] M5 styles and events: style-field discovery and `css` with shared `adoptedStyleSheets` and `<style>` fallback; `ComponentEvent` records and options; `@Fires`; `listen`; typed `@event` bindings across Java components.
   - [ ] M6 tooling: `custom-elements.json`, `.d.ts`, `@Language("HTML")`; opt-in Chromium smoke test; recorded size budget for `javaw-counter` and `todo-list`.

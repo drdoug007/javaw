@@ -24,7 +24,7 @@ class TemplateDiagnosticsTest {
 
     @Test
     void rejectedPositionsAreReportedAtTheBinding() {
-        reject(block("        <p ${s}></p>"), "App.java:9:12:", "element position");
+        reject(block("        <p ${s + 1}></p>"), "App.java:9:12:", "element position");
         reject(block("        <p data-${s}=x></p>"), "App.java:9:17:", "attribute names");
         reject(block("        <${s}></p>"), "App.java:9:10:", "tag names");
         reject(block("        <p></${s}>"), "App.java:9:14:", "tag names");
@@ -48,14 +48,14 @@ class TemplateDiagnosticsTest {
         reject(block("        <textarea/>${s}</textarea>"), "App.java:9:20:", "<textarea>");
         reject(block("        <xmp>${s}</xmp>"), "App.java:9:14:", "<xmp>");
         reject(block("        <iframe>${s}</iframe>"), "App.java:9:17:", "<iframe>");
-        reject(block("        <!-- a --!><p ${s}></p>"), "App.java:9:23:", "element position");
+        reject(block("        <!-- a --!><p ${\"x\"}></p>"), "App.java:9:23:", "element position");
         // U+2003 is not HTML whitespace, so it stays part of the tag name.
         reject(block("        <div\u2003${s}></div>"), "App.java:9:14:", "tag names");
         // Whitespace after the opening delimiter is not content and does not shift lines.
         reject(HEAD + "    protected Template render() { return html(\"\"\"   \n        <p>${s +}</p>\n        \"\"\"); }\n}\n",
                 "App.java:9:12:", "Invalid binding expression");
         // One-line literals: columns follow the literal on its line.
-        reject(HEAD + "    protected Template render() { return html(\"<p ${s}>\"); }\n}\n", "App.java:8:51:", "element position");
+        reject(HEAD + "    protected Template render() { return html(\"<p ${() -> s}>\"); }\n}\n", "App.java:8:51:", "element position");
         // A binding that spans lines is reported where it starts.
         reject(block("        <p>${s.equals(\"a\")\n            ? 1 : }</p>"), "App.java:9:12:", "Invalid binding expression");
     }

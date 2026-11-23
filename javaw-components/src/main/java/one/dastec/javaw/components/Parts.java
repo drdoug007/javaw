@@ -44,6 +44,14 @@ public final class Parts {
     public static TemplatePart attr(boolean value) { return null; }
     public static TemplatePart attr(Object value) { return null; }
     public static TemplatePart attrNothing() { return null; }
+    /** Only as the single binding of a {@code class} attribute. */
+    public static TemplatePart attr(ClassMap value) { return null; }
+    /** Only as the single binding of a {@code style} attribute. */
+    public static TemplatePart attr(StyleMap value) { return null; }
+
+    // Element position.
+    public static TemplatePart element(RefDirective value) { return null; }
+    public static TemplatePart elementNothing() { return null; }
 
     // Boolean attributes.
     public static TemplatePart bool(boolean value) { return null; }

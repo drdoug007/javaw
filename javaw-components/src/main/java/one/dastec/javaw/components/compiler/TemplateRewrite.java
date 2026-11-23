@@ -146,6 +146,7 @@ final class TemplateRewrite {
                     inner.replace(lower(inner));
             if (expression instanceof MethodCallExpr m && isNestedHtmlCall(m))
                 expression = lower(m);
+            checkDirective(result, i, expression, argument, start);
             Component target = result.bindingKinds().get(i) == HtmlTemplate.Kind.PROP ? components.get(result.bindingTags().get(i)) : null;
             arguments.add(target != null ? componentProperty(target, result.bindingTags().get(i), result.bindingNames().get(i), expression, argument, start)
                     : wrap(result.bindingKinds().get(i), result.bindingNames().get(i), expression, argument, start));
@@ -175,6 +176,7 @@ final class TemplateRewrite {
             case BOOL -> "bool";
             case PROP -> "prop";
             case EVENT -> eventMethod(name);
+            case ELEMENT -> "element";
         };
         if (expression.isNullLiteralExpr()) {
             if (kind == HtmlTemplate.Kind.BOOL) throw errorAt(anchor, at, "A ?attribute binding needs a boolean, not null");
@@ -185,6 +187,34 @@ final class TemplateRewrite {
         MethodCallExpr call = new MethodCallExpr(new NameExpr("Parts"), method, new NodeList<>(expression));
         expression.getRange().ifPresent(call::setRange);
         return call;
+    }
+
+    /**
+     * Directives that only fit one position, checked syntactically when the binding is a direct call
+     * (other expressions are checked by their type, and classMap/styleMap placement again at runtime).
+     */
+    private static void checkDirective(HtmlTemplate.Result result, int binding, Expression expression, Node anchor, Position at) {
+        HtmlTemplate.Kind kind = result.bindingKinds().get(binding);
+        String directive = expression instanceof MethodCallExpr m
+                && (m.getScope().isEmpty() || isTemplateScope(m.getScope().get())) ? m.getNameAsString() : "";
+        switch (directive) {
+            case "ref" -> {
+                if (kind != HtmlTemplate.Kind.ELEMENT)
+                    throw errorAt(anchor, at, "ref(...) is only allowed in element position, as in <input ${ref(r)}>");
+            }
+            case "classMap", "styleMap" -> {
+                String attribute = directive.equals("classMap") ? "class" : "style";
+                if (kind != HtmlTemplate.Kind.ATTR || !attribute.equalsIgnoreCase(result.bindingNames().get(binding))
+                        || result.parts().get(result.bindingParts().get(binding)).bindings() != 1)
+                    throw errorAt(anchor, at, directive + "(...) must be the only binding of a " + attribute + " attribute, as in "
+                            + attribute + "=\"static ${" + directive + "(m)}\"");
+            }
+            default -> {
+                if (kind == HtmlTemplate.Kind.ELEMENT && !expression.isNullLiteralExpr()
+                        && (expression.isLiteralExpr() || expression.isBinaryExpr() || expression.isLambdaExpr() || expression.isMethodReferenceExpr()))
+                    throw errorAt(anchor, at, "Only ref(...) can be bound in element position; bind an attribute value instead");
+            }
+        }
     }
 
     /** The Parts method for an event binding, chosen by event name (docs/web-components.md, "Binding kinds"). */

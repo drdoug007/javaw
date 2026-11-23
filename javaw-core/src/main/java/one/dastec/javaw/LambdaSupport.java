@@ -126,6 +126,8 @@ final class LambdaSupport {
         if (e.isIntegerLiteralExpr()) return "int";
         if (e.isLongLiteralExpr()) return "long";
         if (e.isBooleanLiteralExpr()) return "boolean";
+        if (e.isCharLiteralExpr()) return "char";
+        if (e.isDoubleLiteralExpr()) return e.asDoubleLiteralExpr().getValue().matches("(?i).*f") ? "float" : "double";
         if (e.isNullLiteralExpr()) return "null";
         if (e.isCastExpr()) return e.asCastExpr().getTypeAsString();
         if (e.isEnclosedExpr()) return type(e.asEnclosedExpr().getInner(), variables);

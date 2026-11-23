@@ -1122,6 +1122,60 @@
             part.element[part.name] = value;
         }
 
+        // classMap and styleMap (lit-html's directives): Java diffs the maps; these check the placement and
+        // apply the first value as the attribute, then single classes and style properties.
+        wcDirectivePart(id, index, attribute, message) {
+            const { part } = this.wcInstance(id).bindings[index];
+            if (!part || part.kind !== 'attr' || String(part.name).toLowerCase() !== attribute || part.strings.length > 2) throw new Error(message);
+            return part;
+        }
+
+        wcClassMap(id, index, text) {
+            const part = this.wcDirectivePart(id, index, 'class',
+                '`classMap()` can only be used in the `class` attribute and must be the only part in the attribute.');
+            part.values[0] = text;
+            part.pending = 0;
+            part.element.setAttribute(part.name, part.strings[0] + text + part.strings[1]);
+        }
+
+        wcClassToggle(id, index, name, on) {
+            const { part } = this.wcInstance(id).bindings[index];
+            // Classes written in the attribute's static text are left alone.
+            if (!part.staticClasses) part.staticClasses = new Set(part.strings.join(' ').split(/\s/).filter(t => t !== ''));
+            if (part.staticClasses.has(name)) return;
+            if (on) part.element.classList.add(name); else part.element.classList.remove(name);
+        }
+
+        wcStyleMap(id, index, text) {
+            const part = this.wcDirectivePart(id, index, 'style',
+                'The `styleMap` directive must be used in the `style` attribute and must be the only part in the attribute.');
+            part.values[0] = text;
+            part.pending = 0;
+            part.element.setAttribute(part.name, part.strings[0] + text + part.strings[1]);
+        }
+
+        wcStyleSet(id, index, name, value) {
+            const { style } = this.wcInstance(id).bindings[index].part.element;
+            const important = value.endsWith(' !important');
+            if (name.includes('-') || important) style.setProperty(name, important ? value.slice(0, -11) : value, important ? 'important' : '');
+            else style[name] = value;
+        }
+
+        wcStyleRemove(id, index, name) {
+            const { style } = this.wcInstance(id).bindings[index].part.element;
+            if (name.includes('-')) style.removeProperty(name); else style[name] = null;
+        }
+
+        // The element of a ref binding. It may still be in a detached template fragment, so it is tied to the
+        // instance's scope for a scoped handle.
+        wcElement(id, index) {
+            const instance = this.wcInstance(id);
+            const element = instance.bindings[index].part.element;
+            if (!element.__javawScope && !element.__javawScopeOwner && typeof WeakRef === 'function')
+                Object.defineProperty(element, '__javawScopeOwner', { value: new WeakRef(instance.scope), configurable: true });
+            return element;
+        }
+
         // Keyed lists: each item is a one-binding instance whose range is a pair of comments inside the list's range.
         wcListRef(range, before) {
             return before ? this.wcInstance(before).bindings[0].start : range.end;

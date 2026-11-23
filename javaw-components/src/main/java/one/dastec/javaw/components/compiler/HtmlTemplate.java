@@ -25,13 +25,17 @@ final class HtmlTemplate {
     private static final Set<String> RAW_TEXT = Set.of("script", "style", "textarea", "title", "xmp", "iframe",
             "noembed", "noframes", "noscript", "plaintext", "template");
 
-    enum Kind { CHILD, ATTR, BOOL, PROP, EVENT }
+    enum Kind { CHILD, ATTR, BOOL, PROP, EVENT, ELEMENT }
 
     /** One part: a child position or an attribute with one or more bindings. */
     record Part(Kind kind, String name, int bindings) {}
 
-    /** Per binding: the attribute, property or event name and the lowercase element tag (both null for child bindings). */
-    record Result(String html, List<Part> parts, List<Kind> bindingKinds, List<String> bindingNames, List<String> bindingTags) {}
+    /**
+     * Per binding: the attribute, property or event name (null for child and element bindings), the lowercase
+     * element tag (null for child bindings) and the index of its part.
+     */
+    record Result(String html, List<Part> parts, List<Kind> bindingKinds, List<String> bindingNames, List<String> bindingTags,
+                  List<Integer> bindingParts) {}
 
     /** A problem at binding {@code binding}, or for the whole template when it is -1. */
     static final class Problem extends RuntimeException {
@@ -50,6 +54,7 @@ final class HtmlTemplate {
         final List<Kind> bindingKinds = new ArrayList<>();
         final List<String> bindingNames = new ArrayList<>();
         final List<String> bindingTags = new ArrayList<>();
+        final List<Integer> bindingParts = new ArrayList<>();
         State state = State.DATA;
         final StringBuilder tagName = new StringBuilder();
         boolean endTag;
@@ -156,6 +161,7 @@ final class HtmlTemplate {
             switch (state) {
                 case DATA -> {
                     out.append("<!--wc$").append(parts.size()).append("-->");
+                    bindingParts.add(parts.size());
                     parts.add(new Part(Kind.CHILD, null, 1));
                     bindingKinds.add(Kind.CHILD);
                     bindingNames.add(null);
@@ -169,8 +175,18 @@ final class HtmlTemplate {
                 }
                 case ATTR_VALUE_UNQ -> throw new Problem(index, "An unquoted attribute value cannot mix a binding with static text; quote the value");
                 case ATTR_VALUE_DQ, ATTR_VALUE_SQ -> attributeBinding(index);
-                case BEFORE_ATTR_NAME, AFTER_ATTR_NAME, SELF_CLOSING ->
-                        throw new Problem(index, "Bindings in element position (ref) are not supported yet; bind an attribute value instead");
+                case BEFORE_ATTR_NAME, AFTER_ATTR_NAME, SELF_CLOSING -> {
+                    // Element position (ref): the element gets the marker attribute wc$N with an empty value.
+                    if (state == State.AFTER_ATTR_NAME) endAttribute();
+                    else if (state == State.SELF_CLOSING) out.append(' ');
+                    bindingParts.add(parts.size());
+                    out.append("wc$").append(parts.size()).append(" ");
+                    parts.add(new Part(Kind.ELEMENT, null, 1));
+                    bindingKinds.add(Kind.ELEMENT);
+                    bindingNames.add(null);
+                    bindingTags.add(tagName.toString().toLowerCase(Locale.ROOT));
+                    state = State.BEFORE_ATTR_NAME;
+                }
                 case ATTR_NAME -> throw new Problem(index, "Bindings are not allowed in attribute names");
                 case TAG_OPEN, TAG_NAME, END_TAG_OPEN -> throw new Problem(index, "Bindings are not allowed in tag names or closing tags");
                 case COMMENT, BOGUS -> throw new Problem(index, "Bindings are not allowed inside HTML comments");
@@ -215,7 +231,7 @@ final class HtmlTemplate {
             int index = parts.size();
             parts.add(new Part(kind, name, attrBindings.size()));
             String tag = tagName.toString().toLowerCase(Locale.ROOT);
-            for (int ignored : attrBindings) { bindingKinds.add(kind); bindingNames.add(name); bindingTags.add(tag); }
+            for (int ignored : attrBindings) { bindingKinds.add(kind); bindingNames.add(name); bindingTags.add(tag); bindingParts.add(index); }
             char q = quote == 0 ? '"' : quote;
             String value = String.join(MARKER, pieces);
             if (value.indexOf(q) >= 0) throw new Problem(attrBindings.get(0), "Attribute value contains its own quote character");
@@ -255,7 +271,7 @@ final class HtmlTemplate {
                 default -> "a tag";
             });
         return new Result(t.out.toString(), List.copyOf(t.parts), List.copyOf(t.bindingKinds), java.util.Collections.unmodifiableList(new ArrayList<>(t.bindingNames)),
-                java.util.Collections.unmodifiableList(new ArrayList<>(t.bindingTags)));
+                java.util.Collections.unmodifiableList(new ArrayList<>(t.bindingTags)), List.copyOf(t.bindingParts));
     }
 
     /** HTML whitespace: tab, line feed, form feed, carriage return and space. */

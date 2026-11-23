@@ -28,6 +28,36 @@ final class TemplateRuntime {
             ArrayList<TemplatePart> __items = new ArrayList<TemplatePart>();
             Repeat() {}
         }
+        final class ClassMap {
+            Map<String, Boolean> __map;
+            ClassMap(Map<String, Boolean> map) { __map = map; }
+        }
+        final class StyleMap {
+            Map<String, String> __map;
+            StyleMap(Map<String, String> map) { __map = map; }
+        }
+        final class Ref<T extends Element> {
+            Element __element;
+            public Ref() {}
+            public T value() { return (T) __element; }
+        }
+        final class RefDirective {
+            Ref __ref;
+            RefDirective(Ref ref) { __ref = ref; }
+        }
+        final class __WcClassState {
+            HashSet<String> applied = new HashSet<String>();
+            __WcClassState() {}
+        }
+        final class __WcStyleState {
+            HashMap<String, String> values = new HashMap<String, String>();
+            __WcStyleState() {}
+        }
+        final class __WcRefState {
+            Ref ref;
+            Element element;
+            __WcRefState() {}
+        }
         final class __WcList {
             Object[] keys = new Object[0];
             __WcInstance[] items = new __WcInstance[0];
@@ -47,6 +77,9 @@ final class TemplateRuntime {
             public static Template when(boolean condition, TemplateSupplier trueCase) { return condition ? trueCase.get() : null; }
             public static Template when(boolean condition, TemplateSupplier trueCase, TemplateSupplier falseCase) { return condition ? trueCase.get() : falseCase.get(); }
             public static Template nothing() { return null; }
+            public static ClassMap classMap(Map<String, Boolean> classes) { return WebComponent.__wc_classMap(classes); }
+            public static StyleMap styleMap(Map<String, String> styles) { return WebComponent.__wc_styleMap(styles); }
+            public static <T extends Element> RefDirective ref(Ref<T> ref) { return new RefDirective(ref); }
         }
         final class TemplatePart {
             int __kind;
@@ -56,6 +89,8 @@ final class TemplateRuntime {
             Template __template;
             Repeat __repeat;
             int __key;
+            // A component property value, or the ClassMap, StyleMap or Ref of kinds 18 to 20 (no extra fields:
+            // a part's size counts in every rendered template).
             Object __value;
             __JavawDomRunnable __run;
             EventListener<Event> __handler;
@@ -87,6 +122,8 @@ final class TemplateRuntime {
                 if (value instanceof Template template) return child(template);
                 if (value instanceof Repeat repeat) return child(repeat);
                 if (value instanceof Iterable<?> iterable) return child(iterable);
+                if (value instanceof ClassMap || value instanceof StyleMap || value instanceof RefDirective)
+                    throw new IllegalArgumentException("classMap, styleMap and ref cannot be bound as child content");
                 return text(0, String.valueOf(value));
             }
             public static TemplatePart child(Iterable<?> value) {
@@ -115,8 +152,31 @@ final class TemplateRuntime {
             public static TemplatePart attr(float value) { return text(2, String.valueOf(value)); }
             public static TemplatePart attr(double value) { return text(2, String.valueOf(value)); }
             public static TemplatePart attr(boolean value) { return text(2, String.valueOf(value)); }
-            public static TemplatePart attr(Object value) { return text(2, value == null ? null : String.valueOf(value)); }
+            public static TemplatePart attr(Object value) {
+                if (value instanceof ClassMap) return attr((ClassMap) value);
+                if (value instanceof StyleMap) return attr((StyleMap) value);
+                if (value instanceof RefDirective) throw new IllegalArgumentException("ref can only be bound in element position");
+                return text(2, value == null ? null : String.valueOf(value));
+            }
             public static TemplatePart attrNothing() { return text(2, null); }
+            public static TemplatePart attr(ClassMap value) {
+                if (value == null) return text(2, null);
+                TemplatePart p = new TemplatePart(18);
+                p.__value = value;
+                return p;
+            }
+            public static TemplatePart attr(StyleMap value) {
+                if (value == null) return text(2, null);
+                TemplatePart p = new TemplatePart(19);
+                p.__value = value;
+                return p;
+            }
+            public static TemplatePart element(RefDirective value) {
+                TemplatePart p = new TemplatePart(20);
+                if (value != null) p.__value = value.__ref;
+                return p;
+            }
+            public static TemplatePart elementNothing() { return new TemplatePart(20); }
             public static TemplatePart bool(boolean value) { TemplatePart p = new TemplatePart(3); p.__flag = value; return p; }
             public static TemplatePart prop(String value) { return text(4, value); }
             public static TemplatePart prop(boolean value) { TemplatePart p = new TemplatePart(5); p.__flag = value; return p; }
@@ -271,6 +331,24 @@ final class TemplateRuntime {
                         inst.set[i] = true;
                     }
                     reconcile(c, inst.id, i, list, p.__repeat);
+                } else if (kind == 18) {
+                    commitClassMap(inst, i, ((ClassMap) p.__value).__map, first || inst.kinds[i] != 18 ? null : (__WcClassState) inst.objects[i]);
+                } else if (kind == 19) {
+                    commitStyleMap(inst, i, ((StyleMap) p.__value).__map, first || inst.kinds[i] != 19 ? null : (__WcStyleState) inst.objects[i]);
+                } else if (kind == 20) {
+                    // ref, as lit-html's: a new Ref clears the old one; the element is assigned again if the Ref was changed elsewhere.
+                    __WcRefState state = first || inst.kinds[i] != 20 ? new __WcRefState() : (__WcRefState) inst.objects[i];
+                    Ref ref = (Ref) p.__value;
+                    boolean changed = ref != state.ref;
+                    if (changed && state.ref != null) state.ref.__element = null;
+                    if (ref != null && (changed || ref.__element != state.element)) {
+                        if (state.element == null) state.element = __wc_element(inst.id, i);
+                        ref.__element = state.element;
+                    }
+                    state.ref = ref;
+                    inst.kinds[i] = 20;
+                    inst.objects[i] = state;
+                    inst.set[i] = true;
                 } else if (kind == 16) {
                     // .name on a Java component of this module: set its field through the generated setter, unmarshalled.
                     if (!first && inst.kinds[i] == 16 && inst.keys[i] == p.__key && sameValue(inst.objects[i], p.__value)) return;
@@ -293,6 +371,91 @@ final class TemplateRuntime {
                     if (had != has) __wc_event(inst.id, i, has);
                 }
             }
+            static boolean truthy(Boolean value) { return value != null && value.booleanValue(); }
+
+            /**
+             * classMap, as lit-html's: the first commit sets the attribute (static text plus the true keys), later
+             * commits add and remove single classes, so classes added by other code stay. The host skips the
+             * attribute's static classes.
+             */
+            static void commitClassMap(__WcInstance inst, int i, Map<String, Boolean> classes, __WcClassState state) {
+                if (state == null) {
+                    state = new __WcClassState();
+                    String names = "";
+                    for (Map.Entry<String, Boolean> entry : classes.entrySet()) {
+                        if (!truthy(entry.getValue())) continue;
+                        names = names.isEmpty() ? entry.getKey() : names + " " + entry.getKey();
+                        state.applied.add(entry.getKey());
+                    }
+                    __wc_classMap(inst.id, i, " " + names + " ");
+                    inst.kinds[i] = 18;
+                    inst.objects[i] = state;
+                    inst.set[i] = true;
+                    return;
+                }
+                ArrayList<String> stale = new ArrayList<String>();
+                for (String name : state.applied) if (!classes.containsKey(name)) stale.add(name);
+                for (int k = 0; k < stale.size(); k++) {
+                    state.applied.remove(stale.get(k));
+                    __wc_classToggle(inst.id, i, stale.get(k), false);
+                }
+                for (Map.Entry<String, Boolean> entry : classes.entrySet()) {
+                    boolean on = truthy(entry.getValue());
+                    if (on == state.applied.contains(entry.getKey())) continue;
+                    if (on) state.applied.add(entry.getKey()); else state.applied.remove(entry.getKey());
+                    __wc_classToggle(inst.id, i, entry.getKey(), on);
+                }
+            }
+
+            /**
+             * styleMap, as lit-html's: the first commit sets the attribute, later commits set or remove single
+             * properties. Unchanged values make no host call.
+             */
+            static void commitStyleMap(__WcInstance inst, int i, Map<String, String> styles, __WcStyleState state) {
+                if (state == null) {
+                    state = new __WcStyleState();
+                    String text = "";
+                    for (Map.Entry<String, String> entry : styles.entrySet()) {
+                        state.values.put(entry.getKey(), entry.getValue());
+                        if (entry.getValue() != null) text = text + styleName(entry.getKey()) + ":" + entry.getValue() + ";";
+                    }
+                    __wc_styleMap(inst.id, i, text);
+                    inst.kinds[i] = 19;
+                    inst.objects[i] = state;
+                    inst.set[i] = true;
+                    return;
+                }
+                ArrayList<String> stale = new ArrayList<String>();
+                for (String name : state.values.keySet()) if (styles.get(name) == null) stale.add(name);
+                for (int k = 0; k < stale.size(); k++) {
+                    String old = state.values.remove(stale.get(k));
+                    if (old != null) __wc_styleRemove(inst.id, i, stale.get(k));
+                }
+                for (Map.Entry<String, String> entry : styles.entrySet()) {
+                    String value = entry.getValue();
+                    if (value == null) continue;
+                    boolean known = state.values.containsKey(entry.getKey());
+                    String old = state.values.put(entry.getKey(), value);
+                    if (!known || !value.equals(old)) __wc_styleSet(inst.id, i, entry.getKey(), value);
+                }
+            }
+
+            /** A camelCase style name as a CSS property name, as lit-html converts it ({@code webkitFoo} to {@code -webkit-foo}). */
+            static String styleName(String key) {
+                if (key.indexOf("-") >= 0) return key;
+                String out = "";
+                if (key.startsWith("webkit") || key.startsWith("moz") || key.startsWith("ms") || key.startsWith("o")) {
+                    int length = key.startsWith("webkit") ? 6 : key.startsWith("moz") ? 3 : key.startsWith("ms") ? 2 : 1;
+                    if (key.length() > length && key.charAt(length) >= 'A' && key.charAt(length) <= 'Z') out = "-";
+                }
+                for (int k = 0; k < key.length(); k++) {
+                    char ch = key.charAt(k);
+                    if (ch >= 'A' && ch <= 'Z') out = out + "-" + (char) (ch + 32);
+                    else out = out + ch;
+                }
+                return out;
+            }
+
             static void dropChild(WebComponent c, __WcInstance inst, int i) {
                 if (inst.set[i] && inst.kinds[i] == 1 && inst.objects[i] != null) {
                     release(c, (__WcInstance) inst.objects[i]);
@@ -430,7 +593,14 @@ final class TemplateRuntime {
                 release(c, item);
             }
             static void release(WebComponent c, __WcInstance inst) {
-                for (int i = 0; i < inst.kinds.length; i++) dropChild(c, inst, i);
+                for (int i = 0; i < inst.kinds.length; i++) {
+                    if (inst.set[i] && inst.kinds[i] == 20) {
+                        // A removed ref binding clears its Ref unless the Ref was given another element since.
+                        __WcRefState state = (__WcRefState) inst.objects[i];
+                        if (state.ref != null && state.ref.__element == state.element) state.ref.__element = null;
+                    }
+                    dropChild(c, inst, i);
+                }
                 c.__templates.remove(Integer.valueOf(inst.id));
                 __wc_release(inst.id);
             }
@@ -479,6 +649,18 @@ final class TemplateRuntime {
             public static native void __wc_listRemove(int item);
             @JS("runtime.reportCallbackError(new Error('repeat: duplicate key ' + key + '; the later item gets its own DOM'), 'repeat');")
             public static native void __wc_reportDuplicate(String key);
+            @JS("runtime.wcClassMap(id, index, text);")
+            public static native void __wc_classMap(int id, int index, String text);
+            @JS("runtime.wcClassToggle(id, index, name, on);")
+            public static native void __wc_classToggle(int id, int index, String name, boolean on);
+            @JS("runtime.wcStyleMap(id, index, text);")
+            public static native void __wc_styleMap(int id, int index, String text);
+            @JS("runtime.wcStyleSet(id, index, name, value);")
+            public static native void __wc_styleSet(int id, int index, String name, String value);
+            @JS("runtime.wcStyleRemove(id, index, name);")
+            public static native void __wc_styleRemove(int id, int index, String name);
+            @JS("return runtime.wcElement(id, index);")
+            public static native Element __wc_element(int id, int index);
             @JS("runtime.wcRelease(id);")
             public static native void __wc_release(int id);
         }
@@ -501,6 +683,17 @@ final class TemplateRuntime {
             protected static Template when(boolean condition, TemplateSupplier trueCase) { return condition ? trueCase.get() : null; }
             protected static Template when(boolean condition, TemplateSupplier trueCase, TemplateSupplier falseCase) { return condition ? trueCase.get() : falseCase.get(); }
             protected static Template nothing() { return null; }
+            protected static ClassMap classMap(Map<String, Boolean> classes) { return __wc_classMap(classes); }
+            protected static StyleMap styleMap(Map<String, String> styles) { return __wc_styleMap(styles); }
+            protected static <T extends Element> RefDirective ref(Ref<T> ref) { return new RefDirective(ref); }
+            public static ClassMap __wc_classMap(Map<String, Boolean> classes) {
+                if (classes == null) throw new NullPointerException("classMap: classes is null");
+                return new ClassMap(classes);
+            }
+            public static StyleMap __wc_styleMap(Map<String, String> styles) {
+                if (styles == null) throw new NullPointerException("styleMap: styles is null");
+                return new StyleMap(styles);
+            }
             protected void update(Changes changes) { __WcRenderer.renderRoot(this, render()); }
         """;
 }

@@ -29,7 +29,8 @@ public final class ComponentExtension implements SourceExtension {
     private static final String FACTORIES = "__JavawComponentFactories";
     private static final Set<String> RESERVED_TYPES = Set.of("WebComponent", "Changes", FACTORIES,
             "Template", "TemplatePart", "Parts", "Templates", "__WcInstance", "__WcRenderer",
-            "KeyFunction", "ItemTemplate", "TemplateSupplier", "Repeat", "__WcList", "__WcUniqueKey");
+            "KeyFunction", "ItemTemplate", "TemplateSupplier", "Repeat", "__WcList", "__WcUniqueKey",
+            "ClassMap", "StyleMap", "Ref", "RefDirective", "__WcClassState", "__WcStyleState", "__WcRefState");
     private static final Set<String> RESERVED = Set.of("annotation-xml", "color-profile", "font-face", "font-face-src",
             "font-face-uri", "font-face-format", "font-face-name", "missing-glyph");
 
@@ -195,7 +196,8 @@ public final class ComponentExtension implements SourceExtension {
         TemplateRewrite templates = new TemplateRewrite(byTagProperties);
         templates.rewrite(cu);
         boolean usesTemplates = !templates.isEmpty() || cu.findAll(ClassOrInterfaceType.class).stream()
-                .anyMatch(t -> Set.of("Template", "Parts", "Templates", "Repeat", "KeyFunction", "ItemTemplate", "TemplateSupplier").contains(t.getNameAsString()));
+                .anyMatch(t -> Set.of("Template", "Parts", "Templates", "Repeat", "KeyFunction", "ItemTemplate", "TemplateSupplier",
+                        "ClassMap", "StyleMap", "Ref", "RefDirective").contains(t.getNameAsString()));
         for (ClassOrInterfaceDeclaration component : components) lowerQueries(component);
         for (int i = 0; i < components.size(); i++) {
             List<ReactiveFields.Field> fields = ReactiveFields.lower(components.get(i));
@@ -223,7 +225,7 @@ public final class ComponentExtension implements SourceExtension {
         cu.getTypes().add(StaticJavaParser.parseTypeDeclaration(WEB_COMPONENT.replace("/*TEMPLATES*/",
                 usesTemplates ? TemplateRuntime.COMPONENT_MEMBERS : "protected void update(Changes changes) {}")));
         if (usesTemplates) {
-            for (String type : List.of("Event", "EventListener", "JSObject"))
+            for (String type : List.of("Event", "EventListener", "JSObject", "Element"))
                 if (cu.getImports().stream().noneMatch(i -> i.getNameAsString().equals("one.dastec.javaw.dom." + type)))
                     cu.addImport("one.dastec.javaw.dom." + type);
             for (TypeDeclaration<?> type : StaticJavaParser.parse(TemplateRuntime.TYPES).getTypes()) cu.getTypes().add(type.clone());
