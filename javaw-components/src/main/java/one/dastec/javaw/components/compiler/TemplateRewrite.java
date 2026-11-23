@@ -66,19 +66,27 @@ final class TemplateRewrite {
     }
 
     private static boolean isHtmlCall(MethodCallExpr call) {
-        if (!call.getNameAsString().equals("html")) return false;
+        return call.getNameAsString().equals("html") && resolvesToTemplates(call, call, "html");
+    }
+
+    /**
+     * Whether {@code call}, written inside {@code context}, names the WebComponent/Templates method {@code name}:
+     * qualified by WebComponent or Templates, or unqualified, not shadowed by a method of an enclosing class,
+     * and inherited from WebComponent or statically imported from Templates.
+     */
+    private static boolean resolvesToTemplates(MethodCallExpr call, Node context, String name) {
         if (call.getScope().isPresent()) return isTemplateScope(call.getScope().get());
-        // An html method declared by an enclosing class wins over the inherited or imported one, as in Java.
-        for (Node n = call.getParentNode().orElse(null); n != null; n = n.getParentNode().orElse(null))
-            if (n instanceof ClassOrInterfaceDeclaration c && !c.getMethodsByName("html").isEmpty()) return false;
-        // html is inherited (also through other classes of the module) and visible in nested classes.
-        CompilationUnit cu = call.findCompilationUnit().orElse(null);
-        for (Node n = call.getParentNode().orElse(null); n != null; n = n.getParentNode().orElse(null))
+        // A method declared by an enclosing class wins over the inherited or imported one, as in Java.
+        for (Node n = context; n != null; n = n.getParentNode().orElse(null))
+            if (n instanceof ClassOrInterfaceDeclaration c && !c.getMethodsByName(name).isEmpty()) return false;
+        // Inherited (also through other classes of the module) and visible in nested classes.
+        CompilationUnit cu = context.findCompilationUnit().orElse(null);
+        for (Node n = context; n != null; n = n.getParentNode().orElse(null))
             if (n instanceof ClassOrInterfaceDeclaration c && extendsComponent(cu, c, new java.util.HashSet<>())) return true;
         // Or statically imported from Templates.
         return cu != null && cu.getImports().stream().anyMatch(i -> i.isStatic()
                 && (i.isAsterisk() ? i.getNameAsString().equals(ComponentExtension.PACKAGE + ".Templates")
-                                   : i.getNameAsString().equals(ComponentExtension.PACKAGE + ".Templates.html")));
+                                   : i.getNameAsString().equals(ComponentExtension.PACKAGE + ".Templates." + name)));
     }
 
     private static boolean isTemplateScope(Expression scope) {
@@ -196,7 +204,8 @@ final class TemplateRewrite {
     private static void checkDirective(HtmlTemplate.Result result, int binding, Expression expression, Node anchor, Position at) {
         HtmlTemplate.Kind kind = result.bindingKinds().get(binding);
         String directive = expression instanceof MethodCallExpr m
-                && (m.getScope().isEmpty() || isTemplateScope(m.getScope().get())) ? m.getNameAsString() : "";
+                && List.of("ref", "classMap", "styleMap").contains(m.getNameAsString())
+                && resolvesToTemplates(m, anchor, m.getNameAsString()) ? m.getNameAsString() : "";
         switch (directive) {
             case "ref" -> {
                 if (kind != HtmlTemplate.Kind.ELEMENT)

@@ -428,8 +428,9 @@ final class TemplateRuntime {
                 ArrayList<String> stale = new ArrayList<String>();
                 for (String name : state.values.keySet()) if (styles.get(name) == null) stale.add(name);
                 for (int k = 0; k < stale.size(); k++) {
-                    String old = state.values.remove(stale.get(k));
-                    if (old != null) __wc_styleRemove(inst.id, i, stale.get(k));
+                    // As lit-html, a key of the previous render is cleared even if its value was null.
+                    state.values.remove(stale.get(k));
+                    __wc_styleRemove(inst.id, i, stale.get(k));
                 }
                 for (Map.Entry<String, String> entry : styles.entrySet()) {
                     String value = entry.getValue();

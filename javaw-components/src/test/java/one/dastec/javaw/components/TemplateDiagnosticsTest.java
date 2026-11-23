@@ -90,4 +90,19 @@ class TemplateDiagnosticsTest {
         var error = assertThrows(IllegalArgumentException.class, () -> JavacToWasm.compile("App.java", source.formatted("count", "true"), false));
         assertTrue(error.getMessage().contains("App.java:7:64:"), "a mistyped value is reported at the expression: " + error.getMessage());
     }
+
+    @Test
+    void ownMethodsNamedLikeDirectivesAreNotDirectives() {
+        // A component's own ref/classMap/styleMap shadows the inherited directive, as in Java.
+        String own = HEAD + """
+                String ref(int id) { return "#" + id; }
+                String classMap(String c) { return c; }
+                String styleMap(String c) { return c; }
+                protected Template render() { return html("<a href=${ref(n)} title=${classMap(s)}>${styleMap(s)}</a>"); }
+            }
+            """;
+        assertDoesNotThrow(() -> JavacToWasm.compile("App.java", own, false));
+        // The inherited directive is still checked.
+        reject(block("        <a href=${ref(null)}></a>"), "App.java:9:17:", "element position");
+    }
 }
