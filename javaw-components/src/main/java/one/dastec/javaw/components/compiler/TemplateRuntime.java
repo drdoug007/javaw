@@ -202,6 +202,13 @@ final class TemplateRuntime {
                 p.__value = value;
                 return p;
             }
+            // A typed listener for an event record of a Java component (kind 21; __key is the event key).
+            public static TemplatePart __componentEvent(int key, Object listener) {
+                TemplatePart p = new TemplatePart(listener == null ? 9 : 21);
+                p.__key = key;
+                p.__value = listener;
+                return p;
+            }
             public static TemplatePart onMouse(__JavawDomRunnable listener) { return on(listener); }
             public static TemplatePart onMouse(EventListener<MouseEvent> listener) {
                 TemplatePart p = new TemplatePart(listener == null ? 9 : 10);
@@ -620,6 +627,8 @@ final class TemplateRuntime {
                 else if (kind == 13) part.__focus.handleEvent(new FocusEvent(event));
                 else if (kind == 14) part.__input.handleEvent(new InputEvent(event));
                 else if (kind == 15) part.__submit.handleEvent(new SubmitEvent(event));
+                // Only events dispatched from Java carry their record; others with the same name are ignored.
+                else if (kind == 21) __JavawComponentFactories.__wc_componentEvent(part.__key, part.__value, WebComponent.__wc_eventRecord(event));
             }
             @JS("return runtime.wcRootRange(host);")
             public static native int __wc_rootRange(Element host);

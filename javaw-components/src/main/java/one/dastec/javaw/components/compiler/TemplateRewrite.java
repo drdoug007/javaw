@@ -30,8 +30,11 @@ final class TemplateRewrite {
 
     private final List<Definition> definitions = new ArrayList<>();
 
-    /** A Java component known to the module: its class and its @Property fields (name to declared type). */
-    record Component(String className, java.util.Map<String, Field> properties) {}
+    /**
+     * A Java component known to the module: its class, its @Property fields (name to declared type) and the
+     * events it declares (DOM name to event key).
+     */
+    record Component(String className, java.util.Map<String, Field> properties, java.util.Map<String, Integer> events) {}
 
     /** A @Property field: its declared type and the component class that declares it. */
     record Field(String type, String owner) {}
@@ -41,6 +44,10 @@ final class TemplateRewrite {
 
     private final java.util.Map<String, Component> components;
     private final java.util.Map<String, PropertyKey> keys = new java.util.LinkedHashMap<>();
+    private final java.util.Set<Integer> eventKeys = new java.util.TreeSet<>();
+
+    /** The event keys that typed @name bindings use. */
+    java.util.Set<Integer> eventKeys() { return eventKeys; }
 
     TemplateRewrite(java.util.Map<String, Component> componentsByTag) {
         this.components = componentsByTag;
@@ -155,8 +162,12 @@ final class TemplateRewrite {
             if (expression instanceof MethodCallExpr m && isNestedHtmlCall(m))
                 expression = lower(m);
             checkDirective(result, i, expression, argument, start);
-            Component target = result.bindingKinds().get(i) == HtmlTemplate.Kind.PROP ? components.get(result.bindingTags().get(i)) : null;
-            arguments.add(target != null ? componentProperty(target, result.bindingTags().get(i), result.bindingNames().get(i), expression, argument, start)
+            HtmlTemplate.Kind kind = result.bindingKinds().get(i);
+            Component target = kind == HtmlTemplate.Kind.PROP || kind == HtmlTemplate.Kind.EVENT ? components.get(result.bindingTags().get(i)) : null;
+            Integer event = target != null && kind == HtmlTemplate.Kind.EVENT ? target.events().get(result.bindingNames().get(i)) : null;
+            if (kind == HtmlTemplate.Kind.EVENT && event == null) target = null;
+            arguments.add(event != null ? componentEvent(event, expression)
+                    : target != null ? componentProperty(target, result.bindingTags().get(i), result.bindingNames().get(i), expression, argument, start)
                     : wrap(result.bindingKinds().get(i), result.bindingNames().get(i), expression, argument, start));
         }
         MethodCallExpr of = new MethodCallExpr(new NameExpr("Template"), "of", arguments);
@@ -173,6 +184,15 @@ final class TemplateRewrite {
         // The key and its generated methods belong to the declaring class, so a subclass's tag shares its base's key.
         keys.computeIfAbsent(field.owner() + "#" + name, k -> new PropertyKey(keys.size() + 1, field.owner(), name, field.type()));
         MethodCallExpr call = new MethodCallExpr(new NameExpr(field.owner()), "__wc_prop_" + name, new NodeList<>(expression));
+        expression.getRange().ifPresent(call::setRange);
+        return call;
+    }
+
+    /** {@code @name=${x}} for an event a Java component of this module declares: the listener receives the event record. */
+    private Expression componentEvent(int key, Expression expression) {
+        MethodCallExpr call = expression.isNullLiteralExpr() ? new MethodCallExpr(new NameExpr("Parts"), "eventNothing")
+                : new MethodCallExpr(new NameExpr("__JavawComponentFactories"), "__wc_on" + key, new NodeList<>(expression));
+        if (!expression.isNullLiteralExpr()) eventKeys.add(key);
         expression.getRange().ifPresent(call::setRange);
         return call;
     }

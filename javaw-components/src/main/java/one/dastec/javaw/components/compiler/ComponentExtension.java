@@ -30,7 +30,7 @@ public final class ComponentExtension implements SourceExtension {
     private static final Set<String> RESERVED_TYPES = Set.of("WebComponent", "Changes", FACTORIES,
             "Template", "TemplatePart", "Parts", "Templates", "__WcInstance", "__WcRenderer",
             "KeyFunction", "ItemTemplate", "TemplateSupplier", "Repeat", "__WcList", "__WcUniqueKey",
-            "ClassMap", "StyleMap", "Ref", "RefDirective", "Css", "__WcClassState", "__WcStyleState", "__WcRefState");
+            "ClassMap", "StyleMap", "Ref", "RefDirective", "Css", "__WcClassState", "__WcStyleState", "__WcRefState", "ComponentEvent", "__WcListen");
     private static final Set<String> RESERVED = Set.of("annotation-xml", "color-profile", "font-face", "font-face-src",
             "font-face-uri", "font-face-format", "font-face-name", "missing-glyph");
 
@@ -58,6 +58,7 @@ public final class ComponentExtension implements SourceExtension {
             protected boolean shouldUpdate(Changes changes) { return true; }
             protected void willUpdate(Changes changes) {}
             /*TEMPLATES*/
+            /*EVENTS*/
             protected void firstUpdated(Changes changes) {}
             protected void updated(Changes changes) {}
             public void requestUpdate() { __wc_schedule(); }
@@ -113,9 +114,14 @@ public final class ComponentExtension implements SourceExtension {
             public static void __wc_connected(WebComponent component) {
                 component.__isConnected = true;
                 if (component.__pending) __wc_enqueue(component.__host);
+                component.__wc_listenAll(true);
                 component.connected();
             }
-            public static void __wc_disconnected(WebComponent component) { component.__isConnected = false; component.disconnected(); }
+            public static void __wc_disconnected(WebComponent component) {
+                component.__isConnected = false;
+                component.__wc_listenAll(false);
+                component.disconnected();
+            }
             public static void __wc_adopted(WebComponent component) { component.adopted(); }
             public static void __wc_attributeChanged(WebComponent component, String name, String oldValue, String newValue) {
                 if (!name.equals(component.__reflecting)) component.__wc_fromAttribute(name, newValue);
@@ -179,6 +185,7 @@ public final class ComponentExtension implements SourceExtension {
                 throw SourceExtension.error(type, "Type name '" + type.getNameAsString() + "' is reserved by " + PACKAGE);
 
         ComponentStyles styles = ComponentStyles.scan(cu);
+        ComponentEvents events = ComponentEvents.scan(cu);
         Map<String, ClassOrInterfaceDeclaration> byTag = new LinkedHashMap<>();
         List<Definition> definitions = new ArrayList<>();
         for (ClassOrInterfaceDeclaration component : components) {
@@ -202,11 +209,16 @@ public final class ComponentExtension implements SourceExtension {
                     if (annotation(field, "Property") != null)
                         for (VariableDeclarator v : field.getVariables())
                             properties.putIfAbsent(v.getNameAsString(), new TemplateRewrite.Field(v.getTypeAsString(), c.getNameAsString()));
-            byTagProperties.put(definitions.get(i).tag, new TemplateRewrite.Component(definitions.get(i).className, properties));
+            Map<String, Integer> declared = new LinkedHashMap<>();
+            events.declaredBy(components.get(i), componentsByName).forEach((name, e) -> declared.put(name, e.key()));
+            byTagProperties.put(definitions.get(i).tag, new TemplateRewrite.Component(definitions.get(i).className, properties, declared));
         }
         TemplateRewrite templates = new TemplateRewrite(byTagProperties);
         templates.rewrite(cu);
         boolean usesCss = styles.qualifyCalls();
+        boolean usesEvents = !events.isEmpty() || cu.findAll(MethodCallExpr.class).stream().anyMatch(call -> call.getScope().isEmpty()
+                && Set.of("listen", "dispatch", "window", "document").contains(call.getNameAsString()));
+        events.lower();
         boolean usesTemplates = usesCss || !templates.isEmpty() || cu.findAll(ClassOrInterfaceType.class).stream()
                 .anyMatch(t -> Set.of("Template", "Parts", "Templates", "Repeat", "KeyFunction", "ItemTemplate", "TemplateSupplier",
                         "ClassMap", "StyleMap", "Ref", "RefDirective").contains(t.getNameAsString()))
@@ -236,7 +248,18 @@ public final class ComponentExtension implements SourceExtension {
         }
 
         cu.getTypes().add(StaticJavaParser.parseTypeDeclaration(WEB_COMPONENT.replace("/*TEMPLATES*/",
-                usesTemplates ? TemplateRuntime.COMPONENT_MEMBERS : "protected void update(Changes changes) {}")));
+                usesTemplates ? TemplateRuntime.COMPONENT_MEMBERS : "protected void update(Changes changes) {}")
+                .replace("/*EVENTS*/", usesEvents ? ComponentEvents.COMPONENT_MEMBERS : "private void __wc_listenAll(boolean on) {}"
+                        + (usesTemplates ? " public static Object __wc_eventRecord(JSObject event) { return null; }" : ""))));
+        if (usesEvents) {
+            for (String type : List.of("Event", "EventListener", "JSObject", "Element"))
+                if (cu.getImports().stream().noneMatch(i -> i.getNameAsString().equals("one.dastec.javaw.dom." + type)))
+                    cu.addImport("one.dastec.javaw.dom." + type);
+            cu.getTypes().add(StaticJavaParser.parseTypeDeclaration(ComponentEvents.INTERFACE));
+            cu.getTypes().add(StaticJavaParser.parseTypeDeclaration(ComponentEvents.LISTEN_TYPE));
+            if (cu.getImports().stream().noneMatch(i -> i.getNameAsString().equals("java.util.ArrayList")))
+                cu.addImport("java.util.ArrayList");
+        }
         if (usesTemplates) {
             for (String type : List.of("Event", "EventListener", "JSObject", "Element"))
                 if (cu.getImports().stream().noneMatch(i -> i.getNameAsString().equals("one.dastec.javaw.dom." + type)))
@@ -256,6 +279,21 @@ public final class ComponentExtension implements SourceExtension {
                             .append("((").append(key.className()).append(") target, value); return; } ");
                 factories.addMember(StaticJavaParser.parseBodyDeclaration(
                         "static void __wc_assignProperty(WebComponent target, int key, Object value) " + assign.append("}")));
+                // Typed @name bindings on Java components of this module, by event key.
+                StringBuilder fire = new StringBuilder("{ ");
+                for (ComponentEvents.Event e : events.events()) {
+                    if (!templates.eventKeys().contains(e.key())) continue;
+                    String listener = "__WcOn" + e.key();
+                    cu.getTypes().add(StaticJavaParser.parseTypeDeclaration("interface " + listener + " { public void handle(" + e.simpleName() + " event); }"));
+                    factories.addMember(StaticJavaParser.parseBodyDeclaration("public static TemplatePart __wc_on" + e.key()
+                            + "(__JavawDomRunnable listener) { return Parts.on(listener); }"));
+                    factories.addMember(StaticJavaParser.parseBodyDeclaration("public static TemplatePart __wc_on" + e.key()
+                            + "(" + listener + " listener) { return Parts.__componentEvent(" + e.key() + ", listener); }"));
+                    fire.append("if (key == ").append(e.key()).append(") { if (record instanceof ").append(e.simpleName()).append(") ((")
+                            .append(listener).append(") listener).handle((").append(e.simpleName()).append(") record); return; } ");
+                }
+                factories.addMember(StaticJavaParser.parseBodyDeclaration(
+                        "static void __wc_componentEvent(int key, Object listener, Object record) " + fire.append("}")));
             }
             for (Definition d : definitions)
                 factories.addMethod(d.factory, com.github.javaparser.ast.Modifier.Keyword.PUBLIC, com.github.javaparser.ast.Modifier.Keyword.STATIC)

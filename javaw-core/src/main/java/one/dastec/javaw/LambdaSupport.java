@@ -175,6 +175,7 @@ final class LambdaSupport {
                     return arity != null && arities.contains(arity);
                 }).toList();
                 if (shaped.size() == 1) candidates = shaped;
+                else if (shaped.size() > 1) candidates = byOtherArguments(shaped, call, variables);
             }
             if (candidates.size() != 1) throw JavaSourcePreparation.error(callback, "Ambiguous callback target; assign to an explicitly typed functional interface first");
             MethodModel method = candidates.get(0);
@@ -196,6 +197,27 @@ final class LambdaSupport {
             return GenericTypes.substitute(method.getParamTypeNames().get(call.getArguments().indexOf(callback)), bindings);
         }
         throw JavaSourcePreparation.error(callback, "Callback requires a functional-interface target type");
+    }
+    /**
+     * Overloads that also differ in a parameter that is not a callback (listen(JSObject, ..., Runnable) and
+     * listen(Element, ..., Runnable)): keep those whose other parameters match the arguments' static types.
+     */
+    private List<MethodModel> byOtherArguments(List<MethodModel> candidates, MethodCallExpr call, Map<String,String> variables) {
+        List<String> types = new ArrayList<>();
+        for (Expression a : call.getArguments()) {
+            if (a.isLambdaExpr() || a.isMethodReferenceExpr()) { types.add(null); continue; }
+            try { types.add(GenericTypes.raw(type(a, variables))); }
+            catch (IllegalArgumentException unresolved) { return candidates; }
+        }
+        List<MethodModel> matching = candidates.stream().filter(m -> {
+            for (int i = 0; i < types.size(); i++) {
+                String argument = types.get(i);
+                if (argument == null || argument.equals("null")) continue;
+                if (!GenericTypes.raw(m.getParamTypeNames().get(i)).equals(argument)) return false;
+            }
+            return true;
+        }).toList();
+        return matching.size() == 1 ? matching : candidates;
     }
     private boolean sourceDeclares(String method) {
         return cu.findAll(MethodDeclaration.class).stream().anyMatch(m -> m.getNameAsString().equals(method));

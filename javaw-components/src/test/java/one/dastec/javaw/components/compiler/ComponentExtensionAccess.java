@@ -9,6 +9,11 @@ public final class ComponentExtensionAccess {
                 .setLanguageLevel(com.github.javaparser.ParserConfiguration.LanguageLevel.JAVA_17);
     }
 
+    /** The DOM event name of an event record with this simple name and no @EventName. */
+    public static String eventName(String simpleName) {
+        return ComponentEvents.kebab(simpleName);
+    }
+
     /** Runs the extension on {@code source} and returns the rewritten source text. */
     public static String rewrite(String source) {
         var cu = com.github.javaparser.StaticJavaParser.parse(source);

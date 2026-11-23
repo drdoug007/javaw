@@ -2451,6 +2451,9 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     } else if (arg.isDoubleLiteralExpr() || "double".equals(argType)) {
                         translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "f64");
                         collector.append("    call $__sb_append_f64\n");
+                    } else if (arg.isLongLiteralExpr() || "long".equals(argType) || "i64".equals(inferType(arg, localTypes, localElementTypes, localJavaTypes, null))) {
+                        translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i64");
+                        collector.append("    call $__str_from_i64\n    call $__sb_append_str\n");
                     } else {
                         translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
                         collector.append("    call $__sb_append_i32\n");
@@ -2480,7 +2483,10 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     } else if (arg0.isDoubleLiteralExpr() || "double".equals(argType)) {
                         translateExpression(arg0, collector, localTypes, localElementTypes, localJavaTypes, "f64");
                         collector.append("    call $__str_from_f64\n");
-                    } else if (arg0.isIntegerLiteralExpr() || "int".equals(argType) || "byte".equals(argType) || "short".equals(argType) || "long".equals(argType)) {
+                    } else if (arg0.isLongLiteralExpr() || "long".equals(argType) || "i64".equals(inferType(arg0, localTypes, localElementTypes, localJavaTypes, null))) {
+                        translateExpression(arg0, collector, localTypes, localElementTypes, localJavaTypes, "i64");
+                        collector.append("    call $__str_from_i64\n");
+                    } else if (arg0.isIntegerLiteralExpr() || "int".equals(argType) || "byte".equals(argType) || "short".equals(argType)) {
                         translateExpression(arg0, collector, localTypes, localElementTypes, localJavaTypes, "i32");
                         collector.append("    call $__str_from_i32\n");
                     } else {
@@ -3720,7 +3726,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             String primitive=BoxingSupport.primitive(javaType);
             String function=switch(primitive) { case "long" -> "i64"; case "double" -> "f64"; case "float" -> "f32"; case "boolean" -> "bool"; case "char" -> "char"; default -> "i32"; };
             collector.append("    call $__str_from_").append(function).append("\n    end\n");
-        } else if ("i64".equals(exprType)) {
+        } else if ("i64".equals(exprType) || "long".equals(javaType)) {
+            // The Java type also covers calls whose Wasm type inference falls back to i32 (p.id() through a vtable).
             translateExpression(expr,collector,localTypes,localElementTypes,localJavaTypes,"i64");
             collector.append("    call $__str_from_i64\n");
         } else if (isStringType(expr, localJavaTypes)) {

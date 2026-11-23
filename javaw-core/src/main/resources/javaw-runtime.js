@@ -1301,6 +1301,69 @@
             }
         }
 
+        // Component events (docs/web-components.md, "Events"). Java builds the detail object with these calls,
+        // then wcFire dispatches a CustomEvent whose hidden token lets Java listeners find the original record
+        // while the dispatch runs.
+        wcDetailBegin() { (this.wcDetails || (this.wcDetails = [])).push({}); }
+        wcDetailAbort() { this.wcDetails.pop(); }
+        wcDetailSet(name, value) { const s = this.wcDetails; s[s.length - 1][name] = value; }
+        wcDetailEnter() { this.wcDetails.push({}); }
+        wcDetailExit(name) { const value = this.wcDetails.pop(); this.wcDetailSet(name, value); }
+
+        wcFire(host, type, flags, token) {
+            const detail = this.wcDetails.pop();
+            const view = host.ownerDocument && host.ownerDocument.defaultView;
+            const Custom = (view && view.CustomEvent) || globalThis.CustomEvent;
+            const event = new Custom(type, { detail, bubbles: (flags & 1) !== 0, composed: (flags & 2) !== 0, cancelable: (flags & 4) !== 0 });
+            const key = this.wcRecordKey || (this.wcRecordKey = Symbol('javaw.record'));
+            Object.defineProperty(event, key, { value: token, configurable: true });
+            try {
+                return host.dispatchEvent(event);
+            } finally {
+                // The record is only reachable while the dispatch runs.
+                delete event[key];
+            }
+        }
+
+        wcEventToken(event) {
+            const key = this.wcRecordKey;
+            return key && event && Object.prototype.hasOwnProperty.call(event, key) ? event[key] : -1;
+        }
+
+        // listen(target, type, listener): added while the component is connected. The JS function refers to
+        // the host, so a connected component stays alive through the target; disconnecting removes it.
+        wcListen(host, target, type, index, on) {
+            const state = host.__javawComponent;
+            if (!state || !target) return;
+            const listens = state.listens || (state.listens = new Map());
+            if (on) {
+                if (listens.has(index)) return;
+                const fn = event => this.wcListenDispatch(host, index, event, type);
+                target.addEventListener(type, fn);
+                listens.set(index, { target, type, fn });
+            } else {
+                const entry = listens.get(index);
+                if (!entry) return;
+                listens.delete(index);
+                entry.target.removeEventListener(entry.type, entry.fn);
+            }
+        }
+
+        wcListenDispatch(host, index, event, type) {
+            const state = host.__javawComponent;
+            const exports = this.instance && this.instance.exports;
+            if (!state || state.scope.released || !exports) return;
+            const temporary = !this.reverseMap.has(event);
+            const handle = this.getOrCreateHandle(event);
+            try {
+                exports.__wc_listenDispatch(state.peer, index, handle);
+            } catch (err) {
+                this.reportCallbackError(err, type);
+            } finally {
+                if (temporary) this.releaseHandle(handle);
+            }
+        }
+
         wcRelease(id) {
             const ref = this.wcInstances && this.wcInstances.get(id);
             const instance = ref && ref.deref();

@@ -3,6 +3,9 @@ package one.dastec.javaw.components;
 import java.util.Map;
 
 import one.dastec.javaw.dom.Element;
+import one.dastec.javaw.dom.Event;
+import one.dastec.javaw.dom.EventListener;
+import one.dastec.javaw.dom.JSObject;
 import one.dastec.javaw.dom.ShadowRoot;
 
 /**
@@ -148,6 +151,45 @@ public abstract class WebComponent {
 
     /** After every update; field writes here schedule a new cycle. */
     protected void updated(Changes changes) {
+    }
+
+    /**
+     * Dispatches {@code event} from the host element as a {@code CustomEvent}. Returns
+     * {@code !event.defaultPrevented}, which can only be {@code false} for a cancelable event.
+     * Not available in the constructor.
+     */
+    protected boolean dispatch(ComponentEvent event) {
+        return true;
+    }
+
+    /**
+     * Listens to {@code type} events on a long-lived target such as {@link #window()} or {@link #document()}:
+     * the listener is added while the component is connected and removed when it is disconnected, so the
+     * target does not keep a removed component alive.
+     */
+    protected void listen(JSObject target, String type, EventListener<Event> listener) {
+    }
+
+    /** {@link #listen(JSObject, String, EventListener)} with a listener that ignores the event. */
+    protected void listen(JSObject target, String type, Runnable listener) {
+    }
+
+    /** {@link #listen(JSObject, String, EventListener)} for an element target. */
+    protected void listen(Element target, String type, EventListener<Event> listener) {
+    }
+
+    /** {@link #listen(JSObject, String, EventListener)} for an element target. */
+    protected void listen(Element target, String type, Runnable listener) {
+    }
+
+    /** The global {@code window}, as a {@link #listen} target. */
+    protected static JSObject window() {
+        return null;
+    }
+
+    /** The {@code document}, as a {@link #listen} target. */
+    protected static JSObject document() {
+        return null;
     }
 
     /** The custom element itself. */
