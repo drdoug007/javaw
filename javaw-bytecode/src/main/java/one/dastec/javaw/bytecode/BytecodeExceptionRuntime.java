@@ -166,6 +166,9 @@ public final class BytecodeExceptionRuntime {
             paths.add("java/util/concurrent/TimeUnit.java");
             paths.add("java/util/concurrent/CountDownLatch.java");
             paths.add("java/util/concurrent/Semaphore.java");
+            paths.add("java/time/DateTimeException.java");
+            paths.add("java/time/format/DateTimeParseException.java");
+            paths.add("java/time/Duration.java");
             paths.add("javaw/runtime/ExceptionSupport.java");
             paths.add("javaw/runtime/ReflectionSupport.java");
             paths.add("javaw/runtime/Decimal.java");

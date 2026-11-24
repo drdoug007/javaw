@@ -60,6 +60,6 @@
 | T53 | Timed tryLock/offer/poll with TimeUnit (single-threaded) | T52 | done |
 | T54 | CountDownLatch (single-threaded) | - | done |
 | T55 | Semaphore (single-threaded) | - | done |
-| T56 | java.time.Duration core subset | - | todo |
+| T56 | java.time.Duration core subset | - | done |
 | T57 | java.sql exception family (SQLException, SQLWarning, subclasses) | - | todo |
 | T58 | AssertionError | - | todo |

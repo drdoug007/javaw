@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T56: java.time.Duration core subset, DateTimeException and DateTimeParseException. See tasks/T56-duration.md. */
-@Tag("agent-pending")
 class BytecodeDurationTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.time.DateTimeException;
