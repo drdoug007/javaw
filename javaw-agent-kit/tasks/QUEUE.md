@@ -67,6 +67,6 @@
 | T60 | TemporalUnit and ChronoUnit (with Duration/TimeUnit unit members) | T52, T56 | done |
 | T61 | java.time.Instant core subset | T56 | done |
 | T62 | ClassNotFoundException | - | done |
-| T63 | java.util.Date millisecond core | T61 | todo |
+| T63 | java.util.Date millisecond core | T61 | done |
 | T64 | Timed CountDownLatch.await and Semaphore.tryAcquire (single-threaded) | T52, T54, T55 | todo |
 | T65 | Throwable implements Serializable | - | todo |

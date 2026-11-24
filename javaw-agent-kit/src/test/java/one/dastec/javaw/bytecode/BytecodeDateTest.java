@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T63: java.util.Date millisecond core. See tasks/T63-date.md. */
-@Tag("agent-pending")
 class BytecodeDateTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.time.Instant;
