@@ -825,8 +825,21 @@ public class ClassRegistry {
         List<MethodModel> inferred = new ArrayList<>();
         List<Map<String, String>> substitutions = new ArrayList<>();
         Set<String> names = new HashSet<>(); variables.forEach(t -> names.add(t.getNameAsString()));
+        // A generic supertype target (List<String> x = new ArrayList<>(...)) binds the variables it maps, as in Java.
+        Map<String, String> fromTarget = new LinkedHashMap<>();
+        if (target != null && !GenericTypes.arguments(target).isEmpty()) {
+            String declared = GenericTypes.raw(sourceType) + "<" + variables.stream().map(t -> t.getNameAsString())
+                    .collect(java.util.stream.Collectors.joining(",")) + ">";
+            String aligned = asSuperType(declared, GenericTypes.raw(target));
+            if (aligned != null) {
+                List<String> formal = GenericTypes.arguments(aligned), actual = GenericTypes.arguments(target);
+                if (formal.size() == actual.size())
+                    for (int i = 0; i < formal.size(); i++)
+                        if (names.contains(formal.get(i)) && !actual.get(i).startsWith("?")) fromTarget.put(formal.get(i), actual.get(i));
+            }
+        }
         for (MethodModel constructor : getClass(sourceType).getConstructors()) {
-            Map<String, String> bindings = new LinkedHashMap<>();
+            Map<String, String> bindings = new LinkedHashMap<>(fromTarget);
             for (int i = 0; i < Math.min(arguments.size(), constructor.getParamTypeNames().size()); i++)
                 GenericTypes.constrain(constructor.getParamTypeNames().get(i), arguments.get(i), names, bindings, this);
             for (var variable : variables) bindings.putIfAbsent(variable.getNameAsString(), variable.getTypeBound().isEmpty() ? "Object" : variable.getTypeBound().get(0).asString());

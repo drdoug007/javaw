@@ -1,6 +1,6 @@
 # Web components from Java classes (design contract)
 
-Status: **partly implemented.** Both prerequisites and M1 to M5 are done, and the M6 artifacts subset (manifest, `.d.ts`, ES module, `@Language`) is implemented; see [Implementation status](#implementation-status). The rest of this document records the agreed authoring model and the runtime contracts an implementation must satisfy. Milestones and their evidence are tracked in [Todo.md section 15](../Todo.md#15-web-components-from-java-classes-browser-interop-track). The track sits outside the AGENTS.md goal order and does not take priority over compiler correctness or library execution.
+Status: **partly implemented.** Both prerequisites and M1 to M5 are done, and M6 (manifest, `.d.ts`, ES module, `@Language`, the opt-in Chromium smoke test and the size budget) is implemented; see [Implementation status](#implementation-status). The rest of this document records the agreed authoring model and the runtime contracts an implementation must satisfy. Milestones and their evidence are tracked in [Todo.md section 15](../Todo.md#15-web-components-from-java-classes-browser-interop-track). The track sits outside the AGENTS.md goal order and does not take priority over compiler correctness or library execution.
 
 The aim is a Lit-like authoring experience in Java. A class annotated `@CustomElement` becomes a native browser custom element with reactive fields, declarative templates, scoped styles and typed events. Lit relies on TypeScript; this design relies on the Java type system and the javaw whole-program compiler instead.
 
@@ -114,7 +114,7 @@ Implemented (M5 events; evidence in `EventsTest`, `LongTextTest`, `CallbackOverl
 - **Typed bindings across components.** `@name=${...}` on the tag of a Java component of the module that declares an event `name` gives a one-parameter listener the event record itself (the same instance that was dispatched; `Todo.CloseRequestEvent e` in a method reference); zero-parameter listeners work as before. The `CustomEvent` carries a hidden token for the record only while `dispatch` runs, so a same-named event dispatched from JS (which has no record) does not call the typed Java listener; JS listeners see every event. Other event names on such tags keep the [event table](#binding-kinds) types.
 - **`listen(target, type, listener)`** for `Element` and `JSObject` targets, with an `EventListener<Event>` or a zero-parameter listener. `window()` and `document()` give the runtime document's window and document. A registration is added while the component is connected, removed on disconnect, and added again on reconnect, so a removed component is not kept alive by the target: 100 components that listen on `window` and `document` are all finalized after removal. Call `listen` once per registration (in the constructor or `firstUpdated`, not in `connected()`), because registrations persist across reconnection.
 - **Core fixes.** `String.valueOf(long)` and `StringBuilder.append(long)` used the 32-bit conversion and produced invalid WAT for `long` values (`LongTextTest`). Callback overloads with the same shape that differ in another parameter's type, such as the two `listen` overloads, were an "Ambiguous callback target" error; the other arguments' static types now select the overload (`CallbackOverloadArgumentTest`).
-- **Differences and limitations.** Lit has no dispatch helper or event defaults (they are `CustomEvent`'s, all `false`), so there is no differential test against lit-html. happy-dom does not retarget `event.target` across shadow boundaries at the document, so retargeting and `composed` across real shadow roots wait for the Chromium smoke test (M6). Declared events are not yet written to a manifest (M6). Typed bindings see only components of the same compilation unit. `listen` listeners receive a plain `Event` (no typed subclasses) and there is no call to remove a single registration. Event record simple names must be unique in the module, and event records cannot be generic or have varargs components.
+- **Differences and limitations.** Lit has no dispatch helper or event defaults (they are `CustomEvent`'s, all `false`), so there is no differential test against lit-html. happy-dom does not retarget `event.target` across shadow boundaries at the document, so retargeting and `composed` across real shadow roots are checked in the Chromium smoke test (M6). Declared events are written to the manifest (M6). Typed bindings see only components of the same compilation unit. `listen` listeners receive a plain `Event` (no typed subclasses) and there is no call to remove a single registration. Event record simple names must be unique in the module, and event records cannot be generic or have varargs components.
 
 
 Remaining limitations: map order follows the map's iteration order, and the source compiler has `HashMap` but no `LinkedHashMap` or `Map.of`, so the order of classes in the first commit is hash order. `ref` takes a `Ref` object only (no callback form), and refs are not cleared when the component is disconnected, only when their template is removed. Fully qualified `java.util` type names in declarations or `new` (`new java.util.ArrayList<String>()`) do not compile correctly in the source compiler; import the types. List items must be classes: records passed as `Object` are not supported by the source compiler yet (Todo stage 1). The 200-component finalization test runs without collection inside a 20-page shared memory, so per-part memory has little headroom; directive parts reuse the existing value field.
@@ -131,19 +131,36 @@ Differences from the plan, decided for this subset:
 - **No import side effect.** Importing `<module>.components.js` does not instantiate the module; call `load()`. This keeps `attach` possible for pages that instantiate the module themselves.
 - **Types follow what the runtime defines.** Only the component's own `@Property` fields are JS properties and attributes (inherited reactive fields are not), so the manifest lists only those. Slots and parts from shared helper classes outside the component's class chain are not found.
 
-Not yet implemented in M6: the opt-in Chromium smoke test and the recorded size budget for `javaw-counter` and `todo-list`; record, list, enum and map property types (the [marshalling table](#generated-artifacts-and-typescript-interop) applies once those properties exist); CSS custom properties in the manifest.
+Implemented (M6 Chromium smoke test and size budget):
+- **`ChromiumSmokeTest` (opt-in).** Runs only when `-Djavaw.chrome=<binary>` or `JAVAW_CHROME` names a local Chrome or Chromium executable (for example Playwright's `chrome-headless-shell`); nothing is downloaded and the offline suite skips it. The test serves the compiled module from a loopback `HttpServer` with `Cross-Origin-Opener-Policy`/`Cross-Origin-Embedder-Policy`, because javaw memory is shared and needs a cross-origin isolated page. Headless Chrome loads the page, which POSTs its results back. It checks:
+  - upgrade timing: an element parsed before `load()` gets `attributeChanged("mode", ...)` before `connected()` when it is upgraded, which happy-dom skips;
+  - `adopted()`: moving an element into `document.implementation.createHTMLDocument()` runs `disconnected`, `adopted`, then `connected`;
+  - events: a composed `dispatch` from a component inside another component's shadow root is seen as the inner host in the outer root and retargeted to the outer host at the document; `composedPath()[0]` is the inner host; an `@EventOptions(composed = false)` event never reaches the document;
+  - styles: one constructable sheet per class in `adoptedStyleSheets`, shared between instances, no `<style>` fallback, and the computed colours of `:host`, shadow content and a nested component;
+  - the `javaw-counter` and `todo-list` examples, each in its own module, loaded on one page through their `components.js` modules: clicks, typed input, keyed list updates, `?disabled`, reflected attributes and event details.
+  It passed on Playwright's chrome-headless-shell (build 1243) and Google Chrome 158 on macOS.
+- **Size budget.** [`examples/components`](../examples/components) holds `JavawCounter.java` (`javaw-counter`) and `TodoList.java` (`todo-list`, the authoring-model example within the implemented subset: a `Todo` class instead of a record and `@State` items instead of a `List` `@Property`). `SizeBudgetTest` compiles each at `-O0` and fails when the `.wasm`, the `<module>.components.js` or `javaw-runtime.js` exceeds its budget in `size-budget.properties` (about 5% headroom). Recorded at M6:
+
+  | Example | `.wasm` | `components.js` | `javaw-runtime.js` (shared) |
+  | --- | --- | --- | --- |
+  | `javaw-counter` | 223,295 B | 2,122 B | 180,886 B |
+  | `todo-list` | 227,840 B | 2,106 B | 180,886 B |
+
+  Most of each module is the runtime support linked into every javaw module; the component code adds about 4.5 KB between the two.
+- **Core fixes.** `ArrayList` had no `ArrayList(Collection)` constructor, and a diamond whose target is a generic supertype (`List<String> x = new ArrayList<>()`) inferred `ArrayList<Object>`; the target's arguments now bind the class variables first (`ArrayListCopyConstructorTest`, against the JVM).
+
+Not yet implemented in M6: record, list, enum and map property types (the [marshalling table](#generated-artifacts-and-typescript-interop) applies once those properties exist); CSS custom properties in the manifest.
 
 Known compiler gaps that affect components (Todo section 13): `+=` on a String field concatenates only for locals and statics (reactive fields are unaffected, because their writes go through setters).
 
 Known M1 limitations:
 - **Scope growth.** A live component's scope keeps every node it has handed to Java, and those nodes' listener closures, until the component is released. A long-lived component that repeatedly replaces its own DOM therefore grows (see [DOM handle scopes](dom-handle-scopes.md#limitations)). M3's renderer will release handles for the DOM it removes.
-- **`adopted` is untested.** The hook is wired, but happy-dom 21.0.4 never calls `adoptedCallback`, so it waits for the Chromium smoke test.
+- **`adopted` is covered only in Chromium.** happy-dom 21.0.4 never calls `adoptedCallback`; the opt-in Chromium smoke test checks it.
 - **Multi-file diagnostics.** In a build with several files, the "extension missing" diagnostic for an import names the first file.
 
 Not yet implemented in M1:
 - typed event subclasses (`MouseEvent` and others);
 - a compile-time diagnostic for components used from worker entry points;
-- the opt-in Chromium smoke test, which is needed for upgrade-time attribute reactions because happy-dom skips them.
 
 ## Contents
 

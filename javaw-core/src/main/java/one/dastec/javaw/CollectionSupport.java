@@ -114,6 +114,11 @@ final class CollectionSupport {
                     if (capacity < 0) throw new IllegalArgumentException();
                     data = new Object[capacity];
                 }
+                public ArrayList(Collection<? extends E> other) {
+                    if (other == null) throw new NullPointerException();
+                    data = new Object[other.size() + 8];
+                    addAll(other);
+                }
                 public int size() { return count; }
                 public boolean isEmpty() { return count==0; }
                 public boolean add(E value) {
