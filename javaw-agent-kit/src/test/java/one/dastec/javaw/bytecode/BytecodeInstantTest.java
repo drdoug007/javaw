@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T61: java.time.Instant core subset (no Temporal/TemporalAccessor). Expected values come from the JVM; see tasks/T61-instant.md. */
-@Tag("agent-pending")
 class BytecodeInstantTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.io.Serializable;

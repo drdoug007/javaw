@@ -186,6 +186,7 @@ public final class BytecodeExceptionRuntime {
             paths.add("java/time/temporal/TemporalUnit.java");
             paths.add("java/time/temporal/UnsupportedTemporalTypeException.java");
             paths.add("java/time/temporal/ChronoUnit.java");
+            paths.add("java/time/Instant.java");
             paths.add("javaw/runtime/ExceptionSupport.java");
             paths.add("javaw/runtime/ReflectionSupport.java");
             paths.add("javaw/runtime/Decimal.java");
