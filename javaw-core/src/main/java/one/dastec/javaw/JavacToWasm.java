@@ -21,6 +21,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -112,9 +113,18 @@ public class JavacToWasm {
                 }
             }
 
-            String watContent = generateWat(cus, sourceMapGen);
+            Map<String, String> artifacts = new LinkedHashMap<>();
+            String watContent = generateWat(cus, sourceMapGen, stem, artifacts);
             if (watFilePath.getParent() != null) {
                 Files.createDirectories(watFilePath.getParent());
+            }
+            // Extension artifacts (custom-elements.json, .d.ts, ES module) go next to the .wasm.
+            Path artifactDir = (wasmFilePath != null ? wasmFilePath : watFilePath).toAbsolutePath().getParent();
+            for (var artifact : artifacts.entrySet()) {
+                Files.createDirectories(artifactDir);
+                Path target = artifactDir.resolve(artifact.getKey());
+                Files.writeString(target, artifact.getValue(), StandardCharsets.UTF_8);
+                System.out.println("Artifact generated: " + target);
             }
             try (FileWriter writer = new FileWriter(watFilePath.toFile())) {
                 writer.write(watContent);
@@ -225,7 +235,8 @@ public class JavacToWasm {
                 String vType = mapType(vd.getType());
                 if (vType == null) vType = "i32";
                 String initVal = "0";
-                if (vd.getInitializer().isPresent() && !BoxingSupport.boxed(vd.getTypeAsString())) {
+                // Only constant variables stay folded; FieldInitializerSupport lowered every other initializer.
+                if (FieldInitializerSupport.folded(fd, vd)) {
                     Expression initExpr = vd.getInitializer().get();
                     if (initExpr.isIntegerLiteralExpr()) {
                         initVal = initExpr.asIntegerLiteralExpr().getValue();
@@ -451,12 +462,17 @@ public class JavacToWasm {
     }
 
     public static String generateWat(List<CompilationUnit> cus, SourceMapGenerator sourceMapGen) {
+        return generateWat(cus, sourceMapGen, null, null);
+    }
+
+    /** Like {@link #generateWat(List, SourceMapGenerator)}; a null {@code moduleName} uses the first source's stem. */
+    public static String generateWat(List<CompilationUnit> cus, SourceMapGenerator sourceMapGen, String moduleName, Map<String, String> artifacts) {
         if (cus.isEmpty()) {
             return "(module)\n";
         }
         if (cus.size() == 1) {
             String sourceName = cus.get(0).getStorage().map(s -> s.getPath().getFileName().toString()).orElse("Source.java");
-            return generateWat(cus.get(0), sourceMapGen, sourceName);
+            return generateWat(cus.get(0), sourceMapGen, sourceName, moduleName != null ? moduleName : stem(sourceName), artifacts);
         }
         Map<String, String> typeNames = JavaSourcePreparation.typeNames(cus);
         CompilationUnit merged = new CompilationUnit();
@@ -472,14 +488,113 @@ public class JavacToWasm {
             cu.getTypes().forEach(t -> merged.getTypes().add(t.clone()));
         }
         String sourceName = cus.get(0).getStorage().map(s -> s.getPath().getFileName().toString()).orElse("Source.java");
-        return generateWat(merged, sourceMapGen, sourceName);
+        return generateWat(merged, sourceMapGen, sourceName, moduleName != null ? moduleName : stem(sourceName), artifacts);
     }
 
     public static String generateWat(CompilationUnit cu) {
         return generateWat(cu, null, "Source.java");
     }
 
+    private static final List<one.dastec.javaw.spi.SourceExtension> EXTENSIONS = loadExtensions();
+
+    private static List<one.dastec.javaw.spi.SourceExtension> loadExtensions() {
+        List<one.dastec.javaw.spi.SourceExtension> loaded = new ArrayList<>();
+        java.util.ServiceLoader.load(one.dastec.javaw.spi.SourceExtension.class, JavacToWasm.class.getClassLoader()).forEach(loaded::add);
+        return List.copyOf(loaded);
+    }
+
+    /** Source diagnostics for {@link one.dastec.javaw.spi.SourceExtension}s, in the compiler's usual format. */
+    public static IllegalArgumentException sourceError(com.github.javaparser.ast.Node node, String message) {
+        return JavaSourcePreparation.error(node, message);
+    }
+
+    /**
+     * Replaces each text block with the equivalent string literal (JLS 3.10.6: incidental whitespace stripped,
+     * then escapes translated), so later passes only see string literals. Runs after the source extensions,
+     * which read some text blocks' raw characters.
+     */
+    static void lowerTextBlocks(CompilationUnit cu) {
+        for (var block : cu.findAll(com.github.javaparser.ast.expr.TextBlockLiteralExpr.class)) {
+            String raw = block.getValue();
+            // JavaParser keeps the whitespace after the opening delimiter and that line's terminator.
+            int nl = raw.indexOf('\n');
+            if (nl >= 0 && raw.substring(0, nl).isBlank()) raw = raw.substring(nl + 1);
+            String value = raw.replace("\r\n", "\n").replace('\r', '\n').stripIndent().translateEscapes();
+            StringBuilder escaped = new StringBuilder();
+            for (char c : value.toCharArray()) {
+                switch (c) {
+                    case '\\' -> escaped.append("\\\\");
+                    case '"' -> escaped.append("\\\"");
+                    case '\n' -> escaped.append("\\n");
+                    case '\t' -> escaped.append("\\t");
+                    case '\r' -> escaped.append("\\r");
+                    default -> {
+                        if (c < 0x20) escaped.append(String.format("\\u%04x", (int) c));
+                        else escaped.append(c);
+                    }
+                }
+            }
+            StringLiteralExpr literal = new StringLiteralExpr(escaped.toString());
+            block.getRange().ifPresent(literal::setRange);
+            block.replace(literal);
+        }
+    }
+
+    /** Runs the discovered source extensions; returns their custom sections in order and collects their artifacts. */
+    private static Map<String, String> runExtensions(CompilationUnit cu, String sourceName, String moduleName, Map<String, String> artifacts) {
+        Map<String, String> sections = new LinkedHashMap<>();
+        Set<String> owned = new HashSet<>();
+        for (var extension : EXTENSIONS) {
+            owned.addAll(extension.packages());
+            extension.prepare(cu, new one.dastec.javaw.spi.SourceExtension.Output() {
+                @Override public void customSection(String name, String payload) {
+                    if (sections.putIfAbsent(name, payload) != null) throw new IllegalStateException("Duplicate custom section " + name);
+                }
+                @Override public void artifact(String fileName, String content) {
+                    if (fileName.isEmpty() || fileName.contains("/") || fileName.contains("\\") || fileName.startsWith("."))
+                        throw new IllegalStateException("Artifact names are plain file names: " + fileName);
+                    if (artifacts != null && artifacts.putIfAbsent(fileName, content) != null)
+                        throw new IllegalStateException("Duplicate artifact " + fileName);
+                }
+                @Override public String moduleName() { return moduleName; }
+            });
+        }
+        String pkg = "one.dastec.javaw.components";
+        if (!owned.contains(pkg)) {
+            List<com.github.javaparser.ast.Node> uses = new ArrayList<>();
+            for (var imported : cu.getImports())
+                if (imported.getNameAsString().equals(pkg) || imported.getNameAsString().startsWith(pkg + ".")) uses.add(imported);
+            for (var type : cu.findAll(com.github.javaparser.ast.type.ClassOrInterfaceType.class))
+                if (type.getScope().map(Object::toString).filter(pkg::equals).isPresent()) uses.add(type);
+            for (var annotation : cu.findAll(com.github.javaparser.ast.expr.AnnotationExpr.class))
+                if (annotation.getNameAsString().startsWith(pkg + ".")) uses.add(annotation);
+            if (!uses.isEmpty()) {
+                var use = uses.get(0);
+                String message = "Uses " + pkg + " but the javaw-components compiler extension is not on the compiler classpath";
+                if (use instanceof com.github.javaparser.ast.ImportDeclaration)
+                    throw new IllegalArgumentException(sourceName + use.getBegin().map(p -> ":" + p.line + ":" + p.column).orElse("") + ": " + message);
+                throw JavaSourcePreparation.error(use, message);
+            }
+        }
+        return sections;
+    }
+
     public static String generateWat(CompilationUnit cu, SourceMapGenerator sourceMapGen, String sourceName) {
+        return generateWat(cu, sourceMapGen, sourceName, stem(sourceName), null);
+    }
+
+    private static String stem(String fileName) {
+        String name = fileName == null ? "module" : Path.of(fileName).getFileName().toString();
+        int dot = name.lastIndexOf('.');
+        return dot > 0 ? name.substring(0, dot) : name;
+    }
+
+    /**
+     * Generates the module's WAT. Build artifacts that source extensions contribute (for example the web
+     * component manifest and TypeScript declarations) are added to {@code artifacts} when it is not null.
+     */
+    public static String generateWat(CompilationUnit cu, SourceMapGenerator sourceMapGen, String sourceName,
+                                     String moduleName, Map<String, String> artifacts) {
         StringBuilder watOutput = new StringBuilder();
         watOutput.append("(module\n");
 
@@ -487,10 +602,15 @@ public class JavacToWasm {
         JavaSourcePreparation.markSource(cu, sourceName);
         JavaSourcePreparation.normalizeTypes(cu, JavaSourcePreparation.typeNames(List.of(cu)));
         SourceRuntimeSupport.prepare(cu);
+        Map<String, String> extensionSections = runExtensions(cu, sourceName, moduleName, artifacts);
+        lowerTextBlocks(cu);
+        JavaSourcePreparation.normalizeTypes(cu, JavaSourcePreparation.typeNames(List.of(cu)));
         ReflectionSupport reflection = ReflectionSupport.prepare(cu);
         SpringWebSupport springWeb = SpringWebSupport.lower(cu);
         DecimalSupport.addTypes(cu);
+        FloatTextSupport.addTypes(cu);
         LibrarySupport.addTypes(cu);
+        DomCallbackSupport.addTypes(cu);
         IoSupport.addTypes(cu);
         CollectionSupport.addTypes(cu);
         StreamSupport.addTypes(cu);
@@ -499,6 +619,7 @@ public class JavacToWasm {
         JavaSourcePreparation.normalizeTypes(cu, JavaSourcePreparation.typeNames(List.of(cu)));
         BoxingSupport.addWrappers(cu);
         if (reflection != null) reflection.finish(cu);
+        boolean staticInitialization = FieldInitializerSupport.lower(cu);
         JavaSourcePreparation.normalizeVarargs(cu);
         JavaSourcePreparation.resolveLocalScopes(cu);
         LambdaSupport.lower(cu);
@@ -539,6 +660,11 @@ public class JavacToWasm {
                     .append(SourceMapGenerator.escapeRawCustomSectionPayload(exportsJson))
                     .append("\")\n");
         }
+
+        for (var section : extensionSections.entrySet())
+            watOutput.append("  (@custom \"").append(section.getKey()).append("\" \"")
+                    .append(SourceMapGenerator.escapeRawCustomSectionPayload(section.getValue()))
+                    .append("\")\n");
 
         List<String> jsCodeBlocks = JsAnnotationHelper.collectJsCodeBlocks(cu);
         if (!jsCodeBlocks.isEmpty()) {
@@ -630,13 +756,19 @@ public class JavacToWasm {
         WasmRuntime.emitRuntimeFunctions(watOutput, trueOffset, falseOffset, !wasiImports.isEmpty());
 
         SourceMapTracker tracker = sourceMapGen != null ? new SourceMapTracker(sourceMapGen, sourceName) : null;
+        if (tracker != null) tracker.setFilter(JavaSourcePreparation::fromUserSource);
         cu.accept(new WasmGeneratorVisitor(stringPool, globalVars, classRegistry, tracker, jsSnippets), watOutput);
         String initializer=cu.findAll(com.github.javaparser.ast.body.EnumDeclaration.class).isEmpty() ? "$__init_classes" : "$__init_enums";
-        if(cu.getClassByName("BigDecimal").isPresent()) {
-            watOutput.append("  (func $__javaw_initialize\n    call ").append(initializer)
-                .append("\n    call ").append(classRegistry.findMethod("BigInteger","__javaw_initialize").getFunctionName())
-                .append("\n    call ").append(classRegistry.findMethod("BigDecimal","__javaw_initialize").getFunctionName())
-                .append(")\n  (start $__javaw_initialize)\n");
+        boolean decimal = cu.getClassByName("BigDecimal").isPresent();
+        if(decimal || staticInitialization) {
+            watOutput.append("  (func $__javaw_initialize\n    call ").append(initializer);
+            if (decimal)
+                watOutput.append("\n    call ").append(classRegistry.findMethod("BigInteger","__javaw_initialize").getFunctionName())
+                    .append("\n    call ").append(classRegistry.findMethod("BigDecimal","__javaw_initialize").getFunctionName());
+            // Static field initializers and static blocks, after class descriptors and enum constants exist.
+            if (staticInitialization)
+                watOutput.append("\n    call ").append(classRegistry.findMethod(FieldInitializerSupport.RUNNER_CLASS, FieldInitializerSupport.RUNNER_METHOD).getFunctionName());
+            watOutput.append(")\n  (start $__javaw_initialize)\n");
         } else watOutput.append("  (start ").append(initializer).append(")\n");
         ManagedHeap.emitCollector(watOutput);
         watOutput.append(")\n");
@@ -664,14 +796,15 @@ public class JavacToWasm {
         SourceMapGenerator sourceMapGen = new SourceMapGenerator(stem + ".wat");
         sourceMapGen.addSource(fileName, javaSource);
 
-        String wat = generateWat(cu, sourceMapGen, fileName);
+        Map<String, String> artifacts = new LinkedHashMap<>();
+        String wat = generateWat(cu, sourceMapGen, fileName, stem, artifacts);
         byte[] wasm = assembleWasm(wat, optimize);
         Map<String, JsSnippetModel> jsSnippets = JsAnnotationHelper.collectJsSnippets(cu);
         ClassRegistry classRegistry = ClassRegistry.build(cu);
         Map<String, one.dastec.javaw.js.JsExportModel> jsExports = JsAnnotationHelper.collectJsExports(cu, classRegistry);
         List<String> jsCodeBlocks = JsAnnotationHelper.collectJsCodeBlocks(cu);
         Map<String, String> jsResources = JsAnnotationHelper.collectJsResources(cu);
-        return new CompilationResult(wat, wasm, sourceMapGen, jsSnippets, jsExports, jsCodeBlocks, jsResources);
+        return new CompilationResult(wat, wasm, sourceMapGen, jsSnippets, jsExports, jsCodeBlocks, jsResources).withArtifacts(artifacts);
     }
 
     public static byte[] assembleWasm(String watContent, boolean optimize) {
@@ -718,6 +851,7 @@ public class JavacToWasm {
         private final Map<String, one.dastec.javaw.js.JsExportModel> jsExports;
         private final List<String> jsCodeBlocks;
         private final Map<String, String> jsResources;
+        private Map<String, String> artifacts = java.util.Collections.emptyMap();
 
         public CompilationResult(String wat, byte[] wasm) {
             this(wat, wasm, null, java.util.Collections.emptyMap(), java.util.Collections.emptyMap(), java.util.Collections.emptyList(), java.util.Collections.emptyMap());
@@ -806,6 +940,16 @@ public class JavacToWasm {
 
         public Map<String, String> getJsResources() {
             return jsResources;
+        }
+
+        /** Build artifacts contributed by source extensions, by file name (see {@code SourceExtension.Output#artifact}). */
+        public Map<String, String> getArtifacts() {
+            return artifacts;
+        }
+
+        public CompilationResult withArtifacts(Map<String, String> artifacts) {
+            this.artifacts = artifacts == null ? java.util.Collections.emptyMap() : java.util.Collections.unmodifiableMap(new LinkedHashMap<>(artifacts));
+            return this;
         }
 
         public String getJsResourcesJson() {

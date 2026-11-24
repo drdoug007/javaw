@@ -50,6 +50,49 @@ class LambdaSupportTest {
             """, false).getWasm();
         OverloadResolutionTest.execute(wasm,"assert.equal(e.test(),5);");
     }
+    @Test void selectsFunctionalOverloadsByCallbackArity() throws Exception {
+        byte[] wasm = JavacToWasm.compile("App.java", """
+            interface Action { public int run(); }
+            interface Handler { public int handle(int value); }
+            class App {
+                public int base;
+                public App(int base) { this.base=base; }
+                public static int on(Action action) { return 1000 + action.run(); }
+                public static int on(Handler handler) { return 2000 + handler.handle(5); }
+                public static int zero() { return 7; }
+                public static int one(int value) { return value * 3; }
+                private int bound() { return base; }
+                public int viaThis() { return on(this::bound); }
+                public static int test() {
+                    if (on(() -> 4) != 1004) return -1;
+                    if (on(v -> v + 1) != 2006) return -2;
+                    if (on(App::zero) != 1007) return -3;
+                    if (on(App::one) != 2015) return -4;
+                    if (new App(9).viaThis() != 1009) return -5;
+                    return 1;
+                }
+            }
+            """,false).getWasm();
+        OverloadResolutionTest.execute(wasm, "assert.equal(e.test(), 1);");
+    }
+    @Test void lambdasCallInheritedMethodsOnTheirLexicalReceiver() throws Exception {
+        byte[] wasm = JavacToWasm.compile("App.java", """
+            class Base {
+                public int base;
+                public Base() {}
+                public int value() { return base; }
+                public static int twice(int n) { return n * 2; }
+            }
+            class Sub extends Base {
+                public Sub(int b) { base = b; }
+                public Supplier<Integer> reader() { return () -> value() + twice(1); }
+            }
+            class App {
+                public static int test() { Sub s = new Sub(5); Supplier<Integer> r = s.reader(); s.base = 7; return r.get(); }
+            }
+            """,false).getWasm();
+        OverloadResolutionTest.execute(wasm, "assert.equal(e.test(), 9);");
+    }
     @Test void rejectsMutatedCaptures() {
         var error = assertThrows(IllegalArgumentException.class, () -> JavacToWasm.compile("Bad.java", "class Bad { public static int test() { int n=1; Supplier<Integer> f=()->n; n++; return f.get(); } }",false));
         assertTrue(error.getMessage().contains("effectively final"),error.getMessage());

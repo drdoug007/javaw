@@ -85,6 +85,9 @@ final class BoxingSupport {
             else if (primitive.equals("double")) body.append("public int hashCode() { long bits = Double.doubleToLongBits(__boxedValue); return (int)(bits ^ (bits >>> 32)); }");
             else if (primitive.equals("float")) body.append("public int hashCode() { return Float.floatToIntBits(__boxedValue); }");
             else body.append("public int hashCode() { return (int)__boxedValue; }");
+            // Text of the boxed value, as String.valueOf of the primitive (also through Object-typed references).
+            body.append("public String toString() { return \"\" + __boxedValue; }");
+            body.append("public static String toString(").append(primitive).append(" value) { return \"\" + value; }");
             body.append("}");
             var type = StaticJavaParser.parseTypeDeclaration(body.toString());
             type.setData(JavaSourcePreparation.PACKAGE, "java.lang");

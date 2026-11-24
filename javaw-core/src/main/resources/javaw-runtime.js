@@ -390,6 +390,41 @@
             }
 
             try {
+                for (const sec of WebAssembly.Module.customSections(module, 'javaw_wc_components')) {
+                    let jsonStr = decodeUtf8(new Uint8Array(sec));
+                    const first = jsonStr.indexOf('[');
+                    if (first >= 0) jsonStr = jsonStr.substring(first);
+                    this.componentDefinitions = (this.componentDefinitions || []).concat(JSON.parse(jsonStr));
+                }
+            } catch (e) {
+                console.warn('Error reading custom section javaw_wc_components:', e);
+            }
+
+            try {
+                for (const sec of WebAssembly.Module.customSections(module, 'javaw_wc_templates')) {
+                    let jsonStr = decodeUtf8(new Uint8Array(sec));
+                    const first = jsonStr.indexOf('[');
+                    if (first >= 0) jsonStr = jsonStr.substring(first);
+                    this.templateDefinitions = this.templateDefinitions || new Map();
+                    for (const def of JSON.parse(jsonStr)) this.templateDefinitions.set(def.id, def);
+                }
+            } catch (e) {
+                console.warn('Error reading custom section javaw_wc_templates:', e);
+            }
+
+            try {
+                for (const sec of WebAssembly.Module.customSections(module, 'javaw_wc_styles')) {
+                    let jsonStr = decodeUtf8(new Uint8Array(sec));
+                    const first = jsonStr.indexOf('[');
+                    if (first >= 0) jsonStr = jsonStr.substring(first);
+                    this.styleDefinitions = this.styleDefinitions || new Map();
+                    for (const def of JSON.parse(jsonStr)) this.styleDefinitions.set(def.id, def.css);
+                }
+            } catch (e) {
+                console.warn('Error reading custom section javaw_wc_styles:', e);
+            }
+
+            try {
                 const exportSections = WebAssembly.Module.customSections(module, 'javaw_js_exports');
                 if (exportSections && exportSections.length > 0) {
                     for (const sec of exportSections) {
@@ -534,7 +569,7 @@
 
                     if (args.length === 2 && args[0] === '__RAW_PTR__') {
                         this.__ptr = args[1];
-                        runtime.getOrCreateHandle(this);
+                        runtime.retainWrapper(this);
                         return;
                     }
 
@@ -560,7 +595,7 @@
                     }
 
                     this.__ptr = ptr;
-                    runtime.getOrCreateHandle(this);
+                    runtime.retainWrapper(this);
 
                     if (matchedCons) {
                         const initFnName = matchedCons.exportFunctionName;
@@ -622,6 +657,21 @@
                 if (typeof window !== 'undefined') window[exportName] = JavaExportedClass;
                 if (typeof global !== 'undefined') global[exportName] = JavaExportedClass;
             }
+        }
+
+        // A JS wrapper of an exported Java object keeps that object alive: it holds one retain, released when
+        // the wrapper is garbage collected. Wrappers are not entered in the strong global handle table.
+        retainWrapper(wrapper) {
+            if (!wrapper.__ptr) return;
+            this.retain(wrapper.__ptr);
+            if (!this.wrapperFinalizer) {
+                this.wrapperStats = { retained: 0, finalized: 0 };
+                this.wrapperFinalizer = typeof FinalizationRegistry === 'function'
+                    ? new FinalizationRegistry(ptr => { this.releaseQuietly(ptr); this.wrapperStats.finalized++; })
+                    : null;
+            }
+            this.wrapperStats.retained++;
+            if (this.wrapperFinalizer) this.wrapperFinalizer.register(wrapper, wrapper.__ptr);
         }
 
         _marshalArgument(val, paramDef) {
@@ -764,6 +814,585 @@
         setInstance(instance) {
             this.instance = instance;
             this.bindExportedClasses();
+            this.defineComponents();
+        }
+
+        // Custom elements from @CustomElement classes (docs/web-components.md). Each element owns a handle
+        // scope that retains its Java peer; lifecycle reactions call the WebComponent dispatch exports.
+        componentRegistry() {
+            const view = this.doc && this.doc.defaultView;
+            const registry = (view && view.customElements) || (typeof customElements !== 'undefined' ? customElements : null);
+            const base = (view && view.HTMLElement) || (typeof HTMLElement !== 'undefined' ? HTMLElement : null);
+            return registry && base ? { registry, base } : null;
+        }
+
+        defineComponents() {
+            const definitions = this.componentDefinitions || [];
+            if (definitions.length === 0) return;
+            const host = this.componentRegistry();
+            if (!host) {
+                // Workers and DOM-less hosts have no custom element registry; components stay undefined there.
+                console.warn('[JAVAW] no customElements registry; ' + definitions.length + ' component(s) not defined');
+                return;
+            }
+            for (const def of definitions) {
+                try {
+                    if (host.registry.get(def.tag)) throw new Error('Custom element ' + def.tag + ' is already defined');
+                    host.registry.define(def.tag, this.componentClass(def, host.base));
+                } catch (err) {
+                    // One failing definition (a tag taken by another script, or an upgrade whose constructor throws)
+                    // must not leave the remaining components undefined.
+                    this.reportCallbackError(err, 'define ' + def.tag);
+                }
+            }
+            this.pendingComponentError = undefined;
+        }
+
+        componentClass(def, Base) {
+            const runtime = this;
+            const exports = this.instance.exports;
+            const observed = Object.freeze([...def.observedAttributes]);
+            const call = (element, what, fn) => {
+                const state = element.__javawComponent;
+                if (!state) return;
+                try { fn(state); } catch (err) { runtime.reportCallbackError(err, def.tag + ' ' + what); }
+            };
+            const ensureRoot = (element, state) => {
+                if (state.rootHandle) return;
+                const root = element.shadowRoot || element.attachShadow({ mode: 'open' });
+                runtime.setScopeRoot(state.scope, root);
+                if (def.styles && def.styles.length) runtime.wcAdoptStyles(root, def.styles);
+                state.rootHandle = runtime.getOrCreateHandle(root);
+                exports.__wc_attach(state.peer, state.hostHandle, state.rootHandle);
+            };
+            const properties = def.properties || [];
+            const Component = class extends Base {
+                static get observedAttributes() { return observed; }
+                constructor() {
+                    super();
+                    // Properties set on the element before it was upgraded are own data properties that would
+                    // shadow the accessors. As in Lit, they are replayed through the accessors on the first connect,
+                    // after the parser's initial attributes, so the property value wins.
+                    const early = [];
+                    for (const p of properties)
+                        if (Object.prototype.hasOwnProperty.call(this, p.name)) { early.push([p.name, this[p.name]]); delete this[p.name]; }
+                    let peer;
+                    try {
+                        peer = exports[def.factory]();
+                    } catch (err) {
+                        // Browsers report a constructor exception inside createElement instead of rethrowing it;
+                        // createComponent rethrows it so Java's catch sees the original exception.
+                        runtime.pendingComponentError = err;
+                        throw err;
+                    }
+                    const scope = runtime.createHandleScope(this, { peer });
+                    const state = { peer, scope, hostHandle: runtime.getOrCreateHandle(this), rootHandle: 0, early, runtime };
+                    Object.defineProperty(this, '__javawComponent', { value: state, configurable: true });
+                    exports.__wc_attach(peer, state.hostHandle, 0);
+                }
+                connectedCallback() {
+                    if (runtime.unconnectedComponents) runtime.unconnectedComponents.delete(this);
+                    call(this, 'connected', state => {
+                        ensureRoot(this, state);
+                        const early = state.early;
+                        state.early = null;
+                        if (early) for (const [name, value] of early) this[name] = value;
+                        exports.__wc_connected(state.peer);
+                    });
+                }
+                disconnectedCallback() {
+                    call(this, 'disconnected', state => exports.__wc_disconnected(state.peer));
+                }
+                adoptedCallback() {
+                    call(this, 'adopted', state => exports.__wc_adopted(state.peer));
+                }
+                attributeChangedCallback(name, oldValue, newValue) {
+                    call(this, 'attributeChanged', state => exports.__wc_attributeChanged(state.peer,
+                        runtime.writeString(name),
+                        oldValue === null ? 0 : runtime.writeString(oldValue),
+                        newValue === null ? 0 : runtime.writeString(newValue)));
+                }
+            };
+            for (const p of properties) {
+                const getter = exports[p.getter], setter = exports[p.setter];
+                Object.defineProperty(Component.prototype, p.name, {
+                    configurable: true, enumerable: true,
+                    get() {
+                        const state = this.__javawComponent;
+                        if (!state) return undefined;
+                        const raw = getter(state.peer);
+                        if (p.kind === 'string') return raw ? runtime.readWasmStringFromPtr(raw) : null;
+                        if (p.kind === 'boolean') return Boolean(raw);
+                        return raw;
+                    },
+                    set(value) {
+                        const state = this.__javawComponent;
+                        if (!state) return;
+                        let raw;
+                        if (p.kind === 'string') {
+                            if (value !== null && typeof value !== 'string') throw new TypeError(def.tag + '.' + p.name + ' must be a string or null');
+                            raw = value === null ? 0 : runtime.writeString(value);
+                        } else if (p.kind === 'boolean') {
+                            if (typeof value !== 'boolean') throw new TypeError(def.tag + '.' + p.name + ' must be a boolean');
+                            raw = value ? 1 : 0;
+                        } else {
+                            if (typeof value !== 'number') throw new TypeError(def.tag + '.' + p.name + ' must be a number');
+                            // Java (int) casting: NaN is 0 and out-of-range values saturate.
+                            raw = p.kind === 'int' ? (Number.isNaN(value) ? 0 : Math.max(-2147483648, Math.min(2147483647, Math.trunc(value)))) : value;
+                        }
+                        setter(state.peer, raw);
+                    },
+                });
+            }
+            Object.defineProperty(Component, 'name', { value: def.className });
+            return Component;
+        }
+
+        // Batched updates: one microtask runs every component that requested an update, in request order,
+        // until the queue is empty. Updates requested during the flush run in the same flush.
+        scheduleComponentUpdate(host) {
+            if (!host) return;
+            const queue = this.updateQueue || (this.updateQueue = new Set());
+            queue.add(host);
+            if (this.updateScheduled) return;
+            this.updateScheduled = true;
+            queueMicrotask(() => this.flushComponentUpdates());
+        }
+
+        flushComponentUpdates() {
+            const queue = this.updateQueue;
+            const counts = new Map();
+            try {
+                while (queue.size > 0) {
+                    const host = queue.values().next().value;
+                    queue.delete(host);
+                    const state = host.__javawComponent;
+                    if (!state) continue;
+                    const n = (counts.get(host) || 0) + 1;
+                    counts.set(host, n);
+                    if (n > 100) {
+                        this.reportCallbackError(new Error('<' + host.localName + '> requested more than 100 updates in one flush'), 'update');
+                        // Drop the pending cycle so a later write schedules a fresh one.
+                        try { this.instance.exports.__wc_abandon(state.peer); } catch (err) { this.reportCallbackError(err, 'update'); }
+                        continue;
+                    }
+                    try { this.instance.exports.__wc_perform(state.peer); }
+                    catch (err) { this.reportCallbackError(err, '<' + host.localName + '> update'); }
+                }
+            } finally {
+                this.updateScheduled = false;
+            }
+        }
+
+        // Templates (docs/web-components.md, "Renderer"). Java keeps each binding's previous value and calls
+        // these only for bindings that changed. An instance is a cloned template plus the node of each binding.
+        wcPrepare(id, doc) {
+            const cache = this.wcPrepared || (this.wcPrepared = new Map());
+            let prepared = cache.get(id);
+            if (prepared && prepared.doc === doc) return prepared;
+            const def = this.templateDefinitions && this.templateDefinitions.get(id);
+            if (!def) throw new Error('Unknown template ' + id);
+            const template = doc.createElement('template');
+            template.innerHTML = def.html;
+            // Find the markers after parsing, so parser fix-ups cannot misplace a part.
+            const found = new Array(def.parts.length);
+            const visit = node => {
+                for (let child = node.firstChild; child; child = child.nextSibling) {
+                    if (child.nodeType === 8) {
+                        const m = /^wc\$(\d+)$/.exec(child.data);
+                        if (m) found[+m[1]] = { node: child };
+                    } else if (child.nodeType === 1) {
+                        for (const attr of Array.from(child.attributes)) {
+                            const m = /^wc\$(\d+)$/.exec(attr.name);
+                            if (m) { found[+m[1]] = { node: child, strings: attr.value.split('\u0001wc\u0001') }; child.removeAttribute(attr.name); }
+                        }
+                        visit(child.localName === 'template' && child.content ? child.content : child);
+                    }
+                }
+            };
+            visit(template.content);
+            for (let p = 0; p < def.parts.length; p++) {
+                if (!found[p]) throw new Error('Template ' + id + ': part ' + p + ' was lost while parsing the HTML');
+                // A child part is the range between its marker and an end comment.
+                if (def.parts[p].kind === 'child') found[p].node.after(doc.createComment(''));
+            }
+            const pathOf = node => {
+                const path = [];
+                while (node.parentNode) {
+                    let i = 0;
+                    for (let s = node.previousSibling; s; s = s.previousSibling) i++;
+                    path.unshift(i);
+                    node = node.parentNode;
+                }
+                return path;
+            };
+            const bindings = [];
+            def.parts.forEach((part, p) => {
+                for (let slot = 0; slot < part.bindings; slot++) bindings.push({ part: p, slot });
+            });
+            prepared = { doc, template, def, bindings, paths: found.map(f => pathOf(f.node)), strings: found.map(f => f.strings) };
+            cache.set(id, prepared);
+            return prepared;
+        }
+
+        wcInstanceHost(host) {
+            const scope = host && host.__javawScope;
+            if (!scope || scope.released) throw new Error('template rendered for a component without a live scope');
+            return scope;
+        }
+
+        // The scope owns its instances; the id map holds them weakly so a removed component can be finalized.
+        wcRegister(scope, instance) {
+            const instances = this.wcInstances || (this.wcInstances = new Map());
+            const id = (this.wcNextInstance = (this.wcNextInstance || 0) + 1);
+            instance.id = id;
+            instance.scope = scope;
+            instance.released = false;
+            instances.set(id, typeof WeakRef === 'function' ? new WeakRef(instance) : { deref: () => instance });
+            (scope.templates || (scope.templates = new Map())).set(id, instance);
+            (scope.held.templateIds || (scope.held.templateIds = new Set())).add(id);
+            return id;
+        }
+
+        // Styles of a component (docs/web-components.md, "Styles"): one shared CSSStyleSheet per css(...) call
+        // site, adopted by every shadow root; without constructable sheets, a <style> element per sheet, as Lit does.
+        wcAdoptStyles(root, ids) {
+            const doc = root.ownerDocument;
+            const view = doc && doc.defaultView;
+            const Sheet = view && view.CSSStyleSheet;
+            const Root = view && view.ShadowRoot;
+            const adopt = typeof Sheet === 'function' && Root && 'adoptedStyleSheets' in Root.prototype
+                && 'replaceSync' in Sheet.prototype;
+            const texts = ids.map(id => this.styleDefinitions.get(id));
+            if (adopt) {
+                // A constructed sheet can only be adopted in the document it was constructed for.
+                const sheets = this.styleSheets || (this.styleSheets = new Map());
+                root.adoptedStyleSheets = ids.map((id, i) => {
+                    const key = id;
+                    let entry = sheets.get(key);
+                    if (!entry || entry.doc !== doc) {
+                        const sheet = new Sheet();
+                        sheet.replaceSync(texts[i]);
+                        entry = { doc, sheet };
+                        sheets.set(key, entry);
+                    }
+                    return entry.sheet;
+                });
+            } else {
+                for (const text of texts) {
+                    const style = doc.createElement('style');
+                    style.textContent = text;
+                    root.appendChild(style);
+                }
+            }
+        }
+
+        wcRootRange(host) {
+            const scope = this.wcInstanceHost(host);
+            const root = host.shadowRoot || scope.root;
+            const doc = host.ownerDocument;
+            const start = doc.createComment(''), end = doc.createComment('');
+            root.appendChild(start);
+            root.appendChild(end);
+            return this.wcRegister(scope, { bindings: [{ kind: 'child', start, end }] });
+        }
+
+        wcCreateInstance(host, templateId) {
+            const scope = this.wcInstanceHost(host);
+            const prepared = this.wcPrepare(templateId, host.ownerDocument);
+            const fragment = host.ownerDocument.importNode(prepared.template.content, true);
+            const resolve = path => { let n = fragment; for (const i of path) n = n.childNodes[i]; return n; };
+            const parts = prepared.def.parts.map((part, p) => {
+                const node = resolve(prepared.paths[p]);
+                if (part.kind === 'child') return { kind: 'child', start: node, end: node.nextSibling };
+                const strings = prepared.strings[p];
+                return { kind: part.kind, element: node, name: part.name, strings,
+                    values: new Array(part.bindings).fill(null), pending: part.bindings };
+            });
+            const bindings = prepared.bindings.map(b => parts[b.part].kind === 'child' ? parts[b.part] : { part: parts[b.part], slot: b.slot });
+            return this.wcRegister(scope, { fragment, bindings, parts, events: [] });
+        }
+
+        wcInstance(id) {
+            const ref = this.wcInstances && this.wcInstances.get(id);
+            const instance = ref && ref.deref();
+            if (!instance || instance.released) throw new Error('template instance ' + id + ' is not live');
+            return instance;
+        }
+
+        wcClear(range) {
+            const parent = range.end.parentNode;
+            while (range.start.nextSibling && range.start.nextSibling !== range.end) parent.removeChild(range.start.nextSibling);
+            range.text = null;
+        }
+
+        wcChildText(id, index, text, present) {
+            const range = this.wcInstance(id).bindings[index];
+            if (!present) { this.wcClear(range); return; }
+            const node = range.text;
+            if (node && node.parentNode === range.end.parentNode && range.start.nextSibling === node && node.nextSibling === range.end) {
+                node.data = text;
+                return;
+            }
+            this.wcClear(range);
+            range.text = range.end.ownerDocument.createTextNode(text);
+            range.end.parentNode.insertBefore(range.text, range.end);
+        }
+
+        wcChildTemplate(id, index, childId) {
+            const range = this.wcInstance(id).bindings[index];
+            const child = this.wcInstance(childId);
+            this.wcClear(range);
+            if (child.fragment) range.end.parentNode.insertBefore(child.fragment, range.end);
+            child.fragment = null;
+        }
+
+        wcAttr(id, index, value, present) {
+            const { part, slot } = this.wcInstance(id).bindings[index];
+            part.values[slot] = present ? value : null;
+            // On the first render, compose once every binding of the attribute has a value.
+            if (part.pending > 0 && --part.pending > 0) return;
+            if (part.values.some(v => v === null)) { part.element.removeAttribute(part.name); return; }
+            let text = part.strings[0];
+            for (let i = 0; i < part.values.length; i++) text += part.values[i] + part.strings[i + 1];
+            part.element.setAttribute(part.name, text);
+        }
+
+        wcBool(id, index, on) {
+            const { part } = this.wcInstance(id).bindings[index];
+            part.element.toggleAttribute(part.name, Boolean(on));
+        }
+
+        wcProp(id, index, value) {
+            const { part } = this.wcInstance(id).bindings[index];
+            part.element[part.name] = value;
+        }
+
+        // classMap and styleMap (lit-html's directives): Java diffs the maps; these check the placement and
+        // apply the first value as the attribute, then single classes and style properties.
+        wcDirectivePart(id, index, attribute, message) {
+            const { part } = this.wcInstance(id).bindings[index];
+            if (!part || part.kind !== 'attr' || String(part.name).toLowerCase() !== attribute || part.strings.length > 2) throw new Error(message);
+            return part;
+        }
+
+        wcClassMap(id, index, text) {
+            const part = this.wcDirectivePart(id, index, 'class',
+                '`classMap()` can only be used in the `class` attribute and must be the only part in the attribute.');
+            part.values[0] = text;
+            part.pending = 0;
+            part.element.setAttribute(part.name, part.strings[0] + text + part.strings[1]);
+        }
+
+        wcClassToggle(id, index, name, on) {
+            const { part } = this.wcInstance(id).bindings[index];
+            // Classes written in the attribute's static text are left alone.
+            if (!part.staticClasses) part.staticClasses = new Set(part.strings.join(' ').split(/\s/).filter(t => t !== ''));
+            if (part.staticClasses.has(name)) return;
+            if (on) part.element.classList.add(name); else part.element.classList.remove(name);
+        }
+
+        wcStyleMap(id, index, text) {
+            const part = this.wcDirectivePart(id, index, 'style',
+                'The `styleMap` directive must be used in the `style` attribute and must be the only part in the attribute.');
+            part.values[0] = text;
+            part.pending = 0;
+            part.element.setAttribute(part.name, part.strings[0] + text + part.strings[1]);
+        }
+
+        wcStyleSet(id, index, name, value) {
+            const { style } = this.wcInstance(id).bindings[index].part.element;
+            const important = value.endsWith(' !important');
+            if (name.includes('-') || important) style.setProperty(name, important ? value.slice(0, -11) : value, important ? 'important' : '');
+            else style[name] = value;
+        }
+
+        wcStyleRemove(id, index, name) {
+            const { style } = this.wcInstance(id).bindings[index].part.element;
+            if (name.includes('-')) style.removeProperty(name); else style[name] = null;
+        }
+
+        // The element of a ref binding. It may still be in a detached template fragment, so it is tied to the
+        // instance's scope for a scoped handle.
+        wcElement(id, index) {
+            const instance = this.wcInstance(id);
+            const element = instance.bindings[index].part.element;
+            if (!element.__javawScope && !element.__javawScopeOwner && typeof WeakRef === 'function')
+                Object.defineProperty(element, '__javawScopeOwner', { value: new WeakRef(instance.scope), configurable: true });
+            return element;
+        }
+
+        // Keyed lists: each item is a one-binding instance whose range is a pair of comments inside the list's range.
+        wcListRef(range, before) {
+            return before ? this.wcInstance(before).bindings[0].start : range.end;
+        }
+
+        wcListInsert(id, index, before) {
+            const instance = this.wcInstance(id);
+            const range = instance.bindings[index];
+            const doc = range.end.ownerDocument;
+            const start = doc.createComment(''), end = doc.createComment('');
+            const ref = this.wcListRef(range, before);
+            ref.parentNode.insertBefore(start, ref);
+            ref.parentNode.insertBefore(end, ref);
+            return this.wcRegister(instance.scope, { bindings: [{ kind: 'child', start, end }] });
+        }
+
+        wcListMove(id, index, item, before) {
+            const range = this.wcInstance(id).bindings[index];
+            const moved = this.wcInstance(item).bindings[0];
+            const ref = this.wcListRef(range, before);
+            if (moved.end.nextSibling === ref) return;
+            const parent = ref.parentNode;
+            for (let node = moved.start; ;) {
+                const next = node.nextSibling;
+                parent.insertBefore(node, ref);
+                if (node === moved.end) break;
+                node = next;
+            }
+        }
+
+        wcListRemove(item) {
+            const range = this.wcInstance(item).bindings[0];
+            const parent = range.start.parentNode;
+            for (let node = range.start; ;) {
+                const next = node.nextSibling;
+                parent.removeChild(node);
+                if (node === range.end) break;
+                node = next;
+            }
+        }
+
+        // The Java peer of a bound element that is a component of this module, or 0.
+        wcPeer(id, index) {
+            const { part } = this.wcInstance(id).bindings[index];
+            const state = part.element.__javawComponent;
+            // A peer of another module's runtime points into a different memory.
+            return state && state.runtime === this ? state.peer : 0;
+        }
+
+        wcEvent(id, index, on) {
+            const instance = this.wcInstance(id);
+            const { part } = instance.bindings[index];
+            if (on && !part.listener) {
+                // One stable listener per event part; Java swaps the listener it calls without a host call.
+                part.listener = event => this.wcDispatch(instance, index, event, part.name);
+                part.element.addEventListener(part.name, part.listener);
+            } else if (!on && part.listener) {
+                part.element.removeEventListener(part.name, part.listener);
+                part.listener = null;
+            }
+        }
+
+        wcDispatch(instance, index, event, type) {
+            if (instance.released || instance.scope.released) return;
+            const exports = this.instance && this.instance.exports;
+            const peer = instance.scope.held.peer;
+            if (!exports || !peer) return;
+            const temporary = !this.reverseMap.has(event);
+            const handle = this.getOrCreateHandle(event);
+            try {
+                exports.__wc_dispatch(peer, instance.id, index, handle);
+            } catch (err) {
+                this.reportCallbackError(err, type);
+            } finally {
+                // An Event is valid only while its listener runs.
+                if (temporary) this.releaseHandle(handle);
+            }
+        }
+
+        // Component events (docs/web-components.md, "Events"). Java builds the detail object with these calls,
+        // then wcFire dispatches a CustomEvent whose hidden token lets Java listeners find the original record
+        // while the dispatch runs.
+        wcDetailBegin() { (this.wcDetails || (this.wcDetails = [])).push({}); }
+        wcDetailAbort() { this.wcDetails.pop(); }
+        wcDetailSet(name, value) { const s = this.wcDetails; s[s.length - 1][name] = value; }
+        wcDetailEnter() { this.wcDetails.push({}); }
+        wcDetailExit(name) { const value = this.wcDetails.pop(); this.wcDetailSet(name, value); }
+
+        wcFire(host, type, flags, token) {
+            const detail = this.wcDetails.pop();
+            const view = host.ownerDocument && host.ownerDocument.defaultView;
+            const Custom = (view && view.CustomEvent) || globalThis.CustomEvent;
+            const event = new Custom(type, { detail, bubbles: (flags & 1) !== 0, composed: (flags & 2) !== 0, cancelable: (flags & 4) !== 0 });
+            const key = this.wcRecordKey || (this.wcRecordKey = Symbol('javaw.record'));
+            Object.defineProperty(event, key, { value: token, configurable: true });
+            try {
+                return host.dispatchEvent(event);
+            } finally {
+                // The record is only reachable while the dispatch runs.
+                delete event[key];
+            }
+        }
+
+        wcEventToken(event) {
+            const key = this.wcRecordKey;
+            return key && event && Object.prototype.hasOwnProperty.call(event, key) ? event[key] : -1;
+        }
+
+        // listen(target, type, listener): added while the component is connected. The JS function refers to
+        // the host, so a connected component stays alive through the target; disconnecting removes it.
+        wcListen(host, target, type, index, on) {
+            const state = host.__javawComponent;
+            if (!state || !target) return;
+            const listens = state.listens || (state.listens = new Map());
+            if (on) {
+                if (listens.has(index)) return;
+                const fn = event => this.wcListenDispatch(host, index, event, type);
+                target.addEventListener(type, fn);
+                listens.set(index, { target, type, fn });
+            } else {
+                const entry = listens.get(index);
+                if (!entry) return;
+                listens.delete(index);
+                entry.target.removeEventListener(entry.type, entry.fn);
+            }
+        }
+
+        wcListenDispatch(host, index, event, type) {
+            const state = host.__javawComponent;
+            const exports = this.instance && this.instance.exports;
+            if (!state || state.scope.released || !exports) return;
+            const temporary = !this.reverseMap.has(event);
+            const handle = this.getOrCreateHandle(event);
+            try {
+                exports.__wc_listenDispatch(state.peer, index, handle);
+            } catch (err) {
+                this.reportCallbackError(err, type);
+            } finally {
+                if (temporary) this.releaseHandle(handle);
+            }
+        }
+
+        wcRelease(id) {
+            const ref = this.wcInstances && this.wcInstances.get(id);
+            const instance = ref && ref.deref();
+            if (this.wcInstances) this.wcInstances.delete(id);
+            if (!instance) return;
+            instance.released = true;
+            for (const part of instance.parts || [])
+                if (part.listener) { part.element.removeEventListener(part.name, part.listener); part.listener = null; }
+            if (instance.scope.templates) instance.scope.templates.delete(id);
+            if (instance.scope.held.templateIds) instance.scope.held.templateIds.delete(id);
+        }
+
+        // new X() in Java for a component class: construct through the registry so the element owns the peer.
+        createComponent(tag) {
+            if (!this.doc) throw new Error('No document to create <' + tag + '>');
+            this.pendingComponentError = undefined;
+            let element;
+            try {
+                element = this.doc.createElement(tag);
+            } finally {
+                const pending = this.pendingComponentError;
+                this.pendingComponentError = undefined;
+                if (pending !== undefined && !(element && element.__javawComponent)) throw pending;
+            }
+            const state = element.__javawComponent;
+            if (!state) throw new Error('<' + tag + '> is not a defined javaw component');
+            // Java holds only the peer; keep the element alive until it is first connected.
+            (this.unconnectedComponents || (this.unconnectedComponents = new Set())).add(element);
+            return state.peer;
         }
 
         getMemory(name) {
@@ -869,6 +1498,8 @@
 
         getOrCreateHandle(element) {
             if (element === null) return 0;
+            const scope = element && typeof element === 'object' && element.nodeType ? this.scopeFor(element) : null;
+            if (scope) return this.scopedHandle(scope, element);
             if (element === undefined) {
                 if (this.reverseMap.has(undefined)) {
                     return this.reverseMap.get(undefined);
@@ -888,7 +1519,8 @@
         }
 
         getElement(handle) {
-            if (!handle || handle <= 0) return null;
+            if (handle < 0) return this.resolveScopedHandle(handle);
+            if (!handle) return null;
             if (this.handleMap.has(handle)) {
                 return this.handleMap.get(handle);
             }
@@ -917,6 +1549,18 @@
             const sel = this.readString(ptr, len);
             const el = this.doc ? this.doc.querySelector(sel) : null;
             return this.getOrCreateHandle(el);
+        }
+
+        el_querySelector(handle, ptr, len) {
+            const root = this.getElement(handle);
+            const sel = this.readString(ptr, len);
+            return this.getOrCreateHandle(root && typeof root.querySelector === 'function' ? root.querySelector(sel) : null);
+        }
+
+        el_querySelectorAll(handle, ptr, len) {
+            const root = this.getElement(handle);
+            const sel = this.readString(ptr, len);
+            return this.writeHandleArray(root && typeof root.querySelectorAll === 'function' ? Array.from(root.querySelectorAll(sel)) : []);
         }
 
         querySelectorAll(ptr, len) {
@@ -1078,6 +1722,241 @@
                     }
                 });
             }
+        }
+
+        // Scoped handles (docs/dom-handle-scopes.md). A scope belongs to a host element. Nodes that are the
+        // host, or whose root node is the scope's shadow root, get negative handles that resolve through
+        // the scope stored on the host. The global map holds only WeakRefs, so the host, its scope and its
+        // subtree can be collected; a FinalizationRegistry then releases what the scope retained.
+        ensureScopeState() {
+            if (this.scopedHandles) return;
+            this.scopedHandles = new Map();
+            this.nextScopedHandle = 1;
+            this.scopeStats = { created: 0, released: 0, finalized: 0 };
+            this.scopeFinalizer = typeof FinalizationRegistry === 'function'
+                ? new FinalizationRegistry(held => this.reclaimScope(held, true))
+                : null;
+        }
+
+        createHandleScope(host, options = {}) {
+            if (!host || typeof host !== 'object') throw new TypeError('createHandleScope requires a host element');
+            if (host.__javawScope && !host.__javawScope.released) throw new Error('element already has a handle scope');
+            this.ensureScopeState();
+            // Everything a finalizer needs is held here; it must never reference the host.
+            const held = { handles: new Set(), closures: new Set(), peer: options.peer || 0, done: false };
+            const scope = { host, root: options.root || null, nodes: new Map(), reverse: new Map(),
+                listeners: new Map(), held, released: false };
+            if (held.peer) this.retain(held.peer);
+            Object.defineProperty(host, '__javawScope', { value: scope, configurable: true, writable: true, enumerable: false });
+            if (this.scopeFinalizer) this.scopeFinalizer.register(host, held, scope);
+            this.scopeStats.created++;
+            return scope;
+        }
+
+        // Creates an element owned by the scope of `host`, so it gets a scoped handle even while detached.
+        createScopedElement(host, tag) {
+            if (!host) throw new Error('WebComponent.createElement is not available in the constructor');
+            const scope = host.__javawScope;
+            if (!scope || scope.released) this.elementReleased();
+            const element = (host.ownerDocument || this.doc).createElement(tag);
+            // Weak, so a node that leaves the shadow tree (a portal appended to the body) does not pin the component.
+            Object.defineProperty(element, '__javawScopeOwner', { value: new WeakRef(scope), configurable: true });
+            return element;
+        }
+
+        setScopeRoot(scope, root) {
+            scope.root = root;
+        }
+
+        scopeFor(node) {
+            if (!this.scopedHandles) return null;
+            let scope = node.__javawScope;
+            // Nodes created for a scope before they are attached (WebComponent.createElement).
+            if ((!scope || scope.released) && node.__javawScopeOwner) scope = node.__javawScopeOwner.deref();
+            if ((!scope || scope.released) && typeof node.getRootNode === 'function') {
+                const root = node.getRootNode();
+                const owner = root && root.host && root.host.__javawScope;
+                if (owner && owner.root === root) scope = owner;
+            }
+            return scope && !scope.released ? scope : null;
+        }
+
+        scopedHandle(scope, node) {
+            const existing = scope.reverse.get(node);
+            if (existing) return existing;
+            const handle = -(this.nextScopedHandle++);
+            scope.nodes.set(handle, node);
+            scope.reverse.set(node, handle);
+            scope.held.handles.add(handle);
+            this.scopedHandles.set(handle, new WeakRef(scope));
+            return handle;
+        }
+
+        resolveScopedHandle(handle) {
+            const ref = this.scopedHandles && this.scopedHandles.get(handle);
+            const scope = ref && ref.deref();
+            if (!scope || scope.released) this.elementReleased();
+            return scope.nodes.has(handle) ? scope.nodes.get(handle) : null;
+        }
+
+        // Throws java.lang.IllegalStateException("element released") into the calling Java frame.
+        elementReleased() {
+            const thrower = this.instance && this.instance.exports.__javaw_elementReleased;
+            if (thrower) thrower();
+            throw new Error('element released');
+        }
+
+        releaseHandleScope(scope) {
+            if (!scope || scope.released) return;
+            scope.released = true;
+            for (const record of scope.listeners.values()) {
+                if (typeof record.el.removeEventListener === 'function') record.el.removeEventListener(record.type, record.fn);
+                const byKey = this.callbackListeners && this.callbackListeners.get(record.el);
+                if (byKey && byKey.get(record.key) === record.fn) byKey.delete(record.key);
+            }
+            scope.listeners.clear();
+            if (scope.templates) for (const id of Array.from(scope.templates.keys())) this.wcRelease(id);
+            if (this.scopeFinalizer) this.scopeFinalizer.unregister(scope);
+            this.reclaimScope(scope.held, false);
+            scope.nodes.clear();
+            scope.reverse.clear();
+        }
+
+        reclaimScope(held, finalized) {
+            if (held.done) return;
+            held.done = true;
+            for (const handle of held.handles) this.scopedHandles.delete(handle);
+            held.handles.clear();
+            for (const ptr of held.closures) this.releaseQuietly(ptr);
+            held.closures.clear();
+            if (held.templateIds && this.wcInstances) for (const id of held.templateIds) this.wcInstances.delete(id);
+            if (held.peer) this.releaseQuietly(held.peer);
+            held.peer = 0;
+            if (finalized) this.scopeStats.finalized++;
+            else this.scopeStats.released++;
+        }
+
+        // Releases from finalizers and scope teardown must not stop at the first failure or escape a host task.
+        releaseQuietly(ptr) {
+            try { this.release(ptr); } catch (error) { console.error('[JAVAW] release failed for', ptr, error); }
+        }
+
+        getHandleStats() {
+            return {
+                global: this.handleMap.size,
+                scoped: this.scopedHandles ? this.scopedHandles.size : 0,
+                scopes: this.scopeStats ? { ...this.scopeStats } : { created: 0, released: 0, finalized: 0 },
+            };
+        }
+
+        // Instance-bound listeners. The closure pointer is retained while the listener is registered and
+        // released by removeEventListenerCallback or, if the element is collected first, by finalization.
+        listenerRegistry(el) {
+            if (!this.callbackListeners) {
+                this.callbackListeners = new WeakMap();
+                this.listenerOwners = new WeakMap();
+                this.callbackFinalizer = typeof FinalizationRegistry === 'function'
+                    ? new FinalizationRegistry(ptr => this.releaseQuietly(ptr))
+                    : null;
+            }
+            let byKey = this.callbackListeners.get(el);
+            if (!byKey) {
+                byKey = new Map();
+                this.callbackListeners.set(el, byKey);
+            }
+            return byKey;
+        }
+
+        addEventListenerCallback(handle, typePtr, typeLen, closurePtr, kind) {
+            const el = this.getElement(handle);
+            if (!el || typeof el.addEventListener !== 'function' || !closurePtr) return;
+            const type = this.readString(typePtr, typeLen);
+            const listeners = this.listenerRegistry(el);
+            const key = type + '\u0000' + closurePtr;
+            if (listeners.has(key)) return; // Same listener object and type: ignored, as in the DOM.
+            this.retain(closurePtr);
+            const runtime = this;
+            // A listener belongs to the scope of its node, whichever handle was used to add it.
+            const scope = this.scopeFor(el);
+            // A scoped listener holds its scope weakly: a node that outlives its component must not pin it.
+            const scopeRef = scope ? new WeakRef(scope) : null;
+            const fn = scope
+                ? function (event) { const live = scopeRef.deref(); if (live && !live.released) runtime.invokeListener(closurePtr, kind, event, type); }
+                : function (event) { runtime.invokeListener(closurePtr, kind, event, type); };
+            listeners.set(key, fn);
+            if (scope) {
+                // The scope releases the closure on release or finalization; a node removed by the renderer
+                // but still held by JS then dispatches to a listener that does nothing.
+                scope.listeners.set(fn, { el, type, fn, ptr: closurePtr, key });
+                scope.held.closures.add(closurePtr);
+                this.listenerOwners.set(fn, scopeRef); // weak: the node holds fn, fn must not hold the scope
+            } else if (this.callbackFinalizer) {
+                this.callbackFinalizer.register(fn, closurePtr, fn);
+            }
+            el.addEventListener(type, fn);
+        }
+
+        removeEventListenerCallback(handle, typePtr, typeLen, closurePtr, kind) {
+            const el = this.getElement(handle);
+            if (!el || !this.callbackListeners) return;
+            const type = this.readString(typePtr, typeLen);
+            const listeners = this.callbackListeners.get(el);
+            const key = type + '\u0000' + closurePtr;
+            const fn = listeners && listeners.get(key);
+            if (!fn) return;
+            listeners.delete(key);
+            if (typeof el.removeEventListener === 'function') el.removeEventListener(type, fn);
+            const ownerRef = this.listenerOwners.get(fn);
+            const owner = ownerRef && ownerRef.deref();
+            if (ownerRef) {
+                this.listenerOwners.delete(fn);
+                if (owner) {
+                    owner.listeners.delete(fn);
+                    owner.held.closures.delete(closurePtr);
+                }
+            } else if (this.callbackFinalizer) {
+                this.callbackFinalizer.unregister(fn);
+            }
+            this.release(closurePtr);
+        }
+
+        invokeListener(closurePtr, kind, event, type) {
+            const exports = this.instance && this.instance.exports;
+            if (!exports) return;
+            let eventHandle = 0;
+            let temporary = false;
+            try {
+                if (kind === 1) {
+                    temporary = !this.reverseMap.has(event);
+                    eventHandle = this.getOrCreateHandle(event);
+                    exports.__javaw_eventListener(closurePtr, eventHandle);
+                } else {
+                    exports.__javaw_runListener(closurePtr);
+                }
+            } catch (err) {
+                this.reportCallbackError(err, type);
+            } finally {
+                // An Event is valid only while its listener runs.
+                if (temporary) this.releaseHandle(eventHandle);
+            }
+        }
+
+        releaseHandle(handle) {
+            if (!handle || !this.handleMap.has(handle)) return;
+            const value = this.handleMap.get(handle);
+            this.handleMap.delete(handle);
+            if (this.reverseMap.get(value) === handle) this.reverseMap.delete(value);
+        }
+
+        reportCallbackError(err, type) {
+            const error = err instanceof Error ? err : new Error('[JAVAW EVENT ERROR] ' + type + ': ' + String(err));
+            if (typeof globalThis.reportError === 'function') globalThis.reportError(error);
+            else console.error('[JAVAW EVENT ERROR] ' + type + ':', err);
+        }
+
+        js_asElement(handle) {
+            const value = this.getElement(handle);
+            return value && typeof value === 'object' && value.nodeType === 1 ? handle : 0;
         }
 
         setTimeout(handlerPtr, handlerLen, delayMs) {
@@ -2192,6 +3071,11 @@
                     webgl_enable: (h, c) => this.webgl_enable(h, c),
                     webgl_disable: (h, c) => this.webgl_disable(h, c),
                     addEventListener: (handle, ep, el, hp, hl) => this.addEventListener(handle, ep, el, hp, hl),
+                    addEventListenerCallback: (handle, tp, tl, ptr, kind) => this.addEventListenerCallback(handle, tp, tl, ptr, kind),
+                    removeEventListenerCallback: (handle, tp, tl, ptr, kind) => this.removeEventListenerCallback(handle, tp, tl, ptr, kind),
+                    js_asElement: (h) => this.js_asElement(h),
+                    el_querySelector: (h, p, l) => this.el_querySelector(h, p, l),
+                    el_querySelectorAll: (h, p, l) => this.el_querySelectorAll(h, p, l),
                     setTimeout: (hp, hl, d) => this.setTimeout(hp, hl, d),
                     clearTimeout: (id) => this.clearTimeout(id),
                     setInterval: (hp, hl, d) => this.setInterval(hp, hl, d),

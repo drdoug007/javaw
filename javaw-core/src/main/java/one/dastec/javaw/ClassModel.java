@@ -18,6 +18,7 @@ public class ClassModel {
     private int structSize = 8;
     private int vtableBase = 0;
     private boolean isExported = false;
+    private boolean usesThis = false;
     private boolean isEnum = false;
     private final List<String> enumConstants = new ArrayList<>();
     private final Map<String, List<com.github.javaparser.ast.expr.Expression>> enumConstantArgs = new LinkedHashMap<>();
@@ -118,6 +119,11 @@ public class ClassModel {
         this.vtableBase = vtableBase;
     }
 
+    /** An instance method refers to its receiver (this, or a lambda or method reference that captures it). */
+    public void setUsesThis(boolean usesThis) {
+        this.usesThis = usesThis;
+    }
+
     public boolean isExported() {
         return isExported;
     }
@@ -155,6 +161,6 @@ public class ClassModel {
                 break;
             }
         }
-        return hasInstanceFields || !implementedInterfaces.isEmpty() || !constructors.isEmpty() || superClassName != null || isExported;
+        return hasInstanceFields || !implementedInterfaces.isEmpty() || !constructors.isEmpty() || superClassName != null || isExported || usesThis;
     }
 }

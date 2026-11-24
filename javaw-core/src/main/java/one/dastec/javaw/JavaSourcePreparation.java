@@ -68,6 +68,20 @@ final class JavaSourcePreparation {
         }
     }
 
+    /**
+     * Whether the node belongs to a type of the user's source files. Types added from source strings later (library
+     * support, compiler extensions) carry positions of their own text, which must not map onto the user's file.
+     */
+    static boolean fromUserSource(Node node) {
+        return node.stream(Node.TreeTraversal.PARENTS).anyMatch(n -> n.containsData(SOURCE)) || node.containsData(SOURCE);
+    }
+
+    /** Marks {@code generated} as coming from the same user source file as {@code origin}, if it does. */
+    static void copySource(Node origin, Node generated) {
+        origin.stream(Node.TreeTraversal.PARENTS).filter(n -> n.containsData(SOURCE)).findFirst()
+                .ifPresent(n -> generated.setData(SOURCE, n.getData(SOURCE)));
+    }
+
     static IllegalArgumentException error(Node node, String message) {
         String source = node.stream(Node.TreeTraversal.PARENTS).filter(n -> n.containsData(SOURCE))
                 .findFirst().map(n -> n.getData(SOURCE)).orElseGet(() -> node.findCompilationUnit()

@@ -126,8 +126,15 @@ final class LambdaSupport {
         if (e.isIntegerLiteralExpr()) return "int";
         if (e.isLongLiteralExpr()) return "long";
         if (e.isBooleanLiteralExpr()) return "boolean";
+        if (e.isCharLiteralExpr()) return "char";
+        if (e.isDoubleLiteralExpr()) return e.asDoubleLiteralExpr().getValue().matches("(?i).*f") ? "float" : "double";
         if (e.isNullLiteralExpr()) return "null";
         if (e.isCastExpr()) return e.asCastExpr().getTypeAsString();
+        if (e.isEnclosedExpr()) return type(e.asEnclosedExpr().getInner(), variables);
+        if (e.isArrayAccessExpr()) {
+            String array = type(e.asArrayAccessExpr().getName(), variables);
+            if (array.endsWith("[]")) return array.substring(0, array.length() - 2);
+        }
         if (e.isFieldAccessExpr()) {
             var f=e.asFieldAccessExpr(); return registry.fieldType(type(f.getScope(),variables),f.getNameAsString());
         }
@@ -148,9 +155,28 @@ final class LambdaSupport {
         if (parent instanceof ReturnStmt) return callback.findAncestor(MethodDeclaration.class).orElseThrow().getTypeAsString();
         if (parent instanceof AssignExpr a) return type(a.getTarget(), variables);
         if (parent instanceof MethodCallExpr call) {
-            String owner = call.getScope().map(e -> type(e, variables)).orElseGet(() -> call.findAncestor(ClassOrInterfaceDeclaration.class).orElseThrow().getNameAsString());
+            boolean hostListener = DomCallbackSupport.mayBeCallbackListenerCall(call) && call.getArgument(1) == callback;
+            String owner;
+            try { owner = call.getScope().map(e -> type(e, variables)).orElseGet(() -> call.findAncestor(ClassOrInterfaceDeclaration.class).orElseThrow().getNameAsString()); }
+            catch (IllegalArgumentException unresolved) {
+                // DOM facade results (DOM.getBody(), el.getParent()) are host handles the registry does not model.
+                if (hostListener && !sourceDeclares(call.getNameAsString())) return hostListenerTarget(callback, variables);
+                throw unresolved;
+            }
+            if (hostListener && registry.getClass(owner) == null) return hostListenerTarget(callback, variables);
             var candidates = registry.methodCandidates(owner, call.getNameAsString()).stream()
                 .filter(m -> m.getParamTypeNames().size() == call.getArguments().size()).toList();
+            int position = call.getArguments().indexOf(callback);
+            // Overloads that differ only in functional-interface arity (Runnable vs Consumer<T>) select by callback shape.
+            if (candidates.size() > 1) {
+                Set<Integer> arities = callbackArities(callback, variables);
+                var shaped = candidates.stream().filter(m -> {
+                    Integer arity = samArity(m.getParamTypeNames().get(position));
+                    return arity != null && arities.contains(arity);
+                }).toList();
+                if (shaped.size() == 1) candidates = shaped;
+                else if (shaped.size() > 1) candidates = byOtherArguments(shaped, call, variables);
+            }
             if (candidates.size() != 1) throw JavaSourcePreparation.error(callback, "Ambiguous callback target; assign to an explicitly typed functional interface first");
             MethodModel method = candidates.get(0);
             Map<String,String> bindings = new LinkedHashMap<>();
@@ -171,6 +197,61 @@ final class LambdaSupport {
             return GenericTypes.substitute(method.getParamTypeNames().get(call.getArguments().indexOf(callback)), bindings);
         }
         throw JavaSourcePreparation.error(callback, "Callback requires a functional-interface target type");
+    }
+    /**
+     * Overloads that also differ in a parameter that is not a callback (listen(JSObject, ..., Runnable) and
+     * listen(Element, ..., Runnable)): keep those whose other parameters match the arguments' static types.
+     */
+    private List<MethodModel> byOtherArguments(List<MethodModel> candidates, MethodCallExpr call, Map<String,String> variables) {
+        List<String> types = new ArrayList<>();
+        for (Expression a : call.getArguments()) {
+            if (a.isLambdaExpr() || a.isMethodReferenceExpr()) { types.add(null); continue; }
+            try { types.add(GenericTypes.raw(type(a, variables))); }
+            catch (IllegalArgumentException unresolved) { return candidates; }
+        }
+        List<MethodModel> matching = candidates.stream().filter(m -> {
+            for (int i = 0; i < types.size(); i++) {
+                String argument = types.get(i);
+                if (argument == null || argument.equals("null")) continue;
+                if (!GenericTypes.raw(m.getParamTypeNames().get(i)).equals(argument)) return false;
+            }
+            return true;
+        }).toList();
+        return matching.size() == 1 ? matching : candidates;
+    }
+    private boolean sourceDeclares(String method) {
+        return cu.findAll(MethodDeclaration.class).stream().anyMatch(m -> m.getNameAsString().equals(method));
+    }
+    /** Element.add/removeEventListener: zero-parameter callbacks are Runnable, one-parameter callbacks take the Event. */
+    private String hostListenerTarget(Expression callback, Map<String,String> variables) {
+        Set<Integer> arities = callbackArities(callback, variables);
+        boolean run = arities.contains(0), event = arities.contains(1);
+        if (run && !event) return DomCallbackSupport.RUN_TARGET;
+        if (event && !run) return "EventListener<Event>";
+        if (run) throw JavaSourcePreparation.error(callback, "Ambiguous DOM listener: the method reference matches both Runnable and EventListener<Event>; use a lambda");
+        throw JavaSourcePreparation.error(callback, "DOM listener must take no parameters (Runnable) or one Event parameter (EventListener<Event>)");
+    }
+    /** Parameter counts a callback can accept: a lambda's declared count, or each arity a method reference can bind. */
+    private Set<Integer> callbackArities(Expression callback, Map<String,String> variables) {
+        if (callback.isLambdaExpr()) return Set.of(callback.asLambdaExpr().getParameters().size());
+        MethodReferenceExpr ref = callback.asMethodReferenceExpr();
+        Expression scope = ref.getScope();
+        if (scope.isTypeExpr() && variables.containsKey(scope.toString())) scope = new NameExpr(scope.toString());
+        String owner;
+        try { owner = type(scope, variables); }
+        catch (IllegalArgumentException unknown) { return Set.of(); }
+        Set<Integer> result = new HashSet<>();
+        if (ref.getIdentifier().equals("new")) return result; // Constructor references are not selected by arity.
+        boolean typeScope = scope.isTypeExpr() || (scope.isNameExpr() && !variables.containsKey(scope.toString()) && registry.hasClass(scope.toString()));
+        for (MethodModel m : registry.methodCandidates(owner, ref.getIdentifier())) {
+            int count = m.getParamTypeNames().size();
+            result.add(typeScope && !m.isStatic() ? count + 1 : count);
+        }
+        return result;
+    }
+    private Integer samArity(String type) {
+        try { return registry.functionalMethod(type).getParamTypeNames().size(); }
+        catch (RuntimeException notFunctional) { return null; }
     }
     private void lower(Expression callback) {
         Map<String,String> variables = locals(callback);
@@ -197,6 +278,8 @@ final class LambdaSupport {
             ? owner.getData(JavaSourcePreparation.LEXICAL_OWNER) : owner.getNameAsString());
         if (owner.containsData(JavaSourcePreparation.PACKAGE)) generated.setData(JavaSourcePreparation.PACKAGE,owner.getData(JavaSourcePreparation.PACKAGE));
         MethodDeclaration implementation = generated.addMethod(sam.getName(), Modifier.Keyword.PUBLIC).setType(sam.getReturnTypeName());
+        // The implementing method starts where the lambda or method reference is written (source maps).
+        callback.getRange().ifPresent(implementation::setRange);
         if (callback.isLambdaExpr() && callback.asLambdaExpr().getParameters().size() != sam.getParamTypeNames().size())
             throw JavaSourcePreparation.error(callback,"Callback arity does not match target");
         List<String> parameters = new ArrayList<>();
@@ -216,7 +299,8 @@ final class LambdaSupport {
             if (scope.isTypeExpr() && variables.containsKey(scope.toString())) scope = new NameExpr(scope.toString());
             boolean unbound = scope.isTypeExpr() && registry.methodCandidates(type(scope,variables),ref.getIdentifier()).stream().noneMatch(MethodModel::isStatic);
             if (!scope.isTypeExpr() && !(scope.isNameExpr() && !variables.containsKey(scope.toString()) && registry.hasClass(scope.toString()))) {
-                String boundType = type(scope,variables);
+                // Type the attached scope: a detached clone of `this` has no enclosing class.
+                String boundType = type(ref.getScope(),variables);
                 generated.addField(boundType,"__bound",Modifier.Keyword.PRIVATE);
                 scope = new NameExpr("__bound");
             }
@@ -263,8 +347,17 @@ final class LambdaSupport {
                 use.replace(new FieldAccessExpr(new NameExpr(statik ? owner.getNameAsString() : "__owner"),field));
             }
         }
-        for (MethodCallExpr call : body.findAll(MethodCallExpr.class)) if (call.getScope().isEmpty() && !owner.getMethodsByName(call.getNameAsString()).isEmpty()) {
-            boolean statik = owner.getMethodsByName(call.getNameAsString()).stream().allMatch(MethodDeclaration::isStatic);
+        for (MethodCallExpr call : body.findAll(MethodCallExpr.class)) if (call.getScope().isEmpty()) {
+            boolean statik;
+            if (!owner.getMethodsByName(call.getNameAsString()).isEmpty())
+                statik = owner.getMethodsByName(call.getNameAsString()).stream().allMatch(MethodDeclaration::isStatic);
+            else {
+                // Methods inherited from a source superclass keep the lexical receiver too.
+                var inherited = registry.methodCandidates(owner.getNameAsString(), call.getNameAsString());
+                if (inherited.isEmpty()) continue;
+                statik = inherited.stream().allMatch(MethodModel::isStatic);
+                if (statik) { call.setScope(new NameExpr(inherited.get(0).getClassName())); continue; }
+            }
             needsThis |= !statik; call.setScope(new NameExpr(statik ? owner.getNameAsString() : "__owner"));
         }
         if (needsThis) {
@@ -273,6 +366,8 @@ final class LambdaSupport {
             constructor.addParameter(owner.getNameAsString(),"__owner");
             constructor.getBody().addStatement("this.__owner = __owner;"); creation.addArgument(new ThisExpr());
         }
+        // A lambda of user code stays user code (diagnostics, source maps).
+        JavaSourcePreparation.copySource(callback, generated);
         callback.replace(creation); cu.getTypes().add(generated);
     }
 }

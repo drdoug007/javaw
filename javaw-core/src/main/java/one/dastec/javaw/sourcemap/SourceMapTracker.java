@@ -11,6 +11,7 @@ public class SourceMapTracker {
     private String sourceFile = "Source.java";
     private int currentGenLine = 0;
     private int lastLength = 0;
+    private java.util.function.Predicate<Node> filter = node -> true;
 
     public SourceMapTracker(SourceMapGenerator generator) {
         this.generator = generator;
@@ -54,8 +55,13 @@ public class SourceMapTracker {
         track(sb, node, null);
     }
 
+    /** Limits mappings to nodes the filter accepts, for example nodes of the user's own source files. */
+    public void setFilter(java.util.function.Predicate<Node> filter) {
+        this.filter = filter != null ? filter : node -> true;
+    }
+
     public void track(StringBuilder sb, Node node, String symbolName) {
-        if (generator == null || node == null || sb == null) return;
+        if (generator == null || node == null || sb == null || !filter.test(node)) return;
         node.getRange().ifPresent(range -> {
             int genLine = getCurrentLine(sb);
             int origLine = Math.max(0, range.begin.line - 1);

@@ -34,7 +34,7 @@ There are no stack/local roots: the host must not collect while any Wasm frame i
 
 - A returned pointer is borrowed until the next collection. Copy data into JS or retain the pointer before collecting.
 - `runtime.retain(ptr)` / `__gc_retain(ptr)` increments its allocation's root count and returns the pointer. Each call requires a matching `release` / `__gc_release` when that ownership ends.
-- Hosts must retain object pointers in JS wrappers (`wrapper.__ptr`), custom maps, or asynchronous callbacks if they survive a collection. Retaining an object traces its reachable fields; each child need not be retained separately.
+- Hosts must retain object pointers kept in custom maps or asynchronous callbacks if they survive a collection. Retaining an object traces its reachable fields; each child need not be retained separately. `@JS.Export` wrappers (`wrapper.__ptr`) retain their object automatically and release it when the wrapper is finalized; instance-bound DOM listeners and scoped-handle peers do the same ([DOM handle scopes](dom-handle-scopes.md)).
 - Interior pointers retain their enclosing allocation. Static string-pool pointers need no retain. JS handles, table indexes, and ordinary JS objects do not establish Wasm roots.
 - A released pointer must not be used after collection. Addresses may be reused, so a stale pointer is not an ownership token. Double release of a live unretained block traps.
 - All temporary request arguments and responses must finish their Wasm use before collecting. The Spring handler reads/serializes exceptions before its collection boundary, including partially encoded requests that fail validation.

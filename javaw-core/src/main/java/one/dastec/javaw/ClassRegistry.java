@@ -39,9 +39,14 @@ public class ClassRegistry {
                 superClassName = cd.getExtendedTypes(0).getNameAsString();
             }
             ClassModel cm = new ClassModel(className, superClassName, cd.isInterface(), classIdCounter++);
+            // Instance methods that use their receiver need it as a parameter even when the class has no fields.
+            cm.setUsesThis(cd.getMethods().stream().anyMatch(m -> !m.isStatic()
+                    && !m.findAll(com.github.javaparser.ast.expr.ThisExpr.class, t -> t.getTypeName().isEmpty()).isEmpty()));
             if (one.dastec.javaw.js.JsAnnotationHelper.getClassExportAnnotation(cd).isPresent()) {
                 cm.setExported(true);
             }
+            // An interface's further superinterfaces (the first is recorded as its superclass name).
+            if (cd.isInterface()) for (int k = 1; k < cd.getExtendedTypes().size(); k++) cm.addImplementedInterface(cd.getExtendedTypes(k).getNameAsString());
             for (com.github.javaparser.ast.type.ClassOrInterfaceType it : cd.getImplementedTypes()) {
                 cm.addImplementedInterface(it.getNameAsString());
             }
@@ -820,8 +825,21 @@ public class ClassRegistry {
         List<MethodModel> inferred = new ArrayList<>();
         List<Map<String, String>> substitutions = new ArrayList<>();
         Set<String> names = new HashSet<>(); variables.forEach(t -> names.add(t.getNameAsString()));
+        // A generic supertype target (List<String> x = new ArrayList<>(...)) binds the variables it maps, as in Java.
+        Map<String, String> fromTarget = new LinkedHashMap<>();
+        if (target != null && !GenericTypes.arguments(target).isEmpty()) {
+            String declared = GenericTypes.raw(sourceType) + "<" + variables.stream().map(t -> t.getNameAsString())
+                    .collect(java.util.stream.Collectors.joining(",")) + ">";
+            String aligned = asSuperType(declared, GenericTypes.raw(target));
+            if (aligned != null) {
+                List<String> formal = GenericTypes.arguments(aligned), actual = GenericTypes.arguments(target);
+                if (formal.size() == actual.size())
+                    for (int i = 0; i < formal.size(); i++)
+                        if (names.contains(formal.get(i)) && !actual.get(i).startsWith("?")) fromTarget.put(formal.get(i), actual.get(i));
+            }
+        }
         for (MethodModel constructor : getClass(sourceType).getConstructors()) {
-            Map<String, String> bindings = new LinkedHashMap<>();
+            Map<String, String> bindings = new LinkedHashMap<>(fromTarget);
             for (int i = 0; i < Math.min(arguments.size(), constructor.getParamTypeNames().size()); i++)
                 GenericTypes.constrain(constructor.getParamTypeNames().get(i), arguments.get(i), names, bindings, this);
             for (var variable : variables) bindings.putIfAbsent(variable.getNameAsString(), variable.getTypeBound().isEmpty() ? "Object" : variable.getTypeBound().get(0).asString());
@@ -1242,6 +1260,8 @@ public class ClassRegistry {
                 if (iface.equals(superClass) || iface.endsWith("." + superClass) || superClass.endsWith("." + iface)) {
                     return true;
                 }
+                // Superinterfaces count too (ArrayList -> List -> Collection -> Iterable).
+                if (!iface.equals(cm.getName()) && isSubclassOf(iface, superClass)) return true;
             }
             if (cm.getSuperClassName() != null && (cm.getSuperClassName().equals(superClass) ||
                     cm.getSuperClassName().endsWith("." + superClass) || superClass.endsWith("." + cm.getSuperClassName()))) {

@@ -1,0 +1,12 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>javaw web components</title>
+<!-- Build: with -Djavaw.chrome set, ChromiumSmokeTest compiles both examples into javaw-components/target/chromium-examples/.
+     Copy this page there and serve it with Cross-Origin-Opener-Policy: same-origin and
+     Cross-Origin-Embedder-Policy: require-corp (javaw memory is shared). -->
+<javaw-counter label="Clicks"></javaw-counter>
+<todo-list heading="Shopping"></todo-list>
+<script type="module">
+  const [counter, todo] = await Promise.all([import('./JavawCounter.components.js'), import('./TodoList.components.js')]);
+  await Promise.all([counter.load(), todo.load()]);
+</script>
