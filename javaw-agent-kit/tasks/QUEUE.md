@@ -62,4 +62,4 @@
 | T55 | Semaphore (single-threaded) | - | done |
 | T56 | java.time.Duration core subset | - | done |
 | T57 | java.sql exception family (SQLException, SQLWarning, subclasses) | - | done |
-| T58 | AssertionError | - | todo |
+| T58 | AssertionError | - | done |

@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T58: java.lang.AssertionError constructors. See tasks/T58-assertion-error.md. */
-@Tag("agent-pending")
 class BytecodeAssertionErrorTest extends KitDifferential {
     private static final String FIXTURE = """
         class Detail {
