@@ -20,7 +20,31 @@ import java.util.regex.Pattern;
  * are rewritten; attributes and properties come from the lowered definitions.
  */
 final class ComponentArtifacts {
-    static final String MANIFEST = "custom-elements.json";
+    static final String MANIFEST_SUFFIX = ".custom-elements.json";
+
+    /**
+     * Event names the DOM lib already declares on {@code GlobalEventHandlersEventMap}/{@code ElementEventMap}
+     * (and so on every element). A global {@code HTMLElementEventMap} entry for one of them would silently
+     * retype the native event on every element, so those names are typed only on the component's own
+     * {@code <Class>EventMap}.
+     */
+    static final Set<String> NATIVE_EVENTS = Set.of(
+            "abort", "animationcancel", "animationend", "animationiteration", "animationstart", "auxclick",
+            "beforeinput", "beforematch", "beforetoggle", "blur", "cancel", "canplay", "canplaythrough", "change",
+            "click", "close", "compositionend", "compositionstart", "compositionupdate", "contextlost",
+            "contextmenu", "contextrestored", "copy", "cuechange", "cut", "dblclick", "drag", "dragend",
+            "dragenter", "dragleave", "dragover", "dragstart", "drop", "durationchange", "emptied", "ended",
+            "error", "focus", "focusin", "focusout", "formdata", "fullscreenchange", "fullscreenerror",
+            "gotpointercapture", "input", "invalid", "keydown", "keypress", "keyup", "load", "loadeddata",
+            "loadedmetadata", "loadstart", "lostpointercapture", "mousedown", "mouseenter", "mouseleave",
+            "mousemove", "mouseout", "mouseover", "mouseup", "paste", "pause", "play", "playing",
+            "pointercancel", "pointerdown", "pointerenter", "pointerleave", "pointermove", "pointerout",
+            "pointerover", "pointerup", "progress", "ratechange", "reset", "resize", "scroll", "scrollend",
+            "securitypolicyviolation", "seeked", "seeking", "select", "selectionchange", "selectstart",
+            "slotchange", "stalled", "submit", "suspend", "timeupdate", "toggle", "touchcancel", "touchend",
+            "touchmove", "touchstart", "transitioncancel", "transitionend", "transitionrun", "transitionstart",
+            "volumechange", "waiting", "webkitanimationend", "webkitanimationiteration", "webkitanimationstart",
+            "webkittransitionend", "wheel");
 
     private static final Pattern COMMENT = Pattern.compile("<!--.*?-->", Pattern.DOTALL);
     private static final Pattern SLOT = Pattern.compile("<slot(?=[\\s/>])([^>]*)>", Pattern.CASE_INSENSITIVE);
@@ -91,7 +115,7 @@ final class ComponentArtifacts {
         String module = output.moduleName();
         output.artifact(module + ".components.js", module(module));
         output.artifact(module + ".components.d.ts", declarations(module));
-        output.artifact(MANIFEST, manifest(module));
+        output.artifact(module + MANIFEST_SUFFIX, manifest(module));
     }
 
     /** Literal {@code <slot>} names ("" for the default slot) and {@code part} names; bound values are skipped. */
@@ -321,7 +345,8 @@ final class ComponentArtifacts {
             out.append("export interface ").append(map).append(" extends HTMLElementEventMap {\n");
             for (ComponentEvents.Event e : info.events.values()) {
                 out.append("  ").append(ComponentExtension.quoteJson(e.name())).append(": ").append(eventType(e)).append(";\n");
-                global.computeIfAbsent(e.name(), k -> new LinkedHashSet<>()).add(eventType(e));
+                if (!NATIVE_EVENTS.contains(e.name()))
+                    global.computeIfAbsent(e.name(), k -> new LinkedHashSet<>()).add(eventType(e));
             }
             out.append("}\n\n");
             if (info.description != null) out.append("/** ").append(info.description.replace("*/", "*\\/")).append(" */\n");
@@ -355,7 +380,7 @@ final class ComponentArtifacts {
            .append("}\n\n");
         out.append("/** The result of instantiateJavaw from javaw-runtime.js. */\n");
         out.append("export interface JavawInstance {\n  instance: WebAssembly.Instance;\n  module: WebAssembly.Module;\n  exports: WebAssembly.Exports;\n  runtime: unknown;\n  classes: unknown;\n}\n\n");
-        out.append("/** Instantiates the module once and defines every tag; later calls return the same promise. */\n");
+        out.append("/** Instantiates the module once and defines every tag; later calls return the same promise. A failed load is not cached: the next call retries. */\n");
         out.append("export declare function load(options?: LoadOptions): Promise<JavawInstance>;\n");
         out.append("/** Uses an instance already created with instantiateJavaw (which defined the tags) instead of loading another. */\n");
         out.append("export declare function attach(instance: JavawInstance): Promise<JavawInstance>;\n");
@@ -406,9 +431,9 @@ final class ComponentArtifacts {
                 return javaw.instantiateJavaw(source, options.imports || {}, doc);
             }
 
-            /** Instantiates the module once and defines every tag; later calls return the same promise. */
+            /** Instantiates the module once and defines every tag; later calls return the same promise. A failed load is not cached: the next call retries. */
             export function load(options = {}) {
-                if (!loading) loading = start(options);
+                if (!loading) loading = start(options).catch(e => { loading = null; throw e; });
                 return loading;
             }
 

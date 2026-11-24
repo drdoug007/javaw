@@ -28,6 +28,7 @@ class ArtifactsTest {
             public record RemainingChanged(int remaining, String label, Tone tone, long total, Integer missing, Element where, Inner inner)
                 implements ComponentEvent {}
             public record Inner(boolean ok, char key) implements ComponentEvent {}
+            public record Change(int v) implements ComponentEvent {}
             /** The heading text. */
             @Property(reflect = true) private String heading = "Todos";
             @Property(attribute = "max") private int maxItems = 10;
@@ -45,7 +46,7 @@ class ArtifactsTest {
                     <footer part='footer'></footer>
                     \""");
             }
-            private void changed() { dispatch(new RemainingChanged(1, "x", Tone.LOW, 2L, null, host(), new Inner(true, 'k'))); }
+            private void changed() { dispatch(new RemainingChanged(1, "x", Tone.LOW, 2L, null, host(), new Inner(true, 'k'))); dispatch(new Change(1)); }
         }
 
         @CustomElement("todo-badge")
@@ -58,9 +59,9 @@ class ArtifactsTest {
     @Test
     void manifestDescribesTagsAttributesPropertiesEventsSlotsAndParts() throws Exception {
         Map<String, String> artifacts = JavacToWasm.compile("App.java", PROGRAM, false).getArtifacts();
-        assertEquals(List.of("App.components.js", "App.components.d.ts", "custom-elements.json"), List.copyOf(artifacts.keySet()));
-        node(Map.of("custom-elements.json", artifacts.get("custom-elements.json")), """
-            const m = JSON.parse(fs.readFileSync('custom-elements.json', 'utf8'));
+        assertEquals(List.of("App.components.js", "App.components.d.ts", "App.custom-elements.json"), List.copyOf(artifacts.keySet()));
+        node(Map.of("App.custom-elements.json", artifacts.get("App.custom-elements.json")), """
+            const m = JSON.parse(fs.readFileSync('App.custom-elements.json', 'utf8'));
             assert.equal(m.schemaVersion, '2.1.0');
             assert.equal(m.modules.length, 1);
             const mod = m.modules[0];
@@ -92,6 +93,7 @@ class ArtifactsTest {
             ], '@State fields are not part of the element API');
             assert.deepEqual(todo.events, [
               { name: 'remaining-changed', type: { text: 'CustomEvent<RemainingChangedDetail>' }, description: 'Fired when the number of open items changes.' },
+              { name: 'change', type: { text: 'CustomEvent<ChangeDetail>' } },
             ]);
             assert.deepEqual(todo.slots, [{ name: 'title' }, { name: '' }], 'literal slots only; commented and bound names are skipped');
             assert.deepEqual(todo.cssParts, [{ name: 'header' }, { name: 'title' }, { name: 'footer' }]);
@@ -125,6 +127,7 @@ class ArtifactsTest {
         assertTrue(dts.contains("""
             export interface TodoListEventMap extends HTMLElementEventMap {
               "remaining-changed": CustomEvent<RemainingChangedDetail>;
+              "change": CustomEvent<ChangeDetail>;
             }
 
             /** A list of things to do. */
@@ -149,6 +152,8 @@ class ArtifactsTest {
               }
             }
             """), dts);
+        assertTrue(dts.contains("  \"change\": CustomEvent<ChangeDetail>;\n"), "native names stay on the element's own map: " + dts);
+        assertFalse(dts.substring(dts.indexOf("declare global")).contains("\"change\""), "native names are not added to the global map");
         assertTrue(dts.contains("export declare const tagNames: readonly (\"todo-list\" | \"todo-badge\")[];"), dts);
         assertTrue(dts.contains("export declare function load(options?: LoadOptions): Promise<JavawInstance>;"), dts);
     }
@@ -172,6 +177,7 @@ class ArtifactsTest {
             const mod = await import(pathToFileURL(path.resolve('App.components.js')).href);
             assert.deepEqual(mod.tagNames, ['todo-list', 'todo-badge']);
             assert.equal(mod.wasmUrl.href, pathToFileURL(path.resolve('App.wasm')).href);
+            await assert.rejects(mod.load({ source: new Uint8Array([0, 1, 2]), document }));
             const first = mod.load({ source: fs.readFileSync('App.wasm'), document });
             assert.equal(mod.load(), first, 'load runs once');
             const loaded = await first;
@@ -197,11 +203,11 @@ class ArtifactsTest {
         Path out = dir.resolve("out");
         assertTrue(JavacToWasm.compileFiles(List.of(src), out.resolve("wat/shop.wat"), out.resolve("shop.wasm"), null, null, "-O0", false, true));
         assertTrue(Files.isRegularFile(out.resolve("shop.wasm")));
-        String manifest = Files.readString(out.resolve("custom-elements.json"));
+        String manifest = Files.readString(out.resolve("shop.custom-elements.json"));
         assertTrue(manifest.contains("\"path\": \"shop.components.js\""), manifest);
         assertTrue(Files.readString(out.resolve("shop.components.js")).contains("new URL('./shop.wasm', import.meta.url)"));
         assertTrue(Files.readString(out.resolve("shop.components.d.ts")).contains("\"todo-list\": TodoList;"));
-        assertFalse(Files.exists(out.resolve("wat/custom-elements.json")));
+        assertFalse(Files.exists(out.resolve("wat/shop.custom-elements.json")));
     }
 
     /**
@@ -244,6 +250,9 @@ class ArtifactsTest {
               });
               document.querySelector('todo-badge')?.addEventListener('inner', e => console.log(e.detail.ok));
               document.body.addEventListener('remaining-changed', e => console.log(e.detail.label));
+              list.addEventListener('change', e => { const v: number = e.detail.v; console.log(v); });
+              // @ts-expect-error native change events on other elements keep their DOM type
+              document.createElement('input').addEventListener('change', e => e.detail);
               const tag: 'todo-list' | 'todo-badge' = tagNames[0];
               console.log(tag);
             }
