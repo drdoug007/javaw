@@ -17,6 +17,13 @@
             <artifactId>javaw-core</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- @Language("HTML"/"CSS") on html(...)/css(...) for IDE language injection; CLASS retention, not needed at run time. -->
+        <dependency>
+            <groupId>org.jetbrains</groupId>
+            <artifactId>annotations</artifactId>
+            <version>26.0.2</version>
+            <scope>provided</scope>
+        </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>

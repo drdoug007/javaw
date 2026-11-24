@@ -195,6 +195,10 @@ public final class ComponentExtension implements SourceExtension {
                 throw SourceExtension.error(component, "Custom element <" + definition.tag + "> is already defined by " + previous.getNameAsString());
             definitions.add(definition);
         }
+        ComponentArtifacts artifacts = new ComponentArtifacts(cu, events);
+        Map<String, ClassOrInterfaceDeclaration> componentClasses = new LinkedHashMap<>();
+        for (ClassOrInterfaceDeclaration c : components) componentClasses.put(c.getNameAsString(), c);
+        for (int i = 0; i < components.size(); i++) artifacts.scan(definitions.get(i).tag, components.get(i), componentClasses);
         // Templates first: binding expressions then get the @Query and reactive-field rewrites like other code.
         Map<String, TemplateRewrite.Component> byTagProperties = new LinkedHashMap<>();
         Map<String, ClassOrInterfaceDeclaration> componentsByName = new LinkedHashMap<>();
@@ -210,7 +214,9 @@ public final class ComponentExtension implements SourceExtension {
                         for (VariableDeclarator v : field.getVariables())
                             properties.putIfAbsent(v.getNameAsString(), new TemplateRewrite.Field(v.getTypeAsString(), c.getNameAsString()));
             Map<String, Integer> declared = new LinkedHashMap<>();
-            events.declaredBy(components.get(i), componentsByName).forEach((name, e) -> declared.put(name, e.key()));
+            Map<String, ComponentEvents.Event> declaredEvents = events.declaredBy(components.get(i), componentsByName);
+            declaredEvents.forEach((name, e) -> declared.put(name, e.key()));
+            artifacts.declaredEvents(definitions.get(i).tag, declaredEvents);
             byTagProperties.put(definitions.get(i).tag, new TemplateRewrite.Component(definitions.get(i).className, properties, declared));
         }
         TemplateRewrite templates = new TemplateRewrite(byTagProperties);
@@ -230,6 +236,7 @@ public final class ComponentExtension implements SourceExtension {
             LinkedHashSet<String> observed = new LinkedHashSet<>(d.observedAttributes);
             observed.addAll(ReactiveFields.attributes(fields));
             definitions.set(i, new Definition(d.tag, d.className, d.factory, List.copyOf(observed), fields, d.styles));
+            artifacts.lowered(d.tag, List.copyOf(observed), fields);
         }
         rewriteConstruction(cu, definitions);
         for (TemplateRewrite.PropertyKey key : templates.propertyKeys()) {
@@ -304,6 +311,7 @@ public final class ComponentExtension implements SourceExtension {
         }
         if (!styles.isEmpty()) output.customSection(ComponentStyles.SECTION, styles.json());
         output.customSection(SECTION, json(definitions));
+        if (!artifacts.isEmpty()) artifacts.emit(output);
     }
 
     /** Rewrites one.dastec.javaw.components.X references to X; returns whether any existed. */

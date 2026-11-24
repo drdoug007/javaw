@@ -64,7 +64,7 @@ public abstract class WebComponent {
      * A template. The argument must be a string literal or text block; {@code ${expr}} marks a binding.
      * The compiler rewrites every call, so this method never runs.
      */
-    protected static Template html(String template) {
+    protected static Template html(@org.intellij.lang.annotations.Language("HTML") String template) {
         throw new UnsupportedOperationException("html(...) must be rewritten by the javaw-components compiler extension");
     }
 
@@ -115,7 +115,7 @@ public abstract class WebComponent {
      * A style sheet. The argument must be a string literal or text block without {@code ${...}}. Assign it
      * to a {@code static final Css} field of a component class to style that component's shadow root.
      */
-    protected static Css css(String text) {
+    protected static Css css(@org.intellij.lang.annotations.Language("CSS") String text) {
         return Css.__of(text);
     }
 

@@ -113,9 +113,18 @@ public class JavacToWasm {
                 }
             }
 
-            String watContent = generateWat(cus, sourceMapGen);
+            Map<String, String> artifacts = new LinkedHashMap<>();
+            String watContent = generateWat(cus, sourceMapGen, stem, artifacts);
             if (watFilePath.getParent() != null) {
                 Files.createDirectories(watFilePath.getParent());
+            }
+            // Extension artifacts (custom-elements.json, .d.ts, ES module) go next to the .wasm.
+            Path artifactDir = (wasmFilePath != null ? wasmFilePath : watFilePath).toAbsolutePath().getParent();
+            for (var artifact : artifacts.entrySet()) {
+                Files.createDirectories(artifactDir);
+                Path target = artifactDir.resolve(artifact.getKey());
+                Files.writeString(target, artifact.getValue(), StandardCharsets.UTF_8);
+                System.out.println("Artifact generated: " + target);
             }
             try (FileWriter writer = new FileWriter(watFilePath.toFile())) {
                 writer.write(watContent);
@@ -453,12 +462,17 @@ public class JavacToWasm {
     }
 
     public static String generateWat(List<CompilationUnit> cus, SourceMapGenerator sourceMapGen) {
+        return generateWat(cus, sourceMapGen, null, null);
+    }
+
+    /** Like {@link #generateWat(List, SourceMapGenerator)}; a null {@code moduleName} uses the first source's stem. */
+    public static String generateWat(List<CompilationUnit> cus, SourceMapGenerator sourceMapGen, String moduleName, Map<String, String> artifacts) {
         if (cus.isEmpty()) {
             return "(module)\n";
         }
         if (cus.size() == 1) {
             String sourceName = cus.get(0).getStorage().map(s -> s.getPath().getFileName().toString()).orElse("Source.java");
-            return generateWat(cus.get(0), sourceMapGen, sourceName);
+            return generateWat(cus.get(0), sourceMapGen, sourceName, moduleName != null ? moduleName : stem(sourceName), artifacts);
         }
         Map<String, String> typeNames = JavaSourcePreparation.typeNames(cus);
         CompilationUnit merged = new CompilationUnit();
@@ -474,7 +488,7 @@ public class JavacToWasm {
             cu.getTypes().forEach(t -> merged.getTypes().add(t.clone()));
         }
         String sourceName = cus.get(0).getStorage().map(s -> s.getPath().getFileName().toString()).orElse("Source.java");
-        return generateWat(merged, sourceMapGen, sourceName);
+        return generateWat(merged, sourceMapGen, sourceName, moduleName != null ? moduleName : stem(sourceName), artifacts);
     }
 
     public static String generateWat(CompilationUnit cu) {
@@ -526,14 +540,23 @@ public class JavacToWasm {
         }
     }
 
-    /** Runs the discovered source extensions; returns their custom sections in order. */
-    private static Map<String, String> runExtensions(CompilationUnit cu, String sourceName) {
+    /** Runs the discovered source extensions; returns their custom sections in order and collects their artifacts. */
+    private static Map<String, String> runExtensions(CompilationUnit cu, String sourceName, String moduleName, Map<String, String> artifacts) {
         Map<String, String> sections = new LinkedHashMap<>();
         Set<String> owned = new HashSet<>();
         for (var extension : EXTENSIONS) {
             owned.addAll(extension.packages());
-            extension.prepare(cu, (name, payload) -> {
-                if (sections.putIfAbsent(name, payload) != null) throw new IllegalStateException("Duplicate custom section " + name);
+            extension.prepare(cu, new one.dastec.javaw.spi.SourceExtension.Output() {
+                @Override public void customSection(String name, String payload) {
+                    if (sections.putIfAbsent(name, payload) != null) throw new IllegalStateException("Duplicate custom section " + name);
+                }
+                @Override public void artifact(String fileName, String content) {
+                    if (fileName.isEmpty() || fileName.contains("/") || fileName.contains("\\") || fileName.startsWith("."))
+                        throw new IllegalStateException("Artifact names are plain file names: " + fileName);
+                    if (artifacts != null && artifacts.putIfAbsent(fileName, content) != null)
+                        throw new IllegalStateException("Duplicate artifact " + fileName);
+                }
+                @Override public String moduleName() { return moduleName; }
             });
         }
         String pkg = "one.dastec.javaw.components";
@@ -557,6 +580,21 @@ public class JavacToWasm {
     }
 
     public static String generateWat(CompilationUnit cu, SourceMapGenerator sourceMapGen, String sourceName) {
+        return generateWat(cu, sourceMapGen, sourceName, stem(sourceName), null);
+    }
+
+    private static String stem(String fileName) {
+        String name = fileName == null ? "module" : Path.of(fileName).getFileName().toString();
+        int dot = name.lastIndexOf('.');
+        return dot > 0 ? name.substring(0, dot) : name;
+    }
+
+    /**
+     * Generates the module's WAT. Build artifacts that source extensions contribute (for example the web
+     * component manifest and TypeScript declarations) are added to {@code artifacts} when it is not null.
+     */
+    public static String generateWat(CompilationUnit cu, SourceMapGenerator sourceMapGen, String sourceName,
+                                     String moduleName, Map<String, String> artifacts) {
         StringBuilder watOutput = new StringBuilder();
         watOutput.append("(module\n");
 
@@ -564,7 +602,7 @@ public class JavacToWasm {
         JavaSourcePreparation.markSource(cu, sourceName);
         JavaSourcePreparation.normalizeTypes(cu, JavaSourcePreparation.typeNames(List.of(cu)));
         SourceRuntimeSupport.prepare(cu);
-        Map<String, String> extensionSections = runExtensions(cu, sourceName);
+        Map<String, String> extensionSections = runExtensions(cu, sourceName, moduleName, artifacts);
         lowerTextBlocks(cu);
         JavaSourcePreparation.normalizeTypes(cu, JavaSourcePreparation.typeNames(List.of(cu)));
         ReflectionSupport reflection = ReflectionSupport.prepare(cu);
@@ -758,14 +796,15 @@ public class JavacToWasm {
         SourceMapGenerator sourceMapGen = new SourceMapGenerator(stem + ".wat");
         sourceMapGen.addSource(fileName, javaSource);
 
-        String wat = generateWat(cu, sourceMapGen, fileName);
+        Map<String, String> artifacts = new LinkedHashMap<>();
+        String wat = generateWat(cu, sourceMapGen, fileName, stem, artifacts);
         byte[] wasm = assembleWasm(wat, optimize);
         Map<String, JsSnippetModel> jsSnippets = JsAnnotationHelper.collectJsSnippets(cu);
         ClassRegistry classRegistry = ClassRegistry.build(cu);
         Map<String, one.dastec.javaw.js.JsExportModel> jsExports = JsAnnotationHelper.collectJsExports(cu, classRegistry);
         List<String> jsCodeBlocks = JsAnnotationHelper.collectJsCodeBlocks(cu);
         Map<String, String> jsResources = JsAnnotationHelper.collectJsResources(cu);
-        return new CompilationResult(wat, wasm, sourceMapGen, jsSnippets, jsExports, jsCodeBlocks, jsResources);
+        return new CompilationResult(wat, wasm, sourceMapGen, jsSnippets, jsExports, jsCodeBlocks, jsResources).withArtifacts(artifacts);
     }
 
     public static byte[] assembleWasm(String watContent, boolean optimize) {
@@ -812,6 +851,7 @@ public class JavacToWasm {
         private final Map<String, one.dastec.javaw.js.JsExportModel> jsExports;
         private final List<String> jsCodeBlocks;
         private final Map<String, String> jsResources;
+        private Map<String, String> artifacts = java.util.Collections.emptyMap();
 
         public CompilationResult(String wat, byte[] wasm) {
             this(wat, wasm, null, java.util.Collections.emptyMap(), java.util.Collections.emptyMap(), java.util.Collections.emptyList(), java.util.Collections.emptyMap());
@@ -900,6 +940,16 @@ public class JavacToWasm {
 
         public Map<String, String> getJsResources() {
             return jsResources;
+        }
+
+        /** Build artifacts contributed by source extensions, by file name (see {@code SourceExtension.Output#artifact}). */
+        public Map<String, String> getArtifacts() {
+            return artifacts;
+        }
+
+        public CompilationResult withArtifacts(Map<String, String> artifacts) {
+            this.artifacts = artifacts == null ? java.util.Collections.emptyMap() : java.util.Collections.unmodifiableMap(new LinkedHashMap<>(artifacts));
+            return this;
         }
 
         public String getJsResourcesJson() {

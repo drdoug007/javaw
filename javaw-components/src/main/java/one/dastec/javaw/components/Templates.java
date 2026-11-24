@@ -16,7 +16,7 @@ public final class Templates {
     }
 
     /** A template; the argument must be a string literal or text block, and {@code ${expr}} marks a binding. */
-    public static Template html(String template) {
+    public static Template html(@org.intellij.lang.annotations.Language("HTML") String template) {
         throw new UnsupportedOperationException("html(...) must be rewritten by the javaw-components compiler extension");
     }
 
@@ -67,7 +67,7 @@ public final class Templates {
      * A style sheet. The argument must be a string literal or text block without {@code ${...}}. Assign it
      * to a {@code static final Css} field of a component class to style that component's shadow root.
      */
-    public static Css css(String text) {
+    public static Css css(@org.intellij.lang.annotations.Language("CSS") String text) {
         return Css.__of(text);
     }
 
