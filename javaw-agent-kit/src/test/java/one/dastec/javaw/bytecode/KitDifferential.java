@@ -55,7 +55,7 @@ public abstract class KitDifferential implements Opcodes {
         Path classes=compileFixture(source);
         String type=publicClass(source);
         StringBuilder assertions=new StringBuilder();
-        try(URLClassLoader loader=new URLClassLoader(new URL[]{classes.toUri().toURL()},null)) {
+        try(URLClassLoader loader=new URLClassLoader(new URL[]{classes.toUri().toURL()},ClassLoader.getPlatformClassLoader())) {
             Class<?> fixture=loader.loadClass(type);
             for(String name:methods)assertions.append(assertion(type,name,expected(fixture,name)));
         }

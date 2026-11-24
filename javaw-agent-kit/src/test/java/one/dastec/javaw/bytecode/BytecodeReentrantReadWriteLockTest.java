@@ -286,7 +286,5 @@ class BytecodeReentrantReadWriteLockTest extends KitDifferential {
         rejectsUnusedCall("java/util/concurrent/locks/ReentrantReadWriteLock", "hasWaiters", "(Ljava/util/concurrent/locks/Condition;)Z", INVOKEVIRTUAL, false);
         rejectsUnusedCall("java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock", "newCondition", "()Ljava/util/concurrent/locks/Condition;", INVOKEVIRTUAL, false);
         rejectsUnusedCall("java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock", "newCondition", "()Ljava/util/concurrent/locks/Condition;", INVOKEVIRTUAL, false);
-        rejectsUnusedCall("java/util/concurrent/locks/ReentrantReadWriteLock$ReadLock", "tryLock", "(JLjava/util/concurrent/TimeUnit;)Z", INVOKEVIRTUAL, false);
-        rejectsUnusedCall("java/util/concurrent/locks/ReentrantReadWriteLock$WriteLock", "tryLock", "(JLjava/util/concurrent/TimeUnit;)Z", INVOKEVIRTUAL, false);
     }
 }

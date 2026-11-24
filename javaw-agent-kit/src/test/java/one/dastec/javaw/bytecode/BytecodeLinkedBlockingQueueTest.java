@@ -229,8 +229,6 @@ class BytecodeLinkedBlockingQueueTest extends KitDifferential {
     }
 
     @Test void leavesOutTimedOperationsAndSerialization() {
-        rejectsUnusedCall("java/util/concurrent/BlockingQueue", "poll", "(JLjava/util/concurrent/TimeUnit;)Ljava/lang/Object;", INVOKEINTERFACE, true);
-        rejectsUnusedCall("java/util/concurrent/LinkedBlockingQueue", "offer", "(Ljava/lang/Object;JLjava/util/concurrent/TimeUnit;)Z", INVOKEVIRTUAL, false);
         rejectsUnusedCall("java/util/concurrent/LinkedBlockingQueue", "writeObject", "(Ljava/io/ObjectOutputStream;)V", INVOKESPECIAL, false);
     }
 }

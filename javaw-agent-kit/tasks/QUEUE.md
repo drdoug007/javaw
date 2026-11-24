@@ -56,3 +56,10 @@
 | T49 | Lock and ReentrantLock (single-threaded) | - | done |
 | T50 | ReadWriteLock and ReentrantReadWriteLock (single-threaded) | T49 | done |
 | T51 | BlockingQueue and LinkedBlockingQueue (single-threaded) | - | done |
+| T52 | TimeUnit constants and conversions | - | todo |
+| T53 | Timed tryLock/offer/poll with TimeUnit (single-threaded) | T52 | todo |
+| T54 | CountDownLatch (single-threaded) | - | todo |
+| T55 | Semaphore (single-threaded) | - | todo |
+| T56 | java.time.Duration core subset | - | todo |
+| T57 | java.sql exception family (SQLException, SQLWarning, subclasses) | - | todo |
+| T58 | AssertionError | - | todo |

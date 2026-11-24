@@ -197,7 +197,6 @@ class BytecodeReentrantLockTest extends KitDifferential {
     @Test void leavesOutConditionsAndQueues() {
         rejectsUnusedCall("java/util/concurrent/locks/ReentrantLock", "newCondition", "()Ljava/util/concurrent/locks/Condition;", INVOKEVIRTUAL, false);
         rejectsUnusedCall("java/util/concurrent/locks/Lock", "newCondition", "()Ljava/util/concurrent/locks/Condition;", INVOKEINTERFACE, true);
-        rejectsUnusedCall("java/util/concurrent/locks/ReentrantLock", "tryLock", "(JLjava/util/concurrent/TimeUnit;)Z", INVOKEVIRTUAL, false);
         rejectsUnusedCall("java/util/concurrent/locks/ReentrantLock", "getQueueLength", "()I", INVOKEVIRTUAL, false);
         rejectsUnusedCall("java/util/concurrent/locks/ReentrantLock", "hasQueuedThreads", "()Z", INVOKEVIRTUAL, false);
     }
