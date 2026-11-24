@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T54: java.util.concurrent.CountDownLatch (single-threaded). Expected values come from the JVM; see tasks/T54-count-down-latch.md. */
-@Tag("agent-pending")
 class BytecodeCountDownLatchTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.util.concurrent.CountDownLatch;
