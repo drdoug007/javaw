@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T55: java.util.concurrent.Semaphore (single-threaded). Expected values come from the JVM; see tasks/T55-semaphore.md. */
-@Tag("agent-pending")
 class BytecodeSemaphoreTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.util.concurrent.Semaphore;
