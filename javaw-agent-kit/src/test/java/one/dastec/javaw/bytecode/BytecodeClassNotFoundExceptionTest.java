@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T62: java.lang.ClassNotFoundException and the ReflectiveOperationException cause constructors. See tasks/T62-class-not-found-exception.md. */
-@Tag("agent-pending")
 class BytecodeClassNotFoundExceptionTest extends KitDifferential {
     private static final String FIXTURE = """
         class Lookup {
