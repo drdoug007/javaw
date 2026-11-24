@@ -19,6 +19,20 @@ import time
 HEARTBEAT_SECONDS = 120
 
 
+def server_error(event):
+    """The error text if a stream-json result event reports a failed API call rather than the agent's own ending.
+
+    A request the model server refuses (for example oMLX's 507 when the model does not fit in memory) ends the
+    session after one turn with a result such as `API Error: 507 ...`, which Claude Code may still label
+    `success`."""
+    text = str(event.get("result") or "").strip()
+    if event.get("api_error_status") or text.startswith("API Error"):
+        return text or "API error %s" % event.get("api_error_status")
+    if event.get("is_error") and event.get("subtype") == "success":
+        return text or "is_error result"
+    return None
+
+
 def count_tests(paths):
     """Number of @Test methods in the given test sources (0 if none can be read)."""
     total = 0
@@ -46,6 +60,7 @@ class Progress:
         self.passing = None
         self.pending = {}      # tool_use_id -> (tool name, input)
         self.finished = None   # "done" or "blocked" once known
+        self.server_error = None  # the error text when the model server failed the session (not the agent)
 
     # -- formatting -------------------------------------------------------------------------------------------
     def elapsed(self):
@@ -98,7 +113,12 @@ class Progress:
             return "\n".join(parts) or None
         if kind == "result":
             turns = event.get("num_turns")
-            self.emit("session ended (%s%s)" % (event.get("subtype", "?"), ", %s turns" % turns if turns else ""))
+            error = server_error(event)
+            if error:
+                self.server_error = error
+                self.emit("session failed: model server error (%s)" % error[:160])
+            else:
+                self.emit("session ended (%s%s)" % (event.get("subtype", "?"), ", %s turns" % turns if turns else ""))
             return "[result] %s" % (event.get("result") or event.get("subtype"))
         return None
 

@@ -105,6 +105,11 @@ times more slowly, so allow a longer `--timeout`. Each session:
 When a session ends without finishing, the runner blocks the task and saves the attempt in
 `javaw-agent-kit/target/kit/<ID>/attempt.patch`. Logs are in `javaw-agent-kit/target/kit/<ID>/session.log`.
 
+If the model server fails the session instead (a result such as `API Error: 507 ... does not fit under the
+dynamic memory ceiling`), the task is not the problem: the runner prints the error, stops the batch, and leaves
+the task queued with nothing committed. Free memory or pick a smaller `--model`, then run the same command again.
+If the agent had already changed files, the task is blocked as usual so the attempt is kept for `--retry`.
+
 `kit finish` runs the full bytecode suite with all cores. If the model is generating at the same time, set
 `KIT_FORKS=4`.
 

@@ -9,7 +9,8 @@ attempt; --fresh starts from the task's starting point instead. Use it to give a
 
 Each session gets a per-task permission allowlist (dontAsk mode: anything not listed is denied). The session may
 edit only that task's allowed files, read anything, and run only `bin/kit` plus read-only shell commands. If a
-session ends without `kit finish`, the runner blocks the task (its attempt is saved as a patch) and moves on.
+session ends without `kit finish`, the runner blocks the task (its attempt is saved as a patch) and moves on. A
+model server error (an `API Error: ...` result) stops the batch instead and leaves the task queued.
 
 While a session runs, one line per step shows what it is doing and an estimated progress percentage (phases of
 the AGENT.md loop; during `kit check` the share of the task's tests that pass). --quiet turns this off.
@@ -181,6 +182,33 @@ def run_session(command, env, timeout, tracker, out_file, raw_file):
             process.wait()
 
 
+def server_failure(task_id, error, out_file_path):
+    """The model server failed the session: not the task's fault, so do not block it, and stop the batch.
+
+    With no work in the tree the task goes back to its previous status (`kit start` only edits QUEUE.md, it does
+    not commit), so nothing is committed. If the agent already changed files before the server failed, the task
+    is blocked as usual so the attempt is saved; `--retry TNN` continues from it."""
+    with open(out_file_path, "a") as out:
+        out.write("\n[run-local] model server error; task not blocked: %s\n" % error)
+    print("== %s: the model server failed the session, not the agent:\n   %s" % (task_id, error[:500]))
+    def lines(*args):
+        return subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True).stdout.splitlines()
+    baseline = KIT / "target" / "kit" / "untracked-before"
+    before = set(baseline.read_text().splitlines()) if baseline.exists() else set()
+    changed = [f for f in lines("diff", "--name-only", "HEAD")
+               if f != "javaw-agent-kit/tasks/QUEUE.md" and not f.startswith(".idea/")]
+    changed += [f for f in lines("ls-files", "--others", "--exclude-standard") if f not in before]
+    if changed:
+        kit("block", task_id, "model server error after the session changed files: %s" % error[:300], capture=False)
+        print("== %s: blocked to keep the attempt; fix the server, then `--retry %s`." % (task_id, task_id))
+    else:
+        subprocess.run(["git", "checkout", "--", "javaw-agent-kit/tasks/QUEUE.md"], cwd=ROOT, check=True)
+        print("== %s: left queued (status restored, nothing committed). Fix the server (free memory, unload other"
+              " models or use a smaller --model), then run the same command again." % task_id)
+    print("Stopping the batch: later sessions would hit the same server error.")
+    return 2
+
+
 def blocked_tasks():
     rows = []
     for line in (KIT / "tasks" / "QUEUE.md").read_text().splitlines():
@@ -291,6 +319,8 @@ def main():
                     capture=False)
                 return 130
         status = status_of(task_id)
+        if tracker.server_error and status not in ("done", "blocked"):
+            return server_failure(task_id, tracker.server_error, out_file_path=log)
         print("== %s: %s" % (task_id, status))
         if status not in ("done", "blocked"):
             kit("block", task_id, "local session ended without kit finish; see target/kit/%s/session.log" % task_id,
