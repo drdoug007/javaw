@@ -161,7 +161,8 @@ class BytecodeDurationTest extends KitDifferential {
                 StringBuilder out=new StringBuilder();
                 String[] texts={"","P","PT","P1DT","-P","PT1.1234567890S","PT1H1H","PT S","1D","PT1M1H","PT.5S","P1H","PT1D","PT1HS",
                     "PT9223372036854775808S","P106751991167301D","PT2562047788015216H","PT153722867280912931M","P1DT9223372036854775807S",
-                    "-PT-9223372036854775808S","PT1.-5S"," PT1S","PT1S ","PT1s0"};
+                    "-PT-9223372036854775808S","PT1.-5S"," PT1S","PT1S ","PT1s0",
+                    "P-D","P+D","PT-H","PT+M","PT-S","PT-.5S","P-DT1H","PT-H1M","PT1H-M","PT-H-M-S","-P-D","P1DT-S"};
                 for(String t:texts)out.append(parsed(t)).append(';');
                 try{Duration.parse(null);out.append("no");}catch(NullPointerException e){out.append(name(e)).append(':').append(e.getMessage());}
                 return out.toString();
