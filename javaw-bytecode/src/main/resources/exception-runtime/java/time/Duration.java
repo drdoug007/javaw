@@ -4,6 +4,9 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalUnit;
+import java.time.temporal.UnsupportedTemporalTypeException;
 import java.util.Objects;
 
 public final class Duration implements Comparable<Duration>,java.io.Serializable {
@@ -59,6 +62,8 @@ public final class Duration implements Comparable<Duration>,java.io.Serializable
         if(n<0){n+=NANOS_PER_SECOND;secs--;}
         return create(secs,(int)n);
     }
+
+    public static Duration of(long amount,TemporalUnit unit){return ZERO.plus(amount,unit);}
 
     public static Duration parse(CharSequence text){
         Objects.requireNonNull(text,"text");
@@ -159,6 +164,24 @@ public final class Duration implements Comparable<Duration>,java.io.Serializable
     public long getSeconds(){return seconds;}
     public int getNano(){return nanos;}
 
+    public Duration plus(long amountToAdd,TemporalUnit unit){
+        Objects.requireNonNull(unit,"unit");
+        if(unit==ChronoUnit.DAYS)return plus(Math.multiplyExact(amountToAdd,SECONDS_PER_DAY),0);
+        if(unit.isDurationEstimated())throw new UnsupportedTemporalTypeException("Unit must not have an estimated duration");
+        if(amountToAdd==0)return this;
+        if(unit instanceof ChronoUnit){
+            switch((ChronoUnit)unit){
+                case NANOS:return plusNanos(amountToAdd);
+                case MICROS:return plusSeconds((amountToAdd/(1000_000L*1000))*1000).plusNanos((amountToAdd%(1000_000L*1000))*1000);
+                case MILLIS:return plusMillis(amountToAdd);
+                case SECONDS:return plusSeconds(amountToAdd);
+                default:return plusSeconds(Math.multiplyExact(unit.getDuration().seconds,amountToAdd));
+            }
+        }
+        Duration d=unit.getDuration().multipliedBy(amountToAdd);
+        return plusSeconds(d.getSeconds()).plusNanos(d.getNano());
+    }
+
     public Duration plus(Duration duration){return plus(duration.seconds,duration.nanos);}
     public Duration plusDays(long daysToAdd){return plus(Math.multiplyExact(daysToAdd,SECONDS_PER_DAY),0);}
     public Duration plusHours(long hoursToAdd){return plus(Math.multiplyExact(hoursToAdd,SECONDS_PER_HOUR),0);}
@@ -173,6 +196,10 @@ public final class Duration implements Comparable<Duration>,java.io.Serializable
         epochSec=Math.addExact(epochSec,nanosToAdd/NANOS_PER_SECOND);
         nanosToAdd=nanosToAdd%NANOS_PER_SECOND;
         return ofSeconds(epochSec,nanos+(int)nanosToAdd);
+    }
+
+    public Duration minus(long amountToSubtract,TemporalUnit unit){
+        return amountToSubtract==Long.MIN_VALUE ? plus(Long.MAX_VALUE,unit).plus(1,unit) : plus(-amountToSubtract,unit);
     }
 
     public Duration minus(Duration duration){

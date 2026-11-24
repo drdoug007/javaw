@@ -1,5 +1,8 @@
 package java.util.concurrent;
 
+import java.time.temporal.ChronoUnit;
+import java.util.Objects;
+
 public enum TimeUnit {
     NANOSECONDS(TimeUnit.NANO_SCALE), MICROSECONDS(TimeUnit.MICRO_SCALE), MILLISECONDS(TimeUnit.MILLI_SCALE),
     SECONDS(TimeUnit.SECOND_SCALE), MINUTES(TimeUnit.MINUTE_SCALE), HOURS(TimeUnit.HOUR_SCALE), DAYS(TimeUnit.DAY_SCALE);
@@ -86,5 +89,32 @@ public enum TimeUnit {
             else if (d < -m) return Long.MIN_VALUE;
             else return d * r;
         }
+    }
+
+    public ChronoUnit toChronoUnit() {
+        switch (this) {
+            case NANOSECONDS: return ChronoUnit.NANOS;
+            case MICROSECONDS: return ChronoUnit.MICROS;
+            case MILLISECONDS: return ChronoUnit.MILLIS;
+            case SECONDS: return ChronoUnit.SECONDS;
+            case MINUTES: return ChronoUnit.MINUTES;
+            case HOURS: return ChronoUnit.HOURS;
+            case DAYS: return ChronoUnit.DAYS;
+        }
+        throw new AssertionError();
+    }
+
+    public static TimeUnit of(ChronoUnit chronoUnit) {
+        Objects.requireNonNull(chronoUnit, "chronoUnit");
+        switch (chronoUnit) {
+            case NANOS: return NANOSECONDS;
+            case MICROS: return MICROSECONDS;
+            case MILLIS: return MILLISECONDS;
+            case SECONDS: return SECONDS;
+            case MINUTES: return MINUTES;
+            case HOURS: return HOURS;
+            case DAYS: return DAYS;
+        }
+        throw new IllegalArgumentException("No TimeUnit equivalent for " + chronoUnit);
     }
 }

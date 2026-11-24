@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T60: java.time.temporal.TemporalUnit, ChronoUnit and the unit-based Duration/TimeUnit members. See tasks/T60-chrono-unit.md. */
-@Tag("agent-pending")
 class BytecodeChronoUnitTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.time.DateTimeException;
