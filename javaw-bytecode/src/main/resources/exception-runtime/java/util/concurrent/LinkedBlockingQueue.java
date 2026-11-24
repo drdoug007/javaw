@@ -109,7 +109,29 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E> implements Blocking
         return true;
     }
 
+    public boolean offer(E e, long timeout, TimeUnit unit) throws InterruptedException {
+        if (e == null) {
+            throw new NullPointerException();
+        }
+        unit.toNanos(timeout);
+        if (count == capacity) {
+            return false;
+        }
+        enqueue(new Node<E>(e));
+        count++;
+        return true;
+    }
+
     public E poll() {
+        if (count == 0) {
+            return null;
+        }
+        count--;
+        return dequeue();
+    }
+
+    public E poll(long timeout, TimeUnit unit) throws InterruptedException {
+        unit.toNanos(timeout);
         if (count == 0) {
             return null;
         }

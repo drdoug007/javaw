@@ -1,6 +1,7 @@
 package java.util.concurrent.locks;
 
 import java.io.Serializable;
+import java.util.concurrent.TimeUnit;
 
 /** Reentrant lock for the single-threaded bytecode contract: one plain hold count, never blocks. */
 public class ReentrantLock implements Lock,Serializable {
@@ -11,6 +12,7 @@ public class ReentrantLock implements Lock,Serializable {
     public void lock(){if(holds==Integer.MAX_VALUE)throw new Error("Maximum lock count exceeded");holds++;}
     public void lockInterruptibly(){if(holds==Integer.MAX_VALUE)throw new Error("Maximum lock count exceeded");holds++;}
     public boolean tryLock(){if(holds==Integer.MAX_VALUE)throw new Error("Maximum lock count exceeded");holds++;return true;}
+    public boolean tryLock(long timeout, TimeUnit unit) throws InterruptedException{unit.toNanos(timeout);if(holds==Integer.MAX_VALUE)throw new Error("Maximum lock count exceeded");holds++;return true;}
     public void unlock(){if(holds==0)throw new IllegalMonitorStateException();holds--;}
     public int getHoldCount(){return holds;}
     public boolean isHeldByCurrentThread(){return holds!=0;}

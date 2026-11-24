@@ -2,6 +2,7 @@ package java.util.concurrent.locks;
 
 import java.io.Serializable;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 
 /** Read-write lock for the single-threaded bytecode contract: two plain hold counters, never blocks. */
 public class ReentrantReadWriteLock implements ReadWriteLock,Serializable {
@@ -28,6 +29,7 @@ public class ReentrantReadWriteLock implements ReadWriteLock,Serializable {
         public void lock(){if(lock.readHolds==65535)throw new Error("Maximum lock count exceeded");lock.readHolds++;}
         public void lockInterruptibly() throws InterruptedException{if(lock.readHolds==65535)throw new Error("Maximum lock count exceeded");lock.readHolds++;}
         public boolean tryLock(){if(lock.readHolds==65535)throw new Error("Maximum lock count exceeded");lock.readHolds++;return true;}
+        public boolean tryLock(long timeout, TimeUnit unit) throws InterruptedException{unit.toNanos(timeout);if(lock.readHolds==65535)throw new Error("Maximum lock count exceeded");lock.readHolds++;return true;}
         public void unlock(){if(lock.readHolds==0)throw new IllegalMonitorStateException("attempt to unlock read lock, not locked by current thread");lock.readHolds--;}
         public String toString(){return super.toString()+"[Read locks = "+lock.readHolds+"]";}
     }
@@ -38,6 +40,7 @@ public class ReentrantReadWriteLock implements ReadWriteLock,Serializable {
         public void lock(){if(lock.readHolds!=0&&lock.writeHolds==0)throw new IllegalMonitorStateException("write lock would block forever: read lock held");if(lock.writeHolds==65535)throw new Error("Maximum lock count exceeded");lock.writeHolds++;}
         public void lockInterruptibly() throws InterruptedException{if(lock.readHolds!=0&&lock.writeHolds==0)throw new IllegalMonitorStateException("write lock would block forever: read lock held");if(lock.writeHolds==65535)throw new Error("Maximum lock count exceeded");lock.writeHolds++;}
         public boolean tryLock(){if(lock.readHolds!=0&&lock.writeHolds==0)return false;if(lock.writeHolds==65535)throw new Error("Maximum lock count exceeded");lock.writeHolds++;return true;}
+        public boolean tryLock(long timeout, TimeUnit unit) throws InterruptedException{unit.toNanos(timeout);if(lock.readHolds!=0&&lock.writeHolds==0)return false;if(lock.writeHolds==65535)throw new Error("Maximum lock count exceeded");lock.writeHolds++;return true;}
         public void unlock(){if(lock.writeHolds==0)throw new IllegalMonitorStateException();lock.writeHolds--;}
         public boolean isHeldByCurrentThread(){return lock.writeHolds!=0;}
         public int getHoldCount(){return lock.writeHolds;}

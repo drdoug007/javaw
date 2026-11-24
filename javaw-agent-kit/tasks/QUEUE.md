@@ -57,7 +57,7 @@
 | T50 | ReadWriteLock and ReentrantReadWriteLock (single-threaded) | T49 | done |
 | T51 | BlockingQueue and LinkedBlockingQueue (single-threaded) | - | done |
 | T52 | TimeUnit constants and conversions | - | done |
-| T53 | Timed tryLock/offer/poll with TimeUnit (single-threaded) | T52 | todo |
+| T53 | Timed tryLock/offer/poll with TimeUnit (single-threaded) | T52 | done |
 | T54 | CountDownLatch (single-threaded) | - | done |
 | T55 | Semaphore (single-threaded) | - | todo |
 | T56 | java.time.Duration core subset | - | todo |

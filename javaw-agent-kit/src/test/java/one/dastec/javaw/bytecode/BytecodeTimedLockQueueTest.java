@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T53: timed tryLock/offer/poll with TimeUnit (single-threaded). Expected values come from the JVM; see tasks/T53-timed-lock-queue.md. */
-@Tag("agent-pending")
 class BytecodeTimedLockQueueTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.util.concurrent.BlockingQueue;
