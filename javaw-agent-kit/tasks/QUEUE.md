@@ -69,4 +69,4 @@
 | T62 | ClassNotFoundException | - | done |
 | T63 | java.util.Date millisecond core | T61 | done |
 | T64 | Timed CountDownLatch.await and Semaphore.tryAcquire (single-threaded) | T52, T54, T55 | done |
-| T65 | Throwable implements Serializable | - | todo |
+| T65 | Throwable implements Serializable | - | done |

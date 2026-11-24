@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T65: java.lang.Throwable implements java.io.Serializable. See tasks/T65-throwable-serializable.md. */
-@Tag("agent-pending")
 class BytecodeThrowableSerializableTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.io.Serializable;

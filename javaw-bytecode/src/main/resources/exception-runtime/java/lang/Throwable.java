@@ -1,7 +1,8 @@
 package java.lang;
 
 /** Single-threaded bytecode runtime; deliberately independent of the host JDK. */
-public class Throwable {
+public class Throwable implements java.io.Serializable {
+    private static final long serialVersionUID = -3042686055658047285L;
     private String message;
     private Throwable cause = this;
     private Throwable[] suppressed;
