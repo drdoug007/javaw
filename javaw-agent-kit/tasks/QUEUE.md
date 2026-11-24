@@ -61,5 +61,5 @@
 | T54 | CountDownLatch (single-threaded) | - | done |
 | T55 | Semaphore (single-threaded) | - | done |
 | T56 | java.time.Duration core subset | - | done |
-| T57 | java.sql exception family (SQLException, SQLWarning, subclasses) | - | todo |
+| T57 | java.sql exception family (SQLException, SQLWarning, subclasses) | - | done |
 | T58 | AssertionError | - | todo |

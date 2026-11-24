@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T57: the java.sql exception family. Expected values come from the JVM; see tasks/T57-sql-exception.md. */
-@Tag("agent-pending")
 class BytecodeSqlExceptionTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.sql.*;
