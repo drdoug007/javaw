@@ -163,6 +163,7 @@ public final class BytecodeExceptionRuntime {
             paths.add("java/util/concurrent/BlockingQueue.java");
             paths.add("java/util/concurrent/LinkedBlockingQueue.java");
             paths.add("java/util/concurrent/ConcurrentHashMap.java");
+            paths.add("java/util/concurrent/TimeUnit.java");
             paths.add("javaw/runtime/ExceptionSupport.java");
             paths.add("javaw/runtime/ReflectionSupport.java");
             paths.add("javaw/runtime/Decimal.java");

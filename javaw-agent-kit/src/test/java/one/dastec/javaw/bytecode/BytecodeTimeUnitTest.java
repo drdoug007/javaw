@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T52: java.util.concurrent.TimeUnit (conversions only). See tasks/T52-time-unit.md. */
-@Tag("agent-pending")
 class BytecodeTimeUnitTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.util.concurrent.TimeUnit;
