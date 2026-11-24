@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T64: timed CountDownLatch.await and Semaphore.tryAcquire (single-threaded). Expected values come from the JVM; see tasks/T64-timed-latch-semaphore.md. */
-@Tag("agent-pending")
 class BytecodeTimedLatchSemaphoreTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.util.concurrent.CountDownLatch;

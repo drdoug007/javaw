@@ -13,7 +13,9 @@ public class Semaphore implements Serializable {
     public void acquireUninterruptibly(){take(1,"acquireUninterruptibly");}
     public void acquireUninterruptibly(int n){checkNonNegative(n);take(n,"acquireUninterruptibly");}
     public boolean tryAcquire(){return tryTake(1);}
+    public boolean tryAcquire(long timeout,TimeUnit unit) throws InterruptedException{unit.toNanos(timeout);return tryTake(1);}
     public boolean tryAcquire(int n){checkNonNegative(n);return tryTake(n);}
+    public boolean tryAcquire(int n,long timeout,TimeUnit unit) throws InterruptedException{checkNonNegative(n);unit.toNanos(timeout);return tryTake(n);}
     public void release(){give(1);}
     public void release(int n){checkNonNegative(n);give(n);}
     public int availablePermits(){return permits;}
