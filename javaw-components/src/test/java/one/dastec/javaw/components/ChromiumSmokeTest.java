@@ -108,7 +108,12 @@ class ChromiumSmokeTest {
 
     static String chrome() {
         String path = System.getProperty("javaw.chrome", System.getenv("JAVAW_CHROME"));
-        return path != null && !path.isBlank() && Files.isExecutable(Path.of(path)) ? path : null;
+        if (path == null || path.isBlank()) return null;
+        // A configured but unusable path is a setup error, not an opt-out: fail instead of skipping silently.
+        if (!Files.isRegularFile(Path.of(path)) || !Files.isExecutable(Path.of(path)))
+            throw new AssertionError("javaw.chrome/JAVAW_CHROME=" + path + " is not an executable file"
+                + " (for a macOS .app bundle use the binary under Contents/MacOS/)");
+        return path;
     }
 
     @Test
