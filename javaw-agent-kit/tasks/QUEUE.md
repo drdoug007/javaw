@@ -63,7 +63,7 @@
 | T56 | java.time.Duration core subset | - | done |
 | T57 | java.sql exception family (SQLException, SQLWarning, subclasses) | - | done |
 | T58 | AssertionError | - | done |
-| T59 | java.util.logging.Level | - | todo |
+| T59 | java.util.logging.Level | - | done |
 | T60 | TemporalUnit and ChronoUnit (with Duration/TimeUnit unit members) | T52, T56 | todo |
 | T61 | java.time.Instant core subset | T56 | todo |
 | T62 | ClassNotFoundException | - | todo |

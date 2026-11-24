@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T59: java.util.logging.Level. See tasks/T59-logging-level.md. */
-@Tag("agent-pending")
 class BytecodeLevelTest extends KitDifferential {
     // Level keeps one JVM-wide registry of every constructed level, so each fixture method uses its own names and
     // int values (no two methods share one) and never depends on levels created by another method.
