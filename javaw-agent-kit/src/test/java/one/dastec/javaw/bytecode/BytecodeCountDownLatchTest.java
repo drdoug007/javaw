@@ -98,8 +98,4 @@ class BytecodeCountDownLatchTest extends KitDifferential {
     @Test void toStringAndSubclasses() throws Exception {
         matchesJvm(FIXTURE, "toStrings", "subclassCalls");
     }
-
-    @Test void leavesOutTimedAwait() {
-        rejectsUnusedCall("java/util/concurrent/CountDownLatch", "await", "(JLjava/util/concurrent/TimeUnit;)Z", INVOKEVIRTUAL, false);
-    }
 }

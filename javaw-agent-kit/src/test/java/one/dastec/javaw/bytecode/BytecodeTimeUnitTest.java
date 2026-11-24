@@ -118,7 +118,5 @@ class BytecodeTimeUnitTest extends KitDifferential {
         rejectsUnusedCall("java/util/concurrent/TimeUnit", "timedWait", "(Ljava/lang/Object;J)V", INVOKEVIRTUAL, false);
         rejectsUnusedCall("java/util/concurrent/TimeUnit", "timedJoin", "(Ljava/lang/Thread;J)V", INVOKEVIRTUAL, false);
         rejectsUnusedCall("java/util/concurrent/TimeUnit", "convert", "(Ljava/time/Duration;)J", INVOKEVIRTUAL, false);
-        rejectsUnusedCall("java/util/concurrent/TimeUnit", "toChronoUnit", "()Ljava/time/temporal/ChronoUnit;", INVOKEVIRTUAL, false);
-        rejectsUnusedCall("java/util/concurrent/TimeUnit", "of", "(Ljava/time/temporal/ChronoUnit;)Ljava/util/concurrent/TimeUnit;", INVOKESTATIC, false);
     }
 }

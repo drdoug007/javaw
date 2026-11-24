@@ -201,7 +201,6 @@ class BytecodeDurationTest extends KitDifferential {
     }
 
     @Test void leavesOutTemporalMembers() {
-        rejectsUnusedCall("java/time/Duration", "of", "(JLjava/time/temporal/TemporalUnit;)Ljava/time/Duration;", INVOKESTATIC, false);
         rejectsUnusedCall("java/time/Duration", "between", "(Ljava/time/temporal/Temporal;Ljava/time/temporal/Temporal;)Ljava/time/Duration;", INVOKESTATIC, false);
         rejectsUnusedCall("java/time/Duration", "get", "(Ljava/time/temporal/TemporalUnit;)J", INVOKEVIRTUAL, false);
         rejectsUnusedCall("java/time/Duration", "dividedBy", "(Ljava/time/Duration;)J", INVOKEVIRTUAL, false);

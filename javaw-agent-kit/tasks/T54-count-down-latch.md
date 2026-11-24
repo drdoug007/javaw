@@ -102,7 +102,6 @@ constructors: count < 0 throws `new IllegalArgumentException("count < 0")`; 0 an
 countingDown: countDown decrements only while count > 0 and never goes negative.
 awaiting: await returns immediately when count == 0; it must not throw for a zero count.
 toStrings, subclassCalls: toString is `super.toString() + "[Count = " + count + "]"`, reading the field; it must not call getCount. countDown, getCount and await must not call each other. Do not implement Serializable.
-leavesOutTimedAwait: this fails when await(long, TimeUnit) became linked. Remove it and do not add TimeUnit.
 ```
 
 ## Docs

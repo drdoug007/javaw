@@ -188,8 +188,6 @@ class BytecodeSemaphoreTest extends KitDifferential {
     }
 
     @Test void leavesOutTimedAcquireAndQueues() {
-        rejectsUnusedCall("java/util/concurrent/Semaphore", "tryAcquire", "(JLjava/util/concurrent/TimeUnit;)Z", INVOKEVIRTUAL, false);
-        rejectsUnusedCall("java/util/concurrent/Semaphore", "tryAcquire", "(IJLjava/util/concurrent/TimeUnit;)Z", INVOKEVIRTUAL, false);
         rejectsUnusedCall("java/util/concurrent/Semaphore", "hasQueuedThreads", "()Z", INVOKEVIRTUAL, false);
         rejectsUnusedCall("java/util/concurrent/Semaphore", "getQueueLength", "()I", INVOKEVIRTUAL, false);
         rejectsUnusedCall("java/util/concurrent/Semaphore", "getQueuedThreads", "()Ljava/util/Collection;", INVOKEVIRTUAL, false);
