@@ -17,7 +17,7 @@ import java.util.function.Predicate;
 /**
  * Single-threaded ConcurrentHashMap: a chained table of 16 slots that doubles at 3/4, with the JDK's null
  * rules, argument-first equals matching, overridable self-calls and weakly consistent iterators (no
- * ConcurrentModificationException). Wasm runs one thread, so there are no locks, CAS or counter cells.
+ * ConcurrentModificationException). The selected deployment runs one thread, so there are no locks, CAS or counter cells.
  */
 public class ConcurrentHashMap<K,V> extends AbstractMap<K,V> implements ConcurrentMap<K,V>, java.io.Serializable {
 

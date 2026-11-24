@@ -58,7 +58,7 @@ Contract:
   `drainTo(c)` -> `drainTo(c, Integer.MAX_VALUE)`. The `(Collection)` constructor, `put`, `take`,
   `remove(Object)`, `clear` and `drainTo(c, max)` call none of them.
 
-Known differences: no locks, conditions or atomics (Wasm is single-threaded). `put` on a full queue and `take`
+Known differences: no locks, conditions or atomics (the selected deployment is single-threaded). `put` on a full queue and `take`
 on an empty queue throw IllegalStateException instead of blocking forever; no thread could ever wake them.
 Timed `offer`/`poll` (needs TimeUnit), forEach/removeIf/removeAll/retainAll overrides, the spliterator and
 serialization are not linked.

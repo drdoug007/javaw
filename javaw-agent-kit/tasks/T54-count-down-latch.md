@@ -119,7 +119,7 @@ Create `docs/bytecode-count-down-latch.md` with this skeleton (fill in the brack
     - <constructor with IllegalArgumentException "count < 0"; countDown stops at 0; getCount as long; await returns
       at 0; toString `Object.toString()[Count = n]`; no overridable self-calls>
 
-    Known differences: no `AbstractQueuedSynchronizer` (Wasm is single-threaded). `await()` with a positive count
+    Known differences: no `AbstractQueuedSynchronizer` (the selected deployment is single-threaded). `await()` with a positive count
     throws IllegalStateException instead of blocking forever; no thread could ever count down. `await(long,
     TimeUnit)` (needs TimeUnit) is not linked.
 

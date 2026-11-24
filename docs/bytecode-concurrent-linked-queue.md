@@ -29,7 +29,7 @@ Contract:
   only `add` → `offer`, `remove()` → `poll`, `element()` → `peek` and `containsAll` → `contains` (inherited)
   invoke overridable methods, as the JDK does.
 
-Known differences: no locks or atomics (Wasm is single-threaded); polled nodes are not self-linked.
+Known differences: no locks or atomics (the selected deployment is single-threaded); polled nodes are not self-linked.
 Serialization (`writeObject`, `readObject`) and the CLQ spliterator are not linked.
 
 Evidence: `BytecodeConcurrentLinkedQueueTest` compares Java 17 javac fixtures on the JVM and in Wasm (both JAR

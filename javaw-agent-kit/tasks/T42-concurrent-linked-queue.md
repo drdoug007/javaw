@@ -187,7 +187,7 @@ Create `docs/bytecode-concurrent-linked-queue.md` with this skeleton (fill in th
       argument's equals; all-or-nothing addAll and the self-addAll IllegalArgumentException; weakly consistent
       iterator that keeps the fetched next item; forEach and bulk removal without overridable calls>
 
-    Known differences: no locks or atomics (Wasm is single-threaded); polled nodes are not self-linked.
+    Known differences: no locks or atomics (the selected deployment is single-threaded); polled nodes are not self-linked.
     Serialization (`writeObject`, `readObject`) and the CLQ spliterator are not linked.
 
     Evidence: `BytecodeConcurrentLinkedQueueTest` compares Java 17 javac fixtures on the JVM and in Wasm (both JAR

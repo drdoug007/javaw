@@ -12,7 +12,7 @@ import java.util.Objects;
  * after a sentinel head whose item is always null. Live elements are the
  * nodes after the sentinel, in order, each with a non-null item; removed
  * nodes are really unlinked. There are no locks, conditions or atomics:
- * Wasm runs one thread, so put on a full queue and take on an empty queue
+ * the selected deployment runs one thread, so put on a full queue and take on an empty queue
  * throw instead of blocking forever. Iterators are weakly consistent and
  * remember the item they already fetched.
  */

@@ -26,7 +26,7 @@ Contract:
   `get`, the views call `size`/`isEmpty`/`clear`/`containsKey`/`remove`/`containsValue`/`get`/`remove(k, v)`,
   `equals` calls `get` and `MapEntry.setValue` calls `put`.
 
-Known differences: no locks, CAS, counter cells or tree bins (Wasm is single-threaded); the table is always
+Known differences: no locks, CAS, counter cells or tree bins (the selected deployment is single-threaded); the table is always
 created with 16 slots, so iteration order for keys outside the documented cases can differ from the JDK;
 iterators created before a resize are unspecified. Serialization and the parallel bulk operations are not linked.
 

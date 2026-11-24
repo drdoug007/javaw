@@ -284,7 +284,7 @@ Create `docs/bytecode-concurrent-hash-map.md` with this skeleton (fill in the br
       keySet/values/entrySet views; weakly consistent preloading iterators without ConcurrentModificationException;
       MapEntry.setValue writing through put; the overridable self-calls>
 
-    Known differences: no locks, CAS, counter cells or tree bins (Wasm is single-threaded); the table is always
+    Known differences: no locks, CAS, counter cells or tree bins (the selected deployment is single-threaded); the table is always
     created with 16 slots, so iteration order for keys outside the documented cases can differ from the JDK;
     iterators created before a resize are unspecified. Serialization and the parallel bulk operations are not linked.
 

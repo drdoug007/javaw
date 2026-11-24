@@ -247,7 +247,7 @@ Create `docs/bytecode-linked-blocking-queue.md` with this skeleton (fill in the 
       argument's equals; drainTo with the self check and partial transfer when the target throws; weakly consistent
       iterator; toString via toArray; clear without poll; the overridable self-calls>
 
-    Known differences: no locks, conditions or atomics (Wasm is single-threaded). `put` on a full queue and `take`
+    Known differences: no locks, conditions or atomics (the selected deployment is single-threaded). `put` on a full queue and `take`
     on an empty queue throw IllegalStateException instead of blocking forever; no thread could ever wake them.
     Timed `offer`/`poll` (needs TimeUnit), forEach/removeIf/removeAll/retainAll overrides, the spliterator and
     serialization are not linked.
