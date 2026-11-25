@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T74: java.nio.Buffer and the heap java.nio.ByteBuffer core. Expected values come from the JVM; see tasks/T74-byte-buffer.md. */
-@Tag("agent-pending")
 class BytecodeByteBufferTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.nio.Buffer;

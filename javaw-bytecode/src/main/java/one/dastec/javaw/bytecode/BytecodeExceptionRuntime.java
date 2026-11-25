@@ -193,6 +193,13 @@ public final class BytecodeExceptionRuntime {
             paths.add("java/util/stream/LongPipeline.java");
             paths.add("java/util/stream/DoubleStream.java");
             paths.add("java/util/stream/DoublePipeline.java");
+            paths.add("java/nio/Buffer.java");
+            paths.add("java/nio/ByteBuffer.java");
+            paths.add("java/nio/HeapByteBuffer.java");
+            paths.add("java/nio/BufferUnderflowException.java");
+            paths.add("java/nio/BufferOverflowException.java");
+            paths.add("java/nio/InvalidMarkException.java");
+            paths.add("java/nio/ReadOnlyBufferException.java");
             paths.add("javaw/runtime/ExceptionSupport.java");
             paths.add("javaw/runtime/ReflectionSupport.java");
             paths.add("javaw/runtime/Decimal.java");
