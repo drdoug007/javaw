@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T75: Callable, Future, RunnableFuture, FutureTask and the concurrent exceptions (single-threaded). Expected values come from the JVM; see tasks/T75-future-task.md. */
-@Tag("agent-pending")
 class BytecodeFutureTaskTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.util.concurrent.Callable;

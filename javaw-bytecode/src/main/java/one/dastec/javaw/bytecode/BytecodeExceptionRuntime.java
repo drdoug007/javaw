@@ -200,6 +200,13 @@ public final class BytecodeExceptionRuntime {
             paths.add("java/nio/BufferOverflowException.java");
             paths.add("java/nio/InvalidMarkException.java");
             paths.add("java/nio/ReadOnlyBufferException.java");
+            paths.add("java/util/concurrent/Callable.java");
+            paths.add("java/util/concurrent/Future.java");
+            paths.add("java/util/concurrent/RunnableFuture.java");
+            paths.add("java/util/concurrent/ExecutionException.java");
+            paths.add("java/util/concurrent/CancellationException.java");
+            paths.add("java/util/concurrent/TimeoutException.java");
+            paths.add("java/util/concurrent/FutureTask.java");
             paths.add("javaw/runtime/ExceptionSupport.java");
             paths.add("javaw/runtime/ReflectionSupport.java");
             paths.add("javaw/runtime/Decimal.java");
