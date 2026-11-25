@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T68: java.sql.Timestamp millisecond/nanosecond core. See tasks/T68-timestamp.md. */
-@Tag("agent-pending")
 class BytecodeTimestampTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.sql.Timestamp;
