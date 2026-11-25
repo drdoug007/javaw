@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T73: java.util.stream.LongStream, DoubleStream and Stream.mapToLong/mapToDouble. Expected values come from the JVM; see tasks/T73-long-double-streams.md. */
-@Tag("agent-pending")
 class BytecodeLongDoubleStreamTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.util.ArrayList;

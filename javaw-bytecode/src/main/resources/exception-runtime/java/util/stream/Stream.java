@@ -40,4 +40,6 @@ public interface Stream<T> extends BaseStream<T,Stream<T>> {
     <R> R collect(Supplier<R> supplier,BiConsumer<R,? super T> accumulator,BiConsumer<R,R> combiner);
     <R,A> R collect(Collector<? super T,A,R> collector);
     IntStream mapToInt(ToIntFunction<? super T> mapper);
+    LongStream mapToLong(ToLongFunction<? super T> mapper);
+    DoubleStream mapToDouble(ToDoubleFunction<? super T> mapper);
 }

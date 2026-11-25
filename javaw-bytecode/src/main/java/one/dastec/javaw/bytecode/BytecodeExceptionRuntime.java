@@ -189,6 +189,10 @@ public final class BytecodeExceptionRuntime {
             paths.add("java/time/Instant.java");
             paths.add("java/sql/Timestamp.java");
             paths.add("java/time/Period.java");
+            paths.add("java/util/stream/LongStream.java");
+            paths.add("java/util/stream/LongPipeline.java");
+            paths.add("java/util/stream/DoubleStream.java");
+            paths.add("java/util/stream/DoublePipeline.java");
             paths.add("javaw/runtime/ExceptionSupport.java");
             paths.add("javaw/runtime/ReflectionSupport.java");
             paths.add("javaw/runtime/Decimal.java");

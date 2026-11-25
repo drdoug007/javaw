@@ -186,5 +186,7 @@ public final class ReferenceStream<T> implements Stream<T> {
     }
 
     public IntStream mapToInt(ToIntFunction<? super T> mapper){Objects.requireNonNull(mapper);return IntPipeline.from(map(value->Integer.valueOf(mapper.applyAsInt(value))));}
+    public LongStream mapToLong(ToLongFunction<? super T> mapper){Objects.requireNonNull(mapper);return LongPipeline.from(map(value->Long.valueOf(mapper.applyAsLong(value))));}
+    public DoubleStream mapToDouble(ToDoubleFunction<? super T> mapper){Objects.requireNonNull(mapper);return DoublePipeline.from(map(value->Double.valueOf(mapper.applyAsDouble(value))));}
 
 }
