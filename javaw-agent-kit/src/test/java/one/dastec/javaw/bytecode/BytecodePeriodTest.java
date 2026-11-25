@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T69: java.time.Period core subset (no TemporalAmount/ChronoPeriod). Expected values come from the JVM; see tasks/T69-period.md. */
-@Tag("agent-pending")
 class BytecodePeriodTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.time.Period;

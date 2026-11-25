@@ -73,6 +73,6 @@
 | T66 | WeakHashMap (single-threaded, keys never reclaimed) | - | blocked |
 | T67 | JDK messages for Throwable.initCause and Math exact arithmetic | - | done |
 | T68 | java.sql.Timestamp millisecond/nanosecond core | T63 | done |
-| T69 | java.time.Period core subset | T56 | todo |
+| T69 | java.time.Period core subset | T56 | done |
 | T70 | Instant.parse(CharSequence) for ISO_INSTANT text | T61 | todo |
 | T71 | Enum.valueOf for application and runtime enums | T52, T60 | todo |
