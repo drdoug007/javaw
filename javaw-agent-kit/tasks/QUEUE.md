@@ -81,4 +81,4 @@
 | T74 | java.nio.Buffer and heap ByteBuffer core | - | done |
 | T75 | Callable, Future, RunnableFuture, FutureTask and the concurrent exceptions (single-threaded) | T52 | done |
 | T76 | java.util.concurrent.CompletableFuture single-threaded core | T75 | done |
-| T77 | java.util.concurrent.CopyOnWriteArraySet | - | todo |
+| T77 | java.util.concurrent.CopyOnWriteArraySet | - | done |
