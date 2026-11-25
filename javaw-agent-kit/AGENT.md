@@ -54,6 +54,7 @@ Run every command from the repository root (`/Volumes/SanDisk/javaw`).
 |---|---|---|
 | `FIX THE RUNTIME: the bytecode compiler rejected` | Admission found a missing class/member or a forbidden construct. The text names the file, line and member. | Add the member, or replace the construct (RULES.md). |
 | `FIX THE RUNTIME: Wasm execution differs` | The value differs from the JVM. The message shows `expected` (JVM) and `actual` (Wasm). | Compare your code with the JDK behaviour the task describes. |
+| `threw an uncaught exception in Wasm` | Your runtime code threw where the JVM returned. `(thrown in Wasm: ...)` names the Java exception and its message, e.g. `java.lang.ArrayIndexOutOfBoundsException: Index 16 out of bounds for length 16`. | Find the runtime method that can throw it (often a loop bound or a missing null check) and fix it. |
 | `... threw an uncaught exception in Wasm` | Your code threw where the JVM did not, often an NPE or index error. | Check null handling and bounds. |
 | `Cannot build bytecode exception runtime` | javac could not compile a runtime source. The javac error follows. | Fix the Java syntax or type error. |
 | `TEST PROBLEM` | The test itself is wrong. | Do not edit it. Explain in the report, then `kit block`. |

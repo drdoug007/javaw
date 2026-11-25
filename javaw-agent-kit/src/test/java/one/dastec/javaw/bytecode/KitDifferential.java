@@ -143,7 +143,7 @@ public abstract class KitDifferential implements Opcodes {
     private static String assertion(String type, String name, Object expected) {
         String method=type+"."+name;
         return "{let value;try{value=e['"+method+"']();}catch(thrown){throw new Error("+js(method+"() threw an uncaught exception in Wasm but returned normally on the JVM. JVM result: ")
-                +"+"+js(String.valueOf(expected))+"+' (thrown: '+thrown+')');}\n"+comparison(type,name,expected)+"}\n";
+                +"+"+js(String.valueOf(expected))+"+' (thrown in Wasm: '+describe(thrown)+')');}\n"+comparison(type,name,expected)+"}\n";
     }
 
     private static String comparison(String type, String name, Object expected) {
@@ -204,6 +204,10 @@ public abstract class KitDifferential implements Opcodes {
                 function text(pointer){if(!pointer)return null;const view=new DataView(memory.buffer);
                     const chars=view.getInt32(pointer+4,true),length=view.getInt32(chars+4,true);
                     let result='';for(let i=0;i<length;i++)result+=String.fromCharCode(view.getUint16(chars+8+2*i,true));return result;}
+                // Names the Java exception behind an uncaught Wasm exception (class and message via Throwable.toString).
+                function describe(thrown){try{if(thrown instanceof WebAssembly.Exception&&e.__java_exception&&thrown.is(e.__java_exception)
+                        &&e['java.lang.Throwable.toString'])return text(e['java.lang.Throwable.toString'](thrown.getArg(e.__java_exception,0)));}
+                    catch(ignored){}return String(thrown);}
             """+assertions+"\n}\n");
         run(directory.resolve("node.log"),List.of("node",script.toString(),output.toString()),
                 "FIX THE RUNTIME: Wasm execution differs from the JVM (or trapped)");
