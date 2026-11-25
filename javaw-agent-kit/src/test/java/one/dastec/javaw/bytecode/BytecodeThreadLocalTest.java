@@ -1,11 +1,9 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T72: java.lang.ThreadLocal and InheritableThreadLocal (single-threaded). See tasks/T72-thread-local.md. */
 
-@Tag("agent-pending")
 class BytecodeThreadLocalTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.util.function.Supplier;

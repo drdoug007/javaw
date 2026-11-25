@@ -76,7 +76,7 @@
 | T69 | java.time.Period core subset | T56 | done |
 | T70 | Instant.parse(CharSequence) for ISO_INSTANT text | T61 | done |
 | T71 | Enum.valueOf for application and runtime enums | T52, T60 | done |
-| T72 | java.lang.ThreadLocal and InheritableThreadLocal (single-threaded) | - | todo |
+| T72 | java.lang.ThreadLocal and InheritableThreadLocal (single-threaded) | - | done |
 | T73 | LongStream, DoubleStream and Stream.mapToLong/mapToDouble | - | todo |
 | T74 | java.nio.Buffer and heap ByteBuffer core | - | todo |
 | T75 | Callable, Future, RunnableFuture, FutureTask and the concurrent exceptions (single-threaded) | T52 | todo |
