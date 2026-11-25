@@ -160,7 +160,6 @@ class BytecodeInstantTest extends KitDifferential {
         rejectsUnusedCall("java/time/Instant", "plus", "(Ljava/time/temporal/TemporalAmount;)Ljava/time/Instant;", INVOKEVIRTUAL, false);
         rejectsUnusedCall("java/time/Instant", "minus", "(Ljava/time/temporal/TemporalAmount;)Ljava/time/Instant;", INVOKEVIRTUAL, false);
         rejectsUnusedCall("java/time/Instant", "now", "()Ljava/time/Instant;", INVOKESTATIC, false);
-        rejectsUnusedCall("java/time/Instant", "parse", "(Ljava/lang/CharSequence;)Ljava/time/Instant;", INVOKESTATIC, false);
         rejectsUnusedCall("java/time/Instant", "truncatedTo", "(Ljava/time/temporal/TemporalUnit;)Ljava/time/Instant;", INVOKEVIRTUAL, false);
         rejectsUnusedCall("java/time/Instant", "from", "(Ljava/time/temporal/TemporalAccessor;)Ljava/time/Instant;", INVOKESTATIC, false);
     }

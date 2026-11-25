@@ -29,7 +29,7 @@ class KitHarnessSelfTest extends KitDifferential {
     @Test void reportsMissingRuntimeOwnersAsRuntimeWork() {
         AssertionError failure=assertThrows(AssertionError.class,()->matchesJvm("""
             public class Fixture {
-                public static int weak(){return new java.util.WeakHashMap<String,String>().size();}
+                public static int weak(){return new java.util.concurrent.ConcurrentSkipListMap<String,String>().size();}
             }
             ""","weak"));
         assertTrue(failure.getMessage().startsWith("FIX THE RUNTIME"),failure.getMessage());
