@@ -70,7 +70,7 @@
 | T63 | java.util.Date millisecond core | T61 | done |
 | T64 | Timed CountDownLatch.await and Semaphore.tryAcquire (single-threaded) | T52, T54, T55 | done |
 | T65 | Throwable implements Serializable | - | done |
-| T66 | WeakHashMap (single-threaded, keys never reclaimed) | - | todo |
+| T66 | WeakHashMap (single-threaded, keys never reclaimed) | - | done |
 | T67 | JDK messages for Throwable.initCause and Math exact arithmetic | - | done |
 | T68 | java.sql.Timestamp millisecond/nanosecond core | T63 | done |
 | T69 | java.time.Period core subset | T56 | done |

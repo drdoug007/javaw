@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T66: java.util.WeakHashMap under the single-threaded, no-reclamation contract. Expected values come from the JVM; see tasks/T66-weak-hash-map.md. */
-@Tag("agent-pending")
 class BytecodeWeakHashMapTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.util.AbstractMap;
