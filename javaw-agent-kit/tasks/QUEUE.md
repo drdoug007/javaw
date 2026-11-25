@@ -71,7 +71,7 @@
 | T64 | Timed CountDownLatch.await and Semaphore.tryAcquire (single-threaded) | T52, T54, T55 | done |
 | T65 | Throwable implements Serializable | - | done |
 | T66 | WeakHashMap (single-threaded, keys never reclaimed) | - | blocked |
-| T67 | JDK messages for Throwable.initCause and Math exact arithmetic | - | todo |
+| T67 | JDK messages for Throwable.initCause and Math exact arithmetic | - | done |
 | T68 | java.sql.Timestamp millisecond/nanosecond core | T63 | todo |
 | T69 | java.time.Period core subset | T56 | todo |
 | T70 | Instant.parse(CharSequence) for ISO_INSTANT text | T61 | todo |

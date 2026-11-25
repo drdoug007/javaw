@@ -22,7 +22,7 @@ public class Throwable implements java.io.Serializable {
     public String getLocalizedMessage() { return getMessage(); }
     public Throwable getCause() { return cause == this ? null : cause; }
     public Throwable initCause(Throwable value) {
-        if (cause != this) throw new IllegalStateException(null, this);
+        if (cause != this) throw new IllegalStateException("Can't overwrite cause with " + (value == null ? "a null" : value.toString()), this);
         if (value == this) throw new IllegalArgumentException("Self-causation not permitted", this);
         cause = value; return this;
     }

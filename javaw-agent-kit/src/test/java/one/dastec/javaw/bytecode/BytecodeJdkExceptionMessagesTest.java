@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T67: JDK messages for Throwable.initCause and Math exact arithmetic. See tasks/T67-jdk-exception-messages.md. */
-@Tag("agent-pending")
 class BytecodeJdkExceptionMessagesTest extends KitDifferential {
     private static final String FIXTURE = """
         class AppException extends Exception {
