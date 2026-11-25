@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T70: java.time.Instant.parse(CharSequence) for ISO_INSTANT text. Expected values come from the JVM; see tasks/T70-instant-parse.md. */
-@Tag("agent-pending")
 class BytecodeInstantParseTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.time.DateTimeException;
