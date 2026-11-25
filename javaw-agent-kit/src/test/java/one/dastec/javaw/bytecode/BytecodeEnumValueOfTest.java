@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T71: Enum.valueOf(Class, String) and every enum's valueOf(String). See tasks/T71-enum-value-of.md. */
-@Tag("agent-pending")
 class BytecodeEnumValueOfTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.util.concurrent.TimeUnit;

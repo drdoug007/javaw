@@ -75,4 +75,4 @@
 | T68 | java.sql.Timestamp millisecond/nanosecond core | T63 | done |
 | T69 | java.time.Period core subset | T56 | done |
 | T70 | Instant.parse(CharSequence) for ISO_INSTANT text | T61 | done |
-| T71 | Enum.valueOf for application and runtime enums | T52, T60 | todo |
+| T71 | Enum.valueOf for application and runtime enums | T52, T60 | done |
