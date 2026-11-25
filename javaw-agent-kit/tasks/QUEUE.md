@@ -80,5 +80,5 @@
 | T73 | LongStream, DoubleStream and Stream.mapToLong/mapToDouble | - | done |
 | T74 | java.nio.Buffer and heap ByteBuffer core | - | done |
 | T75 | Callable, Future, RunnableFuture, FutureTask and the concurrent exceptions (single-threaded) | T52 | done |
-| T76 | java.util.concurrent.CompletableFuture single-threaded core | T75 | todo |
+| T76 | java.util.concurrent.CompletableFuture single-threaded core | T75 | done |
 | T77 | java.util.concurrent.CopyOnWriteArraySet | - | todo |

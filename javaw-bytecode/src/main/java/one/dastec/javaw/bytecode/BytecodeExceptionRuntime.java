@@ -207,6 +207,9 @@ public final class BytecodeExceptionRuntime {
             paths.add("java/util/concurrent/CancellationException.java");
             paths.add("java/util/concurrent/TimeoutException.java");
             paths.add("java/util/concurrent/FutureTask.java");
+            paths.add("java/util/concurrent/CompletionException.java");
+            paths.add("java/util/concurrent/CompletionStage.java");
+            paths.add("java/util/concurrent/CompletableFuture.java");
             paths.add("javaw/runtime/ExceptionSupport.java");
             paths.add("javaw/runtime/ReflectionSupport.java");
             paths.add("javaw/runtime/Decimal.java");

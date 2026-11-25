@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T76: java.util.concurrent.CompletableFuture single-threaded core. Expected values come from the JVM; see tasks/T76-completable-future.md. */
-@Tag("agent-pending")
 class BytecodeCompletableFutureTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.util.concurrent.CancellationException;

@@ -3,7 +3,7 @@ package one.dastec.javaw.bytecode.cache;
 import java.util.*;
 
 public class CacheMetadata {
-    public static final String COMPILER_VERSION = "1.0-SNAPSHOT-future-task-v338";
+    public static final String COMPILER_VERSION = "1.0-SNAPSHOT-completable-future-v339";
     private String groupId;
     private String artifactId;
     private String version;
