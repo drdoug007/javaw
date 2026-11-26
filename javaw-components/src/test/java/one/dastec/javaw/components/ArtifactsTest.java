@@ -137,6 +137,8 @@ class ArtifactsTest {
               maxItems: number;
               compact: boolean;
               ratio: number;
+              /** Resolves after the pending update completes: true unless the update limit dropped it; rejects if it threw. */
+              readonly updateComplete: Promise<boolean>;
               addEventListener<K extends keyof TodoListEventMap>(type: K, listener: (this: TodoList, ev: TodoListEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
             """), dts);
         assertFalse(dts.contains("draft"), "@State fields are not declared");

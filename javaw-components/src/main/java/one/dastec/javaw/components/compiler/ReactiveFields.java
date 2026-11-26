@@ -45,6 +45,8 @@ final class ReactiveFields {
             String kind = null, attribute = null;
             boolean reflect = false;
             if (property != null) {
+                if (name.equals("updateComplete"))
+                    throw SourceExtension.error(declaration, "@Property name 'updateComplete' is reserved for the element's update promise");
                 kind = PROPERTY_KINDS.get(type);
                 if (kind == null)
                     throw SourceExtension.error(declaration, "@Property '" + name + "' has type " + type

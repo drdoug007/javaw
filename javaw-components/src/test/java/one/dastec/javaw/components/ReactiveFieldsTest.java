@@ -123,6 +123,69 @@ class ReactiveFieldsTest {
     }
 
     @Test
+    void updateCompleteSettlesAfterTheUpdate() throws Exception {
+        byte[] wasm = JavacToWasm.compile("App.java", """
+            import one.dastec.javaw.components.Changes;
+            import one.dastec.javaw.components.CustomElement;
+            import one.dastec.javaw.components.Property;
+            import one.dastec.javaw.components.WebComponent;
+
+            @CustomElement("x-steps")
+            class Steps extends WebComponent {
+                @Property private int n;
+                @Property private int echo;
+                @Property private boolean boom;
+                @Property private boolean spin;
+                @Override protected void willUpdate(Changes changes) {
+                    if (boom) throw new IllegalStateException("boom");
+                }
+                @Override protected void update(Changes changes) { host().setAttribute("data-n", "" + n); }
+                @Override protected void updated(Changes changes) {
+                    if (echo != n) echo = n;      // a second update in the same flush
+                    if (spin) n++;                // never settles: hits the 100-update limit
+                }
+            }
+            """, false).getWasm();
+        CustomElementTest.run(wasm, "", """
+            const el = document.createElement('x-steps');
+            const before = el.updateComplete;
+            document.body.appendChild(el);
+            assert.equal(await before, true, 'the first update completes after connection');
+            assert.equal(await el.updateComplete, true, 'nothing pending resolves at once');
+
+            el.n = 4;
+            assert.equal(el.getAttribute('data-n'), '0', 'the update is batched');
+            const done = el.updateComplete;
+            assert.ok(done instanceof window.Promise || typeof done.then === 'function');
+            assert.equal(await done, true);
+            assert.equal(el.getAttribute('data-n'), '4', 'the DOM is updated when the promise resolves');
+            assert.equal(el.echo, 4, 'the chained update from updated() is complete too');
+
+            el.boom = true;
+            await assert.rejects(el.updateComplete, /Java exception in update: boom/, 'an update that throws rejects with the Java message');
+            el.boom = false;
+            assert.equal(await el.updateComplete, true, 'a later update resolves again');
+
+            el.spin = true;
+            assert.equal(await el.updateComplete, false, 'an update dropped by the 100-update limit resolves false');
+            el.spin = false;
+            await el.updateComplete;
+
+            el.remove();
+            el.n = 99;
+            let settled = false;
+            const waiting = el.updateComplete.then(v => { settled = true; return v; });
+            for (let i = 0; i < 5; i++) await settle();
+            assert.equal(settled, false, 'a disconnected component keeps its update pending');
+            document.body.appendChild(el);
+            assert.equal(await waiting, true, 'reconnecting completes it');
+            assert.equal(el.getAttribute('data-n'), '99');
+            assert.equal(errors.length, 2, 'the thrown update and the limit are reported');
+            assert.match(errors[0].message, /boom/, 'the reported error carries the Java message');
+            """);
+    }
+
+    @Test
     void reactiveFieldRulesAreDiagnosed() {
         String imports = """
             import one.dastec.javaw.components.CustomElement;
@@ -131,6 +194,7 @@ class ReactiveFieldsTest {
             import one.dastec.javaw.components.WebComponent;
             """;
         reject(imports + "@CustomElement(\"x-a\") class A extends WebComponent { @Property int n; }", "must be a private, non-static, non-final");
+        reject(imports + "@CustomElement(\"x-a\") class A extends WebComponent { @Property private int updateComplete; }", "reserved for the element's update promise");
         reject(imports + "@CustomElement(\"x-a\") class A extends WebComponent { @Property private java.util.List<String> n; }", "use @State for other types");
         reject(imports + "@CustomElement(\"x-a\") class A extends WebComponent { @State private int n; void f(A o) { o.n = 1; } }", "can only be written as");
         reject(imports + "@CustomElement(\"x-a\") class A extends WebComponent { @Property private int a; @Property(attribute = \"a\") private int b; }",

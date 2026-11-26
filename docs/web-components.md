@@ -465,6 +465,10 @@ A JS property that was set on an element before it was upgraded becomes an own d
    As in Lit, writes made during `render()` change the field but neither schedule nor extend an update. Debug builds warn about them.
 4. **Connection.** Updates start only after the element is connected. An element that is disconnected and then reconnected keeps its peer, its state and its rendered DOM.
 
+### updateComplete
+
+Each component element has a read-only `updateComplete` property, as in Lit: a `Promise<boolean>` that resolves after the flush that completes the pending update (including updates chained from `updated()` in the same flush). It resolves at once with `true` when nothing is pending, with `false` when the 100-update limit dropped the update, and rejects with the reported `Error` when the update threw. A disconnected component keeps its update pending, so the promise settles after it is reconnected and updated. `updateComplete` is declared on the element interfaces in `<module>.components.d.ts`, and a `@Property` with that name is a compile error. Java code has no promise type and does not see it. Evidence: `ReactiveFieldsTest.updateCompleteSettlesAfterTheUpdate` and `ArtifactsTest`.
+
 ### Collector safepoint
 
 When a flush returns, no Wasm frame is active: the flush runs from a `queueMicrotask` callback, and microtasks run only on an empty JS stack. That is half of the [safepoint condition](memory-management.md#root-set). The other half is that host code retains every Wasm pointer it keeps across a task or microtask boundary. The M2 audit of the component runtime found:
@@ -481,7 +485,7 @@ Evidence: `TemplateListTest.rerenderingReplacedDomKeepsTheScopeLevel` re-renders
 
 ### Errors
 
-Any exception that escapes a lifecycle hook, `render`, an attribute conversion or an event listener is reported once through the runtime's error sink. That sink is `globalThis.reportError` when it exists; otherwise it is `queueMicrotask(() => { throw err; })`. Tests can install a capturing sink. The reported `Error` carries, in its message and `stack`, the Java exception class, message and stack trace. Other components and later updates keep working, because the component's pending flag is cleared. A failed render leaves the previously committed DOM in place.
+Any exception that escapes a lifecycle hook, `render`, an attribute conversion or an event listener is reported once through the runtime's error sink. That sink is `globalThis.reportError` when it exists; otherwise it is `queueMicrotask(() => { throw err; })`. Tests can install a capturing sink. A Java exception is reported as an `Error` whose message is `Java exception in <what>: <Java message>`, with the original `WebAssembly.Exception` as its `cause`. The Java class name and stack trace are not included yet: `Throwable.toString()` in the source compiler returns the object's address instead of the class name. Other components and later updates keep working, because the component's pending flag is cleared. A failed render leaves the previously committed DOM in place.
 
 ## Renderer
 

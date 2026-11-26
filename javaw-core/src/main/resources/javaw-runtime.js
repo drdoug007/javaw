@@ -913,6 +913,10 @@
                         newValue === null ? 0 : runtime.writeString(newValue)));
                 }
             };
+            Object.defineProperty(Component.prototype, 'updateComplete', {
+                configurable: true, enumerable: false,
+                get() { return runtime.wcUpdateComplete(this); },
+            });
             for (const p of properties) {
                 const getter = exports[p.getter], setter = exports[p.setter];
                 Object.defineProperty(Component.prototype, p.name, {
@@ -959,9 +963,42 @@
             queueMicrotask(() => this.flushComponentUpdates());
         }
 
+        // element.updateComplete (Lit's contract): resolves after the flush that completes the pending update,
+        // with false when the 100-update limit dropped it, and rejects when the update threw.
+        wcUpdateComplete(host) {
+            const state = host.__javawComponent;
+            const exports = this.instance && this.instance.exports;
+            if (!state || !exports) return Promise.resolve(true);
+            const queued = this.updateQueue && this.updateQueue.has(host);
+            if (!queued && !exports.__wc_pending(state.peer)) return Promise.resolve(true);
+            return new Promise((resolve, reject) => {
+                (state.waiters || (state.waiters = [])).push({ resolve, reject });
+                (this.wcWaiting || (this.wcWaiting = new Set())).add(host);
+            });
+        }
+
+        settleUpdateWaiters(failed, limited) {
+            if (!this.wcWaiting || this.wcWaiting.size === 0) return;
+            const exports = this.instance.exports;
+            for (const host of [...this.wcWaiting]) {
+                const state = host.__javawComponent;
+                if (!state || !state.waiters) { this.wcWaiting.delete(host); continue; }
+                let settle;
+                if (failed.has(host)) { const err = failed.get(host); settle = w => w.reject(err); }
+                else if (limited.has(host)) settle = w => w.resolve(false);
+                else if (!(this.updateQueue && this.updateQueue.has(host)) && !exports.__wc_pending(state.peer)) settle = w => w.resolve(true);
+                else continue; // still pending, for example disconnected before its update
+                const waiters = state.waiters;
+                state.waiters = null;
+                this.wcWaiting.delete(host);
+                for (const w of waiters) settle(w);
+            }
+        }
+
         flushComponentUpdates() {
             const queue = this.updateQueue;
             const counts = new Map();
+            const failed = new Map(), limited = new Set();
             try {
                 while (queue.size > 0) {
                     const host = queue.values().next().value;
@@ -971,17 +1008,19 @@
                     const n = (counts.get(host) || 0) + 1;
                     counts.set(host, n);
                     if (n > 100) {
+                        limited.add(host);
                         this.reportCallbackError(new Error('<' + host.localName + '> requested more than 100 updates in one flush'), 'update');
                         // Drop the pending cycle so a later write schedules a fresh one.
                         try { this.instance.exports.__wc_abandon(state.peer); } catch (err) { this.reportCallbackError(err, 'update'); }
                         continue;
                     }
                     try { this.instance.exports.__wc_perform(state.peer); }
-                    catch (err) { this.reportCallbackError(err, '<' + host.localName + '> update'); }
+                    catch (err) { failed.set(host, this.javaError(err, 'update')); this.reportCallbackError(err, '<' + host.localName + '> update'); }
                 }
             } finally {
                 this.updateScheduled = false;
             }
+            try { this.settleUpdateWaiters(failed, limited); } catch (err) { this.reportCallbackError(err, 'updateComplete'); }
             this.collectAfterFlush();
         }
 
@@ -1972,8 +2011,30 @@
             if (this.reverseMap.get(value) === handle) this.reverseMap.delete(value);
         }
 
+        // A Java exception escapes as a WebAssembly.Exception whose payload is the Throwable. Describe it with its
+        // Java message while the pointer is still valid, before any collection. (Throwable.toString does not give
+        // the class name in the source compiler yet, so the message is used.)
+        javaError(err, type) {
+            if (err instanceof Error) return err;
+            const exports = this.instance && this.instance.exports;
+            if (typeof WebAssembly !== 'undefined' && WebAssembly.Exception && err instanceof WebAssembly.Exception
+                    && exports && exports.Exception && typeof exports.Throwable_getMessage === 'function') {
+                try {
+                    if (err.is(exports.Exception)) {
+                        const message = exports.Throwable_getMessage(err.getArg(exports.Exception, 0));
+                        const error = new Error('Java exception in ' + type + ': ' + (message ? this.readWasmStringFromPtr(message) : 'null'));
+                        error.cause = err;
+                        return error;
+                    }
+                } catch (ignored) {
+                    // Fall back to the generic description.
+                }
+            }
+            return new Error('[JAVAW EVENT ERROR] ' + type + ': ' + String(err));
+        }
+
         reportCallbackError(err, type) {
-            const error = err instanceof Error ? err : new Error('[JAVAW EVENT ERROR] ' + type + ': ' + String(err));
+            const error = this.javaError(err, type);
             if (typeof globalThis.reportError === 'function') globalThis.reportError(error);
             else console.error('[JAVAW EVENT ERROR] ' + type + ':', err);
         }

@@ -88,6 +88,7 @@ public final class ComponentExtension implements SourceExtension {
                 return old == 0.0 && 1.0 / old != 1.0 / value;
             }
             public static void __wc_perform(WebComponent component) { component.__wc_performUpdate(); }
+            public static boolean __wc_pending(WebComponent component) { return component.__pending; }
             public static void __wc_abandon(WebComponent component) { component.__changes = null; component.__pending = false; }
             private void __wc_performUpdate() {
                 if (!__pending || !__isConnected) return;

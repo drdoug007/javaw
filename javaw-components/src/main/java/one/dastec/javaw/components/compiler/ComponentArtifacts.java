@@ -357,6 +357,8 @@ final class ComponentArtifacts {
                 if (doc != null && doc.description() != null) out.append("  /** ").append(doc.description().replace("*/", "*\\/")).append(" */\n");
                 out.append("  ").append(f.name()).append(": ").append(propertyType(f)).append(";\n");
             }
+            out.append("  /** Resolves after the pending update completes: true unless the update limit dropped it; rejects if it threw. */\n");
+            out.append("  readonly updateComplete: Promise<boolean>;\n");
             String self = info.className;
             out.append("  addEventListener<K extends keyof ").append(map).append(">(type: K, listener: (this: ").append(self)
                     .append(", ev: ").append(map).append("[K]) => any, options?: boolean | AddEventListenerOptions): void;\n");
