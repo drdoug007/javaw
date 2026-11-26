@@ -82,7 +82,7 @@
 | T75 | Callable, Future, RunnableFuture, FutureTask and the concurrent exceptions (single-threaded) | T52 | done |
 | T76 | java.util.concurrent.CompletableFuture single-threaded core | T75 | done |
 | T77 | java.util.concurrent.CopyOnWriteArraySet | - | done |
-| T78 | ByteBuffer float/double, absolute bulk get/put and slice(int, int) | T74 | todo |
+| T78 | ByteBuffer float/double, absolute bulk get/put and slice(int, int) | T74 | done |
 | T79 | java.nio.CharBuffer heap and CharSequence-backed core | T74 | todo |
 | T80 | java.time.Month and java.time.DayOfWeek enums | T71 | todo |
 | T81 | java.time.LocalDate core (marker ChronoLocalDate; no parse/format) | T80 | todo |

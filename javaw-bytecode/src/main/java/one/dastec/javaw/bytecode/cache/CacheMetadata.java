@@ -3,7 +3,7 @@ package one.dastec.javaw.bytecode.cache;
 import java.util.*;
 
 public class CacheMetadata {
-    public static final String COMPILER_VERSION = "1.0-SNAPSHOT-copy-on-write-array-set-v340";
+    public static final String COMPILER_VERSION = "1.0-SNAPSHOT-byte-buffer-follow-ups-v341";
     private String groupId;
     private String artifactId;
     private String version;

@@ -17,6 +17,12 @@ final class HeapByteBuffer extends ByteBuffer {
         return new HeapByteBuffer(hb, -1, 0, rem, rem, offset + position(), isReadOnly);
     }
 
+    /** Absolute slice: offset is relative to index 0, never to the position, which is untouched. */
+    public ByteBuffer slice(int index, int length) {
+        checkRange(limit(), index, length);
+        return new HeapByteBuffer(hb, -1, 0, length, length, offset + index, isReadOnly);
+    }
+
     public ByteBuffer duplicate() {
         return new HeapByteBuffer(hb, markValue(), position(), limit(), capacity(), offset, isReadOnly);
     }

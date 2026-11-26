@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T78: ByteBuffer float/double accessors, absolute bulk transfers and slice(int, int). Expected values come from the JVM; see tasks/T78-byte-buffer-follow-ups.md. */
-@Tag("agent-pending")
 class BytecodeByteBufferFollowUpsTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.nio.Buffer;

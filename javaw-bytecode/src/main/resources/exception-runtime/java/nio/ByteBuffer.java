@@ -35,6 +35,7 @@ public abstract class ByteBuffer extends Buffer implements Comparable<ByteBuffer
     }
 
     public abstract ByteBuffer slice();
+    public abstract ByteBuffer slice(int index, int length);
     public abstract ByteBuffer duplicate();
     public abstract ByteBuffer asReadOnlyBuffer();
     public abstract byte get();
@@ -113,8 +114,40 @@ public abstract class ByteBuffer extends Buffer implements Comparable<ByteBuffer
         return put(src, 0, src.length);
     }
 
-    /** {@code size} is the array length; the JDK message names that length last. */
-    private static void checkRange(int size, int from, int length) {
+    // Absolute bulk transfers: they check against the limit (never the position) and do not move it.
+    public ByteBuffer get(int index, byte[] dst, int offset, int length) {
+        checkRange(limit(), index, length);
+        checkRange(dst.length, offset, length);
+        System.arraycopy(hb, this.offset + index, dst, offset, length);
+        return this;
+    }
+
+    public ByteBuffer get(int index, byte[] dst) {
+        return get(index, dst, 0, dst.length);
+    }
+
+    public ByteBuffer put(int index, byte[] src, int offset, int length) {
+        if (isReadOnly) throw new ReadOnlyBufferException();
+        checkRange(limit(), index, length);
+        checkRange(src.length, offset, length);
+        System.arraycopy(src, offset, hb, this.offset + index, length);
+        return this;
+    }
+
+    public ByteBuffer put(int index, byte[] src) {
+        return put(index, src, 0, src.length);
+    }
+
+    public ByteBuffer put(int index, ByteBuffer src, int offset, int length) {
+        if (isReadOnly) throw new ReadOnlyBufferException();
+        checkRange(limit(), index, length);
+        checkRange(src.limit(), offset, length);
+        System.arraycopy(src.hb, src.offset + offset, hb, this.offset + index, length);
+        return this;
+    }
+
+    /** {@code size} is the array length; the JDK message names that length last. Package-private so HeapByteBuffer reuses it. */
+    static void checkRange(int size, int from, int length) {
         if ((length | from | size) < 0 || length > size - from)
             throw new IndexOutOfBoundsException("Range [" + from + ", " + from + " + " + length
                 + ") out of bounds for length " + size);
@@ -220,6 +253,39 @@ public abstract class ByteBuffer extends Buffer implements Comparable<ByteBuffer
         if (isReadOnly) throw new ReadOnlyBufferException();
         writeValue(checkIndex(index, 8), l, 8);
         return this;
+    }
+
+    // Float and double: raw conversions keep NaN payloads bit-exactly.
+    public float getFloat() {
+        return Float.intBitsToFloat(getInt());
+    }
+
+    public float getFloat(int index) {
+        return Float.intBitsToFloat(getInt(index));
+    }
+
+    public ByteBuffer putFloat(float value) {
+        return putInt(Float.floatToRawIntBits(value));
+    }
+
+    public ByteBuffer putFloat(int index, float value) {
+        return putInt(index, Float.floatToRawIntBits(value));
+    }
+
+    public double getDouble() {
+        return Double.longBitsToDouble(getLong());
+    }
+
+    public double getDouble(int index) {
+        return Double.longBitsToDouble(getLong(index));
+    }
+
+    public ByteBuffer putDouble(double value) {
+        return putLong(Double.doubleToRawLongBits(value));
+    }
+
+    public ByteBuffer putDouble(int index, double value) {
+        return putLong(index, Double.doubleToRawLongBits(value));
     }
 
     public String toString() {
