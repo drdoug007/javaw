@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T82: java.time.LocalTime core subset (no Temporal/TemporalAccessor). Expected values come from the JVM; see tasks/T82-local-time.md. */
-@Tag("agent-pending")
 class BytecodeLocalTimeTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.time.DateTimeException;
