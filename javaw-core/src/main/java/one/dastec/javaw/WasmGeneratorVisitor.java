@@ -2436,7 +2436,9 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     translateExpression(scope, collector, localTypes, localElementTypes, localJavaTypes, "i32");
                     Expression arg = call.getArgument(0);
                     String argType = getExpressionJavaType(arg, localJavaTypes);
-                    if (isStringType(arg, localJavaTypes)) {
+                    // The resolved Java type wins: isStringType can report String for a generic accessor such as Entry.getValue().
+                    boolean knownOther = argType != null && !argType.equals("String") && !argType.equals("java.lang.String");
+                    if (!knownOther && isStringType(arg, localJavaTypes)) {
                         translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "String");
                         collector.append("    call $__sb_append_str\n");
                     } else if (arg.isCharLiteralExpr() || "char".equals(argType)) {
@@ -2454,6 +2456,18 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     } else if (arg.isLongLiteralExpr() || "long".equals(argType) || "i64".equals(inferType(arg, localTypes, localElementTypes, localJavaTypes, null))) {
                         translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i64");
                         collector.append("    call $__str_from_i64\n    call $__sb_append_str\n");
+                    } else if ("char[]".equals(argType)) {
+                        translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                        collector.append("    call $__str_from_char_array\n    call $__sb_append_str\n");
+                    } else if ("StringBuilder".equals(argType) || "StringBuffer".equals(argType) || "java.lang.StringBuilder".equals(argType)) {
+                        translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
+                        collector.append("    call $__sb_toString\n    call $__sb_append_str\n");
+                    } else if (argType != null && !arg.isIntegerLiteralExpr() && !"int".equals(argType) && !"byte".equals(argType)
+                            && !"short".equals(argType) && !"null".equals(argType)) {
+                        // append(Object): String.valueOf semantics, converted as a string concatenation operand
+                        // (boxes unboxed by their type, other objects through toString, null as "null").
+                        translateStringToStack(arg, collector, localTypes, localElementTypes, localJavaTypes);
+                        collector.append("    call $__sb_append_str\n");
                     } else {
                         translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
                         collector.append("    call $__sb_append_i32\n");

@@ -170,6 +170,7 @@ final class CollectionSupport {
             }
             class __JavawMapEntry<K,V> implements Entry<K,V> {
                 public K key; public V value; public int hash; public __JavawMapEntry<K,V> next;
+                public __JavawMapEntry<K,V> before; public __JavawMapEntry<K,V> after;
                 public __JavawMapEntry(K key,V value,int hash,__JavawMapEntry<K,V> next) {
                     this.key=key; this.value=value; this.hash=hash; this.next=next;
                 }
@@ -187,6 +188,7 @@ final class CollectionSupport {
                     return null;
                 }
                 public Entry<K,V> entryForKey(K key) { return entry(key,__JavawObjects.hash(key)); }
+                public __JavawMapEntry<K,V> __javawEntry(Object key) { return entry(key,__JavawObjects.hash(key)); }
                 public Collection<V> values() { return new __JavawMapValues<K,V>(this); }
                 public Set<Entry<K,V>> entrySet() { return new __JavawEntrySet<K,V>(this); }
                 public V get(Object key) { var e=entry(key,__JavawObjects.hash(key)); return e==null ? null : e.value; }
@@ -247,6 +249,61 @@ final class CollectionSupport {
                 public void clear() { map.clear(); }
                 public Iterator<K> iterator() { return map.keyIterator(); }
                 public Stream<K> stream() { return Stream.fromCollection(this); }
+            }
+            class LinkedHashMap<K,V> extends HashMap<K,V> {
+                private __JavawMapEntry<K,V> head; private __JavawMapEntry<K,V> tail;
+                public LinkedHashMap() { super(); }
+                public LinkedHashMap(int capacity) { super(); if(capacity<0) throw new IllegalArgumentException(); }
+                public LinkedHashMap(Map<? extends K,? extends V> other) { super(); if(other==null) throw new NullPointerException(); putAll(other); }
+                public V put(K key,V value) {
+                    __JavawMapEntry<K,V> e=__javawEntry(key);
+                    if(e!=null) { V old=e.value; e.value=value; return old; }
+                    super.put(key,value);
+                    __JavawMapEntry<K,V> added=__javawEntry(key);
+                    added.before=tail; added.after=null;
+                    if(tail==null) head=added; else tail.after=added;
+                    tail=added;
+                    return null;
+                }
+                public V remove(Object key) {
+                    __JavawMapEntry<K,V> e=__javawEntry(key);
+                    if(e==null) return null;
+                    if(e.before==null) head=e.after; else e.before.after=e.after;
+                    if(e.after==null) tail=e.before; else e.after.before=e.before;
+                    e.before=null; e.after=null;
+                    return super.remove(key);
+                }
+                public void clear() { super.clear(); head=null; tail=null; }
+                public Iterator<K> keyIterator() { return new __JavawLinkedKeyIterator<K,V>(this,head); }
+            }
+            class __JavawLinkedKeyIterator<K,V> implements Iterator<K> {
+                private HashMap<K,V> map; private __JavawMapEntry<K,V> current; private int expected; private K lastKey; private boolean removable;
+                public __JavawLinkedKeyIterator(HashMap<K,V> map,__JavawMapEntry<K,V> head) { this.map=map; current=head; expected=map.version; }
+                public boolean hasNext() { return current!=null; }
+                public K next() {
+                    if(expected!=map.version) throw new ConcurrentModificationException();
+                    if(current==null) throw new NoSuchElementException();
+                    K key=current.key; lastKey=key; removable=true; current=current.after; return key;
+                }
+                public void remove() {
+                    if(expected!=map.version) throw new ConcurrentModificationException();
+                    if(!removable) throw new IllegalStateException();
+                    map.remove(lastKey); expected=map.version; removable=false;
+                }
+            }
+            class LinkedHashSet<E> implements Set<E> {
+                private LinkedHashMap<E,Boolean> map;
+                public LinkedHashSet() { map=new LinkedHashMap<E,Boolean>(); }
+                public LinkedHashSet(int capacity) { if(capacity<0) throw new IllegalArgumentException(); map=new LinkedHashMap<E,Boolean>(); }
+                public LinkedHashSet(Collection<? extends E> other) { if(other==null) throw new NullPointerException(); map=new LinkedHashMap<E,Boolean>(); addAll(other); }
+                public int size() { return map.size(); }
+                public boolean isEmpty() { return map.isEmpty(); }
+                public boolean contains(Object value) { return map.containsKey(value); }
+                public boolean add(E value) { boolean exists=map.containsKey(value); map.put(value,true); return !exists; }
+                public boolean remove(Object value) { boolean exists=map.containsKey(value); map.remove(value); return exists; }
+                public void clear() { map.clear(); }
+                public Iterator<E> iterator() { return map.keyIterator(); }
+                public Stream<E> stream() { return Stream.fromCollection(this); }
             }
             class HashSet<E> implements Set<E> {
                 private HashMap<E,Boolean> map;
