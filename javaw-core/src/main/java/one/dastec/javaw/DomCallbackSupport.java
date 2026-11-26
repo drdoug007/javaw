@@ -24,6 +24,8 @@ final class DomCallbackSupport {
      */
     static final String RUN_TARGET = "__JavawDomRunnable";
     private static final Set<String> TYPES = Set.of("Event", "EventListener");
+    /** A static method on each injected typed event class; a same-named user class lacks it. */
+    static final String KIND_MARKER = "__javaw_domEventKind";
     /** Typed event subclasses, each added unless the program declares a type of the same name. */
     private static final java.util.Map<String, String> EVENT_TYPES = new java.util.LinkedHashMap<>();
     static {
@@ -134,7 +136,10 @@ final class DomCallbackSupport {
         for (var entry : EVENT_TYPES.entrySet()) {
             boolean ownParent = entry.getKey().equals("PointerEvent") && declared.contains("MouseEvent");
             if (!declared.contains(entry.getKey()) && !ownParent) {
-                events.append(entry.getValue()).append('\n');
+                String source = entry.getValue();
+                int end = source.lastIndexOf('}');
+                events.append(source, 0, end).append("    public static int ").append(KIND_MARKER).append("() { return ")
+                        .append(listenerKind(entry.getKey())).append("; }\n}\n");
                 dispatch.append("        else if (kind == ").append(listenerKind(entry.getKey())).append(") listener.handleEvent(new ")
                         .append(entry.getKey()).append("(event));\n");
             }

@@ -48,6 +48,10 @@ class ComponentDiagnosticsTest {
         reject("class P { @CustomElement(\"x-a\") static class Row extends WebComponent {} }\n"
                 + "class Q { @CustomElement(\"x-b\") static class Row extends WebComponent {} }",
                 "Unsupported duplicate flattened type name 'Row'");
+        reject("@CustomElement(\"x-a\") class A extends WebComponent { @CustomElement(\"x-b\") static class B extends WebComponent {} }",
+                "must not be nested in the component class A");
+        reject("abstract class Base extends WebComponent { @CustomElement(\"x-b\") static class B extends WebComponent {} }",
+                "must not be nested in the component class Base");
     }
 
     @Test

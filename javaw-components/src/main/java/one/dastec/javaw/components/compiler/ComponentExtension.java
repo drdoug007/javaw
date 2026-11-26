@@ -344,6 +344,11 @@ public final class ComponentExtension implements SourceExtension {
         if (component.isInterface()) throw SourceExtension.error(component, "@CustomElement requires a class");
         if (component.isAbstract()) throw SourceExtension.error(component, "@CustomElement class " + component.getNameAsString() + " must not be abstract");
         // Inner (non-static) and local classes are rejected by the source compiler before extensions run.
+        // A component's event, slot and part scans walk its whole body, so it must not contain another component.
+        for (Node n = component.getParentNode().orElse(null); n != null; n = n.getParentNode().orElse(null))
+            if (n instanceof ClassOrInterfaceDeclaration outer && extendsWebComponent(cu, outer, new HashSet<>()))
+                throw SourceExtension.error(component, "@CustomElement class " + component.getNameAsString()
+                        + " must not be nested in the component class " + outer.getNameAsString() + "; nest it in a plain class or make it top-level");
         if (!component.getTypeParameters().isEmpty())
             throw SourceExtension.error(component, "@CustomElement class " + component.getNameAsString() + " must not be generic");
         if (!extendsWebComponent(cu, component, new HashSet<>()))

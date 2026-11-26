@@ -255,6 +255,25 @@ class DomCallbackTest {
             }
             """, false));
         assertTrue(notEvent.getMessage().contains("must be Event or a typed DOM event"), notEvent.getMessage());
+        var wildcard = assertThrows(RuntimeException.class, () -> JavacToWasm.compile("App.java", """
+            import one.dastec.javaw.dom.*;
+            class App {
+                public static void start() {
+                    EventListener<MouseEvent> h = e -> {};
+                    EventListener<? super MouseEvent> l = h;
+                    DOM.getBody().addEventListener("click", l);
+                }
+            }
+            """, false));
+        assertTrue(wildcard.getMessage().contains("has a wildcard"), wildcard.getMessage());
+        var shadowed = assertThrows(RuntimeException.class, () -> JavacToWasm.compile("App.java", """
+            import one.dastec.javaw.dom.*;
+            class MouseEvent extends Event { MouseEvent(JSObject js) { super(js); } }
+            class App {
+                public static void start() { DOM.getBody().addEventListener("click", (MouseEvent e) -> {}); }
+            }
+            """, false));
+        assertTrue(shadowed.getMessage().contains("shadows one.dastec.javaw.dom.MouseEvent"), shadowed.getMessage());
     }
 
     @Test

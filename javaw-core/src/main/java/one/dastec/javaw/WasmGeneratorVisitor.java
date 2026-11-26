@@ -5602,13 +5602,21 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             int open = listenerType.indexOf('<');
             if (open >= 0 && listenerType.endsWith(">")) {
                 eventType = listenerType.substring(open + 1, listenerType.length() - 1).trim();
-                if (eventType.startsWith("? extends ")) eventType = eventType.substring("? extends ".length()).trim();
+                // The wrapper class is chosen statically, so the listener's exact event type must be known.
+                if (eventType.startsWith("?"))
+                    throw JavaSourcePreparation.error(call, "DOM listener type " + listenerType
+                            + " has a wildcard; store the listener as EventListener<Event> or EventListener<MouseEvent> (its exact event type)");
                 if (eventType.startsWith("one.dastec.javaw.dom.")) eventType = eventType.substring("one.dastec.javaw.dom.".length());
-                if (eventType.equals("?") || eventType.startsWith("? super ")) eventType = "Event";
             }
             int kind = DomCallbackSupport.listenerKind(eventType);
             if (kind < 0)
                 throw JavaSourcePreparation.error(call, "DOM listener must be an EventListener of Event or a typed DOM event; found " + listenerType);
+            if (kind > 1) {
+                ClassModel eventClass = classRegistry.getClass(eventType);
+                if (eventClass == null || eventClass.getMethodByName(DomCallbackSupport.KIND_MARKER) == null)
+                    throw JavaSourcePreparation.error(call, "Type '" + eventType + "' declared in this program shadows one.dastec.javaw.dom."
+                            + eventType + "; rename it to use the DOM event as a listener type");
+            }
             Expression name = call.getArgument(0);
             if (kind > 1 && name.isStringLiteralExpr()) {
                 String dispatched = DomCallbackSupport.eventTypeForName(name.asStringLiteralExpr().asString());
