@@ -918,38 +918,76 @@
                 get() { return runtime.wcUpdateComplete(this); },
             });
             for (const p of properties) {
-                const getter = exports[p.getter], setter = exports[p.setter];
+                const getter = exports[p.getter], setter = exports[p.setter], isNull = p.nullable ? exports[p.nullGetter] : null;
+                const label = def.tag + '.' + p.name;
                 Object.defineProperty(Component.prototype, p.name, {
                     configurable: true, enumerable: true,
                     get() {
                         const state = this.__javawComponent;
                         if (!state) return undefined;
-                        const raw = getter(state.peer);
-                        if (p.kind === 'string') return raw ? runtime.readWasmStringFromPtr(raw) : null;
-                        if (p.kind === 'boolean') return Boolean(raw);
-                        return raw;
+                        if (isNull && isNull(state.peer)) return null;
+                        return runtime.wcFromJava(p.kind, getter(state.peer));
                     },
                     set(value) {
                         const state = this.__javawComponent;
                         if (!state) return;
-                        let raw;
-                        if (p.kind === 'string') {
-                            if (value !== null && typeof value !== 'string') throw new TypeError(def.tag + '.' + p.name + ' must be a string or null');
-                            raw = value === null ? 0 : runtime.writeString(value);
-                        } else if (p.kind === 'boolean') {
-                            if (typeof value !== 'boolean') throw new TypeError(def.tag + '.' + p.name + ' must be a boolean');
-                            raw = value ? 1 : 0;
-                        } else {
-                            if (typeof value !== 'number') throw new TypeError(def.tag + '.' + p.name + ' must be a number');
-                            // Java (int) casting: NaN is 0 and out-of-range values saturate.
-                            raw = p.kind === 'int' ? (Number.isNaN(value) ? 0 : Math.max(-2147483648, Math.min(2147483647, Math.trunc(value)))) : value;
+                        if (value === null || value === undefined) {
+                            if (p.nullable) { setter(state.peer, 1, runtime.wcZero(p.kind)); return; }
+                            if (p.kind === 'string' || p.kind === 'enum') { setter(state.peer, 0); return; }
                         }
-                        setter(state.peer, raw);
+                        const raw = runtime.wcToJava(p, label, value);
+                        if (p.nullable) setter(state.peer, 0, raw); else setter(state.peer, raw);
                     },
                 });
             }
             Object.defineProperty(Component, 'name', { value: def.className });
             return Component;
+        }
+
+        // @Property values across the JS boundary (docs/web-components.md, "Property marshalling").
+        wcFromJava(kind, raw) {
+            switch (kind) {
+                case 'string': case 'enum': return raw ? this.readWasmStringFromPtr(raw) : null;
+                case 'boolean': return Boolean(raw);
+                case 'char': return String.fromCharCode(raw);
+                default: return raw; // numbers; long arrives as a bigint
+            }
+        }
+
+        wcZero(kind) { return kind === 'long' ? 0n : 0; }
+
+        wcToJava(p, label, value) {
+            const fail = expected => { throw new TypeError(label + ' must be ' + expected + (p.nullable || p.kind === 'string' || p.kind === 'enum' ? ' or null' : '')); };
+            switch (p.kind) {
+                case 'string':
+                    if (typeof value !== 'string') fail('a string');
+                    return this.writeString(value);
+                case 'enum':
+                    if (typeof value !== 'string' || !p.values.includes(value)) fail('one of ' + p.values.map(v => JSON.stringify(v)).join(', '));
+                    return this.writeString(value);
+                case 'boolean':
+                    if (typeof value !== 'boolean') fail('a boolean');
+                    return value ? 1 : 0;
+                case 'char':
+                    if (typeof value !== 'string' || value.length !== 1) fail('a one-character string');
+                    return value.charCodeAt(0);
+                case 'long':
+                    if (typeof value === 'bigint') {
+                        if (BigInt.asIntN(64, value) !== value) throw new TypeError(label + ' must fit in a Java long');
+                        return value;
+                    }
+                    if (typeof value === 'number' && Number.isSafeInteger(value)) return BigInt(value);
+                    return fail('a bigint or a safe integer');
+                default: {
+                    if (typeof value !== 'number') fail('a number');
+                    if (p.kind === 'double' || p.kind === 'float') return value; // f32 exports round like a Java (float) cast
+                    // Java casts from double: NaN is 0, out-of-range values saturate to int, then narrow.
+                    const n = Number.isNaN(value) ? 0 : Math.max(-2147483648, Math.min(2147483647, Math.trunc(value)));
+                    if (p.kind === 'short') return (n << 16) >> 16;
+                    if (p.kind === 'byte') return (n << 24) >> 24;
+                    return n;
+                }
+            }
         }
 
         // Batched updates: one microtask runs every component that requested an update, in request order,

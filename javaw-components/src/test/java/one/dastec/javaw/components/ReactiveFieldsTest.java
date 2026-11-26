@@ -123,6 +123,118 @@ class ReactiveFieldsTest {
     }
 
     @Test
+    void scalarLikePropertyTypes() throws Exception {
+        byte[] wasm = JavacToWasm.compile("App.java", """
+            import one.dastec.javaw.components.Changes;
+            import one.dastec.javaw.components.CustomElement;
+            import one.dastec.javaw.components.Property;
+            import one.dastec.javaw.components.Template;
+            import one.dastec.javaw.components.WebComponent;
+
+            enum Priority { LOW, VERY_HIGH }
+
+            @CustomElement(value = "x-kinds", observedAttributes = {"data-bump"})
+            class Kinds extends WebComponent {
+                @Property(reflect = true) private byte small;
+                @Property private short medium;
+                @Property private char letter = 'a';
+                @Property private long big;
+                @Property(reflect = true) private float ratio;
+                @Property(reflect = true) private Integer count;
+                @Property private Long total;
+                @Property private Character initial;
+                @Property(reflect = true) private Priority level = Priority.LOW;
+                @Property(reflect = true) private Boolean flag;
+                @Override protected void update(Changes changes) {
+                    host().setAttribute("data-text", small + "," + medium + "," + letter + "," + big + "," + ratio + "," + count + ","
+                            + total + "," + initial + "," + level + "," + flag);
+                }
+                @Override protected void attributeChanged(String name, String oldValue, String newValue) {
+                    if (name.equals("data-bump")) { big++; letter = 'z'; level = Priority.LOW; count = null; }
+                }
+            }
+
+            @CustomElement("x-kinds-host")
+            class KindsHost extends WebComponent {
+                @Override protected Template render() {
+                    return html("<x-kinds .small=${(byte) 5} .level=${Priority.VERY_HIGH} .total=${Long.valueOf(9L)}></x-kinds>");
+                }
+            }
+            """, false).getWasm();
+        CustomElementTest.run(wasm, "", """
+            document.body.innerHTML = '<x-kinds small="12" medium="-3" ratio="1.5" count="7" level="very-high" flag></x-kinds>';
+            const el = document.querySelector('x-kinds');
+            await el.updateComplete;
+            assert.equal(el.getAttribute('data-text'), '12,-3,a,0,1.5,7,null,null,VERY_HIGH,true', 'attributes convert into every kind');
+            assert.deepEqual([el.small, el.medium, el.letter, el.big, el.ratio, el.count, el.total, el.initial, el.level, el.flag],
+                [12, -3, 'a', 0n, 1.5, 7, null, null, 'very-high', true], 'JS reads give numbers, strings, bigint, null and kebab names');
+
+            el.small = 300; el.medium = 40000.9; el.ratio = 0.1; el.big = 2n ** 63n - 1n; el.total = 42; el.initial = 'Q'; el.count = null;
+            el.level = 'low'; el.flag = null;
+            await el.updateComplete;
+            assert.equal(el.small, 44, 'byte narrows like a Java cast');
+            assert.equal(el.medium, -25536, 'short narrows like a Java cast');
+            assert.equal(el.ratio, Math.fround(0.1), 'float rounds like a Java cast');
+            assert.equal(el.big, 9223372036854775807n);
+            assert.equal(el.total, 42n, 'a safe integer is accepted for Long');
+            assert.equal(el.initial, 'Q');
+            assert.equal(el.count, null);
+            assert.equal(el.getAttribute('small'), '44', 'byte reflects');
+            assert.equal(el.getAttribute('ratio'), '0.1', 'float reflects with Java text');
+            assert.equal(el.hasAttribute('count'), false, 'a null box removes its attribute');
+            assert.equal(el.getAttribute('level'), 'low', 'an enum reflects its kebab name');
+            assert.equal(el.hasAttribute('flag'), false, 'a null Boolean removes its attribute');
+
+            for (const [name, value] of [['small', '1'], ['letter', 'ab'], ['letter', 5], ['big', 1.5], ['big', 2n ** 64n], ['big', 2 ** 60],
+                                         ['level', 'VERY_HIGH'], ['level', 3], ['count', 'x'], ['letter', null], ['small', null]])
+                assert.throws(() => { el[name] = value; }, TypeError, name + ' = ' + String(value));
+            assert.match((() => { try { el.level = 'nope'; } catch (e) { return e.message; } })(), /x-kinds.level must be one of "low", "very-high" or null/);
+
+            el.removeAttribute('small'); el.removeAttribute('level');
+            await el.updateComplete;
+            assert.equal(el.small, 0, 'removing a primitive attribute gives its default');
+            assert.equal(el.level, null, 'removing an enum attribute gives null');
+            el.small = 9; el.level = 'very-high';
+            await el.updateComplete;
+            el.setAttribute('small', '300');
+            el.setAttribute('level', 'medium');
+            await el.updateComplete;
+            assert.equal(el.small, 9, 'an out-of-range byte attribute leaves the field unchanged');
+            assert.equal(el.level, 'very-high', 'an unknown enum attribute leaves the field unchanged');
+            assert.match(errors[1].message, /No enum constant Priority.MEDIUM/);
+            assert.equal(errors.length, 2, 'both conversion failures are reported: ' + errors.map(e => e.message).join(' / '));
+
+            el.setAttribute('data-bump', '');
+            await el.updateComplete;
+            assert.equal(el.big, -9223372036854775808n, 'long overflow wraps in Java (a Java ++ write)');
+            assert.equal(el.letter, 'z');
+            assert.equal(el.level, 'low');
+            assert.equal(el.getAttribute('level'), 'low');
+
+            const host = document.createElement('x-kinds-host');
+            document.body.appendChild(host);
+            await host.updateComplete;
+            const inner = host.shadowRoot.querySelector('x-kinds');
+            await inner.updateComplete;
+            assert.deepEqual([inner.small, inner.level, inner.total], [5, 'very-high', 9n], 'typed .prop bindings set byte, enum and Long fields');
+            """);
+        var noAttribute = assertThrows(IllegalArgumentException.class, () -> JavacToWasm.compile("App.java", """
+            import one.dastec.javaw.components.CustomElement;
+            import one.dastec.javaw.components.Property;
+            import one.dastec.javaw.components.WebComponent;
+            @CustomElement("x-a") class A extends WebComponent { @Property(attribute = "n") private long n; }
+            """, false));
+        assertTrue(noAttribute.getMessage().contains("has no attribute converter"), noAttribute.getMessage());
+        var noReflect = assertThrows(IllegalArgumentException.class, () -> JavacToWasm.compile("App.java", """
+            import one.dastec.javaw.components.CustomElement;
+            import one.dastec.javaw.components.Property;
+            import one.dastec.javaw.components.WebComponent;
+            @CustomElement("x-a") class A extends WebComponent { @Property(reflect = true) private char c; }
+            """, false));
+        assertTrue(noReflect.getMessage().contains("has no attribute to reflect to"), noReflect.getMessage());
+    }
+
+    @Test
     void propertiesInheritedFromComponentSuperclasses() throws Exception {
         byte[] wasm = JavacToWasm.compile("App.java", """
             import one.dastec.javaw.components.Changes;

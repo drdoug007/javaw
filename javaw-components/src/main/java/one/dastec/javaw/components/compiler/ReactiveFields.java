@@ -1,6 +1,8 @@
 package one.dastec.javaw.components.compiler;
 
 import com.github.javaparser.StaticJavaParser;
+import com.github.javaparser.ast.body.EnumConstantDeclaration;
+import com.github.javaparser.ast.body.EnumDeclaration;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.*;
 import com.github.javaparser.ast.expr.*;
@@ -20,10 +22,17 @@ final class ReactiveFields {
 
     /** One reactive field. {@code kind} is the attribute/JS conversion, or null for {@code @State}. */
     record Field(String name, String type, boolean property, String kind, String attribute, boolean reflect,
-                 String getter, String setter) {}
+                 String getter, String setter, boolean nullable, List<String> values, String nullGetter) {}
 
-    private static final Map<String, String> PROPERTY_KINDS = Map.of(
-            "String", "string", "boolean", "boolean", "int", "int", "double", "double");
+    /** JS kinds of @Property types (docs/web-components.md, "Property marshalling"); enums of the module are "enum". */
+    private static final Map<String, String> PROPERTY_KINDS = Map.ofEntries(
+            Map.entry("String", "string"), Map.entry("boolean", "boolean"), Map.entry("Boolean", "boolean"),
+            Map.entry("int", "int"), Map.entry("Integer", "int"), Map.entry("short", "short"), Map.entry("Short", "short"),
+            Map.entry("byte", "byte"), Map.entry("Byte", "byte"), Map.entry("char", "char"), Map.entry("Character", "char"),
+            Map.entry("long", "long"), Map.entry("Long", "long"), Map.entry("float", "float"), Map.entry("Float", "float"),
+            Map.entry("double", "double"), Map.entry("Double", "double"));
+    /** Kinds without an attribute converter: JS properties only. */
+    private static final Set<String> NO_ATTRIBUTE = Set.of("char", "long");
     private static final Map<String, String> BOXES = Map.of("int", "Integer", "long", "Long", "short", "Short",
             "byte", "Byte", "char", "Character", "boolean", "Boolean", "double", "Double", "float", "Float");
 
@@ -43,22 +52,39 @@ final class ReactiveFields {
                 throw SourceExtension.error(declaration, "Reactive field '" + name + "' must be a private, non-static, non-final instance field");
             String type = declaration.getVariable(0).getTypeAsString();
             String kind = null, attribute = null;
-            boolean reflect = false;
+            boolean reflect = false, nullable = false;
+            List<String> values = new ArrayList<>();
             if (property != null) {
                 if (name.equals("updateComplete"))
                     throw SourceExtension.error(declaration, "@Property name 'updateComplete' is reserved for the element's update promise");
-                kind = PROPERTY_KINDS.get(type);
+                String simpleType = type.startsWith("java.lang.") ? type.substring("java.lang.".length()) : type;
+                kind = PROPERTY_KINDS.get(simpleType);
+                if (kind != null) type = simpleType;
+                EnumDeclaration enumType = kind == null ? enumOf(component, type) : null;
+                if (enumType != null) {
+                    kind = "enum";
+                    for (EnumConstantDeclaration c : enumType.getEntries()) values.add(c.getNameAsString().toLowerCase(Locale.ROOT).replace('_', '-'));
+                }
                 if (kind == null)
                     throw SourceExtension.error(declaration, "@Property '" + name + "' has type " + type
-                            + "; this milestone supports String, boolean, int and double properties (use @State for other types)");
+                            + "; this milestone supports String, primitives, their boxes and enums of the module (use @State for other types)");
+                nullable = BOXES.containsValue(type);
                 String explicit = ComponentExtension.stringMemberOf(property, "attribute");
-                attribute = explicit == null || explicit.isEmpty() ? kebab(name) : explicit;
-                if (!attribute.equals(attribute.toLowerCase(Locale.ROOT)) || attribute.chars().anyMatch(Character::isWhitespace))
-                    throw SourceExtension.error(property, "Attribute names must be lowercase and without whitespace: \"" + attribute + "\"");
+                if (NO_ATTRIBUTE.contains(kind)) {
+                    if (explicit != null)
+                        throw SourceExtension.error(property, "@Property '" + name + "' of type " + type + " has no attribute converter; remove attribute = \"" + explicit + "\"");
+                } else {
+                    attribute = explicit == null || explicit.isEmpty() ? kebab(name) : explicit;
+                    if (!attribute.equals(attribute.toLowerCase(Locale.ROOT)) || attribute.chars().anyMatch(Character::isWhitespace))
+                        throw SourceExtension.error(property, "Attribute names must be lowercase and without whitespace: \"" + attribute + "\"");
+                }
                 reflect = ComponentExtension.booleanMemberOf(property, "reflect");
+                if (reflect && attribute == null)
+                    throw SourceExtension.error(property, "@Property '" + name + "' of type " + type + " has no attribute to reflect to");
             }
             fields.add(new Field(name, type, property != null, kind, attribute, reflect,
-                    "__wc_get_" + owner + "_" + name, "__wc_set_" + owner + "_" + name));
+                    "__wc_get_" + owner + "_" + name, "__wc_set_" + owner + "_" + name, nullable, List.copyOf(values),
+                    nullable ? "__wc_null_" + owner + "_" + name : null));
         }
         if (fields.isEmpty()) return fields;
         Set<String> attributes = new HashSet<>();
@@ -205,10 +231,29 @@ final class ReactiveFields {
         return switch (type) {
             case "boolean" -> "false";
             case "char" -> "(char) 0";
-            case "double", "float" -> "0.0";
+            case "double" -> "0.0";
+            case "float" -> "0.0f";
             case "long" -> "0L";
-            case "int", "short", "byte" -> "0";
+            case "int" -> "0";
+            case "short" -> "(short) 0";
+            case "byte" -> "(byte) 0";
             default -> null;
+        };
+    }
+
+    /** The module enum a field type names, by simple name (nested enums included), or null. */
+    private static EnumDeclaration enumOf(ClassOrInterfaceDeclaration component, String type) {
+        String simple = type.contains(".") ? type.substring(type.lastIndexOf('.') + 1) : type;
+        return component.findCompilationUnit().flatMap(cu -> cu.findAll(EnumDeclaration.class).stream()
+                .filter(e -> e.getNameAsString().equals(simple)).findFirst()).orElse(null);
+    }
+
+    /** The primitive a JS bridge passes for a kind (boxes pass their primitive plus a null flag). */
+    private static String bridgeType(Field f) {
+        return switch (f.kind) {
+            case "string", "enum" -> "String";
+            case "boolean" -> "boolean";
+            default -> f.kind; // int, short, byte, char, long, float, double
         };
     }
 
@@ -220,8 +265,29 @@ final class ReactiveFields {
         add(component, "static " + t + " __post$" + f.name + "(" + owner + " component, " + t + " value) { "
                 + t + " old = component." + f.name + "; __set$" + f.name + "(component, value); return old; }");
         if (!f.property) return;
-        add(component, "public static " + t + " " + f.getter + "(" + owner + " component) { return component." + f.name + "; }");
-        add(component, "public static void " + f.setter + "(" + owner + " component, " + t + " value) { __set$" + f.name + "(component, value); }");
+        if (f.kind.equals("enum") && f.attribute != null)
+            // Enum.valueOf of an unknown name does not throw in the source compiler, so look the constant up here.
+            add(component, "static " + t + " __parse$" + f.name + "(String value) { String name = WebComponent.__wc_constantName(value); "
+                    + "for (" + t + " c : " + t + ".values()) if (c.name().equals(name)) return c; "
+                    + "throw new IllegalArgumentException(\"No enum constant " + t + ".\" + name); }");
+        // JS accessors call these exports with primitives and strings only (boxes and enums cannot be built in JS).
+        String b = bridgeType(f), v = "component." + f.name;
+        if (f.kind.equals("enum")) {
+            add(component, "public static String " + f.getter + "(" + owner + " component) { return " + v + " == null ? null : WebComponent.__wc_kebab(" + v + ".name()); }");
+            add(component, "public static void " + f.setter + "(" + owner + " component, String value) { " + t + " converted = null; "
+                    + "if (value != null) { for (" + t + " c : " + t + ".values()) if (WebComponent.__wc_kebab(c.name()).equals(value)) converted = c; "
+                    + "if (converted == null) throw new IllegalArgumentException(\"No constant '\" + value + \"' in " + t + "\"); } "
+                    + "__set$" + f.name + "(component, converted); }");
+        } else if (f.nullable) {
+            String unbox = v + "." + b + "Value()";
+            add(component, "public static " + b + " " + f.getter + "(" + owner + " component) { return " + v + " == null ? " + defaultValue(b) + " : " + unbox + "; }");
+            add(component, "public static boolean " + f.nullGetter + "(" + owner + " component) { return " + v + " == null; }");
+            add(component, "public static void " + f.setter + "(" + owner + " component, boolean isNull, " + b + " value) { "
+                    + "__set$" + f.name + "(component, isNull ? null : " + t + ".valueOf(value)); }");
+        } else {
+            add(component, "public static " + t + " " + f.getter + "(" + owner + " component) { return " + v + "; }");
+            add(component, "public static void " + f.setter + "(" + owner + " component, " + t + " value) { __set$" + f.name + "(component, value); }");
+        }
     }
 
     private static void addOverrides(ClassOrInterfaceDeclaration component, List<Field> fields) {
@@ -232,19 +298,32 @@ final class ReactiveFields {
             String def = defaultValue(f.type);
             initial.append("__wc_change(\"").append(f.name).append("\", ").append(def == null ? "null" : box(f.type, def)).append("); ");
             if (f.attribute == null) continue;
-            String convert = switch (f.kind) {
+            // docs/web-components.md, "Attribute conversion": removal gives the default, or null for boxes and enums.
+            String parse = switch (f.kind) {
                 case "string" -> "value";
-                case "boolean" -> "value != null";
-                case "int" -> "value == null ? 0 : Integer.parseInt(value)";
-                default -> "value == null ? 0.0 : Double.parseDouble(value)";
+                case "boolean" -> "true";
+                case "int" -> "Integer.parseInt(value)";
+                case "short" -> "WebComponent.__wc_parseShort(value)";
+                case "byte" -> "WebComponent.__wc_parseByte(value)";
+                case "float" -> "Float.parseFloat(value)";
+                case "enum" -> "__parse$" + f.name + "(value)";
+                default -> "Double.parseDouble(value)";
             };
+            if (f.nullable && !f.kind.equals("boolean")) parse = f.type + ".valueOf(" + parse + ")";
+            String removed = f.kind.equals("string") || f.kind.equals("enum") || f.nullable ? "null"
+                    : f.kind.equals("boolean") ? "false" : defaultValue(f.type);
+            String convert = f.kind.equals("string") ? "value"
+                    : f.kind.equals("boolean") ? (f.nullable ? "value == null ? null : Boolean.TRUE" : "value != null")
+                    : "value == null ? " + removed + " : " + parse;
             fromAttribute.append("if (name.equals(\"").append(f.attribute).append("\")) { ").append(f.type).append(" converted = ")
                     .append(convert).append("; __set$").append(f.name).append("(this, converted); } ");
             if (f.reflect) {
+                String me = "this." + f.name;
                 String text = switch (f.kind) {
-                    case "string" -> "this." + f.name;
-                    case "boolean" -> "this." + f.name + " ? \"\" : null";
-                    default -> "\"\" + this." + f.name;
+                    case "string" -> me;
+                    case "boolean" -> f.nullable ? me + " == null || !" + me + ".booleanValue() ? null : \"\"" : me + " ? \"\" : null";
+                    case "enum" -> me + " == null ? null : WebComponent.__wc_kebab(" + me + ".name())";
+                    default -> f.nullable ? me + " == null ? null : \"\" + " + me : "\"\" + " + me;
                 };
                 reflect.append("if (changes.has(\"").append(f.name).append("\")) { String text = ").append(text)
                         .append("; __wc_reflectAttribute(\"").append(f.attribute).append("\", text); } ");

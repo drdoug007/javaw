@@ -169,16 +169,25 @@ final class ComponentArtifacts {
     // ---- TypeScript types -------------------------------------------------------------------------------
 
     private static String propertyType(ReactiveFields.Field f) {
-        return switch (f.kind()) {
+        String base = switch (f.kind()) {
             case "string" -> "string | null";
+            case "enum" -> String.join(" | ", f.values().stream().map(ComponentExtension::quoteJson).toList()) + " | null";
             case "boolean" -> "boolean";
+            case "char" -> "string";
+            case "long" -> "bigint";
             default -> "number";
         };
+        return f.nullable() ? base + " | null" : base;
     }
 
     private static String attributeType(ReactiveFields.Field f) {
         if (f == null) return "string";
-        return switch (f.kind()) { case "boolean" -> "boolean"; case "string" -> "string"; default -> "number"; };
+        return switch (f.kind()) {
+            case "boolean" -> "boolean";
+            case "string" -> "string";
+            case "enum" -> String.join(" | ", f.values().stream().map(ComponentExtension::quoteJson).toList());
+            default -> "number";
+        };
     }
 
     static String detailName(ComponentEvents.Event e) { return e.simpleName() + "Detail"; }

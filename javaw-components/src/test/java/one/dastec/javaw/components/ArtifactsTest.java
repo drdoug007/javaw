@@ -161,6 +161,34 @@ class ArtifactsTest {
     }
 
     @Test
+    void scalarLikePropertyKindsAreTyped() {
+        Map<String, String> artifacts = JavacToWasm.compile("App.java", """
+            import one.dastec.javaw.components.CustomElement;
+            import one.dastec.javaw.components.Property;
+            import one.dastec.javaw.components.WebComponent;
+            enum Size { SMALL, EXTRA_LARGE }
+            @CustomElement("x-typed")
+            class Typed extends WebComponent {
+                @Property private long big;
+                @Property private Long total;
+                @Property private char letter;
+                @Property private Integer count;
+                @Property private float ratio;
+                @Property private Size size;
+                @Property private Boolean flag;
+            }
+            """, false).getArtifacts();
+        String dts = artifacts.get("App.components.d.ts");
+        for (String line : List.of("big: bigint;", "total: bigint | null;", "letter: string;", "count: number | null;", "ratio: number;",
+                "size: \"small\" | \"extra-large\" | null;", "flag: boolean | null;"))
+            assertTrue(dts.contains("  " + line), line + "\n" + dts);
+        String manifest = artifacts.get("App.custom-elements.json");
+        assertTrue(manifest.contains("\"name\":\"size\",\"type\":{\"text\":\"\\\"small\\\" | \\\"extra-large\\\"\"}")
+                || manifest.contains("\"small\\\" | \\\"extra-large"), manifest);
+        assertFalse(manifest.contains("\"name\":\"big\",\"type\":{\"text\":\"number"), "long has no attribute: " + manifest);
+    }
+
+    @Test
     void programsWithoutComponentsHaveNoArtifacts() {
         assertTrue(JavacToWasm.compile("App.java", "class App { public static int f() { return 1; } }", false).getArtifacts().isEmpty());
     }

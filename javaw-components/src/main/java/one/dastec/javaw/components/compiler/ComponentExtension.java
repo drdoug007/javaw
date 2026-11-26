@@ -83,6 +83,18 @@ public final class ComponentExtension implements SourceExtension {
                 else __host.setAttribute(name, value);
                 __reflecting = null;
             }
+            public static String __wc_kebab(String constant) { return constant.toLowerCase().replace('_', '-'); }
+            public static String __wc_constantName(String attribute) { return attribute.toUpperCase().replace('-', '_'); }
+            public static short __wc_parseShort(String text) {
+                int value = Integer.parseInt(text);
+                if (value < -32768 || value > 32767) throw new IllegalArgumentException("Value out of range. Value:\\"" + text + "\\" Radix:10");
+                return (short) value;
+            }
+            public static byte __wc_parseByte(String text) {
+                int value = Integer.parseInt(text);
+                if (value < -128 || value > 127) throw new IllegalArgumentException("Value out of range. Value:\\"" + text + "\\" Radix:10");
+                return (byte) value;
+            }
             public static boolean __wc_doubleChanged(double old, double value) {
                 if (old != value) return !(old != old && value != value);
                 return old == 0.0 && 1.0 / old != 1.0 / value;
@@ -266,13 +278,12 @@ public final class ComponentExtension implements SourceExtension {
         rewriteConstruction(cu, definitions);
         for (TemplateRewrite.PropertyKey key : templates.propertyKeys()) {
             ClassOrInterfaceDeclaration target = componentsByName.get(key.className());
-            String box = switch (key.type()) { case "int" -> "Integer.valueOf(value)"; case "boolean" -> "Boolean.valueOf(value)"; case "double" -> "Double.valueOf(value)"; default -> "value"; };
-            String unbox = switch (key.type()) {
-                case "int" -> "((Integer) value).intValue()";
-                case "boolean" -> "((Boolean) value).booleanValue()";
-                case "double" -> "((Double) value).doubleValue()";
-                default -> "(" + key.type() + ") value";
+            String wrapper = switch (key.type()) {
+                case "int" -> "Integer"; case "char" -> "Character"; case "boolean" -> "Boolean"; case "double" -> "Double";
+                case "float" -> "Float"; case "long" -> "Long"; case "short" -> "Short"; case "byte" -> "Byte"; default -> null;
             };
+            String box = wrapper == null ? "value" : wrapper + ".valueOf(value)";
+            String unbox = wrapper == null ? "(" + key.type() + ") value" : "((" + wrapper + ") value)." + key.type() + "Value()";
             target.addMember(StaticJavaParser.parseBodyDeclaration("public static TemplatePart __wc_prop_" + key.field() + "(" + key.type()
                     + " value) { return Parts.__componentProp(" + key.id() + ", " + box + "); }"));
             target.addMember(StaticJavaParser.parseBodyDeclaration("public static void __wc_assign_" + key.field() + "(" + key.className()
@@ -646,7 +657,10 @@ public final class ComponentExtension implements SourceExtension {
             for (ReactiveFields.Field f : d.fields) {
                 if (!f.property()) continue;
                 out.append(first ? "" : ",").append("{\"name\":").append(quote(f.name())).append(",\"kind\":").append(quote(f.kind()))
-                        .append(",\"getter\":").append(quote(f.getter())).append(",\"setter\":").append(quote(f.setter())).append('}');
+                        .append(",\"getter\":").append(quote(f.getter())).append(",\"setter\":").append(quote(f.setter()));
+                if (f.nullable()) out.append(",\"nullable\":true,\"nullGetter\":").append(quote(f.nullGetter()));
+                if (!f.values().isEmpty()) out.append(",\"values\":[").append(String.join(",", f.values().stream().map(ComponentExtension::quote).toList())).append(']');
+                out.append('}');
                 first = false;
             }
             out.append("],\"styles\":").append(d.styles).append('}');

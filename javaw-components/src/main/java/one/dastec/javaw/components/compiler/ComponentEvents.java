@@ -411,7 +411,6 @@ final class ComponentEvents {
                 int token = __wc_eventToken(event);
                 return token < 0 || token >= __wc_depth ? null : __wc_firing[token];
             }
-            public static String __wc_kebab(String name) { return name.toLowerCase().replace('_', '-'); }
             // The window and document of the runtime's document, which is also where components are defined.
             @JS("return runtime.doc ? runtime.doc.defaultView : globalThis;")
             protected static native JSObject window();
