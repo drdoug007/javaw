@@ -343,8 +343,7 @@ public final class ComponentExtension implements SourceExtension {
         if (problem != null) throw SourceExtension.error(annotation, "Invalid custom element name \"" + tag + "\": " + problem);
         if (component.isInterface()) throw SourceExtension.error(component, "@CustomElement requires a class");
         if (component.isAbstract()) throw SourceExtension.error(component, "@CustomElement class " + component.getNameAsString() + " must not be abstract");
-        if (component.isNestedType())
-            throw SourceExtension.error(component, "@CustomElement classes must be top-level for now: " + component.getNameAsString());
+        // Inner (non-static) and local classes are rejected by the source compiler before extensions run.
         if (!component.getTypeParameters().isEmpty())
             throw SourceExtension.error(component, "@CustomElement class " + component.getNameAsString() + " must not be generic");
         if (!extendsWebComponent(cu, component, new HashSet<>()))

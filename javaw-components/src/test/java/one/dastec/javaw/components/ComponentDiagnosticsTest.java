@@ -42,6 +42,12 @@ class ComponentDiagnosticsTest {
         reject("@CustomElement(\"x-a\") class A extends WebComponent { @Query(\"b\") Element b; }", "must be a private instance field");
         reject("@CustomElement(\"x-a\") class A extends WebComponent { @Query(\"b\") private String b; }", "must have type Element");
         reject("class WebComponent {}", "reserved");
+        reject("class Outer { @CustomElement(\"x-a\") class A extends WebComponent {} }", "App.java:6:",
+                "Unsupported non-static inner/local type");
+        reject("class Outer { static void f() { @CustomElement(\"x-a\") class A extends WebComponent {} } }", "Unsupported non-static inner/local type");
+        reject("class P { @CustomElement(\"x-a\") static class Row extends WebComponent {} }\n"
+                + "class Q { @CustomElement(\"x-b\") static class Row extends WebComponent {} }",
+                "Unsupported duplicate flattened type name 'Row'");
     }
 
     @Test

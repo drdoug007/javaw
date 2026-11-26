@@ -231,6 +231,71 @@ class CustomElementTest {
     }
 
     @Test
+    void staticNestedComponentsWorkLikeTopLevelOnes() throws Exception {
+        byte[] wasm = JavacToWasm.compile("App.java", """
+            import one.dastec.javaw.components.ComponentEvent;
+            import one.dastec.javaw.components.CustomElement;
+            import one.dastec.javaw.components.Property;
+            import one.dastec.javaw.components.Query;
+            import one.dastec.javaw.components.Template;
+            import one.dastec.javaw.components.WebComponent;
+            import one.dastec.javaw.dom.DOM;
+            import one.dastec.javaw.dom.Element;
+
+            class Widgets {
+                static final String PREFIX = "n";
+                record Picked(int count) implements ComponentEvent {}
+
+                @CustomElement("x-nested-counter")
+                static class Counter extends WebComponent {
+                    @Property(reflect = true) private int count;
+                    @Query("button") private Element button;
+                    @Override protected Template render() {
+                        return html("<button @click=${() -> { count++; dispatch(new Picked(count)); }}>${PREFIX}${count}</button>");
+                    }
+                    String label() { return button.getInnerText(); }
+                }
+
+                @CustomElement("x-nested-panel")
+                public static class Panel extends WebComponent {
+                    @Override protected Template render() {
+                        return html("<x-nested-counter .count=${5} @picked=${this::onPicked}></x-nested-counter>");
+                    }
+                    private void onPicked(Picked p) { host().setAttribute("data-picked", "" + p.count()); }
+                }
+            }
+
+            class App {
+                static Widgets.Counter made;
+                public static void make() {
+                    made = new Widgets.Counter();
+                    DOM.getBody().appendChild(made.host());
+                }
+                public static int madeIsCounter() { return made.host().getAttribute("count") != null ? 1 : 0; }
+            }
+            """, false).getWasm();
+        run(wasm, "", """
+            const tick = async () => { await settle(); await settle(); };
+            const panel = document.createElement('x-nested-panel');
+            document.body.appendChild(panel);
+            await tick();
+            const counter = panel.shadowRoot.querySelector('x-nested-counter');
+            assert.equal(counter.constructor, window.customElements.get('x-nested-counter'), 'the nested class is registered');
+            assert.equal(counter.count, 5, 'a typed .property binding reaches the nested component');
+            assert.equal(counter.getAttribute('count'), '5', 'reflection works');
+            counter.shadowRoot.querySelector('button').click();
+            await tick();
+            assert.equal(counter.shadowRoot.querySelector('button').textContent, 'n6', 'the nested class reads its enclosing class constant');
+            assert.equal(panel.getAttribute('data-picked'), '6', 'a typed @event binding receives the nested event record');
+            e.make();
+            await tick();
+            assert.equal(e.madeIsCounter(), 1, 'new Outer.Nested() creates the element through the registry');
+            assert.equal(document.body.lastElementChild.localName, 'x-nested-counter');
+            assert.equal(errors.length, 0, String(errors[0] && errors[0].stack));
+            """);
+    }
+
+    @Test
     void oneFailingDefinitionDoesNotStopTheOthers() throws Exception {
         byte[] wasm = JavacToWasm.compile("App.java", """
             import one.dastec.javaw.components.CustomElement;
