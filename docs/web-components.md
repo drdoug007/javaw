@@ -449,6 +449,112 @@ A JS write whose value does not match throws a JS `TypeError`. Its message is th
 
 A JS property that was set on an element before it was upgraded becomes an own data property that would shadow the generated accessor. During construction, the runtime checks `Object.hasOwn(this, name)` for each `@Property`. If the property is present, the runtime saves its value, deletes the own property, and assigns the saved value through the accessor after the Java constructor runs and before the first update, as Lit does.
 
+### Draft: property types beyond the scalars (M2, not implemented)
+
+> **Status: proposal for review.** Today `@Property` accepts `String`, `boolean`, `int` and `double`, and only `f`/`this.f` writes are rewritten. This section proposes how to implement the rest of [Property marshalling](#property-marshalling) and the typed-receiver rule of [Write rewriting](#write-rewriting). It lists the decisions the tables above leave open. Choices marked **(decide)** are collected under [Decisions needed](#decisions-needed).
+
+#### Phases
+
+1. **Scalar-like types:** `byte`, `short`, `char`, `float`, `long`, their boxes, and `enum`s of the module. Each maps to one JS primitive, so a JS property never shares state with Java. Attribute conversion follows the [table](#attribute-conversion): boxes remove the attribute for `null`, and `long` gets no attribute. This phase needs no new runtime machinery beyond new property kinds.
+2. **Typed receivers:** `r.f = E` and the other forms, where `r` is a simple name declared as the component class or a subclass. This is independent of the value types.
+3. **Structured types:** records of the module, `List<T>`, `T[]`, `Map<String, V>`, and `Element`/`JSObject`. These need copying in both directions and are described below.
+4. **Artifacts:** manifest and `.d.ts` types for every new kind. This goes with each phase rather than at the end.
+
+#### Representation: copies, not live views
+
+A structured value crosses the boundary as a **copy** in both directions:
+
+- **Java → JS:** a JS read of `el.items` builds a plain JS array or object from the Java value, using the same encoding as event `detail` (records become objects keyed by component name, lists and arrays become arrays, maps become objects, enums become kebab-case strings, `long` becomes `bigint`).
+- **JS → Java:** a JS write decodes the value into new Java objects: an `ArrayList` for `List<T>`, a new array for `T[]`, a new record instance, and a map for `Map<String, V>`. Element values are checked as described in [Decoding JS values](#decoding-js-values). The decoded value then goes through the generated setter, like any other write.
+
+Why copies:
+
+- A live JS view of a Java list would have to keep a Wasm pointer across tasks. That brings back the retain/release bookkeeping that the [collector safepoint](#collector-safepoint) audit just ruled out for the component runtime.
+- A live Java view of a JS array would need a handle per element and per-access host calls.
+- Event `detail` already copies, so properties and events behave the same.
+
+Consequences that differ from Lit:
+
+- **Mutation is not shared.** `el.items.push(x)` changes only the JS copy. As in Lit, mutating in place is not a change; the author assigns a new value.
+- **Identity across reads (decide).** Copying on each read makes `el.items !== el.items`. Proposed instead: the runtime caches the JS copy per element and field until the Java setter records a change for that field, so repeated reads return the same object, as in Lit. The cache holds only JS values (no Wasm pointers), so it is safe under collection. An alternative is to also `Object.freeze` the cached copy (deeply), so code that mutates it fails loudly in strict mode instead of silently diverging from Java.
+
+#### Decoding JS values
+
+The compiler generates one decoder per distinct property type, built on `JSObject`, plus three new runtime imports: `typeof`, own enumerable keys, and `Array.isArray`. The rules:
+
+| Java type | Accepted JS value | Result |
+| --- | --- | --- |
+| `long` / `Long` | `bigint` within range (and, **(decide)**, a safe-integer `number`) | the value |
+| `char` / `Character` | string of length 1 | the char |
+| `enum E` | a kebab-case constant name (`"very-high"`) | `E.VERY_HIGH` |
+| record `R` | an object with every component key (extra keys ignored) | `new R(...)`, components decoded recursively |
+| `List<T>` / `T[]` | an array (holes are `undefined`) | elements decoded recursively |
+| `Map<String, V>` | a non-array, non-null object | own enumerable string keys, in JS order |
+| `Element` | an element node | its handle (global table, see [DOM handle scopes](dom-handle-scopes.md)) |
+| `JSObject` | any object | its handle |
+| any reference | `null` or `undefined` | `null`; a non-null primitive or record component rejects `null` |
+
+A mismatch throws a JS `TypeError` from the setter, naming the path (`items[3].priority: expected one of "low", "high"`). Nothing is assigned, and the Java field keeps its old value. Decoding stops at a depth of 64 with a `TypeError`, so cyclic JS structures fail cleanly.
+
+#### Change detection
+
+Java writes keep the [identity rule](#change-detection) for references. For **JS writes of structured values (decide)**, the proposal is to compare with `Objects.equals` instead of identity. A decoded value is always a new object, so with identity every assignment of an equal array or object would be an update. Records, `ArrayList` and maps already have value `equals`. Arrays would use `Arrays.deepEquals`.
+
+#### Types and restrictions
+
+- **Records** must be declared in the module. Source records cannot yet be held as `Object` in javaw (the same limitation event records work around), so property records get the same lowering as [event records](#events): final classes with record `equals`/`hashCode`/`toString`. A record that is both an event record and a property type is lowered once.
+- **Element types** of lists, arrays and maps, and record components, may be any type in this section, recursively. `Set`, `Optional`, other collections and maps with non-`String` keys are compile errors at the field, as are generic records and records of other modules.
+- **Maps (dependency).** Keeping JS key order needs `LinkedHashMap`, which the source compiler does not support yet (an open M4 follow-up). Until it does, maps either wait or decode into a map whose iteration order is unspecified **(decide)**.
+- **Attributes.** Structured types have no attribute converter: they are JS properties only, and `attribute = "..."` on them is a compile error. Lit's JSON attribute converter (`type: Array`/`Object`) is not proposed for this milestone **(decide)**. This also answers [open question 2](#open-questions): an explicit `Property.NONE` is not required.
+- **Typed `.prop` bindings** between Java components of the module keep passing the Java value directly, without copying, as they do today. Only JS-facing paths copy: accessors, `.prop` on non-Java elements, and `detail`.
+- **Defaults** in the manifest stay literal initializers. A structured initializer (`List.of(...)`) gets no `default`.
+
+#### Typed receivers (phase 2)
+
+These follow the existing [Write rewriting](#write-rewriting) rules. Because the field is private, every write is inside the component's nest. So the pre-pass needs only the receiver's declared type:
+
+- a local, parameter or field declared as `C` or a subclass;
+- `var r = new C(...)`;
+- a cast `((C) e).f`.
+
+It resolves these lexically, with the same scoping walk the `@Query` checks use. Complex receivers (`next().f`, `a[i()].f`) and receivers of unknown type stay diagnostics. The tests compare each form (`=`, `op=`, prefix and postfix) against javac on the JVM, as the `this.f` forms were.
+
+#### TypeScript and manifest
+
+| Java | `.d.ts` / manifest type |
+| --- | --- |
+| `long`, `Long` | `bigint`, `bigint \| null` |
+| `char`, `Character` | `string`, `string \| null` |
+| boxes | `number \| null`, `boolean \| null` |
+| `enum E` | union of the kebab-case names |
+| record `R` | `R` interface (readonly components), shared with event details |
+| `List<T>`, `T[]` | `T[]` (readonly if the cached copy is frozen) |
+| `Map<String, V>` | `Record<string, V>` |
+| `Element`, `JSObject` | `HTMLElement`, `unknown` |
+
+#### Validation plan
+
+- **happy-dom behaviour tests** for each type:
+  - Java → JS reads, JS → Java writes and round trips;
+  - `TypeError` messages, with the field unchanged afterwards;
+  - change detection: reassigning an equal value does not update;
+  - cached identity, plus frozenness if adopted;
+  - `null`/`undefined`, and the depth limit.
+- **Attribute tests** for the scalar-like phase: parse failures are reported and the field is left unchanged.
+- **Typed-receiver rewrite tests** against javac; diagnostics for complex receivers.
+- **Artifacts:** `ArtifactsTest` expectations, and the strict `tsc` consumer with `@ts-expect-error` checks for wrong element types.
+- **Leak check:** 1,000 JS assignments of a 100-element list keep heap high-water level with the default collection policy.
+
+#### Decisions needed
+
+1. **Identity across reads:** cache the JS copy until the field changes (proposed), or copy on every read?
+2. **Freeze:** deep-freeze the cached copies, or leave them mutable as Lit does?
+3. **Equality for JS writes:** `Objects.equals` for structured values written from JS (proposed), or identity everywhere?
+4. **`long` from JS:** `bigint` only, or also safe-integer numbers?
+5. **Maps:** wait for `LinkedHashMap` support (keeping key order), or ship with unspecified order first?
+6. **JSON attributes:** leave them out (proposed), or add an opt-in `@Property(json = true)`?
+7. **Order:** phases 1 → 2 → 3 as listed, or structured types before typed receivers?
+
 ## Update lifecycle
 
 1. **Requesting.** `requestUpdate` records a change and adds the component to the pending queue if it is not already queued. For each field, `Changes` keeps the first old value in the cycle. A field that ends the batch at its original value still counts as changed.
@@ -678,6 +784,6 @@ Limitations:
 ## Open questions
 
 1. **Decided:** test DOM libraries are vendored as pinned, test-only copies with NOTICE entries. happy-dom 21.0.4 is in [`test-vendor/node`](../test-vendor/node/README.md); lit-html will be added the same way for M3. Chromium stays opt-in through a local binary.
-2. Should a `@Property` field with no attribute converter need an explicit `attribute = Property.NONE`, or is the implicit JS-property-only behaviour acceptable?
-3. Should `updateComplete` also be exposed to JS as a promise on the element, as Lit does, for TypeScript test code?
+2. Should a `@Property` field with no attribute converter need an explicit `attribute = Property.NONE`, or is the implicit JS-property-only behaviour acceptable? The [property types draft](#draft-property-types-beyond-the-scalars-m2-not-implemented) proposes the implicit behaviour.
+3. **Decided:** `updateComplete` is exposed to JS as a promise on each element, as Lit does ([updateComplete](#updatecomplete)).
 4. Should `null` in an attribute part follow Lit (`""`) instead of removing the attribute?
