@@ -451,9 +451,11 @@ A JS property that was set on an element before it was upgraded becomes an own d
 
 ### Draft: property types beyond the scalars (M2, not implemented)
 
-> **Status: proposal for review.** Today `@Property` accepts `String`, `boolean`, `int` and `double`, and only `f`/`this.f` writes are rewritten. This section proposes how to implement the rest of [Property marshalling](#property-marshalling) and the typed-receiver rule of [Write rewriting](#write-rewriting). It lists the decisions the tables above leave open. Choices marked **(decide)** are collected under [Decisions needed](#decisions-needed).
+> **Status: design accepted with the [decisions](#decisions) below; not implemented.** Today `@Property` accepts `String`, `boolean`, `int` and `double`, and only `f`/`this.f` writes are rewritten. This section describes how to implement the rest of [Property marshalling](#property-marshalling) and the typed-receiver rule of [Write rewriting](#write-rewriting). It lists the decisions the tables above leave open.
 
 #### Phases
+
+`LinkedHashMap` support in the source compiler comes before phase 1 (decision 5).
 
 1. **Scalar-like types:** `byte`, `short`, `char`, `float`, `long`, their boxes, and `enum`s of the module. Each maps to one JS primitive, so a JS property never shares state with Java. Attribute conversion follows the [table](#attribute-conversion): boxes remove the attribute for `null`, and `long` gets no attribute. This phase needs no new runtime machinery beyond new property kinds.
 2. **Typed receivers:** `r.f = E` and the other forms, where `r` is a simple name declared as the component class or a subclass. This is independent of the value types.
@@ -475,8 +477,8 @@ Why copies:
 
 Consequences that differ from Lit:
 
-- **Mutation is not shared.** `el.items.push(x)` changes only the JS copy. As in Lit, mutating in place is not a change; the author assigns a new value.
-- **Identity across reads (decide).** Copying on each read makes `el.items !== el.items`. Proposed instead: the runtime caches the JS copy per element and field until the Java setter records a change for that field, so repeated reads return the same object, as in Lit. The cache holds only JS values (no Wasm pointers), so it is safe under collection. An alternative is to also `Object.freeze` the cached copy (deeply), so code that mutates it fails loudly in strict mode instead of silently diverging from Java.
+- **Mutation is not shared.** The JS copy is frozen, so `el.items.push(x)` throws a `TypeError` (in Lit it would mutate the shared array without an update). The author assigns a new value.
+- **Identity across reads.** Copying on each read would make `el.items !== el.items`. Instead, the runtime caches the JS copy per element and field until the Java setter records a change for that field, so repeated reads return the same object, as in Lit. The cache holds only JS values (no Wasm pointers), so it is safe under collection. The cached copy is deep-frozen, so code that mutates it fails in strict mode instead of silently diverging from Java.
 
 #### Decoding JS values
 
@@ -484,7 +486,7 @@ The compiler generates one decoder per distinct property type, built on `JSObjec
 
 | Java type | Accepted JS value | Result |
 | --- | --- | --- |
-| `long` / `Long` | `bigint` within range (and, **(decide)**, a safe-integer `number`) | the value |
+| `long` / `Long` | `bigint` within range, or a safe-integer `number` | the value |
 | `char` / `Character` | string of length 1 | the char |
 | `enum E` | a kebab-case constant name (`"very-high"`) | `E.VERY_HIGH` |
 | record `R` | an object with every component key (extra keys ignored) | `new R(...)`, components decoded recursively |
@@ -498,14 +500,14 @@ A mismatch throws a JS `TypeError` from the setter, naming the path (`items[3].p
 
 #### Change detection
 
-Java writes keep the [identity rule](#change-detection) for references. For **JS writes of structured values (decide)**, the proposal is to compare with `Objects.equals` instead of identity. A decoded value is always a new object, so with identity every assignment of an equal array or object would be an update. Records, `ArrayList` and maps already have value `equals`. Arrays would use `Arrays.deepEquals`.
+Java writes keep the [identity rule](#change-detection) for references. For **JS writes of structured values**, the runtime compares with `Objects.equals` instead of identity. A decoded value is always a new object, so with identity every assignment of an equal array or object would be an update. Records, `ArrayList` and maps already have value `equals`. Arrays use `Arrays.deepEquals`.
 
 #### Types and restrictions
 
 - **Records** must be declared in the module. Source records cannot yet be held as `Object` in javaw (the same limitation event records work around), so property records get the same lowering as [event records](#events): final classes with record `equals`/`hashCode`/`toString`. A record that is both an event record and a property type is lowered once.
 - **Element types** of lists, arrays and maps, and record components, may be any type in this section, recursively. `Set`, `Optional`, other collections and maps with non-`String` keys are compile errors at the field, as are generic records and records of other modules.
-- **Maps (dependency).** Keeping JS key order needs `LinkedHashMap`, which the source compiler does not support yet (an open M4 follow-up). Until it does, maps either wait or decode into a map whose iteration order is unspecified **(decide)**.
-- **Attributes.** Structured types have no attribute converter: they are JS properties only, and `attribute = "..."` on them is a compile error. Lit's JSON attribute converter (`type: Array`/`Object`) is not proposed for this milestone **(decide)**. This also answers [open question 2](#open-questions): an explicit `Property.NONE` is not required.
+- **Maps (dependency).** Keeping JS key order needs `LinkedHashMap`, which the source compiler does not support yet (an open M4 follow-up). Map properties wait for it, so decoded maps keep JS key order.
+- **Attributes.** Structured types have no attribute converter: they are JS properties only, and `attribute = "..."` on them is a compile error. Lit's JSON attribute converter (`type: Array`/`Object`) is left out for now (a Todo item). This also answers [open question 2](#open-questions): an explicit `Property.NONE` is not required.
 - **Typed `.prop` bindings** between Java components of the module keep passing the Java value directly, without copying, as they do today. Only JS-facing paths copy: accessors, `.prop` on non-Java elements, and `detail`.
 - **Defaults** in the manifest stay literal initializers. A structured initializer (`List.of(...)`) gets no `default`.
 
@@ -545,15 +547,17 @@ It resolves these lexically, with the same scoping walk the `@Query` checks use.
 - **Artifacts:** `ArtifactsTest` expectations, and the strict `tsc` consumer with `@ts-expect-error` checks for wrong element types.
 - **Leak check:** 1,000 JS assignments of a 100-element list keep heap high-water level with the default collection policy.
 
-#### Decisions needed
+#### Decisions
 
-1. **Identity across reads:** cache the JS copy until the field changes (proposed), or copy on every read?
-2. **Freeze:** deep-freeze the cached copies, or leave them mutable as Lit does?
-3. **Equality for JS writes:** `Objects.equals` for structured values written from JS (proposed), or identity everywhere?
-4. **`long` from JS:** `bigint` only, or also safe-integer numbers?
-5. **Maps:** wait for `LinkedHashMap` support (keeping key order), or ship with unspecified order first?
-6. **JSON attributes:** leave them out (proposed), or add an opt-in `@Property(json = true)`?
-7. **Order:** phases 1 → 2 → 3 as listed, or structured types before typed receivers?
+Decided on 2026-11-26:
+
+1. **Identity across reads:** the runtime caches the JS copy per element and field and returns it until the Java setter records a change for that field.
+2. **Freeze:** cached copies are deep-frozen (`Object.freeze`), so mutation fails in strict mode. If this proves a problem in practice, it can be relaxed to Lit's mutable behaviour.
+3. **Equality for JS writes:** structured values written from JS compare with `Objects.equals` (`Arrays.deepEquals` for arrays). Java writes keep the identity rule.
+4. **`long` from JS:** a `bigint` in range, or a `number` that is a safe integer (`Number.isSafeInteger`); other numbers throw `TypeError`.
+5. **Maps:** wait for `LinkedHashMap` in the source compiler, so JS key order is kept; that work comes first.
+6. **JSON attributes:** left out for now and kept as a Todo item.
+7. **Order:** phase 1, then 2, then 3.
 
 ## Update lifecycle
 
