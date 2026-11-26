@@ -239,10 +239,16 @@ public final class ComponentExtension implements SourceExtension {
             // Own reactive fields, then those of module superclasses; their exported accessors take the subclass peer.
             List<ReactiveFields.Field> fields = new ArrayList<>();
             Map<String, String> attributeOwners = new LinkedHashMap<>();
+            Map<String, String> fieldOwners = new LinkedHashMap<>();
             Set<String> seenClasses = new HashSet<>();
             for (ClassOrInterfaceDeclaration c = components.get(i); c != null && seenClasses.add(c.getNameAsString());
                  c = c.getExtendedTypes().isEmpty() ? null : componentClasses.get(c.getExtendedTypes().get(0).getNameAsString()))
                 for (ReactiveFields.Field f : lowered.getOrDefault(c.getNameAsString(), List.of())) {
+                    // Changes and JS accessors are keyed by the bare field name across the class chain.
+                    String owner = fieldOwners.putIfAbsent(f.name(), c.getNameAsString());
+                    if (owner != null)
+                        throw SourceExtension.error(components.get(i), "Reactive field '" + f.name() + "' is declared in both "
+                                + owner + " and " + c.getNameAsString() + "; reactive fields of one class chain need distinct names");
                     if (f.attribute() != null) {
                         String previous = attributeOwners.putIfAbsent(f.attribute(), c.getNameAsString() + "." + f.name());
                         if (previous != null)

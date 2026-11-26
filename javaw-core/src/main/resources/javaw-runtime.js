@@ -972,25 +972,30 @@
             const queued = this.updateQueue && this.updateQueue.has(host);
             if (!queued && !exports.__wc_pending(state.peer)) return Promise.resolve(true);
             return new Promise((resolve, reject) => {
-                (state.waiters || (state.waiters = [])).push({ resolve, reject });
-                (this.wcWaiting || (this.wcWaiting = new Set())).add(host);
+                if (!state.waiters) {
+                    state.waiters = [];
+                    // Weak: a removed element that is never reconnected is not pinned by its pending promise.
+                    (this.wcWaiting || (this.wcWaiting = new Set())).add(new WeakRef(host));
+                }
+                state.waiters.push({ resolve, reject });
             });
         }
 
         settleUpdateWaiters(failed, limited) {
             if (!this.wcWaiting || this.wcWaiting.size === 0) return;
             const exports = this.instance.exports;
-            for (const host of [...this.wcWaiting]) {
-                const state = host.__javawComponent;
-                if (!state || !state.waiters) { this.wcWaiting.delete(host); continue; }
+            for (const ref of [...this.wcWaiting]) {
+                const host = ref.deref();
+                const state = host && host.__javawComponent;
+                if (!state || !state.waiters) { this.wcWaiting.delete(ref); continue; }
                 let settle;
-                if (failed.has(host)) { const err = failed.get(host); settle = w => w.reject(err); }
-                else if (limited.has(host)) settle = w => w.resolve(false);
+                if (limited.has(host)) settle = w => w.resolve(false);
+                else if (failed.has(host)) { const err = failed.get(host); settle = w => w.reject(err); }
                 else if (!(this.updateQueue && this.updateQueue.has(host)) && !exports.__wc_pending(state.peer)) settle = w => w.resolve(true);
                 else continue; // still pending, for example disconnected before its update
                 const waiters = state.waiters;
                 state.waiters = null;
-                this.wcWaiting.delete(host);
+                this.wcWaiting.delete(ref);
                 for (const w of waiters) settle(w);
             }
         }
@@ -1009,12 +1014,13 @@
                     counts.set(host, n);
                     if (n > 100) {
                         limited.add(host);
+                        failed.delete(host); // the limit decides the outcome: resolve false
                         this.reportCallbackError(new Error('<' + host.localName + '> requested more than 100 updates in one flush'), 'update');
                         // Drop the pending cycle so a later write schedules a fresh one.
                         try { this.instance.exports.__wc_abandon(state.peer); } catch (err) { this.reportCallbackError(err, 'update'); }
                         continue;
                     }
-                    try { this.instance.exports.__wc_perform(state.peer); }
+                    try { this.instance.exports.__wc_perform(state.peer); failed.delete(host); }
                     catch (err) { failed.set(host, this.javaError(err, 'update')); this.reportCallbackError(err, '<' + host.localName + '> update'); }
                 }
             } finally {

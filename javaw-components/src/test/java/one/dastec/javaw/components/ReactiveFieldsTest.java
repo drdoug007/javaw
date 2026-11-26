@@ -193,6 +193,14 @@ class ReactiveFieldsTest {
             @CustomElement("x-a") class A extends Base { @Property(attribute = "size") private int other; }
             """, false));
         assertTrue(clash.getMessage().contains("both use the attribute \"size\""), clash.getMessage());
+        var sameName = assertThrows(IllegalArgumentException.class, () -> JavacToWasm.compile("App.java", """
+            import one.dastec.javaw.components.CustomElement;
+            import one.dastec.javaw.components.State;
+            import one.dastec.javaw.components.WebComponent;
+            abstract class Base extends WebComponent { @State private int count; }
+            @CustomElement("x-a") class A extends Base { @State private int count; }
+            """, false));
+        assertTrue(sameName.getMessage().contains("'count' is declared in both A and Base"), sameName.getMessage());
     }
 
     @Test
@@ -253,6 +261,16 @@ class ReactiveFieldsTest {
             document.body.appendChild(el);
             assert.equal(await waiting, true, 'reconnecting completes it');
             assert.equal(el.getAttribute('data-n'), '99');
+            const orphan = document.createElement('x-steps');
+            document.body.appendChild(orphan);
+            await orphan.updateComplete;
+            orphan.n = 1;
+            const orphanDone = orphan.updateComplete;
+            orphan.remove();
+            for (let i = 0; i < 3; i++) await settle();
+            const refs = r.wcWaiting ? [...r.wcWaiting] : [];
+            assert.ok(refs.every(ref => ref instanceof WeakRef), 'pending waiters hold their elements weakly');
+            void orphanDone;
             assert.equal(errors.length, 2, 'the thrown update and the limit are reported');
             assert.match(errors[0].message, /boom/, 'the reported error carries the Java message');
             """);
