@@ -214,6 +214,8 @@ public final class BytecodeExceptionRuntime {
             paths.add("java/nio/CharBuffer.java");
             paths.add("java/nio/HeapCharBuffer.java");
             paths.add("java/nio/StringCharBuffer.java");
+            paths.add("java/time/Month.java");
+            paths.add("java/time/DayOfWeek.java");
             paths.add("javaw/runtime/ExceptionSupport.java");
             paths.add("javaw/runtime/ReflectionSupport.java");
             paths.add("javaw/runtime/Decimal.java");

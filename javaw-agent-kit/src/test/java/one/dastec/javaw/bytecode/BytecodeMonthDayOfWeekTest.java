@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T80: java.time.Month and java.time.DayOfWeek (no TemporalAccessor/TemporalAdjuster). See tasks/T80-month-day-of-week.md. */
-@Tag("agent-pending")
 class BytecodeMonthDayOfWeekTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.time.DateTimeException;
