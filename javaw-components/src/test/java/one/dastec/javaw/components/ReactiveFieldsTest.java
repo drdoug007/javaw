@@ -123,6 +123,79 @@ class ReactiveFieldsTest {
     }
 
     @Test
+    void propertiesInheritedFromComponentSuperclasses() throws Exception {
+        byte[] wasm = JavacToWasm.compile("App.java", """
+            import one.dastec.javaw.components.Changes;
+            import one.dastec.javaw.components.CustomElement;
+            import one.dastec.javaw.components.Property;
+            import one.dastec.javaw.components.State;
+            import one.dastec.javaw.components.WebComponent;
+
+            abstract class Labeled extends WebComponent {
+                @Property(reflect = true) private String label = "none";
+                @State private int renders;
+                protected void relabel(String text) { label = text; }
+                protected String label() { return label; }
+                @Override protected void update(Changes changes) {
+                    renders++;
+                    host().setAttribute("data-text", describe() + (changes.has("label") ? "*" : ""));
+                }
+                protected abstract String describe();
+            }
+
+            @CustomElement("x-chip")
+            class Chip extends Labeled {
+                @Property private int size = 1;
+                @Override protected String describe() { return label() + ":" + size; }
+                @Override protected void connected() { if (size == 9) relabel("nine"); }
+            }
+
+            @CustomElement("x-big-chip")
+            class BigChip extends Chip {
+                @Property private boolean loud;
+                @Override protected String describe() { return super.describe() + (loud ? "!" : ""); }
+            }
+            """, false).getWasm();
+        CustomElementTest.run(wasm, "", """
+            // Parsed after definition: happy-dom skips initial attribute reactions on upgrade.
+            document.body.innerHTML = '<x-big-chip label="hi" size="3" loud></x-big-chip>';
+            const tick = async () => { await settle(); await settle(); };
+            await tick();
+            const big = document.querySelector('x-big-chip');
+            assert.deepEqual([...big.constructor.observedAttributes].sort(), ['label', 'loud', 'size'],
+                'attributes of base, component superclass and own fields are observed');
+            assert.equal(big.getAttribute('data-text'), 'hi:3!*', 'initial attributes reach inherited fields');
+            assert.equal(big.label, 'hi', 'JS accessor for a field of an abstract base');
+            assert.equal(big.size, 3, 'JS accessor for a field of a component superclass');
+            big.label = 'yo'; await big.updateComplete;
+            assert.equal(big.getAttribute('label'), 'yo', 'an inherited property reflects');
+            assert.equal(big.getAttribute('data-text'), 'yo:3!*');
+            big.size = 5; await big.updateComplete;
+            assert.equal(big.getAttribute('data-text'), 'yo:5!', 'only the changed inherited property is in Changes');
+            big.setAttribute('size', '7'); await big.updateComplete;
+            assert.equal(big.size, 7, 'attribute changes convert into inherited fields');
+            assert.throws(() => { big.label = 5; }, TypeError, 'inherited accessors check types');
+
+            const chip = document.createElement('x-chip');
+            chip.size = 9;
+            document.body.appendChild(chip);
+            await chip.updateComplete;
+            assert.equal(chip.getAttribute('data-text'), 'nine:9*', 'a write in an inherited method schedules an update');
+            assert.equal(chip.getAttribute('label'), 'nine');
+            assert.equal('loud' in chip, false, 'a superclass component has no subclass properties');
+            assert.equal(errors.length, 0, String(errors[0] && errors[0].stack));
+            """);
+        var clash = assertThrows(IllegalArgumentException.class, () -> JavacToWasm.compile("App.java", """
+            import one.dastec.javaw.components.CustomElement;
+            import one.dastec.javaw.components.Property;
+            import one.dastec.javaw.components.WebComponent;
+            abstract class Base extends WebComponent { @Property private int size; }
+            @CustomElement("x-a") class A extends Base { @Property(attribute = "size") private int other; }
+            """, false));
+        assertTrue(clash.getMessage().contains("both use the attribute \"size\""), clash.getMessage());
+    }
+
+    @Test
     void updateCompleteSettlesAfterTheUpdate() throws Exception {
         byte[] wasm = JavacToWasm.compile("App.java", """
             import one.dastec.javaw.components.Changes;

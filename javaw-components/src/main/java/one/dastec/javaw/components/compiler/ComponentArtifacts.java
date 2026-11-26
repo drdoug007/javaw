@@ -82,11 +82,15 @@ final class ComponentArtifacts {
     void scan(String tag, ClassOrInterfaceDeclaration component, Map<String, ClassOrInterfaceDeclaration> componentsByName) {
         Info info = new Info(tag, component.getNameAsString());
         info.description = javadoc(component);
-        for (FieldDeclaration field : component.getFields()) {
-            if (field.getVariables().size() != 1) continue;
-            VariableDeclarator v = field.getVariable(0);
-            info.fields.put(v.getNameAsString(), new FieldDoc(v.getInitializer().map(ComponentArtifacts::literal).orElse(null), javadoc(field)));
-        }
+        // Own fields first, then those inherited from module superclasses (inherited @Property fields).
+        Set<String> docSeen = new HashSet<>();
+        for (ClassOrInterfaceDeclaration c = component; c != null && docSeen.add(c.getNameAsString());
+             c = c.getExtendedTypes().isEmpty() ? null : componentsByName.get(c.getExtendedTypes().get(0).getNameAsString()))
+            for (FieldDeclaration field : c.getFields()) {
+                if (field.getVariables().size() != 1) continue;
+                VariableDeclarator v = field.getVariable(0);
+                info.fields.putIfAbsent(v.getNameAsString(), new FieldDoc(v.getInitializer().map(ComponentArtifacts::literal).orElse(null), javadoc(field)));
+            }
         Set<String> seen = new HashSet<>();
         for (ClassOrInterfaceDeclaration c = component; c != null && seen.add(c.getNameAsString());
              c = c.getExtendedTypes().isEmpty() ? null : componentsByName.get(c.getExtendedTypes().get(0).getNameAsString()))

@@ -197,13 +197,15 @@ public final class ComponentExtension implements SourceExtension {
             definitions.add(definition);
         }
         ComponentArtifacts artifacts = new ComponentArtifacts(cu, events);
+        // Every module class that extends WebComponent, components and plain (often abstract) base classes alike:
+        // their reactive fields are lowered and inherited by the components below them.
         Map<String, ClassOrInterfaceDeclaration> componentClasses = new LinkedHashMap<>();
-        for (ClassOrInterfaceDeclaration c : components) componentClasses.put(c.getNameAsString(), c);
+        for (ClassOrInterfaceDeclaration c : cu.findAll(ClassOrInterfaceDeclaration.class))
+            if (!c.isInterface() && extendsWebComponent(cu, c, new HashSet<>())) componentClasses.put(c.getNameAsString(), c);
         for (int i = 0; i < components.size(); i++) artifacts.scan(definitions.get(i).tag, components.get(i), componentClasses);
         // Templates first: binding expressions then get the @Query and reactive-field rewrites like other code.
         Map<String, TemplateRewrite.Component> byTagProperties = new LinkedHashMap<>();
-        Map<String, ClassOrInterfaceDeclaration> componentsByName = new LinkedHashMap<>();
-        for (ClassOrInterfaceDeclaration c : components) componentsByName.put(c.getNameAsString(), c);
+        Map<String, ClassOrInterfaceDeclaration> componentsByName = componentClasses;
         for (int i = 0; i < components.size(); i++) {
             // Own fields first, then those inherited from component superclasses (whose setters are generated there).
             Map<String, TemplateRewrite.Field> properties = new LinkedHashMap<>();
@@ -231,8 +233,24 @@ public final class ComponentExtension implements SourceExtension {
                         "ClassMap", "StyleMap", "Ref", "RefDirective").contains(t.getNameAsString()))
                 || cu.getImports().stream().anyMatch(i -> i.getNameAsString().startsWith(PACKAGE + ".Templates"));
         for (ClassOrInterfaceDeclaration component : components) lowerQueries(component);
+        Map<String, List<ReactiveFields.Field>> lowered = new LinkedHashMap<>();
+        for (ClassOrInterfaceDeclaration c : componentClasses.values()) lowered.put(c.getNameAsString(), ReactiveFields.lower(c));
         for (int i = 0; i < components.size(); i++) {
-            List<ReactiveFields.Field> fields = ReactiveFields.lower(components.get(i));
+            // Own reactive fields, then those of module superclasses; their exported accessors take the subclass peer.
+            List<ReactiveFields.Field> fields = new ArrayList<>();
+            Map<String, String> attributeOwners = new LinkedHashMap<>();
+            Set<String> seenClasses = new HashSet<>();
+            for (ClassOrInterfaceDeclaration c = components.get(i); c != null && seenClasses.add(c.getNameAsString());
+                 c = c.getExtendedTypes().isEmpty() ? null : componentClasses.get(c.getExtendedTypes().get(0).getNameAsString()))
+                for (ReactiveFields.Field f : lowered.getOrDefault(c.getNameAsString(), List.of())) {
+                    if (f.attribute() != null) {
+                        String previous = attributeOwners.putIfAbsent(f.attribute(), c.getNameAsString() + "." + f.name());
+                        if (previous != null)
+                            throw SourceExtension.error(components.get(i), "@Property " + c.getNameAsString() + "." + f.name()
+                                    + " and " + previous + " both use the attribute \"" + f.attribute() + "\"");
+                    }
+                    fields.add(f);
+                }
             Definition d = definitions.get(i);
             LinkedHashSet<String> observed = new LinkedHashSet<>(d.observedAttributes);
             observed.addAll(ReactiveFields.attributes(fields));
