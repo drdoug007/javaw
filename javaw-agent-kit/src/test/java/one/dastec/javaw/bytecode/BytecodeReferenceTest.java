@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T83: java.lang.ref references and ReferenceQueue under the no-reclamation contract. Expected values come from the JVM; see tasks/T83-references.md. */
-@Tag("agent-pending")
 class BytecodeReferenceTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.lang.ref.PhantomReference;

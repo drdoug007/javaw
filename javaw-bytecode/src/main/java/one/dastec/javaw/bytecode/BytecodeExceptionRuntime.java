@@ -219,6 +219,11 @@ public final class BytecodeExceptionRuntime {
             paths.add("java/time/chrono/ChronoLocalDate.java");
             paths.add("java/time/LocalDate.java");
             paths.add("java/time/LocalTime.java");
+            paths.add("java/lang/ref/Reference.java");
+            paths.add("java/lang/ref/ReferenceQueue.java");
+            paths.add("java/lang/ref/WeakReference.java");
+            paths.add("java/lang/ref/SoftReference.java");
+            paths.add("java/lang/ref/PhantomReference.java");
             paths.add("javaw/runtime/ExceptionSupport.java");
             paths.add("javaw/runtime/ReflectionSupport.java");
             paths.add("javaw/runtime/Decimal.java");

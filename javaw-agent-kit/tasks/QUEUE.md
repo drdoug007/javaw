@@ -87,4 +87,4 @@
 | T80 | java.time.Month and java.time.DayOfWeek enums | T71 | done |
 | T81 | java.time.LocalDate core (marker ChronoLocalDate; no parse/format) | T80 | done |
 | T82 | java.time.LocalTime core (no Temporal) | T70 | done |
-| T83 | java.lang.ref references and ReferenceQueue (no reclamation) | - | todo |
+| T83 | java.lang.ref references and ReferenceQueue (no reclamation) | - | done |
