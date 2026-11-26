@@ -1,10 +1,8 @@
 package one.dastec.javaw.bytecode;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** T79: the heap and CharSequence-backed java.nio.CharBuffer core. Expected values come from the JVM; see tasks/T79-char-buffer.md. */
-@Tag("agent-pending")
 class BytecodeCharBufferTest extends KitDifferential {
     private static final String FIXTURE = """
         import java.nio.Buffer;
