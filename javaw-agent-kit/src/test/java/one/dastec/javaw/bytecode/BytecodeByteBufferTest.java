@@ -134,7 +134,7 @@ class BytecodeByteBufferTest extends KitDifferential {
                 a+="|"+ro.isReadOnly()+","+ro.hasArray()+","+s(ro)+","+ro.order()+","+s(ro.reset())+","+ro.get()+","+ro;
                 a+="|"+t(()->ro.array())+","+t(()->ro.arrayOffset())+","+t(()->ro.put((byte)1))+","+t(()->ro.put(0,(byte)1))+","+t(()->ro.put(new byte[0]))+","+t(()->ro.put(ByteBuffer.allocate(0)))+","+t(()->ro.putInt(0,1))+","+t(()->ro.putLong(1L))+","+t(()->ro.compact());
                 b.put(5,(byte)55);
-                a+="|"+ro.get(5)+","+ro.duplicate().isReadOnly()+","+ro.slice().isReadOnly()+","+ro.slice()+","+ro.asReadOnlyBuffer().isReadOnly()+","+b.isReadOnly()+","+ro.getShort(4);
+                a+="|"+ro.get(5)+","+ro.duplicate().isReadOnly()+","+ro.slice().isReadOnly()+","+ro.slice()+","+ro.asReadOnlyBuffer().isReadOnly()+","+b.isReadOnly()+","+ro.getShort(4)+","+ty(()->ro.put(ro))+","+ty(()->b.put(b));
                 ByteBuffer c=bytes(1,2,3,4,5,6);
                 c.position(2).limit(5).mark();
                 c.compact();
