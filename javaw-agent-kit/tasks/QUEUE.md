@@ -85,6 +85,6 @@
 | T78 | ByteBuffer float/double, absolute bulk get/put and slice(int, int) | T74 | done |
 | T79 | java.nio.CharBuffer heap and CharSequence-backed core | T74 | done |
 | T80 | java.time.Month and java.time.DayOfWeek enums | T71 | done |
-| T81 | java.time.LocalDate core (marker ChronoLocalDate; no parse/format) | T80 | todo |
+| T81 | java.time.LocalDate core (marker ChronoLocalDate; no parse/format) | T80 | done |
 | T82 | java.time.LocalTime core (no Temporal) | T70 | todo |
 | T83 | java.lang.ref references and ReferenceQueue (no reclamation) | - | todo |
