@@ -235,11 +235,10 @@ class TemplateListTest {
             assert.ok(scope && !scope.released, 'the component has a live scope');
             const level = () => [scope.held.handles.size, scope.nodes.size, scope.held.closures.size];
             const before = level();
-            // No collector runs between flushes yet (M2), so the test collects explicitly; without it the
-            // linear heap is exhausted after about 150 rounds.
+            // The runtime collects after flushes (M2 collector safepoint); without it the heap is exhausted
+            // after about 150 rounds.
             const churn = async (from, to) => {
                 for (let round = from; round <= to; round++) {
-                    e.__gc_collect();
                     el.round = round; await tick();
                     el.shadowRoot.querySelector('li').click();
                 }
@@ -249,11 +248,25 @@ class TemplateListTest {
             assert.equal(el.shadowRoot.querySelector('li').textContent, '1005');
             assert.equal(el.clicks, 200, 'listeners of the current rows run');
             assert.deepEqual(level(), before, 'replaced rows add no scoped handles, nodes or retained closures');
+            assert.ok(r.componentCollections > 0, 'the runtime collected after flushes');
+            // Heap high-water stays bounded: 800 more rounds do not raise it once warmed up.
+            await churn(202, 401);
+            const highWater = r.getHeapStats().heapBytes;
+            await churn(402, 1001);
+            assert.equal(r.getHeapStats().heapBytes, highWater, 'heap high-water bytes stay level over 600 rounds');
             // A ref hands its element to Java, and the scope keeps it until the component is released.
             el.refs = true; await tick();
             const withRefs = scope.held.handles.size;
-            await churn(202, 211);
+            await churn(1002, 1011);
             assert.equal(scope.held.handles.size - withRefs, 50, 'each ref-bound row keeps one scoped handle');
+            r.componentCollection = 'always';
+            let count = r.componentCollections;
+            await churn(1012, 1014);
+            assert.ok(r.componentCollections - count >= 3, "'always' collects after every flush (rounds and clicks each flush)");
+            r.componentCollection = 'off';
+            count = r.componentCollections;
+            await churn(1015, 1030);
+            assert.equal(r.componentCollections, count, "'off' never collects");
             assert.equal(errors.length, 0, String(errors[0] && errors[0].stack));
             """);
     }

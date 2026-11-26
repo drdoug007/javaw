@@ -57,7 +57,7 @@ Implemented (M2 subset; evidence in `ReactiveFieldsTest`):
 Differences from the plan, decided for this subset:
 - **`update(Changes)` stands in for `render()` until M3** as the imperative rendering hook.
 - **No writes through other references.** Only `f` and `this.f` writes are rewritten. Without type resolution, `other.f` is a compile error only when `other` is declared with the component's own type; same-named fields of other classes, including nested classes, are left alone.
-- **Heap during a flush.** Memory is collected only at explicit safepoints, so an update loop that allocates on every cycle can exhaust the fixed heap before the 100-update limit (the post-flush collector call is open).
+- **Heap during a flush.** The runtime collects only after a flush ([Collector safepoint](#collector-safepoint)), never inside one, so a single flush that allocates on every cycle (up to the 100-update limit) still needs its garbage to fit in memory.
 - **Limited `@Property` types.** Other types must use `@State` until property marshalling for records, lists and enums arrives.
 - **`updateComplete` is not implemented yet.**
 
@@ -467,7 +467,17 @@ A JS property that was set on an element before it was upgraded becomes an own d
 
 ### Collector safepoint
 
-When `__wc_flush` returns, no Wasm frame is active. That is half of the [safepoint condition](memory-management.md#root-set). The other half is that host code retains every Wasm pointer it keeps across a task or microtask boundary. Exported-class wrappers now do this: they retain in the constructor and release through finalization ([DOM handle scopes](dom-handle-scopes.md#exported-class-wrappers)). The runtime option to call `__gc_collect` after `__wc_flush` still stays **off by default** until M2 audits the remaining host code that keeps pointers.
+When a flush returns, no Wasm frame is active: the flush runs from a `queueMicrotask` callback, and microtasks run only on an empty JS stack. That is half of the [safepoint condition](memory-management.md#root-set). The other half is that host code retains every Wasm pointer it keeps across a task or microtask boundary. The M2 audit of the component runtime found:
+
+- component peers are retained by their handle scope (`held.peer`) from construction until release or finalization, and `createComponent` returns the peer to the Java caller synchronously;
+- listener closures are retained per registration (`held.closures`, or the callback finalizer for global-table nodes);
+- template instances, list items, `listen` registrations and event records cross the boundary as integer ids and tokens, not pointers; Java keeps the objects themselves, reachable from the peer;
+- strings passed to JS are read synchronously; detail objects and replayed pre-upgrade properties are JS values;
+- exported-class wrappers retain in the constructor and release through finalization ([DOM handle scopes](dom-handle-scopes.md#exported-class-wrappers)).
+
+So the runtime now calls `__gc_collect` after a flush. `runtime.componentCollection` selects the policy: `'auto'` (default) collects when live bytes have grown by at least max(256 KiB, the live bytes after the previous collection), which bounds the collector's cost to a constant factor of allocation; `'always'` collects after every flush; `'off'` never does, for hosts whose own code keeps unretained Wasm pointers across microtasks (the [host ownership](memory-management.md#host-ownership) rules apply to them either way). `runtime.componentCollections` counts the collections.
+
+Evidence: `TemplateListTest.rerenderingReplacedDomKeepsTheScopeLevel` re-renders a keyed list 1,000 times without explicit collection (it trapped with an exhausted heap after about 150 rounds before), and heap high-water bytes stay level over the last 600 rounds; it also checks `'always'` and `'off'`. The whole `javaw-components` suite also passes with `'always'` as the default, so every flush in every behaviour test is followed by a collection.
 
 ### Errors
 

@@ -982,6 +982,29 @@
             } finally {
                 this.updateScheduled = false;
             }
+            this.collectAfterFlush();
+        }
+
+        // Collector safepoint (docs/web-components.md, "Collector safepoint"): the flush runs from a microtask,
+        // so no Wasm frame is active, and the component runtime retains every pointer it keeps across tasks.
+        // 'auto' collects once live bytes have grown by max(256 KiB, the live bytes after the last collection),
+        // 'always' after every flush, 'off' never (for hosts that keep unretained pointers across microtasks).
+        collectAfterFlush() {
+            const mode = this.componentCollection === undefined ? 'auto' : this.componentCollection;
+            const exports = this.instance && this.instance.exports;
+            if (mode === 'off' || !exports || typeof exports.__gc_collect !== 'function' || typeof exports.__gc_live_bytes !== 'function') return;
+            if (mode === 'auto') {
+                const live = exports.__gc_live_bytes();
+                const base = this.liveAfterCollection || 0;
+                if (live - base < Math.max(256 * 1024, base)) return;
+            }
+            try {
+                exports.__gc_collect();
+                this.componentCollections = (this.componentCollections || 0) + 1;
+                this.liveAfterCollection = exports.__gc_live_bytes();
+            } catch (err) {
+                this.reportCallbackError(err, 'collect');
+            }
         }
 
         // Templates (docs/web-components.md, "Renderer"). Java keeps each binding's previous value and calls

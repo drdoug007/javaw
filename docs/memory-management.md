@@ -1,6 +1,6 @@
 # Memory management for the linear-memory backend
 
-Phase 3 uses a non-moving conservative collector, invoked explicitly by the host at a safepoint. The Spring bridge invokes it after each request has completed its Wasm calls and copied its response into JavaScript text. Other applications opt in through `runtime.collectGarbage()` or `__gc_collect`.
+Phase 3 uses a non-moving conservative collector, invoked explicitly by the host at a safepoint. The Spring bridge invokes it after each request has completed its Wasm calls and copied its response into JavaScript text. Web components collect after each update flush by default ([collector safepoint](web-components.md#collector-safepoint)). Other applications opt in through `runtime.collectGarbage()` or `__gc_collect`.
 
 This is a collector for the existing linear-memory ABI. It does not implement JVM garbage-collection semantics, finalizers, weak references, concurrent collection, or Java Memory Model guarantees.
 
