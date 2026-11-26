@@ -5576,7 +5576,8 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
 
     /**
      * Listener kind for Element.add/removeEventListener with a Java callback: 0 for Runnable, 1 for
-     * EventListener<Event>; -1 for the handler-name String form.
+     * EventListener<Event>, 2..8 for EventListener of a typed DOM event (DomCallbackSupport.listenerKind);
+     * -1 for the handler-name String form.
      */
     private int domListenerKind(MethodCallExpr call, Map<String, String> localJavaTypes) {
         String mName = call.getNameAsString();
@@ -5595,7 +5596,28 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
             return -1;
         }
         if (type.equals("null")) throw JavaSourcePreparation.error(call, "DOM listener must not be null");
-        if (classRegistry.asSuperType(type, "EventListener") != null) return 1;
+        String listenerType = classRegistry.asSuperType(type, "EventListener");
+        if (listenerType != null) {
+            String eventType = "Event";
+            int open = listenerType.indexOf('<');
+            if (open >= 0 && listenerType.endsWith(">")) {
+                eventType = listenerType.substring(open + 1, listenerType.length() - 1).trim();
+                if (eventType.startsWith("? extends ")) eventType = eventType.substring("? extends ".length()).trim();
+                if (eventType.startsWith("one.dastec.javaw.dom.")) eventType = eventType.substring("one.dastec.javaw.dom.".length());
+                if (eventType.equals("?") || eventType.startsWith("? super ")) eventType = "Event";
+            }
+            int kind = DomCallbackSupport.listenerKind(eventType);
+            if (kind < 0)
+                throw JavaSourcePreparation.error(call, "DOM listener must be an EventListener of Event or a typed DOM event; found " + listenerType);
+            Expression name = call.getArgument(0);
+            if (kind > 1 && name.isStringLiteralExpr()) {
+                String dispatched = DomCallbackSupport.eventTypeForName(name.asStringLiteralExpr().asString());
+                if (!DomCallbackSupport.relatedEventTypes(dispatched, eventType))
+                    throw JavaSourcePreparation.error(call, "'" + name.asStringLiteralExpr().asString() + "' events are " + dispatched
+                            + "s; a listener of " + eventType + " cannot receive them");
+            }
+            return kind;
+        }
         if (classRegistry.asSuperType(type, DomCallbackSupport.RUN_TARGET) != null) return 0;
         if (classRegistry.asSuperType(type, "Runnable") != null)
             throw JavaSourcePreparation.error(call, "Runnable values are not supported as DOM listeners yet; pass a lambda or method reference directly, or store an EventListener<Event>");

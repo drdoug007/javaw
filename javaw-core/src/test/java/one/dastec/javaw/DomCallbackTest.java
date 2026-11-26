@@ -164,6 +164,100 @@ class DomCallbackTest {
     }
 
     @Test
+    void typedListenersReceiveTheirDeclaredEventClass() throws Exception {
+        // The listener's declared event type, not the event name, selects the wrapper (wildcard dom import).
+        byte[] wasm = JavacToWasm.compile("App.java", """
+            import one.dastec.javaw.dom.*;
+            class Pad {
+                int pointerId;
+                String pointerKind = "";
+                void onPointer(PointerEvent e) { pointerId = e.pointerId(); pointerKind = e.pointerType(); }
+            }
+            class App {
+                public static int x;
+                public static String key = "";
+                public static String typeSeen = "";
+                public static String detail = "";
+                public static int keys;
+                public static Pad pad = new Pad();
+                static Element button;
+                static EventListener<KeyboardEvent> onKey;
+                public static void start() {
+                    button = DOM.createElement("button");
+                    button.setAttribute("id", "b");
+                    button.addEventListener("click", (MouseEvent e) -> x = (int) e.clientX() + (e.shiftKey() ? 1000 : 0));
+                    onKey = e -> { keys++; key = e.key(); };
+                    button.addEventListener("keydown", onKey);
+                    Pad target = pad;
+                    button.addEventListener("pointerdown", target::onPointer);
+                    button.addEventListener("input", e -> typeSeen = e.type());
+                    button.addEventListener("picked", (CustomEvent e) -> detail = e.detail().getString("name"));
+                    DOM.getBody().appendChild(button);
+                }
+                public static void removeKey() { button.removeEventListener("keydown", onKey); }
+                public static int x() { return x; }
+                public static int keys() { return keys; }
+                public static boolean keyIs(int which) { return (which == 0 ? "Enter" : "a").equals(key); }
+                public static boolean inputSeen() { return "input".equals(typeSeen); }
+                public static boolean detailIsAda() { return "Ada".equals(detail); }
+                public static int pointerId() { return pad.pointerId; }
+                public static boolean pen() { return "pen".equals(pad.pointerKind); }
+            }
+            """, false).getWasm();
+        run(wasm, """
+            const fire = (type, props) => { const ev = new Event(type); Object.assign(ev, props); document.getElementById('b').dispatchEvent(ev); };
+            e.start();
+            fire('click', { clientX: 41.7, shiftKey: true });
+            assert.equal(e.x(), 1041, 'a MouseEvent listener reads mouse properties');
+            fire('keydown', { key: 'Enter' });
+            assert.equal(e.keyIs(0), 1, 'a stored EventListener<KeyboardEvent> reads the key');
+            fire('pointerdown', { pointerId: 9, pointerType: 'pen' });
+            assert.equal(e.pointerId(), 9, 'a bound method reference taking PointerEvent receives one');
+            assert.equal(e.pen(), 1);
+            fire('input', {});
+            assert.equal(e.inputSeen(), 1, 'an implicit lambda receives Event');
+            fire('picked', { detail: { name: 'Ada' } });
+            assert.equal(e.detailIsAda(), 1, 'a CustomEvent listener on a custom name reads detail');
+            const handles = r.handleMap.size;
+            for (let i = 0; i < 20; i++) fire('keydown', { key: 'a' });
+            assert.equal(r.handleMap.size, handles, 'typed event handles are released after each dispatch');
+            assert.equal(e.keyIs(1), 1);
+            e.removeKey();
+            fire('keydown', { key: 'Enter' });
+            assert.equal(e.keys(), 21, 'a typed listener is removed by the same object');
+            assert.equal(errors.length, 0, String(errors[0]));
+            """);
+    }
+
+    @Test
+    void typedListenersAreCheckedAgainstLiteralEventNames() {
+        var mismatch = assertThrows(RuntimeException.class, () -> JavacToWasm.compile("App.java", """
+            import one.dastec.javaw.dom.*;
+            class App {
+                public static void start() { DOM.getBody().addEventListener("keydown", (MouseEvent e) -> {}); }
+            }
+            """, false));
+        assertTrue(mismatch.getMessage().contains("'keydown' events are KeyboardEvents"), mismatch.getMessage());
+        var stored = assertThrows(RuntimeException.class, () -> JavacToWasm.compile("App.java", """
+            import one.dastec.javaw.dom.*;
+            class App {
+                public static void start() {
+                    EventListener<FocusEvent> l = e -> {};
+                    DOM.getBody().addEventListener("click", l);
+                }
+            }
+            """, false));
+        assertTrue(stored.getMessage().contains("'click' events are MouseEvents"), stored.getMessage());
+        var notEvent = assertThrows(RuntimeException.class, () -> JavacToWasm.compile("App.java", """
+            import one.dastec.javaw.dom.*;
+            class App {
+                public static void start() { DOM.getBody().addEventListener("click", (String e) -> {}); }
+            }
+            """, false));
+        assertTrue(notEvent.getMessage().contains("must be Event or a typed DOM event"), notEvent.getMessage());
+    }
+
+    @Test
     void removedListenersAreReleasedForCollection() throws Exception {
         byte[] wasm = JavacToWasm.compile("App.java", """
             import one.dastec.javaw.dom.DOM;

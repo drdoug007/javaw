@@ -9,9 +9,9 @@ Status: implemented in the source compiler (`javaw-core`). This is the first pre
 | Method | Listener |
 | --- | --- |
 | `addEventListener(String type, String handlerMethod)` | Existing form. It calls the static exported function with that name, with no receiver and no event. |
-| `addEventListener(String type, EventListener<Event> listener)` | A Java callback that receives the event. |
+| `<E extends Event> addEventListener(String type, EventListener<E> listener)` | A Java callback that receives the event, wrapped in the listener's event class `E`. |
 | `addEventListener(String type, Runnable listener)` | A Java callback that ignores the event. |
-| `removeEventListener(String type, EventListener<Event> listener)` and `(String, Runnable)` | Removes a listener that was added with the same type and the same listener object. |
+| `<E extends Event> removeEventListener(String type, EventListener<E> listener)` and `(String, Runnable)` | Removes a listener that was added with the same type and the same listener object. |
 
 `Event` provides `type()`, `target()`, `currentTarget()`, `preventDefault()`, `defaultPrevented()`, `stopPropagation()` and `js()`. `js()` returns the underlying `JSObject`, for properties that have no typed accessor. `target()` and `currentTarget()` return `null` when the value is not an element. `JSObject.asElement()` performs the same conversion for any JS value.
 
@@ -31,7 +31,7 @@ class Counter {
 ## Semantics
 
 - **The receiver is kept.** A lambda or bound method reference keeps its captured values and its receiver. Two `Counter` instances each receive their own clicks.
-- **Overload selection by shape.** The callback's shape picks the overload. A lambda with no parameters, or a method reference that can only bind zero arguments, uses `Runnable`. One parameter uses `EventListener<Event>`. A method reference that matches both shapes is a compile-time error that asks for a lambda.
+- **Overload selection by shape.** The callback's shape picks the overload. A lambda with no parameters, or a method reference that can only bind zero arguments, uses `Runnable`. One parameter uses `EventListener<E>`, where `E` is the declared parameter type of an explicitly typed lambda or of the referenced method, and `Event` for an implicit lambda (as javac infers). A method reference that matches both shapes is a compile-time error that asks for a lambda.
 - **Listener identity.** Identity is the Java listener object, as in the DOM. Adding the same object again for the same type has no effect. `removeEventListener` must be given that same object. A lambda expression creates a new object each time it is evaluated, so store the listener if you need to remove it later.
 - **`Event` lifetime.** An `Event` is valid only while its listener runs. If the runtime created the JS handle for the event in order to dispatch it, it releases that handle when the listener returns. Elements that `target()` returns use the global handle table and keep its existing lifetime.
 - **Errors.** A Java exception that escapes a listener is passed to `globalThis.reportError` when it exists, and is logged with `console.error` otherwise. Other listeners for the same event still run.
@@ -54,7 +54,7 @@ Retaining and releasing only update a counter, so it is safe to do inside an act
 
 - **Only lambdas and method references are accepted.** Pass the lambda or method reference directly, or store it as an `EventListener<Event>`. Passing a value of type `Runnable` (a variable, a field, or an instance of a class that implements `Runnable`) is a compile-time error. The registry's built-in `Runnable` has no source contract, and `Thread.start` dispatches it through a fixed vtable slot. Zero-parameter listener lambdas therefore target an internal interface, `__JavawDomRunnable`.
 - **Name conflicts.** A program that uses these listeners cannot also declare its own types named `Event` or `EventListener`; doing so is a compile-time error.
-- **No typed event subclasses yet.** Use `Event.js()` for event-specific properties. Typed subclasses (`MouseEvent` and others) are web components milestone M1.
+- **Typed listeners.** `E` is `Event`, `MouseEvent`, `PointerEvent`, `KeyboardEvent`, `FocusEvent`, `InputEvent`, `SubmitEvent` or `CustomEvent`, taken from an explicitly typed lambda (`(MouseEvent e) -> ...`), the parameter of a referenced method, or the declared type of a stored `EventListener<KeyboardEvent>`. The compiler passes `E` to the host as the listener kind, and every dispatch is wrapped in `E`, whatever class the JS event has (as template `@event` bindings do); accessors of properties the JS event lacks return their JS defaults. Any other parameter type is a compile-time error. When the event name is a string literal that the [event table](web-components.md#binding-kinds) dispatches with a class unrelated to `E` (`"keydown"` with a `MouseEvent` listener, `"click"` with a `FocusEvent` listener), the call is a compile-time error; names outside the table (custom events, `"input"`) accept any `E`. An implicit lambda (`e -> ...`) receives `Event`, as javac infers; per-name inference for implicit lambdas would accept programs javac rejects. Use `Event.js()` for properties without typed accessors.
 - **Main thread only.** Listener dispatch has no worker support.
 - **`null` listeners are ignored.** A listener expression that evaluates to `null` adds or removes nothing. Java would throw `NullPointerException` here.
 - **Not from static initializers.** Listeners cannot be registered from static initializers. These run from the module start function, before the runtime has the instance it needs to retain the closure.

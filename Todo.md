@@ -1117,7 +1117,10 @@ Lit-style custom elements authored in Java: `@CustomElement` classes, `@Property
         - pattern-variable, `other.field` and nested-class diagnostics;
         - unrelated `WebComponent` types left alone.
       - `SourceExtensionTest`.
-    - [ ] Typed event subclasses (`MouseEvent`, `KeyboardEvent`, `InputEvent`, `FocusEvent`, `PointerEvent`, `SubmitEvent`, `CustomEvent`) and `EventListener<E>` typing per event name.
+    - [x] Typed event subclasses (`MouseEvent`, `KeyboardEvent`, `InputEvent`, `FocusEvent`, `PointerEvent`, `SubmitEvent`, `CustomEvent`) and `EventListener<E>` typing per event name ([docs](docs/dom-event-listeners.md)).
+      - The classes and the template `@event` table came with M3. `Element.add/removeEventListener` are now generic in `E extends Event`; the listener's declared event type (explicit lambda parameter, referenced method parameter, stored `EventListener<X>`) is the host listener kind, and each dispatch is wrapped in that class. A literal event name the table dispatches with an unrelated class is a compile error. Fixed along the way: a wildcard `one.dastec.javaw.dom.*` import that used only typed events did not add them.
+      - Evidence: `DomCallbackTest.typedListenersReceiveTheirDeclaredEventClass` (Node: mouse, stored keyboard listener with add/remove, bound `PointerEvent` method reference, implicit lambda gets `Event`, `CustomEvent.detail` on a custom name, event handles level over 20 dispatches) and `typedListenersAreCheckedAgainstLiteralEventNames`.
+      - Limits: implicit lambdas receive `Event` (javac's inference), not the per-name class; a method reference on a static field receiver (`pad::onPointer` in a static method) is not resolved yet, use a local.
     - [ ] Main-thread rule: a compile-time diagnostic for components reachable from worker entry points. For now the runtime warns and skips registration when no `customElements` registry exists.
     - [x] Opt-in Chromium smoke test, covering upgrade-time attribute reactions that happy-dom skips (M6, `ChromiumSmokeTest`).
     - [ ] Static nested component classes. Only top-level classes are supported now.

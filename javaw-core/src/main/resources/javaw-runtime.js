@@ -1926,10 +1926,11 @@
             let eventHandle = 0;
             let temporary = false;
             try {
-                if (kind === 1) {
+                if (kind >= 1) {
                     temporary = !this.reverseMap.has(event);
                     eventHandle = this.getOrCreateHandle(event);
-                    exports.__javaw_eventListener(closurePtr, eventHandle);
+                    // kind is the listener's declared event type (1 Event, 2.. typed events); Java wraps the event in it.
+                    exports.__javaw_eventListener(closurePtr, eventHandle, kind);
                 } else {
                     exports.__javaw_runListener(closurePtr);
                 }

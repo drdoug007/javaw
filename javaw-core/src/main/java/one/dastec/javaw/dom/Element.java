@@ -110,8 +110,11 @@ public class Element {
      * Registers an instance-bound listener. The listener keeps its captured
      * receiver and values, and the runtime retains it until it is removed.
      * Adding the same listener object for the same type again has no effect.
+     * The listener's event type ({@code Event}, {@code MouseEvent}, {@code KeyboardEvent}, ...) is the class
+     * every dispatch is wrapped in; a literal event name that is dispatched with an unrelated event class
+     * (for example {@code "keydown"} with a {@code MouseEvent} listener) is a compile error.
      */
-    public void addEventListener(String type, EventListener<Event> listener) {
+    public <E extends Event> void addEventListener(String type, EventListener<E> listener) {
     }
 
     /** Registers an instance-bound listener that does not need the event. */
@@ -119,7 +122,7 @@ public class Element {
     }
 
     /** Removes a listener added with the same type and the same listener object. */
-    public void removeEventListener(String type, EventListener<Event> listener) {
+    public <E extends Event> void removeEventListener(String type, EventListener<E> listener) {
     }
 
     /** Removes a listener added with the same type and the same listener object. */

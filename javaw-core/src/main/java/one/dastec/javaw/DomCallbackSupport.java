@@ -121,21 +121,76 @@ final class DomCallbackSupport {
             }
             interface EventListener<E> { public void handleEvent(E event); }
             interface __JavawDomRunnable { public void run(); }
-            class __JavawHostCallbacks {
-                public static void __javaw_runListener(__JavawDomRunnable listener) { listener.run(); }
-                public static void __javaw_eventListener(EventListener<Event> listener, JSObject event) {
-                    listener.handleEvent(new Event(event));
-                }
-            }
             """);
         Set<String> declared = new HashSet<>();
         cu.findAll(TypeDeclaration.class).forEach(t -> declared.add(t.getNameAsString()));
         StringBuilder events = new StringBuilder();
+        // The listener kind is the listener's declared event type, so the host wraps every dispatch in that type.
+        StringBuilder dispatch = new StringBuilder("""
+                public static void __javaw_runListener(__JavawDomRunnable listener) { listener.run(); }
+                public static void __javaw_eventListener(EventListener<Event> listener, JSObject event, int kind) {
+                    if (kind == 1) listener.handleEvent(new Event(event));
+            """);
         for (var entry : EVENT_TYPES.entrySet()) {
             boolean ownParent = entry.getKey().equals("PointerEvent") && declared.contains("MouseEvent");
-            if (!declared.contains(entry.getKey()) && !ownParent) events.append(entry.getValue()).append('\n');
+            if (!declared.contains(entry.getKey()) && !ownParent) {
+                events.append(entry.getValue()).append('\n');
+                dispatch.append("        else if (kind == ").append(listenerKind(entry.getKey())).append(") listener.handleEvent(new ")
+                        .append(entry.getKey()).append("(event));\n");
+            }
         }
+        dispatch.append("""
+                    else throw new IllegalStateException("unsupported DOM listener kind " + kind);
+                }
+            """);
+        LibrarySupport.add(cu, DOM_PACKAGE, "class __JavawHostCallbacks {\n" + dispatch + "}\n");
         if (events.length() > 0) LibrarySupport.add(cu, DOM_PACKAGE, events.toString());
+    }
+
+    /**
+     * The host listener kind for a listener's event type: 1 for Event and 2..8 for the typed events, in
+     * EVENT_TYPES order; -1 for any other type. Kind 0 is the zero-parameter listener.
+     */
+    static int listenerKind(String eventType) {
+        if (eventType.equals("Event")) return 1;
+        int kind = 2;
+        for (String name : EVENT_TYPES.keySet()) {
+            if (name.equals(eventType)) return kind;
+            kind++;
+        }
+        return -1;
+    }
+
+    /** The typed event class for a listener kind, or null for Event and unknown kinds. */
+    static String eventTypeOfKind(int kind) {
+        int k = 2;
+        for (String name : EVENT_TYPES.keySet()) {
+            if (k == kind) return name;
+            k++;
+        }
+        return kind == 1 ? "Event" : null;
+    }
+
+    /**
+     * The event class a DOM event name is dispatched with, as in the template event table
+     * (docs/web-components.md, "Binding kinds"): Event for names not in the table.
+     */
+    static String eventTypeForName(String event) {
+        return switch (event) {
+            case "click", "dblclick", "auxclick", "contextmenu", "mousedown", "mouseup", "mousemove",
+                 "mouseover", "mouseout", "mouseenter", "mouseleave" -> "MouseEvent";
+            case "keydown", "keyup" -> "KeyboardEvent";
+            case "focus", "blur", "focusin", "focusout" -> "FocusEvent";
+            case "beforeinput" -> "InputEvent";
+            case "submit" -> "SubmitEvent";
+            default -> event.startsWith("pointer") ? "PointerEvent" : "Event";
+        };
+    }
+
+    /** True when one of two event classes is a subclass of (or equal to) the other. */
+    static boolean relatedEventTypes(String a, String b) {
+        return a.equals(b) || a.equals("Event") || b.equals("Event")
+                || (a.equals("MouseEvent") && b.equals("PointerEvent")) || (a.equals("PointerEvent") && b.equals("MouseEvent"));
     }
 
     /** True for add/removeEventListener calls whose listener is not syntactically a handler-name string. */
@@ -174,7 +229,8 @@ final class DomCallbackSupport {
         Set<String> declared = new HashSet<>();
         cu.findAll(TypeDeclaration.class).forEach(t -> declared.add(t.getNameAsString()));
         for (ClassOrInterfaceType type : cu.findAll(ClassOrInterfaceType.class))
-            if (TYPES.contains(type.getNameAsString()) && !declared.contains(type.getNameAsString())) return true;
+            if ((TYPES.contains(type.getNameAsString()) || EVENT_TYPES.containsKey(type.getNameAsString()))
+                    && !declared.contains(type.getNameAsString())) return true;
         return false;
     }
 }

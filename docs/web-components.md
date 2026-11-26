@@ -271,7 +271,7 @@ New DOM surface in `javaw-core` package `one.dastec.javaw.dom` (M1 unless noted 
 - `EventListener<E extends Event>`;
 - `Element.querySelector` and `Element.querySelectorAll`, so lookups can be scoped to an element;
 - `ShadowRoot`;
-- the instance-bound overload `Element.addEventListener(String, EventListener<?>)` and its `removeEventListener` counterpart, covered by the [first prerequisite](#prerequisites).
+- the instance-bound overload `Element.addEventListener(String, EventListener<E>)` and its `removeEventListener` counterpart, covered by the [first prerequisite](#prerequisites); the listener's event type selects the wrapper class and is checked against literal event names ([typed listeners](dom-event-listeners.md)).
 
 `target()` and `currentTarget()` return `Element`, which is `null` for targets that are not elements.
 

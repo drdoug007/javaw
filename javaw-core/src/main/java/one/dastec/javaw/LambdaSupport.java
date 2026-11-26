@@ -227,11 +227,39 @@ final class LambdaSupport {
         Set<Integer> arities = callbackArities(callback, variables);
         boolean run = arities.contains(0), event = arities.contains(1);
         if (run && !event) return DomCallbackSupport.RUN_TARGET;
-        if (event && !run) return "EventListener<Event>";
+        if (event && !run) return "EventListener<" + listenerEventType(callback, variables) + ">";
         if (run) throw JavaSourcePreparation.error(callback, "Ambiguous DOM listener: the method reference matches both Runnable and EventListener<Event>; use a lambda");
         throw JavaSourcePreparation.error(callback, "DOM listener must take no parameters (Runnable) or one Event parameter (EventListener<Event>)");
     }
     /** Parameter counts a callback can accept: a lambda's declared count, or each arity a method reference can bind. */
+    /**
+     * The event type of a one-parameter DOM listener: the declared parameter type of an explicitly typed
+     * lambda or of the referenced method, else Event (as javac infers for an implicit lambda).
+     */
+    private String listenerEventType(Expression callback, Map<String,String> variables) {
+        String type = "Event";
+        if (callback.isLambdaExpr()) {
+            var parameter = callback.asLambdaExpr().getParameter(0);
+            if (!parameter.getType().isUnknownType() && !parameter.getType().isVarType()) type = parameter.getType().asString();
+        } else {
+            MethodReferenceExpr ref = callback.asMethodReferenceExpr();
+            Expression scope = ref.getScope();
+            if (scope.isTypeExpr() && variables.containsKey(scope.toString())) scope = new NameExpr(scope.toString());
+            try {
+                String owner = type(scope, variables);
+                boolean typeScope = scope.isTypeExpr() || (scope.isNameExpr() && !variables.containsKey(scope.toString()) && registry.hasClass(scope.toString()));
+                var single = registry.methodCandidates(owner, ref.getIdentifier()).stream()
+                        .filter(m -> m.getParamTypeNames().size() == 1 && (!typeScope || m.isStatic())).toList();
+                if (single.size() == 1) type = single.get(0).getParamTypeNames().get(0);
+            } catch (IllegalArgumentException unknown) {
+                // Unresolved receivers keep the Event default; the arity check above already passed.
+            }
+        }
+        String simple = type.startsWith("one.dastec.javaw.dom.") ? type.substring("one.dastec.javaw.dom.".length()) : type;
+        if (DomCallbackSupport.listenerKind(simple) < 0)
+            throw JavaSourcePreparation.error(callback, "DOM listener parameter must be Event or a typed DOM event (MouseEvent, PointerEvent, KeyboardEvent, FocusEvent, InputEvent, SubmitEvent, CustomEvent); found " + type);
+        return simple;
+    }
     private Set<Integer> callbackArities(Expression callback, Map<String,String> variables) {
         if (callback.isLambdaExpr()) return Set.of(callback.asLambdaExpr().getParameters().size());
         MethodReferenceExpr ref = callback.asMethodReferenceExpr();
