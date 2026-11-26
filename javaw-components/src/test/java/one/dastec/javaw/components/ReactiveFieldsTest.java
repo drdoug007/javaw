@@ -232,6 +232,44 @@ class ReactiveFieldsTest {
             @CustomElement("x-a") class A extends WebComponent { @Property(reflect = true) private char c; }
             """, false));
         assertTrue(noReflect.getMessage().contains("has no attribute to reflect to"), noReflect.getMessage());
+        var emptyEnum = assertThrows(IllegalArgumentException.class, () -> JavacToWasm.compile("App.java", """
+            import one.dastec.javaw.components.CustomElement;
+            import one.dastec.javaw.components.Property;
+            import one.dastec.javaw.components.WebComponent;
+            enum Empty {}
+            @CustomElement("x-a") class A extends WebComponent { @Property private Empty e; }
+            """, false));
+        assertTrue(emptyEnum.getMessage().contains("an enum with no constants"), emptyEnum.getMessage());
+    }
+
+    @Test
+    void enumAttributesRoundTripEveryConstantName() throws Exception {
+        byte[] wasm = JavacToWasm.compile("App.java", """
+            import one.dastec.javaw.components.Changes;
+            import one.dastec.javaw.components.CustomElement;
+            import one.dastec.javaw.components.Property;
+            import one.dastec.javaw.components.WebComponent;
+            class Q { enum Mode { small, Large, VERY_BIG } }
+            @CustomElement("x-modes")
+            class Modes extends WebComponent {
+                @Property(reflect = true) private Q.Mode mode;
+                @Override protected void update(Changes changes) { host().setAttribute("data-mode", "" + mode); }
+            }
+            """, false).getWasm();
+        CustomElementTest.run(wasm, "", """
+            const el = document.createElement('x-modes');
+            document.body.appendChild(el);
+            for (const [attr, java] of [['small', 'small'], ['large', 'Large'], ['very-big', 'VERY_BIG']]) {
+                el.setAttribute('mode', attr); await el.updateComplete;
+                assert.equal(el.getAttribute('data-mode'), java, attr);
+                assert.equal(el.mode, attr);
+                el.mode = null; await el.updateComplete;
+                el.mode = attr; await el.updateComplete;
+                assert.equal(el.getAttribute('mode'), attr, 'reflection round-trips ' + attr);
+            }
+            assert.throws(() => { el.mode = 'SMALL'; }, TypeError, 'names are matched exactly in kebab case');
+            assert.equal(errors.length, 0, String(errors[0] && errors[0].stack));
+            """);
     }
 
     @Test

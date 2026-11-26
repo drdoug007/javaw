@@ -246,7 +246,7 @@ final class ComponentArtifacts {
                 m.put("type", Map.of("text", propertyType(f)));
                 if (doc.description() != null) m.put("description", doc.description());
                 if (doc.defaultValue() != null) m.put("default", doc.defaultValue());
-                m.put("attribute", f.attribute());
+                if (f.attribute() != null) m.put("attribute", f.attribute()); // long and char have none
                 if (f.reflect()) m.put("reflects", true);
                 members.add(m);
             }

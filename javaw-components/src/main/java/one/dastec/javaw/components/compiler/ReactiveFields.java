@@ -61,6 +61,8 @@ final class ReactiveFields {
                 kind = PROPERTY_KINDS.get(simpleType);
                 if (kind != null) type = simpleType;
                 EnumDeclaration enumType = kind == null ? enumOf(component, type) : null;
+                if (enumType != null && enumType.getEntries().isEmpty())
+                    throw SourceExtension.error(declaration, "@Property '" + name + "' has type " + type + ", an enum with no constants");
                 if (enumType != null) {
                     kind = "enum";
                     for (EnumConstantDeclaration c : enumType.getEntries()) values.add(c.getNameAsString().toLowerCase(Locale.ROOT).replace('_', '-'));
@@ -243,9 +245,21 @@ final class ReactiveFields {
 
     /** The module enum a field type names, by simple name (nested enums included), or null. */
     private static EnumDeclaration enumOf(ClassOrInterfaceDeclaration component, String type) {
-        String simple = type.contains(".") ? type.substring(type.lastIndexOf('.') + 1) : type;
-        return component.findCompilationUnit().flatMap(cu -> cu.findAll(EnumDeclaration.class).stream()
-                .filter(e -> e.getNameAsString().equals(simple)).findFirst()).orElse(null);
+        // A multi-file build is merged into one compilation unit before extensions run, so this sees every module enum.
+        // A qualified type (Outer.Mode) must match the enum's nesting; a simple name must be unambiguous.
+        List<EnumDeclaration> matches = component.findCompilationUnit().map(cu -> cu.findAll(EnumDeclaration.class).stream()
+                .filter(e -> nestedName(e).equals(type) || nestedName(e).endsWith("." + type)).toList()).orElse(List.of());
+        if (matches.size() > 1)
+            throw SourceExtension.error(component, "@Property type " + type + " matches several enums ("
+                    + String.join(", ", matches.stream().map(ReactiveFields::nestedName).toList()) + "); qualify it");
+        return matches.isEmpty() ? null : matches.get(0);
+    }
+
+    private static String nestedName(TypeDeclaration<?> type) {
+        String name = type.getNameAsString();
+        for (Node n = type.getParentNode().orElse(null); n != null; n = n.getParentNode().orElse(null))
+            if (n instanceof TypeDeclaration<?> outer) name = outer.getNameAsString() + "." + name;
+        return name;
     }
 
     /** The primitive a JS bridge passes for a kind (boxes pass their primitive plus a null flag). */
@@ -266,9 +280,10 @@ final class ReactiveFields {
                 + t + " old = component." + f.name + "; __set$" + f.name + "(component, value); return old; }");
         if (!f.property) return;
         if (f.kind.equals("enum") && f.attribute != null)
-            // Enum.valueOf of an unknown name does not throw in the source compiler, so look the constant up here.
+            // Matched by kebab-case name, like the JS setter and reflection, so every advertised value round-trips.
+            // (Enum.valueOf of an unknown name does not throw in the source compiler either.)
             add(component, "static " + t + " __parse$" + f.name + "(String value) { String name = WebComponent.__wc_constantName(value); "
-                    + "for (" + t + " c : " + t + ".values()) if (c.name().equals(name)) return c; "
+                    + "for (" + t + " c : " + t + ".values()) if (WebComponent.__wc_kebab(c.name()).equals(value)) return c; "
                     + "throw new IllegalArgumentException(\"No enum constant " + t + ".\" + name); }");
         // JS accessors call these exports with primitives and strings only (boxes and enums cannot be built in JS).
         String b = bridgeType(f), v = "component." + f.name;
