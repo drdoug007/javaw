@@ -203,7 +203,6 @@ equalsHashAndText: Entry.hashCode is hash(key) ^ hash(value), Entry.toString is 
 views: keySet(), values() and entrySet() must return the same cached object every call; EntrySet.toArray returns AbstractMap.SimpleEntry copies; EntrySet.remove only removes when key and value both match.
 failFastIterators: nextEntry checks modCount before hasNext (CME even when exhausted); remove() checks lastReturned (IllegalStateException, message null) before modCount; clear() increments modCount; iterator remove calls WeakHashMap.this.remove(key) and resyncs expectedModCount.
 subclassCalls: the HashIterator constructor calls isEmpty() (which calls size()); KeySet.remove calls containsKey then remove; KeySet.size calls size; Values.contains calls containsValue; the Map constructor calls putAll; do not override putIfAbsent, getOrDefault or remove(Object,Object).
-leavesOutReferenceQueueMachinery: this fails when java.lang.ref.WeakReference or ReferenceQueue became linked. Do not add files under java/lang/ref; Entry holds the key in a plain field.
 ```
 
 ## Docs

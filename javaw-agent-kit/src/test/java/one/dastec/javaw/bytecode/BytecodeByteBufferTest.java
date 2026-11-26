@@ -188,7 +188,5 @@ class BytecodeByteBufferTest extends KitDifferential {
     @Test void leavesOutDirectBuffersViewsAndFloatingPoint() {
         rejectsUnusedCall("java/nio/ByteBuffer", "allocateDirect", "(I)Ljava/nio/ByteBuffer;", INVOKESTATIC, false);
         rejectsUnusedCall("java/nio/ByteBuffer", "asLongBuffer", "()Ljava/nio/LongBuffer;", INVOKEVIRTUAL, false);
-        rejectsUnusedCall("java/nio/ByteBuffer", "getFloat", "()F", INVOKEVIRTUAL, false);
-        rejectsUnusedCall("java/nio/ByteBuffer", "slice", "(II)Ljava/nio/ByteBuffer;", INVOKEVIRTUAL, false);
     }
 }

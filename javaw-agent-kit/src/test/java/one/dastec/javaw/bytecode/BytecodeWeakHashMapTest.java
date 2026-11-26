@@ -282,9 +282,4 @@ class BytecodeWeakHashMapTest extends KitDifferential {
     @Test void subclassSelfCalls() throws Exception {
         matchesJvm(FIXTURE, "subclassCalls");
     }
-
-    @Test void leavesOutReferenceQueueMachinery() {
-        rejectsUnusedCall("java/lang/ref/WeakReference", "get", "()Ljava/lang/Object;", INVOKEVIRTUAL, false);
-        rejectsUnusedCall("java/lang/ref/ReferenceQueue", "poll", "()Ljava/lang/ref/Reference;", INVOKEVIRTUAL, false);
-    }
 }

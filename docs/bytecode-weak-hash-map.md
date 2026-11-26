@@ -22,10 +22,10 @@ Contract:
 
 Known differences: keys are held strongly and entries are never reclaimed (a legal JVM outcome when the collector
 never clears the keys; the runtime has no GC-observable weak references). Code that relies on a WeakHashMap to
-release memory keeps every key alive. No `java.lang.ref` classes, no spliterator overrides.
+release memory keeps every key alive. Entries hold the key in a plain field and do not use `java.lang.ref`; no
+spliterator overrides.
 
 Evidence: `BytecodeWeakHashMapTest` compares Java 17 javac fixtures on the JVM and in Wasm (both JAR orders, two
-fresh instances). `java.lang.ref.WeakReference.get()` and `java.lang.ref.ReferenceQueue.poll()` are rejected
-before WAT generation. Review also ran the class against JDK 21 `java.util.WeakHashMap` on the JVM: 3,000 random
+fresh instances). Review also ran the class against JDK 21 `java.util.WeakHashMap` on the JVM: 3,000 random
 sequences of 120 operations (null keys, colliding hashes, resizes, views, iterator removal, `replaceAll`,
 `compute`, `merge`) and the fail-fast cases matched.
