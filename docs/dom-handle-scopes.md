@@ -82,7 +82,7 @@ Releases from finalizers and scope teardown are guarded individually, so one fai
 ## Limitations
 
 - **Global-table nodes keep their lifetime.** Nodes obtained outside any scope (light DOM, `DOM.getBody()`, elements created by `DOM.createElement` before they are placed in a scope) stay in the global table forever, as before.
-- **Handed-out nodes stay for the scope's lifetime.** A live scope keeps every node it has handed to Wasm, and that node's handle, until the scope is released or finalized. A long-lived component that re-renders many transient nodes therefore grows its scope. M3's renderer will drop handles for the DOM it removes.
+- **Handed-out nodes stay for the scope's lifetime.** A live scope keeps every node it has handed to Wasm, and that node's handle, until the scope is released or finalized. A long-lived component that hands many transient nodes to Java therefore grows its scope. Template rendering does not hand its nodes to Java and does not grow the scope; `ref(...)`, `createElement`, `querySelector` and `Event.target()` do (see [Web components](web-components.md#implementation-status)).
 - **Unknown negative handles.** An unknown negative handle is reported as "element released".
 - **Fully qualified DOM names.** A program that uses `one.dastec.javaw.dom` types only through fully qualified names, without an import, gets no `__javaw_elementReleased` export. It sees a JS `Error` instead of the Java exception.
 - **Shadow roots only.** Classification follows `getRootNode()`, which requires a shadow root. A light-DOM child of a host is not part of the host's scope.

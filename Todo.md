@@ -1125,7 +1125,9 @@ Lit-style custom elements authored in Java: `@CustomElement` classes, `@Property
     - [x] Opt-in Chromium smoke test, covering upgrade-time attribute reactions that happy-dom skips (M6, `ChromiumSmokeTest`).
     - [ ] Static nested component classes. Only top-level classes are supported now.
     - [x] `adopted` hook coverage: happy-dom never calls `adoptedCallback`; covered in Chromium (M6, `ChromiumSmokeTest`).
-    - [ ] Scope growth: a live component keeps every node it has handed to Java until it is released. This is addressed by M3's renderer; see the docs.
+    - [ ] Scope growth: a live component keeps every node it has handed to Java until it is released.
+      - [x] Renderer subset: template DOM is never handed to Java, so re-rendering keeps the scope level. Evidence: `TemplateListTest.rerenderingReplacedDomKeepsTheScopeLevel` (200 rounds replacing every keyed row with listeners and a nested template: scoped handles, nodes and retained closures unchanged; with `ref(...)` on the rows, exactly one handle per replaced row stays).
+      - [ ] Nodes handed to Java (`ref`, `createElement`, `querySelector`, `Event.target()`) stay until release, even when the renderer removed them and cleared their `Ref`; releasing them needs Java-side liveness for `Element` handles.
     - Also fixed in `javaw-core` for M1:
       - DOM string literals with escapes;
       - `+ null` and `s += null`;
@@ -1138,7 +1140,7 @@ Lit-style custom elements authored in Java: `@CustomElement` classes, `@Property
     - [x] Evidence: `ReactiveFieldsTest` (happy-dom behaviour plus diagnostics and rewrite checks). A mutation that lets writes in `update()` reschedule fails the test. Also covered: Java `int` saturation for JS properties, recovery after the 100-update limit, and the property value winning over the initial attribute. Core fix: `boolean`/`char` field operands in string concatenation printed numbers (`NullStringConcatenationTest`).
     - [ ] JS property accessors and observed attributes for `@Property` fields inherited from a component superclass (the subclass element has none; typed template bindings already reach them).
     - [ ] Writes through typed receivers (`other.f`), and `@Property` types beyond the four scalars (enums, boxed, `long`, records, lists, maps) with property marshalling.
-    - [ ] `updateComplete`; the opt-in collector call after a flush.
+    - [ ] `updateComplete`; the opt-in collector call after a flush. Without a collection between flushes, a component that re-renders a five-row keyed list traps (`unreachable`, heap exhausted) after about 150 rounds in happy-dom; `rerenderingReplacedDomKeepsTheScopeLevel` calls `__gc_collect()` explicitly until this lands.
   - [x] M3 template language v1 ([status](docs/web-components.md#implementation-status)).
     - [x] Raw-source scanner with javac's text-block processing for statics, and the `Template.of`/`Parts` rewrite with binding positions carried on the rewritten nodes; nested one-line `html(...)`; the rewritten source compiles with javac (`TemplateRewriteTest`).
     - [x] Build-time tokenizer and diagnostics at the binding's line and column for every rejected position (`TemplateDiagnosticsTest`).

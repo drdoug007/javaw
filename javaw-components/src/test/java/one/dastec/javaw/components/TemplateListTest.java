@@ -196,6 +196,68 @@ class TemplateListTest {
             assert.equal(errors.length, 0, String(errors[0] && errors[0].stack));
             """);
     }
+    @Test
+    void rerenderingReplacedDomKeepsTheScopeLevel() throws Exception {
+        // Scope growth (M1): DOM the renderer creates and removes is never handed to Java, so replacing every
+        // row with new keys, listeners and refs must not grow the component's handle scope.
+        byte[] wasm = JavacToWasm.compile("App.java", """
+            import java.util.ArrayList;
+            import java.util.List;
+            import one.dastec.javaw.components.CustomElement;
+            import one.dastec.javaw.components.Property;
+            import one.dastec.javaw.components.Ref;
+            import one.dastec.javaw.components.Template;
+            import one.dastec.javaw.components.WebComponent;
+            import one.dastec.javaw.dom.Element;
+
+            @CustomElement("x-churn")
+            class Churn extends WebComponent {
+                @Property private int round;
+                @Property private int clicks;
+                @Property private boolean refs;
+                private final Ref<Element> last = new Ref<Element>();
+                @Override protected Template render() {
+                    List<Integer> keys = new ArrayList<Integer>();
+                    for (int i = 0; i < 5; i++) keys.add(round * 5 + i);
+                    return html(\"""
+                        <ul>${repeat(keys, k -> k, k -> html("<li ${refs ? ref(last) : null} @click=${() -> clicks++}>${k}</li>"))}</ul>
+                        <p>${round % 2 == 0 ? html("<b>${round}</b>") : html("<i>${round}</i>")}</p>
+                        \""");
+                }
+            }
+            """, false).getWasm();
+        CustomElementTest.run(wasm, "", """
+            const tick = async () => { await settle(); await settle(); };
+            const el = document.createElement('x-churn');
+            document.body.appendChild(el);
+            el.round = 1; await tick();
+            const scope = el.__javawScope;
+            assert.ok(scope && !scope.released, 'the component has a live scope');
+            const level = () => [scope.held.handles.size, scope.nodes.size, scope.held.closures.size];
+            const before = level();
+            // No collector runs between flushes yet (M2), so the test collects explicitly; without it the
+            // linear heap is exhausted after about 150 rounds.
+            const churn = async (from, to) => {
+                for (let round = from; round <= to; round++) {
+                    e.__gc_collect();
+                    el.round = round; await tick();
+                    el.shadowRoot.querySelector('li').click();
+                }
+            };
+            await churn(2, 201);
+            assert.equal(el.shadowRoot.querySelectorAll('li').length, 5);
+            assert.equal(el.shadowRoot.querySelector('li').textContent, '1005');
+            assert.equal(el.clicks, 200, 'listeners of the current rows run');
+            assert.deepEqual(level(), before, 'replaced rows add no scoped handles, nodes or retained closures');
+            // A ref hands its element to Java, and the scope keeps it until the component is released.
+            el.refs = true; await tick();
+            const withRefs = scope.held.handles.size;
+            await churn(202, 211);
+            assert.equal(scope.held.handles.size - withRefs, 50, 'each ref-bound row keeps one scoped handle');
+            assert.equal(errors.length, 0, String(errors[0] && errors[0].stack));
+            """);
+    }
+
     static String js(String s) {
         return '"' + s.replace("\\\\", "\\\\\\\\").replace("\"", "\\\\\"") + '"';
     }
