@@ -160,7 +160,7 @@ Known M1 limitations:
 
 Not yet implemented in M1:
 - typed event subclasses (`MouseEvent` and others);
-- a compile-time diagnostic for components used from worker entry points;
+- a compile-time diagnostic for components used from worker entry points (blocked: there is no worker runtime yet, see [Threads](#threads));
 
 ## Contents
 
@@ -557,7 +557,7 @@ A callback added directly to a long-lived JS object (`window`, `document`, a tim
 
 ### Threads
 
-Custom elements exist only on the main thread. In a module compiled for shared-memory threads, component registration and every component entry point run on the main thread. Calling a component method from a worker throws `IllegalStateException`. A compile-time diagnostic will follow once the compiler can tell that a component is reachable from a worker entry point.
+Custom elements exist only on the main thread. The runtime has no worker execution yet: `WasmThread.spawn("export", arg)` calls the export later on the same thread (through `setTimeout`), and no module creates a `Worker`, so every component entry point already runs on the main thread. A host without a `customElements` registry (a worker or a DOM-less host) gets a console warning and no definitions. Once a shared-memory worker runtime exists, component calls from a worker should throw `IllegalStateException`, and a compile-time diagnostic should reject components reachable from worker entry points; until then such a diagnostic would reject valid programs.
 
 ## Generated artifacts and TypeScript interop
 
