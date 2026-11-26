@@ -883,7 +883,8 @@ def linkage_counts(root):
     if not summary.exists():
         return None
     counts = dict(line.split("\t")[:2] for line in summary.read_text().splitlines()[1:] if "\t" in line)
-    return "%s / %s / %s" % (counts.get("declared-signature", "?"), counts.get("missing-member", "?"), counts.get("missing-owner", "?"))
+    # The summary omits a status with no signatures, so an absent row means 0 (e.g. missing-owner after T73).
+    return "%s / %s / %s" % (counts.get("declared-signature", "0"), counts.get("missing-member", "0"), counts.get("missing-owner", "0"))
 
 
 def audit(root, label):
