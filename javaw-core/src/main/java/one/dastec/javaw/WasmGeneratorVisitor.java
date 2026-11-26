@@ -2444,7 +2444,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                     } else if (arg.isCharLiteralExpr() || "char".equals(argType)) {
                         translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
                         collector.append("    call $__sb_append_char\n");
-                    } else if (arg.isBooleanLiteralExpr() || "boolean".equals(argType)) {
+                    } else if (arg.isBooleanLiteralExpr() || "boolean".equals(argType) || isBooleanExpression(arg)) {
                         translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
                         collector.append("    call $__sb_append_bool\n");
                     } else if ("float".equals(argType)) {
@@ -2460,8 +2460,10 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
                         translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
                         collector.append("    call $__str_from_char_array\n    call $__sb_append_str\n");
                     } else if ("StringBuilder".equals(argType) || "StringBuffer".equals(argType) || "java.lang.StringBuilder".equals(argType)) {
+                        // AbstractStringBuilder.append(StringBuffer/CharSequence) appends "null" for a null argument.
                         translateExpression(arg, collector, localTypes, localElementTypes, localJavaTypes, "i32");
-                        collector.append("    call $__sb_toString\n    call $__sb_append_str\n");
+                        collector.append("    local.tee $__obj_tmp\n    i32.eqz\n    if (result i32)\n    i32.const ").append(stringPool.get("null").offset)
+                                .append("\n    else\n    local.get $__obj_tmp\n    call $__sb_toString\n    end\n    call $__sb_append_str\n");
                     } else if (argType != null && !arg.isIntegerLiteralExpr() && !"int".equals(argType) && !"byte".equals(argType)
                             && !"short".equals(argType) && !"null".equals(argType)) {
                         // append(Object): String.valueOf semantics, converted as a string concatenation operand
@@ -3720,6 +3722,18 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         return false;
     }
 
+    /** Expressions whose type is boolean by their form (instanceof, comparisons, logical operators), whatever their operands. */
+    private static boolean isBooleanExpression(Expression expr) {
+        while (expr.isEnclosedExpr()) expr = expr.asEnclosedExpr().getInner();
+        if (expr.isInstanceOfExpr()) return true;
+        if (expr.isUnaryExpr()) return expr.asUnaryExpr().getOperator() == com.github.javaparser.ast.expr.UnaryExpr.Operator.LOGICAL_COMPLEMENT;
+        if (!expr.isBinaryExpr()) return false;
+        return switch (expr.asBinaryExpr().getOperator()) {
+            case EQUALS, NOT_EQUALS, LESS, GREATER, LESS_EQUALS, GREATER_EQUALS, AND, OR -> true;
+            default -> false;
+        };
+    }
+
     /** JLS 15.18.1: a null String operand of string concatenation converts to "null". */
     private void emitNullAsText(StringBuilder collector) {
         collector.append("    local.tee $__obj_tmp\n    i32.eqz\n    if (result i32)\n    i32.const ").append(stringPool.get("null").offset)
@@ -3756,7 +3770,7 @@ public class WasmGeneratorVisitor extends VoidVisitorAdapter<StringBuilder> {
         } else if (expr.isCharLiteralExpr() || "char".equals(javaType) || (expr.isNameExpr() && "char".equals(localJavaTypes.get(expr.asNameExpr().getNameAsString())))) {
             translateExpression(expr, collector, localTypes, localElementTypes, localJavaTypes, "i32");
             collector.append("    call $__str_from_char\n");
-        } else if (expr.isBooleanLiteralExpr() || "boolean".equals(javaType) || (expr.isNameExpr() && "boolean".equals(localJavaTypes.get(expr.asNameExpr().getNameAsString())))) {
+        } else if (expr.isBooleanLiteralExpr() || "boolean".equals(javaType) || isBooleanExpression(expr) || (expr.isNameExpr() && "boolean".equals(localJavaTypes.get(expr.asNameExpr().getNameAsString())))) {
             translateExpression(expr, collector, localTypes, localElementTypes, localJavaTypes, "i32");
             collector.append("    call $__str_from_bool\n");
         } else if (javaType != null && !Set.of("int", "short", "byte", "long", "null").contains(javaType)) {

@@ -21,6 +21,8 @@ class StringBuilderAppendObjectTest {
             {"char[] cs = {'h','i'}; return new StringBuilder().append(cs).append(7).append((short) 3).append(-2L).toString();", "hi73-2"},
             {"List<Integer> l = new ArrayList<Integer>(); l.add(5); l.add(-6); StringBuilder b = new StringBuilder(); for (Integer v : l) b.append(v).append(' '); return b.toString();", "5 -6 "},
             {"Map<String,Integer> m = new HashMap<String,Integer>(); m.put(\"a\", 5); StringBuilder b = new StringBuilder(); for (Map.Entry<String,Integer> e : m.entrySet()) b.append(e.getKey()).append(e.getValue()).append(\"/\" + e.getValue()); return b.toString();", "a5/5"},
+            {"StringBuilder other = null; return new StringBuilder(\"x\").append(other).toString();", "xnull"},
+            {"Object o = \"s\"; int n = 3; return new StringBuilder().append(o instanceof String).append(n > 2).append(!(n == 3)).append(\"/\" + (o instanceof Integer)).toString();", "truetruefalse/false"},
             {"Double d = 1.5; Boolean t = true; Character c = 'z'; return new StringBuilder().append(d).append(t).append(c).toString();", "1.5truez"},
         };
         for (String[] c : cases) {

@@ -291,23 +291,15 @@ final class CollectionSupport {
                     map.remove(lastKey); expected=map.version; removable=false;
                 }
             }
-            class LinkedHashSet<E> implements Set<E> {
-                private LinkedHashMap<E,Boolean> map;
-                public LinkedHashSet() { map=new LinkedHashMap<E,Boolean>(); }
-                public LinkedHashSet(int capacity) { if(capacity<0) throw new IllegalArgumentException(); map=new LinkedHashMap<E,Boolean>(); }
-                public LinkedHashSet(Collection<? extends E> other) { if(other==null) throw new NullPointerException(); map=new LinkedHashMap<E,Boolean>(); addAll(other); }
-                public int size() { return map.size(); }
-                public boolean isEmpty() { return map.isEmpty(); }
-                public boolean contains(Object value) { return map.containsKey(value); }
-                public boolean add(E value) { boolean exists=map.containsKey(value); map.put(value,true); return !exists; }
-                public boolean remove(Object value) { boolean exists=map.containsKey(value); map.remove(value); return exists; }
-                public void clear() { map.clear(); }
-                public Iterator<E> iterator() { return map.keyIterator(); }
-                public Stream<E> stream() { return Stream.fromCollection(this); }
+            class LinkedHashSet<E> extends HashSet<E> {
+                public LinkedHashSet() { super(true); }
+                public LinkedHashSet(int capacity) { super(true); if(capacity<0) throw new IllegalArgumentException(); }
+                public LinkedHashSet(Collection<? extends E> other) { super(true); if(other==null) throw new NullPointerException(); addAll(other); }
             }
             class HashSet<E> implements Set<E> {
                 private HashMap<E,Boolean> map;
                 public HashSet() { map=new HashMap<E,Boolean>(); }
+                protected HashSet(boolean linked) { if(linked) map=new LinkedHashMap<E,Boolean>(); else map=new HashMap<E,Boolean>(); }
                 public int size() { return map.size(); }
                 public boolean isEmpty() { return map.isEmpty(); }
                 public boolean contains(Object value) { return map.containsKey(value); }

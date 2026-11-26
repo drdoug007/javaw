@@ -62,6 +62,9 @@ class LinkedHashMapSupportTest {
                 Set<Integer> setCopy = new LinkedHashSet<Integer>(set);
                 setCopy.add(3);
                 out.append(setCopy.size()).append(setCopy.contains(1000)).append('|');
+                HashSet<String> asHash = new LinkedHashSet<String>(); asHash.add("b"); asHash.add("a"); asHash.add("b");
+                for (String v : asHash) out.append(v);
+                out.append(asHash instanceof HashSet).append('|');
                 try { Iterator<String> bad = copy.keySet().iterator(); bad.next(); copy.put("new", 1); bad.next(); out.append("no CME"); }
                 catch (ConcurrentModificationException ex) { out.append("CME"); }
                 return out.toString();
